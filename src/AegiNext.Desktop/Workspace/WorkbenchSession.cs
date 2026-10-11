@@ -660,6 +660,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
             ViewModel.Preview.RefreshQualities(preferences.PreviewQuality);
             ViewModel.Styles.Subtitle.RefreshAppearanceEditing();
             ViewModel.Styles.Image.RefreshLanguage();
+            ViewModel.Styles.Shape.RefreshLanguage();
             ViewModel.Styles.RefreshSelectionLabel(SelectedLayer, TimelineClipIds().Length);
             foreach (var row in ViewModel.Subtitles.Rows)
             {

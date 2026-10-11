@@ -3,10 +3,24 @@
     xmlns:vm="using:AegiNext.Desktop.Panels.Preview" xmlns:sys="clr-namespace:System;assembly=System.Runtime" x:DataType="vm:PreviewPanelViewModel"
     x:Class="AegiNext.Desktop.Panels.Preview.PreviewPanelView" Classes="business-surface">
 <Border Background="{DynamicResource PreviewSurface}" BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0" CornerRadius="{DynamicResource WorkbenchPanelCornerRadius}" ClipToBounds="True">
-        <Grid RowDefinitions="*,Auto">
-          <Grid Name="VideoSurface" Background="#080A0E" ClipToBounds="True" ToolTip.Tip="{Binding FileTitle}" DragDrop.AllowDrop="True">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <StackPanel Orientation="Horizontal" Margin="8,4" Spacing="4">
+            <ComboBox Name="CanvasToolCombo" MinWidth="120" MaxWidth="200" ItemsSource="{Binding CanvasTools}"
+                      SelectedItem="{Binding SelectedCanvasTool, Mode=TwoWay}" AutomationProperties.Name="{Loc Key=Preview.SelectGraphic}" />
+            <Button Name="SubtitleBackgroundButton" Classes="icon-button" IsEnabled="{Binding CanCreateSubtitleBackground}"
+                    ToolTip.Tip="{Loc Key=Preview.CreateSubtitleBackground}" AutomationProperties.Name="{Loc Key=Preview.CreateSubtitleBackground}" />
+            <Button Name="StraightSegmentButton" Classes="icon-button" IsVisible="{Binding IsShapePathEditing}"
+                    ToolTip.Tip="{Loc Key=Preview.StraightSegment}" AutomationProperties.Name="{Loc Key=Preview.StraightSegment}" />
+            <Button Name="CurveSegmentButton" Classes="icon-button" IsVisible="{Binding IsShapePathEditing}"
+                    ToolTip.Tip="{Loc Key=Preview.CurveSegment}" AutomationProperties.Name="{Loc Key=Preview.CurveSegment}" />
+            <Button Name="CloseShapePathButton" Classes="icon-button" IsVisible="{Binding IsShapePathEditing}"
+                    ToolTip.Tip="{Loc Key=Preview.ToggleClosedPath}" AutomationProperties.Name="{Loc Key=Preview.ToggleClosedPath}" />
+            <Button Name="FinishShapePathButton" Classes="icon-button" IsVisible="{Binding IsShapePathCreation}"
+                    ToolTip.Tip="{Loc Key=Preview.FinishPath}" AutomationProperties.Name="{Loc Key=Preview.FinishPath}" />
+          </StackPanel>
+          <Grid Grid.Row="1" Name="VideoSurface" Background="#080A0E" ClipToBounds="True" ToolTip.Tip="{Binding FileTitle}" DragDrop.AllowDrop="True">
             <controls:EffectCanvasControl Name="EffectCanvas" />
-            <StackPanel Name="EmptyPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding !HasFrame, Mode=OneWay}">
+            <StackPanel Name="EmptyPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" IsVisible="{Binding ShowEmptyHint, Mode=OneWay}" IsHitTestVisible="False">
               <TextBlock Classes="ui-icon" Text="▷" FontSize="42" Foreground="#7C8AA6" HorizontalAlignment="Center" />
               <TextBlock Name="EmptyLabel" Foreground="#A5ADBD" FontSize="13" Text="{Binding EmptyLabel, Mode=OneWay}" />
             </StackPanel>
@@ -27,7 +41,7 @@
             </Border>
             </Grid>
           </Grid>
-          <Grid Grid.Row="1" Margin="12,6" RowDefinitions="Auto,Auto" RowSpacing="2">
+          <Grid Grid.Row="2" Margin="12,6" RowDefinitions="Auto,Auto" RowSpacing="2">
             <Grid.Resources>
               <GridLength x:Key="SliderPreContentMargin">2</GridLength>
               <GridLength x:Key="SliderPostContentMargin">2</GridLength>

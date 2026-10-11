@@ -3,17 +3,42 @@
              x:Class="AegiNext.Desktop.Panels.Styles.ShapeStyleView" x:DataType="styles:ShapeStyleViewModel">
   <ScrollViewer>
     <StackPanel Margin="8" Spacing="8">
+      <Button Name="ShapeMatchSubtitleTimingButton" HorizontalAlignment="Left" Content="{Loc Key=Workbench.MatchSubtitleTiming}"
+          ToolTip.Tip="{Loc Key=Workbench.MatchSubtitleTimingHint}" Command="{Binding MatchSubtitleTimingCommand}" IsEnabled="{Binding CanMatchSubtitleTiming}" />
+      <StackPanel Spacing="8" IsVisible="{Binding IsParametric}">
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.ShapeType}" />
+        <ComboBox Name="ShapeTypeInput" ItemsSource="{Binding ShapeChoices}" SelectedIndex="{Binding ShapeType, Mode=TwoWay}" HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="styles:GraphicStyleChoice"><TextBlock Text="{Binding Label}" /></DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </StackPanel>
       <TextBlock Classes="field" Text="{Loc Key=Workbench.Size}" />
       <controls:VectorDraftInput Name="ShapeSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput"
           XTextBinding="{Binding Width.RawText, Mode=TwoWay}" YTextBinding="{Binding Height.RawText, Mode=TwoWay}"
-          XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="1" Maximum="32768" />
+          XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="0.001" Maximum="1000000" />
+      <StackPanel Spacing="8" IsVisible="{Binding IsRoundedRectangle}">
+        <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeCornerRadiusInput}" Text="{Loc Key=Workbench.ShapeCornerRadius}" />
+        <controls:NumericDraftInput Name="ShapeCornerRadiusInput" RawText="{Binding CornerRadius.RawText, Mode=TwoWay}"
+            Value="{Binding CornerRadius.Value, Mode=TwoWay}" Minimum="0" Maximum="1000000" />
+      </StackPanel>
+      <StackPanel Spacing="8" IsVisible="{Binding IsArrow}">
+        <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeArrowHeadInput}" Text="{Loc Key=Workbench.ShapeArrowHead}" />
+        <controls:NumericDraftInput Name="ShapeArrowHeadInput" RawText="{Binding ArrowHead.RawText, Mode=TwoWay}"
+            Value="{Binding ArrowHead.Value, Mode=TwoWay}" Minimum="0.01" Maximum="99.99" Increment="1" />
+        <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeArrowShaftInput}" Text="{Loc Key=Workbench.ShapeArrowShaft}" />
+        <controls:NumericDraftInput Name="ShapeArrowShaftInput" RawText="{Binding ArrowShaft.RawText, Mode=TwoWay}"
+            Value="{Binding ArrowShaft.Value, Mode=TwoWay}" Minimum="0.01" Maximum="100" Increment="1" />
+      </StackPanel>
       <TextBlock Classes="field" Text="{Loc Key=Workbench.Fill}" />
       <controls:ColorDraftInput Name="FillPicker" Draft="{Binding FillDraft}" />
       <TextBlock Classes="field" Text="{Loc Key=Workbench.Stroke}" />
       <controls:ColorDraftInput Name="StrokePicker" Draft="{Binding StrokeDraft}" />
       <controls:NumericDragLabel Input="{Binding #StrokeWidthInput}" Classes="field" Text="{Loc Key=Workbench.StrokeWidth}" />
       <controls:NumericDraftInput Name="StrokeWidthInput" RawText="{Binding StrokeWidth.RawText, Mode=TwoWay}"
-          Value="{Binding StrokeWidth.Value, Mode=TwoWay}" Minimum="0" Maximum="512" IsEnabled="{Binding CanEditStrokeWidth}" />
+          Value="{Binding StrokeWidth.Value, Mode=TwoWay}" Minimum="0" Maximum="4096" IsEnabled="{Binding CanEditStrokeWidth}" />
+      <Button Name="ShapeConvertToPathButton" Content="{Loc Key=Workbench.ConvertShapeToPath}" Command="{Binding ConvertToPathCommand}" IsVisible="{Binding IsParametric}" HorizontalAlignment="Left" />
+      <Button Name="ShapeEditPathButton" Content="{Loc Key=Workbench.EditShapePath}" Command="{Binding EditPathCommand}" IsVisible="{Binding IsPath}" HorizontalAlignment="Left" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

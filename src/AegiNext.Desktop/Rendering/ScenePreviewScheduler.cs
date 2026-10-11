@@ -9,6 +9,7 @@ internal sealed class ScenePreviewScheduler : IDisposable
     private readonly Func<ScenePreviewRequest, CancellationToken, SdrVideoFrame> compose;
     private readonly Action<ScenePreviewResult> present;
     private readonly Action? release;
+    private readonly Func<Exception?>? getImageWarning;
     private ScenePreviewRequest? pending;
     private CancellationTokenSource? activeCancellation;
     private Task? worker;
@@ -20,6 +21,7 @@ internal sealed class ScenePreviewScheduler : IDisposable
         var compositor = new ScenePreviewCompositor();
         compose = compositor.Compose;
         release = compositor.Dispose;
+        getImageWarning = () => compositor.ImageWarning;
         this.present = present;
     }
 
@@ -82,6 +84,7 @@ internal sealed class ScenePreviewScheduler : IDisposable
             try
             {
                 frame = compose(request, cancellation.Token);
+                error = getImageWarning?.Invoke();
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {

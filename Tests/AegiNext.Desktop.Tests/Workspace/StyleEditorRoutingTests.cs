@@ -17,6 +17,7 @@ public sealed class StyleEditorRoutingTests
         session.SelectLayer(image.Id, [image.Id]);
         var model = Assert.IsType<ImageStyleViewModel>(session.ViewModel.Styles.ActiveEditor);
         Assert.Null(session.SelectedCue);
+        model.AspectRatioLocked = false;
         model.Width.RawText = "240";
         model.Height.RawText = "180";
         model.Fit = (int)ImageFit.FILL_CROP;

@@ -3,6 +3,7 @@ using AegiNext.Desktop.Workspace;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -14,6 +15,7 @@ internal sealed class StyleEditorInputController : IDisposable
     private readonly StyleEditorViewModel editor;
     private readonly WorkbenchSession session;
     private NumericDragEditSnapshot? drag;
+    private Action? restoreLinkedFields;
     private int revision;
     private bool disposed;
 
@@ -80,12 +82,14 @@ internal sealed class StyleEditorInputController : IDisposable
     {
         ++revision;
         drag = new(session);
+        restoreLinkedFields = editor.CaptureNumericGesture(e.Input.Name);
     }
 
     private void OnDragCompleted(object? sender, NumericDragEventArgs e)
     {
         var snapshot = drag;
         drag = null;
+        restoreLinkedFields = null;
         ++revision;
         if (e.Changed && snapshot?.Matches(session) == true && editor.IsActive)
         {
@@ -95,6 +99,11 @@ internal sealed class StyleEditorInputController : IDisposable
 
     private void OnDragCanceled(object? sender, NumericDragEventArgs e)
     {
+        if (drag?.Matches(session) == true && editor.IsActive)
+        {
+            restoreLinkedFields?.Invoke();
+        }
+        restoreLinkedFields = null;
         drag = null;
         ++revision;
     }
@@ -109,6 +118,7 @@ internal sealed class StyleEditorInputController : IDisposable
             label.CancelDrag();
         }
         drag = null;
+        restoreLinkedFields = null;
     }
 
     internal void FocusInvalidField(string? fieldKey)
@@ -117,14 +127,23 @@ internal sealed class StyleEditorInputController : IDisposable
         {
             return;
         }
-        foreach (var vector in view.GetVisualDescendants().OfType<VectorDraftInput>())
+        foreach (var vector in view.GetLogicalDescendants().OfType<VectorDraftInput>().Concat(view.GetVisualDescendants().OfType<VectorDraftInput>()).Distinct())
         {
+            if (vector.XFieldKey == fieldKey || vector.YFieldKey == fieldKey)
+            {
+                ExpandAncestors(vector);
+                view.UpdateLayout();
+            }
             if (vector.FocusField(fieldKey))
             {
                 return;
             }
         }
         var control = view.FindControl<Control>(fieldKey);
+        if (control is not null)
+        {
+            ExpandAncestors(control);
+        }
         if (control is ColorDraftInput color && color.TryFocusInvalidField())
         {
             return;
@@ -134,6 +153,14 @@ internal sealed class StyleEditorInputController : IDisposable
             return;
         }
         control?.Focus();
+    }
+
+    private static void ExpandAncestors(Control control)
+    {
+        foreach (var expander in control.GetLogicalAncestors().OfType<Expander>().Concat(control.GetVisualAncestors().OfType<Expander>()).Distinct())
+        {
+            expander.IsExpanded = true;
+        }
     }
 
     public void Dispose()

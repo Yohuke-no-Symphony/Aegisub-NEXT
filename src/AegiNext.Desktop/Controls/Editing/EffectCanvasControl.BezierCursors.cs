@@ -13,7 +13,7 @@ public sealed partial class EffectCanvasControl
 
     private void UpdateBezierCursor()
     {
-        if ((!IsMaskMode && EditMode != CanvasEditMode.PATH) || disposed)
+        if ((!IsMaskMode && EditMode != CanvasEditMode.PATH && !IsGraphicMode && !IsCreationMode) || disposed)
         {
             Cursor = null;
             return;

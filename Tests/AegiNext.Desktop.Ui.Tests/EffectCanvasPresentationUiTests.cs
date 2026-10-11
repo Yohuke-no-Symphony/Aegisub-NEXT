@@ -3,6 +3,7 @@ using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Media.Preview;
+using AegiNext.Rendering.Projects;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -190,7 +191,9 @@ public sealed class EffectCanvasPresentationUiTests
                 Assert.Equal(SKColors.Red, pixels.GetPixel(212, 212));
             }
 
-            Assert.IsType<InvalidDataException>(Assert.Single(failures).Error);
+            var failure = Assert.IsType<ProjectImageRenderException>(Assert.Single(failures).Error);
+            Assert.Equal(asset.Id, failure.AssetId);
+            Assert.IsType<InvalidDataException>(failure.InnerException);
             var point = new Point(112, 112);
             window.MouseDown(point, MouseButton.Left);
             window.MouseMove(point + new Vector(20, 0));
@@ -231,7 +234,9 @@ public sealed class EffectCanvasPresentationUiTests
         context.Window.GetCommand(WorkbenchCommand.VIEW_PREVIEW).Execute(null);
         using var captured = await CaptureAsync(context.Window, canvas);
         var failure = Assert.Single(observed);
-        Assert.IsType<InvalidDataException>(failure.Error);
+        var imageFailure = Assert.IsType<ProjectImageRenderException>(failure.Error);
+        Assert.Equal(asset.Id, imageFailure.AssetId);
+        Assert.IsType<InvalidDataException>(imageFailure.InnerException);
         Assert.Same(failure.Error, context.Session.LastError);
         Assert.Equal(failure.Error.Message, context.ViewModel.Error);
         Assert.True(canvas.HasPresentation);

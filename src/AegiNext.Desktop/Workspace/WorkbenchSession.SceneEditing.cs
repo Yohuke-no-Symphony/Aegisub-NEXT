@@ -11,6 +11,7 @@ internal sealed partial class WorkbenchSession
 {
     private MediaTime? inspectorTime;
     private Guid? inspectorLayerId;
+    private ProjectDocument? canvasGestureSource;
 
     internal SceneEditingState SceneEditing { get; } = new();
 
@@ -50,19 +51,25 @@ internal sealed partial class WorkbenchSession
         {
             return false;
         }
+        canvasGestureSource = editor.Snapshot;
         SceneEditing.GestureTarget = target with { Target = new AnimationTrackTarget(AnimationProperty.POSITION) };
         _ = RunCommandAsync(PauseForSceneEditAsync);
         return true;
     }
 
-    internal void CancelCanvasGesture() => SceneEditing.GestureTarget = null;
+    internal void CancelCanvasGesture()
+    {
+        canvasGestureSource = null;
+        SceneEditing.GestureTarget = null;
+    }
 
     internal Task CommitCanvasAsync(CanvasLayerEditEventArgs value) => RunCommandAsync(() => EditAsync(() =>
     {
         var layer = SelectedLayer;
-        var target = SceneEditing.GestureTarget ?? AnimationTarget;
-        SceneEditing.GestureTarget = null;
-        if (layer is null || target is null || layer.Id != value.LayerId)
+        var target = SceneEditing.GestureTarget;
+        var captured = canvasGestureSource;
+        CancelCanvasGesture();
+        if (layer is null || target is null || layer.Id != value.LayerId || !ReferenceEquals(captured, editor.Snapshot))
         {
             return;
         }

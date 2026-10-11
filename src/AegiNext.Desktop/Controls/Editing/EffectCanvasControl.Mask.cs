@@ -595,9 +595,14 @@ public sealed partial class EffectCanvasControl
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if ((IsMaskMode || EditMode == CanvasEditMode.PATH) && e.Key == Key.Escape)
+        if (HasActiveDrag && e.Key == Key.Escape)
         {
             CancelDrag();
+            e.Handled = true;
+        }
+        else if (EditMode == CanvasEditMode.CREATE_PATH && e.Key == Key.Enter)
+        {
+            CompleteShapePath();
             e.Handled = true;
         }
         else if (IsMaskMode && e.Key == Key.Enter && !openContour.IsEmpty)

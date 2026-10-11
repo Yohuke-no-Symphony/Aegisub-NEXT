@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using AegiNext.Desktop.Controls;
+using AegiNext.Desktop.Panels.Assets;
 using AegiNext.Desktop.Controllers;
 using AegiNext.Desktop.Styling;
 using AegiNext.Desktop.Workspace;
@@ -36,7 +37,33 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         videoSurface.AddHandler(DragDrop.DragOverEvent, OnVideoDragOver);
         videoSurface.AddHandler(DragDrop.DropEvent, OnVideoDrop);
         ApplyTransportIcons();
+        this.FindControl<Button>("SubtitleBackgroundButton")!.Content = WorkbenchIcon.Create("Rectangle");
+        this.FindControl<Button>("StraightSegmentButton")!.Content = WorkbenchIcon.Create("StraightSegment");
+        this.FindControl<Button>("CurveSegmentButton")!.Content = WorkbenchIcon.Create("CurveSegment");
+        this.FindControl<Button>("CloseShapePathButton")!.Content = WorkbenchIcon.Create("ClosedPath");
+        this.FindControl<Button>("FinishShapePathButton")!.Content = WorkbenchIcon.Create("FinishPath");
         canvas.GestureStarting += (_, e) => e.Cancel = !viewModel.BeginCanvasGesture();
+        canvas.LayerSelectionRequested += (_, e) => session.SelectLayer(e.LayerId, [e.LayerId]);
+        canvas.GraphicGestureStarting += (_, e) => e.Cancel = !session.Graphics.BeginGesture();
+        canvas.GraphicGestureCancelled += (_, _) => session.Graphics.CancelGesture();
+        canvas.GraphicEdited += (_, e) => session.Graphics.CommitGesture(e);
+        canvas.ShapeCreationStarting += (_, e) => e.Cancel = !session.Graphics.BeginCreation();
+        canvas.ShapeCreationCancelled += (_, _) => session.Graphics.CancelCreation();
+        canvas.ShapeCreated += (_, e) => session.Graphics.CreateShape(e);
+        canvas.GraphicEditingExited += (_, _) => session.SetGraphicCanvasMode(CanvasEditMode.POSITION);
+        canvas.ImagePasteRequested += (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
+            {
+                _ = session.RunCommandAsync(() => session.Assets.PasteAsync(clipboard, true));
+            }
+        };
+        this.FindControl<Button>("SubtitleBackgroundButton")!.Click += async (_, _) =>
+            await session.RunCommandAsync(session.Graphics.CreateSubtitleBackgroundAsync);
+        this.FindControl<Button>("StraightSegmentButton")!.Click += (_, _) => canvas.SetSelectedShapeSegmentCurve(false);
+        this.FindControl<Button>("CurveSegmentButton")!.Click += (_, _) => canvas.SetSelectedShapeSegmentCurve(true);
+        this.FindControl<Button>("CloseShapePathButton")!.Click += (_, _) => canvas.ToggleShapePathClosed();
+        this.FindControl<Button>("FinishShapePathButton")!.Click += (_, _) => canvas.CompleteShapePath();
         canvas.GestureCancelled += (_, _) => viewModel.CancelCanvasGesture();
         canvas.MaskGestureStarting += (_, e) => e.Cancel = !session.MaskEditing.BeginGesture();
         canvas.MaskGestureCancelled += (_, _) => session.MaskEditing.CancelGesture();
@@ -101,11 +128,24 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
     public void FocusInvalidField(string? fieldKey) => positionSlider.Focus();
     private void OnVideoDragOver(object? sender, DragEventArgs e)
     {
-        e.DragEffects = GetDroppedVideoPath(e) is not null ? DragDropEffects.Copy : DragDropEffects.None;
+        e.DragEffects = GetDroppedAsset(e) is not null || GetDroppedImagePaths(e).Length > 0 || GetDroppedVideoPath(e) is not null
+            ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
     }
     private void OnVideoDrop(object? sender, DragEventArgs e)
     {
+        var payload = GetDroppedAsset(e);
+        var images = GetDroppedImagePaths(e);
+        var position = canvas.ProjectPoint(e.GetPosition(canvas));
+        if (position is { } point && (payload is not null || images.Length > 0))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+            e.Handled = true;
+            _ = session.RunCommandAsync(() => payload is not null
+                ? session.Assets.PlaceAsync(payload.Id, point)
+                : session.Assets.ImportAsync(images, true, position: point));
+            return;
+        }
         var path = GetDroppedVideoPath(e);
         e.DragEffects = path is not null ? DragDropEffects.Copy : DragDropEffects.None;
         e.Handled = true;
@@ -114,6 +154,27 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
             _ = session.RunCommandAsync(() => session.OpenMediaAsync(path, true));
         }
     }
+    private AssetDragPayload? GetDroppedAsset(DragEventArgs e)
+    {
+        if (disposed || session.IsProjectBusy || canvas.ProjectPoint(e.GetPosition(canvas)) is null)
+        {
+            return null;
+        }
+        var payload = e.DataTransfer.TryGetValue(AssetDragPayload.Format);
+        return payload is { IsFolder: false } && payload.ProjectId == session.DocumentSnapshot.Id ? payload : null;
+    }
+
+    private string[] GetDroppedImagePaths(DragEventArgs e)
+    {
+        if (disposed || session.IsProjectBusy || canvas.ProjectPoint(e.GetPosition(canvas)) is null ||
+            e.DataTransfer.TryGetFiles() is not { Length: > 0 } files)
+        {
+            return [];
+        }
+        var paths = files.OfType<IStorageFile>().Select(file => file.TryGetLocalPath()).OfType<string>().ToArray();
+        return paths.Length == files.Length && paths.All(ImageFileTypes.SupportsPath) ? paths : [];
+    }
+
     private string? GetDroppedVideoPath(DragEventArgs e)
     {
         if (disposed || !session.CanExecuteCommand(WorkbenchCommand.OPEN_MEDIA) ||
@@ -152,7 +213,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
     }
     private void OnSceneChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(PreviewPanelViewModel.Scene))
+        if (e.PropertyName is nameof(PreviewPanelViewModel.Scene) or nameof(PreviewPanelViewModel.SelectedCanvasTool))
         {
             ApplyScene();
         }
@@ -173,6 +234,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         canvas.MaximumPreviewSize = new PixelSize(quality.MaximumWidth, quality.MaximumHeight);
         canvas.InteractivePreview = scene.IsInteractive;
         canvas.PlaybackActive = viewModel.IsPlaying;
+        canvas.CreationShapeKind = session.SceneEditing.CreationShapeKind;
         canvas.EditMode = scene.Mode;
         canvas.MaskSelectedNodeId = session.SceneEditing.MaskNodeId;
         canvas.SetScene(scene.Document, scene.SelectedLayer, scene.Position, scene.AssetDirectory, scene.IsEditingPose);

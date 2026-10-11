@@ -232,7 +232,8 @@ internal sealed class ProjectPreviewConverter : IVideoPreviewConverter, ICachedV
         {
             renderer?.Dispose();
             directory = state.Directory;
-            renderer = new(new DirectoryProjectAssetResolver(directory), fontCatalog?.Invoke(), graphics?.Context);
+            renderer = new(new DirectoryProjectAssetResolver(directory), fontCatalog?.Invoke(), graphics?.Context,
+                skipUnavailableImagesInPreview: true);
         }
         var size = GetPreviewSize(state.Document, background.Width, background.Height);
         if (size.Width == background.Width && size.Height == background.Height && !renderer.HasPreviewLayers(state.Document, time))
@@ -242,6 +243,7 @@ internal sealed class ProjectPreviewConverter : IVideoPreviewConverter, ICachedV
         }
         var pixels = renderer.ComposePreview(state.Document, time, background.Pixels.Span,
             background.Width, background.Height, background.Width * 4, size.Width, size.Height, cancellationToken);
+        reportError(renderer.PreviewImageFailures.Values.FirstOrDefault());
         cancellationToken.ThrowIfCancellationRequested();
         return CompleteFrame(new(size.Width, size.Height, pixels), background, state, time);
     }

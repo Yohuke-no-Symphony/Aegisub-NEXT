@@ -54,6 +54,8 @@ internal sealed class StylesPanelViewModel : ObservableObject
             _ => null
         };
         RefreshSelectionLabel(layer, selectionCount);
+        Image.RefreshContext();
+        Shape.RefreshContext();
         if (layer is not null)
         {
             ActiveEditor?.Load(document, layer);

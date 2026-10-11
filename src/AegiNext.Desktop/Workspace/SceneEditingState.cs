@@ -7,6 +7,7 @@ namespace AegiNext.Desktop.Workspace;
 /// <summary>工作台共享的场景选择与暂存手势目标，不持有视图或渲染资源。</summary>
 internal sealed class SceneEditingState
 {
+    internal ShapeKind CreationShapeKind { get; set; } = ShapeKind.RECTANGLE;
     internal event EventHandler? Changed;
     private Guid? layerId;
     internal Guid? LayerId

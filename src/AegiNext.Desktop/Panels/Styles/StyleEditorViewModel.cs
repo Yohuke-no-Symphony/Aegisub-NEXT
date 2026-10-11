@@ -9,6 +9,7 @@ internal abstract class StyleEditorViewModel(WorkbenchSession session) : Observa
     private bool loading;
 
     protected WorkbenchSession Session { get; } = session;
+    protected bool IsLoading => loading;
     public abstract LayerKind Kind { get; }
     public Guid? LayerId { get; private set; }
     public bool HasDrafts { get; internal set; }
@@ -50,6 +51,7 @@ internal abstract class StyleEditorViewModel(WorkbenchSession session) : Observa
 
     public void Accept() => HasDrafts = false;
     public abstract bool RestoreField(string fieldKey);
+    internal virtual Action? CaptureNumericGesture(string? fieldKey) => null;
     protected abstract void LoadCore(ProjectDocument document, ProjectLayer layer);
     protected abstract ProjectDocument PrepareCore(ProjectDocument document, ProjectLayer layer, bool preview);
 

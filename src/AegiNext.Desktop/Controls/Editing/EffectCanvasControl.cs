@@ -91,14 +91,15 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         }
     }
 
-    internal bool HasActiveDrag => dragging || pathTopologyEdit is not null || maskDragging || !openContour.IsEmpty || maskDeletionHandle is not null || maskInsertionHandle is not null;
+    internal bool HasActiveDrag => graphicGestureActive || creationActive || dragging || pathTopologyEdit is not null || maskDragging || !openContour.IsEmpty || maskDeletionHandle is not null || maskInsertionHandle is not null;
     internal long PreviewSequence => previewSequence;
     internal long PresentedPreviewSequence => presentedPreviewSequence;
     internal Task PreviewCompletion => previewScheduler?.Completion ?? previewDrain;
 
     /// <inheritdoc />
     public bool CanExecuteFocusCommand(WorkbenchCommand command, IInputElement focusedElement) =>
-        command == WorkbenchCommand.END_TEXT_INPUT && IsMaskMode;
+        command == WorkbenchCommand.PASTE_CLIPS && ImagePasteRequested is not null ||
+        command == WorkbenchCommand.END_TEXT_INPUT && (IsMaskMode || IsGraphicMode || IsCreationMode || HasActiveDrag);
 
     /// <inheritdoc />
     public bool TryExecuteFocusCommand(WorkbenchCommand command, IInputElement focusedElement)
@@ -107,8 +108,22 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         {
             return false;
         }
+        if (command == WorkbenchCommand.PASTE_CLIPS)
+        {
+            ImagePasteRequested?.Invoke(this, EventArgs.Empty);
+            return true;
+        }
+        var maskMode = IsMaskMode;
+        CancelDrag();
         EditMode = CanvasEditMode.POSITION;
-        MaskEditingExited?.Invoke(this, EventArgs.Empty);
+        if (maskMode)
+        {
+            MaskEditingExited?.Invoke(this, EventArgs.Empty);
+        }
+        else
+        {
+            GraphicEditingExited?.Invoke(this, EventArgs.Empty);
+        }
         return true;
     }
 
@@ -124,6 +139,12 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             directory = nextDirectory;
             reportedFailures.Clear();
             directoryChanged = true;
+        }
+
+        if ((dragging || graphicGestureActive || creationActive) && ReferenceEquals(document, value) && selected?.Id == layer?.Id)
+        {
+            time = position;
+            editorPose = editingPose;
         }
 
         if (!directoryChanged && ReferenceEquals(document, value) && ReferenceEquals(selected, layer) && position == time && editingPose == editorPose)
@@ -203,6 +224,10 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
                 Mask = clipDraft, Tracks = selected.Tracks.Where(track => !AnimationPropertyMetadata.IsMaskProperty(track.Property)).ToImmutableArray()
             });
         }
+        if (EditMode == CanvasEditMode.CROP && (draft ?? selected) is { Image: { } cropImage } cropLayer)
+        {
+            sceneDocument = ReplaceLayer(sceneDocument, cropLayer with { Image = cropImage with { Crop = new(), Fit = ImageFit.STRETCH } });
+        }
         PresentScene(sceneDocument);
         if (sceneSurface.Bitmap is { } bitmap)
         {
@@ -219,6 +244,11 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             {
                 return;
             }
+        }
+
+        if (DrawGraphicOverlay(context))
+        {
+            return;
         }
 
         using var overlayClip = context.PushClip(EditMode == CanvasEditMode.PATH ? new Rect(Bounds.Size) : board);
@@ -240,6 +270,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
 
         if (EditMode == CanvasEditMode.POSITION)
         {
+            DrawTransformHandles(context);
             context.DrawEllipse(null, pen, origin, 9, 9);
             context.DrawLine(pen, origin - new Vector(15, 0), origin + new Vector(15, 0));
             context.DrawLine(pen, origin - new Vector(0, 15), origin + new Vector(0, 15));
@@ -288,7 +319,14 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        if (selected is null || gestureCancellationPending || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        if (gestureCancellationPending || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+        Focusable = true;
+        Focus();
+
+        if (GraphicPointerPressed(e) || selected is null)
         {
             return;
         }
@@ -364,6 +402,10 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
+        if (GraphicPointerMoved(e))
+        {
+            return;
+        }
         if (IsMaskMode)
         {
             MaskPointerMoved(e);
@@ -411,6 +453,10 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
+        if (GraphicPointerReleased(e))
+        {
+            return;
+        }
         if (IsMaskMode)
         {
             MaskPointerReleased(e);
@@ -438,7 +484,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
     {
         base.OnPointerCaptureLost(e);
-        if (!ignoreMaskCaptureLoss)
+        if (!ignoreMaskCaptureLoss && !ignoreGraphicCaptureLoss)
         {
             CancelDrag();
         }
@@ -484,6 +530,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     private void CancelDrag(bool notifyCancellation = true)
     {
         CancelMaskGesture();
+        CancelGraphicGesture(notifyCancellation);
         var cancelled = dragging || pathTopologyEdit is not null;
         if (draft is not null)
         {
@@ -577,16 +624,18 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             return layerDraft;
         }
         var local = position - selected.Start + selected.AnimationOffset;
-        var track = selected.Tracks.FirstOrDefault(track => track.Property == AnimationProperty.POSITION);
-        var evaluated = track is null ? selected.Transform.Position : SceneEvaluator.EvaluateVectorTrack(track, local);
+        var evaluated = SceneEvaluator.EvaluateLayer(selected with { MotionPath = null }, null, local).Transform;
         return layerDraft with
         {
             Transform = layerDraft.Transform with
             {
                 Position = new(evaluated.X + layerDraft.Transform.X - selected.Transform.X,
-                    evaluated.Y + layerDraft.Transform.Y - selected.Transform.Y)
+                    evaluated.Y + layerDraft.Transform.Y - selected.Transform.Y),
+                Scale = new(evaluated.ScaleX + layerDraft.Transform.ScaleX - selected.Transform.ScaleX,
+                    evaluated.ScaleY + layerDraft.Transform.ScaleY - selected.Transform.ScaleY),
+                Rotation = evaluated.Rotation + layerDraft.Transform.Rotation - selected.Transform.Rotation
             },
-            Tracks = layerDraft.Tracks.Where(track => track.Property != AnimationProperty.POSITION).ToImmutableArray()
+            Tracks = layerDraft.Tracks.Where(track => track.Property is not (AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION)).ToImmutableArray()
         };
     }
 
@@ -691,6 +740,15 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             renderer?.Dispose();
             renderer = null;
             LayerEdited = null;
+            LayerSelectionRequested = null;
+            GraphicGestureStarting = null;
+            GraphicGestureCancelled = null;
+            GraphicEdited = null;
+            GraphicEditingExited = null;
+            ImagePasteRequested = null;
+            ShapeCreationStarting = null;
+            ShapeCreationCancelled = null;
+            ShapeCreated = null;
             GestureStarting = null;
             GestureCancelled = null;
             RenderingFailed = null;
@@ -784,7 +842,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             }
             return;
         }
-        var interactive = interactivePreview || dragging || maskDragging;
+        var interactive = interactivePreview || dragging || maskDragging || graphicGestureActive;
         var maximumWidth = interactive ? Math.Min(960, maximumPreviewSize.Width) : maximumPreviewSize.Width;
         var maximumHeight = interactive ? Math.Min(540, maximumPreviewSize.Height) : maximumPreviewSize.Height;
         var scale = Math.Min(1, Math.Min((double)maximumWidth / document.Width, (double)maximumHeight / document.Height));
@@ -856,7 +914,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     private void ReportRenderingFailure(Exception error)
     {
         renderingFaulted = true;
-        if (HasActiveDrag)
+        if (HasActiveDrag && (error is not ProjectImageRenderException imageError || selected?.Image?.AssetId == imageError.AssetId))
         {
             CancelDrag();
         }

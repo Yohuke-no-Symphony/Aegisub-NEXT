@@ -50,14 +50,17 @@ internal sealed partial class WorkbenchSession
     internal ProjectDocument PrepareShapeStyleDraft(ProjectDocument document, ProjectLayer layer, ShapeStyleViewModel vm)
     {
         var shape = layer.Shape!;
-        var width = ReadNumber(vm.Width.RawText, shape.Width, "Size", "LayerWidthInput");
-        var height = ReadNumber(vm.Height.RawText, shape.Height, "Size", "LayerHeightInput");
+        var geometry = ReadShapeGeometry(shape, vm);
         var fill = PrepareColor(ref document, layer, ReadColorDraft(vm.FillDraft, "FillPicker"), layer.Fill, false);
         var stroke = PrepareColor(ref document, layer, ReadColorDraft(vm.StrokeDraft, "StrokePicker"), layer.Stroke, true);
         var strokeWidth = PrepareStrokeWidth(ref document, layer, layer.StrokeWidth, vm.StrokeWidth.RawText);
+        if (geometry.Kind == ShapeKind.LINE && shape.Kind != ShapeKind.LINE && strokeWidth == 0)
+        {
+            strokeWidth = 4;
+        }
         return WorkspaceDraftOperations.UpdateLayer(document, layer.Id, current => current with
         {
-            Shape = current.Shape! with { Width = width, Height = height },
+            Shape = geometry,
             Fill = fill,
             Stroke = stroke,
             StrokeWidth = strokeWidth

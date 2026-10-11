@@ -36,16 +36,93 @@ internal sealed class PreviewPanelViewModel : ObservableObject
     private PreviewQualityChoice[] qualityChoices = [];
     private PreviewQualityChoice? selectedQuality;
     private string qualityLabel = string.Empty;
+    private PreviewCanvasToolChoice[] canvasTools = [];
+    private PreviewCanvasToolChoice? selectedCanvasTool;
+    private bool synchronizingCanvasTool;
 
     internal PreviewPanelViewModel(WorkbenchSession session)
     {
         this.session = session;
+        RefreshCanvasTools();
     }
 
     public ScenePreviewState Scene
     {
         get => scene;
-        set => SetProperty(ref scene, value);
+        set
+        {
+            if (SetProperty(ref scene, value))
+            {
+                SynchronizeCanvasTool();
+                OnPropertyChanged(nameof(IsShapePathEditing));
+                OnPropertyChanged(nameof(IsShapePathCreation));
+                OnPropertyChanged(nameof(CanCreateSubtitleBackground));
+                OnPropertyChanged(nameof(ShowEmptyHint));
+            }
+        }
+    }
+
+    public PreviewCanvasToolChoice[] CanvasTools
+    {
+        get => canvasTools;
+        private set => SetProperty(ref canvasTools, value);
+    }
+
+    public PreviewCanvasToolChoice? SelectedCanvasTool
+    {
+        get => selectedCanvasTool;
+        set
+        {
+            if (!SetProperty(ref selectedCanvasTool, value) || synchronizingCanvasTool || value is null)
+            {
+                return;
+            }
+            if (value.ShapeKind is { } kind)
+            {
+                session.SceneEditing.CreationShapeKind = kind;
+            }
+            session.SetGraphicCanvasMode(value.Mode);
+            SynchronizeCanvasTool();
+            OnPropertyChanged(nameof(SelectedCanvasTool));
+        }
+    }
+
+    public bool IsShapePathEditing => Scene.Mode == CanvasEditMode.SHAPE_PATH;
+    public bool IsShapePathCreation => Scene.Mode == CanvasEditMode.CREATE_PATH;
+    public bool CanCreateSubtitleBackground => Scene.SelectedLayer?.SubtitleId is not null;
+    public bool ShowEmptyHint => !HasFrame && Scene.Document.Layers.IsEmpty;
+
+    private void RefreshCanvasTools()
+    {
+        synchronizingCanvasTool = true;
+        CanvasTools =
+        [
+            new(CanvasEditMode.POSITION, null, Localization.Get("Preview.SelectGraphic")),
+            new(CanvasEditMode.CREATE_SHAPE, ShapeKind.RECTANGLE, Localization.Get("Preview.CreateRectangle")),
+            new(CanvasEditMode.CREATE_SHAPE, ShapeKind.ROUNDED_RECTANGLE, Localization.Get("Preview.CreateRoundedRectangle")),
+            new(CanvasEditMode.CREATE_SHAPE, ShapeKind.ELLIPSE, Localization.Get("Preview.CreateEllipse")),
+            new(CanvasEditMode.CREATE_SHAPE, ShapeKind.LINE, Localization.Get("Preview.CreateLine")),
+            new(CanvasEditMode.CREATE_SHAPE, ShapeKind.ARROW, Localization.Get("Preview.CreateArrow")),
+            new(CanvasEditMode.CREATE_PATH, ShapeKind.PATH, Localization.Get("Preview.CreatePath")),
+            new(CanvasEditMode.CROP, null, Localization.Get("Preview.CropImage")),
+            new(CanvasEditMode.SHAPE_PATH, null, Localization.Get("Preview.EditShapePath"))
+        ];
+        SynchronizeCanvasTool();
+        synchronizingCanvasTool = false;
+    }
+
+    private void SynchronizeCanvasTool()
+    {
+        synchronizingCanvasTool = true;
+        try
+        {
+            SelectedCanvasTool = CanvasTools.FirstOrDefault(tool => tool.Mode == Scene.Mode &&
+                (tool.Mode != CanvasEditMode.CREATE_SHAPE || tool.ShapeKind == session.SceneEditing.CreationShapeKind));
+        }
+        finally
+        {
+            synchronizingCanvasTool = false;
+        }
     }
 
     public PreviewQualityChoice[] QualityChoices
@@ -77,6 +154,7 @@ internal sealed class PreviewPanelViewModel : ObservableObject
         ];
         SelectedQuality = QualityChoices.Single(choice => choice.Id == quality);
         QualityLabel = Localization.Get("Preview.Quality");
+        RefreshCanvasTools();
     }
 
     internal bool BeginCanvasGesture() => session.BeginCanvasGesture();
@@ -169,7 +247,13 @@ internal sealed class PreviewPanelViewModel : ObservableObject
     public bool HasFrame
     {
         get => hasFrame;
-        set => SetProperty(ref hasFrame, value);
+        set
+        {
+            if (SetProperty(ref hasFrame, value))
+            {
+                OnPropertyChanged(nameof(ShowEmptyHint));
+            }
+        }
     }
 
     public double Position

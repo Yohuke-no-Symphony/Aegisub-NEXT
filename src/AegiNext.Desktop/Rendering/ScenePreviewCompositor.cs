@@ -9,6 +9,7 @@ internal sealed class ScenePreviewCompositor : IDisposable
 {
     private ProjectSceneRenderer? renderer;
     private string? directory;
+    internal Exception? ImageWarning => renderer?.PreviewImageFailures.Values.FirstOrDefault();
 
     internal SdrVideoFrame Compose(ScenePreviewRequest request, CancellationToken cancellationToken)
     {
@@ -16,7 +17,7 @@ internal sealed class ScenePreviewCompositor : IDisposable
         if (renderer is null || directory != request.Directory)
         {
             renderer?.Dispose();
-            renderer = new(new DirectoryProjectAssetResolver(request.Directory));
+            renderer = new(new DirectoryProjectAssetResolver(request.Directory), skipUnavailableImagesInPreview: true);
             directory = request.Directory;
         }
         var background = request.Background ?? new(1, 1, new byte[] { 0, 0, 0, 255 });
