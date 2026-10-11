@@ -766,7 +766,7 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
                 SubtitleTextFormat.WriteSrt(document.Subtitles.OrderBy(line => line.Start), timeOffset),
                 SubtitleFormatLossAnalysis.ForSrt(document));
         }, context.CancellationToken);
-        if (!await ConfirmConversionAsync(result.Diagnostics.AddRange(SubtitleTimingDiagnostics(mapping)), document.Subtitles))
+        if (!await ConfirmConversionAsync(result.Diagnostics.AddRange(SubtitleTimingDiagnostics(mapping)), document.Subtitles, document.Layers))
         {
             throw new OperationCanceledException(context.CancellationToken);
         }
@@ -805,13 +805,13 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
     }
 
     private Task<bool> ConfirmConversionAsync(ImmutableArray<SubtitleFormatDiagnostic> diagnostics,
-        ImmutableArray<SubtitleLine> lines)
+        ImmutableArray<SubtitleLine> lines, ImmutableArray<ProjectLayer> layers = default)
     {
         if (diagnostics.IsEmpty)
         {
             return Task.FromResult(true);
         }
-        return dialogs.ConfirmSubtitleConversionAsync(new(diagnostics, lines));
+        return dialogs.ConfirmSubtitleConversionAsync(new(diagnostics, lines, layers));
     }
 
     private static async Task<string> ReadSubtitleFileAsync(string path, CancellationToken cancellationToken)

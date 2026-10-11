@@ -22,15 +22,18 @@ public static class SubtitleFormatLossAnalysis
         {
             if (layer.Blur > 0)
             {
-                diagnostics.Add(new("Srt.Blur", "SRT 不支持整层模糊，导出时模糊将被舍弃。", SubtitleId: layer.SubtitleId));
+                diagnostics.Add(new("Srt.Blur", "SRT 不支持整层模糊，导出时模糊将被舍弃。", SubtitleId: layer.SubtitleId,
+                    LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
             if (layer.Mask is not null)
             {
-                diagnostics.Add(new("Srt.Mask", "SRT 不支持裁切蒙版，导出时蒙版几何将被舍弃。", SubtitleId: layer.SubtitleId));
+                diagnostics.Add(new("Srt.Mask", "SRT 不支持裁切蒙版，导出时蒙版几何将被舍弃。", SubtitleId: layer.SubtitleId,
+                    LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
             if (!layer.Tracks.IsEmpty)
             {
-                diagnostics.Add(new("Srt.Animation", "SRT 不支持字幕及蒙版动画，导出时动画轨道将被舍弃。", SubtitleId: layer.SubtitleId));
+                diagnostics.Add(new("Srt.Animation", "SRT 不支持片段及蒙版动画，导出时动画轨道将被舍弃。", SubtitleId: layer.SubtitleId,
+                    LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
         }
         AddCompositionLoss(document, diagnostics);
@@ -45,7 +48,8 @@ public static class SubtitleFormatLossAnalysis
                 layer.Tracks.Any(track => !supportsMasks || !AnimationPropertyMetadata.IsMaskProperty(track.Property)) || layer.MotionPath is not null || !supportsMasks && layer.Mask is not null ||
                 layer.Transform != new LayerTransform() || !layer.Opacity.Equals(1d) || layer.Blend != BlendMode.NORMAL)
             {
-                diagnostics.Add(new("Subtitle.Composition", "字幕格式不能保留项目合成、动画或图形图层。", SubtitleId: layer.SubtitleId));
+                diagnostics.Add(new("Subtitle.Composition", "字幕格式不能保留项目合成、动画或图形图层。", SubtitleId: layer.SubtitleId,
+                    LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
         }
     }

@@ -210,7 +210,7 @@ public static class AssSubtitleFormat
         return new(lines.ToImmutable(), diagnostics.ToImmutable()) { Clips = clips.ToImmutable() };
     }
 
-    /// <summary>按工程合成层顺序导出全部字幕，静态样式去重，时间显式量化到厘秒。</summary>
+    /// <summary>按工程合成层顺序导出字幕及可表达的静态形状，静态样式去重，时间显式量化到厘秒。</summary>
     public static SubtitleFormatWriteResult Write(ProjectDocument document, MediaTime timeOffset = default,
         ISubtitlePlacementMeasurer? placementMeasurer = null)
     {
@@ -225,13 +225,30 @@ public static class AssSubtitleFormat
         result.AppendLine("[V4+ Styles]").AppendLine("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding");
         var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
         var styles = AssStyleTable.Write(document.Subtitles, result, diagnostics);
+        var graphicStyle = document.Layers.Any(layer => layer.Kind == LayerKind.SHAPE)
+            ? AssShapeWriter.WriteStyle(styles.Values, result) : string.Empty;
         var reportedDiagnostics = new HashSet<(Guid? SubtitleId, string Code)>();
         result.AppendLine().AppendLine("[Events]").AppendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
         var byId = document.Subtitles.ToDictionary(line => line.Id);
         var order = 0;
         var exportedCount = 0;
-        foreach (var layer in new ProjectClipIndex(document).LayersInDrawingOrder.Where(layer => layer.SubtitleId.HasValue))
+        foreach (var layer in new ProjectClipIndex(document).LayersInDrawingOrder)
         {
+            if (layer.Kind != LayerKind.SUBTITLE)
+            {
+                var drawing = AssShapeWriter.Write(layer, timeOffset, diagnostics);
+                if (drawing is not null)
+                {
+                    if (exportedCount++ >= 100000)
+                    {
+                        throw new InvalidDataException("ASS 导出后的总对白数量超过 100,000 条预算。");
+                    }
+                    result.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                        $"Dialogue: {order},{AssFormatValues.Time(layer.Start + timeOffset, MediaTimeRounding.FLOOR)},{AssFormatValues.Time(layer.End + timeOffset, MediaTimeRounding.CEILING)},{graphicStyle},,0,0,0,,{drawing}"));
+                }
+                order++;
+                continue;
+            }
             var line = byId[layer.SubtitleId!.Value];
             if (line.Start + timeOffset < MediaTime.Zero)
             {
@@ -280,13 +297,9 @@ public static class AssSubtitleFormat
             }
             order++;
         }
-        if (document.Layers.Any(layer => layer.Kind != LayerKind.SUBTITLE))
-        {
-            diagnostics.Add(new("Subtitle.Composition", "ASS 导出未包含项目中的图形或图片片段。"));
-        }
         var text = result.ToString();
         AssFormatValues.CheckText(text);
-        return new(text, diagnostics.DistinctBy(diagnostic => (diagnostic.SubtitleId, diagnostic.Code)).ToImmutableArray());
+        return new(text, diagnostics.DistinctBy(diagnostic => (diagnostic.SubtitleId, diagnostic.LayerId, diagnostic.Code)).ToImmutableArray());
     }
 
     private static AssStyleDefinition ParseStyle(Dictionary<string, string> row, double sx, double sy, int wrapStyle, AssResolutionContext resolution,
