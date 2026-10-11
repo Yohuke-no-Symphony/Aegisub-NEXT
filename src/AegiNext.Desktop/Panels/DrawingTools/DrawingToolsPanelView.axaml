@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:common="using:AegiNext.Desktop.Controls.Common" xmlns:vm="using:AegiNext.Desktop.Panels.DrawingTools"
+             x:Class="AegiNext.Desktop.Panels.DrawingTools.DrawingToolsPanelView" x:DataType="vm:DrawingToolsPanelViewModel"
+             Classes="business-surface">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Margin="6" Spacing="10">
+      <StackPanel Spacing="3">
+        <TextBlock Classes="field" Text="{Loc Key=DrawingTools.Tools}" />
+        <WrapPanel>
+          <common:ToolbarToggleButton Name="SelectGraphicButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.SelectGraphic}" AutomationProperties.Name="{Loc Key=Preview.SelectGraphic}" />
+          <common:ToolbarToggleButton Name="PathToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreatePath}" AutomationProperties.Name="{Loc Key=Preview.CreatePath}" />
+          <common:ToolbarToggleButton Name="CropImageToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CropImage}" AutomationProperties.Name="{Loc Key=Preview.CropImage}" />
+          <common:ToolbarToggleButton Name="EditShapePathToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.EditShapePath}" AutomationProperties.Name="{Loc Key=Preview.EditShapePath}" />
+        </WrapPanel>
+      </StackPanel>
+      <StackPanel Spacing="3">
+        <TextBlock Classes="field" Text="{Loc Key=DrawingTools.Shapes}" />
+        <WrapPanel>
+          <common:ToolbarToggleButton Name="RectangleToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateRectangle}" AutomationProperties.Name="{Loc Key=Preview.CreateRectangle}" />
+          <common:ToolbarToggleButton Name="RoundedRectangleToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateRoundedRectangle}" AutomationProperties.Name="{Loc Key=Preview.CreateRoundedRectangle}" />
+          <common:ToolbarToggleButton Name="EllipseToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateEllipse}" AutomationProperties.Name="{Loc Key=Preview.CreateEllipse}" />
+          <common:ToolbarToggleButton Name="LineToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateLine}" AutomationProperties.Name="{Loc Key=Preview.CreateLine}" />
+          <common:ToolbarToggleButton Name="ArrowToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateArrow}" AutomationProperties.Name="{Loc Key=Preview.CreateArrow}" />
+        </WrapPanel>
+      </StackPanel>
+      <TextBlock Name="ActiveToolLabel" Text="{Binding ActiveToolLabel}" TextWrapping="Wrap" />
+      <StackPanel Spacing="3" IsVisible="{Binding IsShapePathEditing}">
+        <TextBlock Classes="field" Text="{Loc Key=DrawingTools.Path}" />
+        <WrapPanel>
+          <Button Name="StraightSegmentButton" Classes="icon-button" Margin="2" Command="{Binding StraightSegmentCommand}"
+                  ToolTip.Tip="{Loc Key=Preview.StraightSegment}" AutomationProperties.Name="{Loc Key=Preview.StraightSegment}" />
+          <Button Name="CurveSegmentButton" Classes="icon-button" Margin="2" Command="{Binding CurveSegmentCommand}"
+                  ToolTip.Tip="{Loc Key=Preview.CurveSegment}" AutomationProperties.Name="{Loc Key=Preview.CurveSegment}" />
+          <Button Name="CloseShapePathButton" Classes="icon-button" Margin="2" Command="{Binding ToggleClosedPathCommand}"
+                  ToolTip.Tip="{Loc Key=Preview.ToggleClosedPath}" AutomationProperties.Name="{Loc Key=Preview.ToggleClosedPath}" />
+        </WrapPanel>
+      </StackPanel>
+      <Button Name="FinishShapePathButton" IsVisible="{Binding IsShapePathCreation}" Command="{Binding FinishPathCommand}"
+              HorizontalAlignment="Stretch" ToolTip.Tip="{Loc Key=Preview.FinishPath}" AutomationProperties.Name="{Loc Key=Preview.FinishPath}">
+        <common:IconText Text="{Loc Key=Preview.FinishPath}" IconKey="FinishPath" />
+      </Button>
+      <StackPanel Spacing="3">
+        <TextBlock Classes="field" Text="{Loc Key=DrawingTools.Actions}" />
+        <Button Name="SubtitleBackgroundButton" Classes="icon-button" HorizontalAlignment="Left" Margin="2"
+                Command="{Binding CreateSubtitleBackgroundCommand}"
+                ToolTip.Tip="{Loc Key=Preview.CreateSubtitleBackground}" AutomationProperties.Name="{Loc Key=Preview.CreateSubtitleBackground}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

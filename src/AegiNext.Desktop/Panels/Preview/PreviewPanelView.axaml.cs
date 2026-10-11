@@ -13,6 +13,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 
 namespace AegiNext.Desktop.Panels.Preview;
 
@@ -25,6 +26,8 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
     private readonly Slider positionSlider;
     private double synchronizedPosition;
     private bool disposed;
+    private bool drawingCommandsAttached;
+    private readonly List<Visual> drawingVisibilitySources = [];
     internal PreviewPanelView(PreviewPanelViewModel viewModel, WorkbenchSession session)
     {
         this.session = session;
@@ -37,11 +40,6 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         videoSurface.AddHandler(DragDrop.DragOverEvent, OnVideoDragOver);
         videoSurface.AddHandler(DragDrop.DropEvent, OnVideoDrop);
         ApplyTransportIcons();
-        this.FindControl<Button>("SubtitleBackgroundButton")!.Content = WorkbenchIcon.Create("Rectangle");
-        this.FindControl<Button>("StraightSegmentButton")!.Content = WorkbenchIcon.Create("StraightSegment");
-        this.FindControl<Button>("CurveSegmentButton")!.Content = WorkbenchIcon.Create("CurveSegment");
-        this.FindControl<Button>("CloseShapePathButton")!.Content = WorkbenchIcon.Create("ClosedPath");
-        this.FindControl<Button>("FinishShapePathButton")!.Content = WorkbenchIcon.Create("FinishPath");
         canvas.GestureStarting += (_, e) => e.Cancel = !viewModel.BeginCanvasGesture();
         canvas.LayerSelectionRequested += (_, e) => session.SelectLayer(e.LayerId, [e.LayerId]);
         canvas.GraphicGestureStarting += (_, e) => e.Cancel = !session.Graphics.BeginGesture();
@@ -58,12 +56,9 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
                 _ = session.RunCommandAsync(() => session.Assets.PasteAsync(clipboard, true));
             }
         };
-        this.FindControl<Button>("SubtitleBackgroundButton")!.Click += async (_, _) =>
-            await session.RunCommandAsync(session.Graphics.CreateSubtitleBackgroundAsync);
-        this.FindControl<Button>("StraightSegmentButton")!.Click += (_, _) => canvas.SetSelectedShapeSegmentCurve(false);
-        this.FindControl<Button>("CurveSegmentButton")!.Click += (_, _) => canvas.SetSelectedShapeSegmentCurve(true);
-        this.FindControl<Button>("CloseShapePathButton")!.Click += (_, _) => canvas.ToggleShapePathClosed();
-        this.FindControl<Button>("FinishShapePathButton")!.Click += (_, _) => canvas.CompleteShapePath();
+        canvas.DrawingCommandStateChanged += OnDrawingCommandStateChanged;
+        canvas.AttachedToVisualTree += OnDrawingCanvasAttached;
+        canvas.DetachedFromVisualTree += OnDrawingCanvasDetached;
         canvas.GestureCancelled += (_, _) => viewModel.CancelCanvasGesture();
         canvas.MaskGestureStarting += (_, e) => e.Cancel = !session.MaskEditing.BeginGesture();
         canvas.MaskGestureCancelled += (_, _) => session.MaskEditing.CancelGesture();
@@ -118,6 +113,71 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
     }
 
     public string PanelId => "preview";
+
+    private void OnDrawingCanvasAttached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (!disposed && !drawingCommandsAttached)
+        {
+            drawingCommandsAttached = true;
+            foreach (var visual in canvas.GetSelfAndVisualAncestors())
+            {
+                drawingVisibilitySources.Add(visual);
+                visual.PropertyChanged += OnDrawingSurfaceVisibilityChanged;
+            }
+            session.DrawingCommands.Requested += OnDrawingCommandRequested;
+            session.DrawingCommands.RefreshAvailability();
+        }
+    }
+
+    private void OnDrawingCanvasDetached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        DetachDrawingCommands();
+        canvas.CancelGesture();
+    }
+
+    private void DetachDrawingCommands()
+    {
+        if (drawingCommandsAttached)
+        {
+            drawingCommandsAttached = false;
+            foreach (var visual in drawingVisibilitySources)
+            {
+                visual.PropertyChanged -= OnDrawingSurfaceVisibilityChanged;
+            }
+            drawingVisibilitySources.Clear();
+            session.DrawingCommands.Requested -= OnDrawingCommandRequested;
+            session.DrawingCommands.RefreshAvailability();
+        }
+    }
+
+    private void OnDrawingCommandRequested(object? sender, CanvasDrawingCommandEventArgs request)
+    {
+        if (request.Handled || disposed || !drawingCommandsAttached || !IsDrawingSurfaceVisible() ||
+            !canvas.IsAttachedToVisualTree() || TopLevel.GetTopLevel(canvas) is null ||
+            !ReferenceEquals(request.Source, session.DocumentSnapshot) || request.LayerId != session.SelectedLayerId ||
+            request.Mode != session.SceneEditing.Mode || !canvas.CanExecuteDrawingCommand(request))
+        {
+            return;
+        }
+        request.Handled = request.IsQuery || canvas.ExecuteDrawingCommand(request);
+    }
+
+    private void OnDrawingCommandStateChanged(object? sender, EventArgs e) => session.DrawingCommands.RefreshAvailability();
+
+    private bool IsDrawingSurfaceVisible() => canvas.GetSelfAndVisualAncestors().All(visual => visual.IsVisible);
+
+    private void OnDrawingSurfaceVisibilityChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != IsVisibleProperty)
+        {
+            return;
+        }
+        if (!IsDrawingSurfaceVisible())
+        {
+            canvas.CancelGesture();
+        }
+        session.DrawingCommands.RefreshAvailability();
+    }
     public void CancelGestures()
     {
         session.CancelInteractiveSeeking();
@@ -213,7 +273,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
     }
     private void OnSceneChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(PreviewPanelViewModel.Scene) or nameof(PreviewPanelViewModel.SelectedCanvasTool))
+        if (e.PropertyName == nameof(PreviewPanelViewModel.Scene))
         {
             ApplyScene();
         }
@@ -234,7 +294,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         canvas.MaximumPreviewSize = new PixelSize(quality.MaximumWidth, quality.MaximumHeight);
         canvas.InteractivePreview = scene.IsInteractive;
         canvas.PlaybackActive = viewModel.IsPlaying;
-        canvas.CreationShapeKind = session.SceneEditing.CreationShapeKind;
+        canvas.CreationShapeKind = scene.CreationShapeKind;
         canvas.EditMode = scene.Mode;
         canvas.MaskSelectedNodeId = session.SceneEditing.MaskNodeId;
         canvas.SetScene(scene.Document, scene.SelectedLayer, scene.Position, scene.AssetDirectory, scene.IsEditingPose);
@@ -250,6 +310,10 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         if (!disposed)
         {
             disposed = true;
+            DetachDrawingCommands();
+            canvas.DrawingCommandStateChanged -= OnDrawingCommandStateChanged;
+            canvas.AttachedToVisualTree -= OnDrawingCanvasAttached;
+            canvas.DetachedFromVisualTree -= OnDrawingCanvasDetached;
             videoSurface.RemoveHandler(DragDrop.DragEnterEvent, OnVideoDragOver);
             videoSurface.RemoveHandler(DragDrop.DragOverEvent, OnVideoDragOver);
             videoSurface.RemoveHandler(DragDrop.DropEvent, OnVideoDrop);

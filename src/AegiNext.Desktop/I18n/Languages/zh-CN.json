@@ -1167,6 +1167,13 @@
     "Workbench.ShapeLINE": "线段",
     "Workbench.ShapeARROW": "箭头",
     "Workbench.ShapePATH": "自由路径",
-    "Workbench.AssetFolders": "文件夹"
+    "Workbench.AssetFolders": "文件夹",
+    "Workbench.DrawingTools": "绘图工具",
+    "Settings.VIEW_DRAWING_TOOLS": "绘图工具",
+    "Layout.drawingTools": "绘图工具",
+    "DrawingTools.Tools": "工具",
+    "DrawingTools.Shapes": "形状",
+    "DrawingTools.Path": "路径",
+    "DrawingTools.Actions": "操作"
   }
 }

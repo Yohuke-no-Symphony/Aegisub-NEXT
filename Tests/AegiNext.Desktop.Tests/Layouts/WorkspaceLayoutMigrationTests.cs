@@ -38,7 +38,7 @@ public sealed class WorkspaceLayoutMigrationTests
             Assert.Equal(file.CurrentPresetId, restored.CurrentPresetId);
             Assert.Equal(JsonSerializer.Serialize(legacy.Main), JsonSerializer.Serialize(restored.Current.Main));
             Assert.Equal(JsonSerializer.Serialize(legacy.Floating), JsonSerializer.Serialize(restored.Current.Floating));
-            Assert.Equal<string>(["export", "log", "subtitleDetails", "masks", "assets"], restored.Current.HiddenPanelIds);
+            Assert.Equal<string>(["export", "log", "subtitleDetails", "masks", "assets", "drawingTools"], restored.Current.HiddenPanelIds);
             Assert.Equal("effects", restored.Current.FocusedPanelId);
             Assert.Equal(file.Presets.Select(preset => preset.Name), restored.Presets.Select(preset => preset.Name));
             Assert.All(restored.Presets, preset =>
@@ -72,7 +72,7 @@ public sealed class WorkspaceLayoutMigrationTests
         Assert.Equal(WorkspaceLayoutSnapshot.CURRENT_VERSION, restored.Version);
         Assert.Equal(JsonSerializer.Serialize(legacy.Main), JsonSerializer.Serialize(restored.Current.Main));
         Assert.Equal(JsonSerializer.Serialize(legacy.Floating), JsonSerializer.Serialize(restored.Current.Floating));
-        Assert.Equal<string>(["log", "subtitleDetails", "masks", "assets"], restored.Current.HiddenPanelIds);
+        Assert.Equal<string>(["log", "subtitleDetails", "masks", "assets", "drawingTools"], restored.Current.HiddenPanelIds);
         Assert.Equal("effects", restored.Current.FocusedPanelId);
         Assert.Equal("布局 123", Assert.Single(restored.Presets).Name);
         WorkspaceLayoutValidator.Validate(restored.Current);
@@ -80,7 +80,7 @@ public sealed class WorkspaceLayoutMigrationTests
     }
 
     [Fact]
-    public void VersionFourCustomLayoutKeepsItsDockingAndAddsOnlyHiddenAssets()
+    public void VersionFourCustomLayoutKeepsItsDockingAndAddsHiddenAssetsAndDrawingTools()
     {
         var legacy = new WorkspaceLayoutSnapshot
         {
@@ -94,7 +94,7 @@ public sealed class WorkspaceLayoutMigrationTests
             Presets = [new("personal", "Personal", false, legacy)] });
         Assert.Same(legacy.Main, restored.Current.Main);
         Assert.Same(legacy.Floating, restored.Current.Floating);
-        Assert.Equal<string>(["log", "subtitleDetails", "assets"], restored.Current.HiddenPanelIds);
+        Assert.Equal<string>(["log", "subtitleDetails", "assets", "drawingTools"], restored.Current.HiddenPanelIds);
         Assert.Equal("masks", restored.Current.FocusedPanelId);
         WorkspaceLayoutValidator.Validate(restored.Current);
         WorkspaceLayoutValidator.Validate(restored.Presets[0].Layout);

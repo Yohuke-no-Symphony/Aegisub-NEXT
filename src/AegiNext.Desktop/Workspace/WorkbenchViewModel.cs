@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using AegiNext.Desktop.Panels.Preview;
+using AegiNext.Desktop.Panels.DrawingTools;
 using AegiNext.Desktop.Panels.Timeline;
 using AegiNext.Desktop.Panels.Subtitles;
 using AegiNext.Desktop.Panels.Styles;
@@ -27,6 +28,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
     {
         this.session = session;
         Preview = new(session);
+        DrawingTools = new(session);
         Timeline = new(session);
         Subtitles = new(session);
         Styles = new(session);
@@ -51,6 +53,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
     public event EventHandler? DraftErrorFocusRequested;
     internal event Action<string>? PanelActivationRequested;
     public PreviewPanelViewModel Preview { get; }
+    public DrawingToolsPanelViewModel DrawingTools { get; }
     public TimelinePanelViewModel Timeline { get; }
     public SubtitlesPanelViewModel Subtitles { get; }
     public StylesPanelViewModel Styles { get; }
@@ -119,6 +122,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
     internal void FocusDraftError() => DraftErrorFocusRequested?.Invoke(this, EventArgs.Empty);
     internal void RefreshCommands()
     {
+        DrawingTools.RefreshState();
         Subtitles.RefreshMoveCommand();
         Subtitles.MergeCueCommand.NotifyCanExecuteChanged();
         Timeline.RefreshMoveCommand();

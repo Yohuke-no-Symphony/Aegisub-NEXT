@@ -63,7 +63,8 @@ public static class ShortcutDefaults
             new(WorkbenchCommand.SEEK_CLIP_END, "Shift+W"),
             new(WorkbenchCommand.CHECK_UPDATES, ""),
             new(WorkbenchCommand.VIEW_ASSETS, ""),
-            new(WorkbenchCommand.IMPORT_IMAGES, "")
+            new(WorkbenchCommand.IMPORT_IMAGES, ""),
+            new(WorkbenchCommand.VIEW_DRAWING_TOOLS, "")
         ];
     }
 }

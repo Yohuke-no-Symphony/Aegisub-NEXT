@@ -9,10 +9,10 @@ public sealed class SubtitleDetailsLayoutMigrationTests
     {
         var previous = VersionTwoStandard() with { FocusedPanelId = WorkbenchPanelIds.SUBTITLES };
         var upgraded = WorkspaceLayoutMigration.Upgrade(new() { Version = 2, Current = previous });
-        Assert.Equal(4, upgraded.Version);
+        Assert.Equal(WorkspaceLayoutSnapshot.CURRENT_VERSION, upgraded.Version);
         Assert.Same(previous.Main, upgraded.Current.Main);
         Assert.Equal(WorkbenchPanelIds.SUBTITLES, upgraded.Current.FocusedPanelId);
-        Assert.Equal([WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.MASKS], upgraded.Current.HiddenPanelIds);
+        Assert.Equal([WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.ASSETS, WorkbenchPanelIds.DRAWING_TOOLS], upgraded.Current.HiddenPanelIds);
         WorkspaceLayoutValidator.Validate(upgraded.Current);
     }
 

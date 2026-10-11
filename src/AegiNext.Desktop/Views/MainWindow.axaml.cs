@@ -7,6 +7,7 @@ using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Menus;
 using AegiNext.Desktop.Panels;
+using AegiNext.Desktop.Panels.DrawingTools;
 using AegiNext.Desktop.Panels.Preview;
 using AegiNext.Desktop.Panels.Timeline;
 using AegiNext.Desktop.Panels.Subtitles;
@@ -89,6 +90,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
             ["timeline"] = new TimelinePanelView(ViewModel.Timeline, Session),
             ["subtitles"] = new SubtitlesPanelView(ViewModel.Subtitles, Session),
             [WorkbenchPanelIds.ASSETS] = new AssetsPanelView(ViewModel.Assets, Session),
+            [WorkbenchPanelIds.DRAWING_TOOLS] = new DrawingToolsPanelView(ViewModel.DrawingTools),
             ["styles"] = new StylesPanelView(ViewModel.Styles, Session),
             ["effects"] = new EffectsPanelView(ViewModel.Effects, Session),
             [WorkbenchPanelIds.MASKS] = new MaskPanelView(ViewModel.Masks, Session),
@@ -378,6 +380,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
                 WorkbenchCommand.VIEW_PREVIEW => "preview", WorkbenchCommand.VIEW_TIMELINE => "timeline",
                 WorkbenchCommand.VIEW_SUBTITLES => "subtitles", WorkbenchCommand.VIEW_STYLES => "styles",
                 WorkbenchCommand.VIEW_ASSETS => WorkbenchPanelIds.ASSETS,
+                WorkbenchCommand.VIEW_DRAWING_TOOLS => WorkbenchPanelIds.DRAWING_TOOLS,
                 WorkbenchCommand.VIEW_MASKS => WorkbenchPanelIds.MASKS,
                 WorkbenchCommand.VIEW_EFFECTS => "effects", WorkbenchCommand.VIEW_EXPORT => "export",
                 WorkbenchCommand.VIEW_LOG => WorkbenchPanelIds.LOG, _ => null

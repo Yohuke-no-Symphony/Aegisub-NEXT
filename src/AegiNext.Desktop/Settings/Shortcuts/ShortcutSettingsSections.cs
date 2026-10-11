@@ -39,7 +39,7 @@ internal static class ShortcutSettingsSections
         AddSection("Settings.ShortcutSectionPanelViews",
         [
             WorkbenchCommand.VIEW_SUBTITLES, WorkbenchCommand.VIEW_TIMELINE, WorkbenchCommand.VIEW_PREVIEW,
-            WorkbenchCommand.VIEW_ASSETS, WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS, WorkbenchCommand.VIEW_MASKS,
+            WorkbenchCommand.VIEW_ASSETS, WorkbenchCommand.VIEW_DRAWING_TOOLS, WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS, WorkbenchCommand.VIEW_MASKS,
             WorkbenchCommand.VIEW_EXPORT, WorkbenchCommand.VIEW_LOG
         ]);
         AddSection("Settings.ShortcutSectionLayouts",

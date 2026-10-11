@@ -5,6 +5,7 @@ using AegiNext.Desktop.Controllers;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Panels;
 using AegiNext.Desktop.Panels.Assets;
+using AegiNext.Desktop.Panels.DrawingTools;
 using AegiNext.Desktop.Panels.Effects;
 using AegiNext.Desktop.Panels.Export;
 using AegiNext.Desktop.Panels.Log;
@@ -47,6 +48,7 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
                 [WorkbenchPanelIds.SUBTITLES] = new SubtitlesPanelView(viewModel.Subtitles, Session),
                 [WorkbenchPanelIds.STYLES] = new StylesPanelView(viewModel.Styles, Session),
                 [WorkbenchPanelIds.ASSETS] = new AssetsPanelView(viewModel.Assets, Session),
+                [WorkbenchPanelIds.DRAWING_TOOLS] = new DrawingToolsPanelView(viewModel.DrawingTools),
                 [WorkbenchPanelIds.EFFECTS] = new EffectsPanelView(viewModel.Effects, Session),
                 [WorkbenchPanelIds.MASKS] = new MaskPanelView(viewModel.Masks, Session),
                 [WorkbenchPanelIds.EXPORT] = new ExportPanelView(viewModel.Export, Session),

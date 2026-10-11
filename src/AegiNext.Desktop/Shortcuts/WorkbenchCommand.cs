@@ -56,5 +56,6 @@ public enum WorkbenchCommand
     SEEK_CLIP_END,
     CHECK_UPDATES,
     VIEW_ASSETS,
-    IMPORT_IMAGES
+    IMPORT_IMAGES,
+    VIEW_DRAWING_TOOLS
 }

@@ -586,6 +586,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         Details.Changed -= OnSubtitleDetailsChanged;
         Details.Dispose();
         ViewModel.Assets.Dispose();
+        ViewModel.DrawingTools.Dispose();
         ClearInspectorPreview();
         editor.StateChanged -= OnEditorStateChanged;
         playback.Invalidate();
@@ -658,6 +659,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         {
             ViewModel.Preview.EmptyLabel = Localization.Get("Preview.Empty");
             ViewModel.Preview.RefreshQualities(preferences.PreviewQuality);
+            ViewModel.DrawingTools.RefreshLanguage();
             ViewModel.Styles.Subtitle.RefreshAppearanceEditing();
             ViewModel.Styles.Image.RefreshLanguage();
             ViewModel.Styles.Shape.RefreshLanguage();

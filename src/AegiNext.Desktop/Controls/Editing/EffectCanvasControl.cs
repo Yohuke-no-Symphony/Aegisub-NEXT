@@ -85,6 +85,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             {
                 CancelDrag();
                 editMode = value;
+                DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
                 UpdateBezierCursor();
                 InvalidateVisual();
             }
@@ -174,6 +175,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         selected = layer;
         position = time;
         editingPose = editorPose;
+        DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
 
         InvalidateVisual();
     }

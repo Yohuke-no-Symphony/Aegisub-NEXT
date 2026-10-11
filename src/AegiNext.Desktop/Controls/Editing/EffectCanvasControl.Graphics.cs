@@ -38,6 +38,47 @@ public sealed partial class EffectCanvasControl
     public event EventHandler<CanvasShapeCreatedEventArgs>? ShapeCreated;
     public event EventHandler? GraphicEditingExited;
     public event EventHandler? ImagePasteRequested;
+    internal event EventHandler? DrawingCommandStateChanged;
+
+    internal bool CanExecuteDrawingCommand(CanvasDrawingCommandEventArgs request)
+    {
+        if (disposed || !ReferenceEquals(document, request.Source) || selected?.Id != request.LayerId || EditMode != request.Mode)
+        {
+            return false;
+        }
+        return request.Command switch
+        {
+            CanvasDrawingCommand.FINISH_PATH => EditMode == CanvasEditMode.CREATE_PATH && creationActive &&
+                !creationPointerDown && creationNodes.Count >= 2,
+            CanvasDrawingCommand.STRAIGHT_SEGMENT or CanvasDrawingCommand.CURVE_SEGMENT or CanvasDrawingCommand.TOGGLE_CLOSED_PATH =>
+                EditMode == CanvasEditMode.SHAPE_PATH && selected?.Shape?.Path is not null && !HasActiveDrag,
+            _ => false
+        };
+    }
+
+    internal bool ExecuteDrawingCommand(CanvasDrawingCommandEventArgs request)
+    {
+        if (!CanExecuteDrawingCommand(request))
+        {
+            return false;
+        }
+        switch (request.Command)
+        {
+            case CanvasDrawingCommand.STRAIGHT_SEGMENT:
+                SetSelectedShapeSegmentCurve(false);
+                break;
+            case CanvasDrawingCommand.CURVE_SEGMENT:
+                SetSelectedShapeSegmentCurve(true);
+                break;
+            case CanvasDrawingCommand.TOGGLE_CLOSED_PATH:
+                ToggleShapePathClosed();
+                break;
+            case CanvasDrawingCommand.FINISH_PATH:
+                CompleteShapePath();
+                break;
+        }
+        return true;
+    }
 
     private ShapeKind creationShapeKind = ShapeKind.RECTANGLE;
     internal ShapeKind CreationShapeKind
@@ -219,6 +260,7 @@ public sealed partial class EffectCanvasControl
                 var finish = finishCreationOnRelease;
                 creationPointerDown = false;
                 ReleaseCreationPointer();
+                DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
                 if (close || finish)
                 {
                     CompleteShapePath(close);
@@ -284,6 +326,7 @@ public sealed partial class EffectCanvasControl
             return false;
         }
         graphicGestureActive = true;
+        DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
         graphicGestureMatrix = matrix;
         draft = selected;
         capturedPointer = e.Pointer;
@@ -416,6 +459,7 @@ public sealed partial class EffectCanvasControl
             }
         }
         creationPointerDown = true;
+        DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
         capturedPointer = e.Pointer;
         e.Pointer.Capture(this);
         Focusable = true;
@@ -425,7 +469,7 @@ public sealed partial class EffectCanvasControl
 
     internal void CompleteShapePath(bool closed = false)
     {
-        if (creationNodes.Count < (closed ? 3 : 2))
+        if (EditMode != CanvasEditMode.CREATE_PATH || !creationActive || creationPointerDown || creationNodes.Count < (closed ? 3 : 2))
         {
             return;
         }
@@ -504,6 +548,7 @@ public sealed partial class EffectCanvasControl
         {
             ShapeCreationCancelled?.Invoke(this, EventArgs.Empty);
         }
+        DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private Point[] TransformHandles()
