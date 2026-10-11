@@ -1,24 +1,62 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:icons="using:Material.Icons.Avalonia" xmlns:vm="using:AegiNext.Desktop.Panels.Assets" xmlns:controls="using:AegiNext.Desktop.Controls"
+             xmlns:icons="using:Material.Icons.Avalonia" xmlns:vm="using:AegiNext.Desktop.Panels.Assets"
+             xmlns:controls="using:AegiNext.Desktop.Controls" xmlns:common="using:AegiNext.Desktop.Controls.Common"
              x:Class="AegiNext.Desktop.Panels.Assets.AssetsPanelView" x:DataType="vm:AssetsPanelViewModel" Classes="business-surface">
-  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="6" RowSpacing="6">
-    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
-      <Button Content="{Loc Key=Workbench.ImportImages}" Command="{Binding ImportCommand}" HorizontalAlignment="Stretch" />
-      <Button Grid.Column="1" Classes="icon-button" Command="{Binding PlaceCommand}" IsEnabled="{Binding HasSelectedItem}"
-              ToolTip.Tip="{Loc Key=Workbench.PlaceAsset}" AutomationProperties.Name="{Loc Key=Workbench.PlaceAsset}">
-        <icons:MaterialIcon Kind="ImagePlus" />
-      </Button>
-      <Button Grid.Column="2" Classes="icon-button" Command="{Binding CollectCommand}"
-              ToolTip.Tip="{Loc Key=Workbench.CollectAssets}" AutomationProperties.Name="{Loc Key=Workbench.CollectAssets}">
-        <icons:MaterialIcon Kind="FolderDownload" />
-      </Button>
+  <UserControl.Resources>
+    <DataTemplate x:Key="AssetListTemplate" x:DataType="vm:AssetLibraryRow">
+      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" Margin="2">
+        <controls:AssetThumbnail Width="{Binding ThumbnailSize}" Height="{Binding ThumbnailSize}"
+                                 ThumbnailPixelSize="{Binding ThumbnailPixelSize}" Asset="{Binding Asset}" Directory="{Binding Directory}" Stretch="Uniform" />
+        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+          <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="{Binding UsageLabel}" Classes="field" />
+          <TextBlock Text="{Binding StorageLabel}" Classes="field" />
+          <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource PreviewMuted}" />
+        </StackPanel>
+      </Grid>
+    </DataTemplate>
+    <DataTemplate x:Key="AssetIconTemplate" x:DataType="vm:AssetLibraryRow">
+      <StackPanel Width="{Binding IconItemWidth}" Spacing="4" Margin="2" ToolTip.Tip="{Binding Name}">
+        <controls:AssetThumbnail Width="{Binding ThumbnailSize}" Height="{Binding ThumbnailSize}"
+                                 ThumbnailPixelSize="{Binding ThumbnailPixelSize}" Asset="{Binding Asset}" Directory="{Binding Directory}" Stretch="Uniform" />
+        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
+        <TextBlock Text="{Binding Status}" TextTrimming="CharacterEllipsis" TextAlignment="Center" Classes="field" />
+      </StackPanel>
+    </DataTemplate>
+  </UserControl.Resources>
+  <Grid RowDefinitions="Auto,*,Auto" Margin="6" RowSpacing="6">
+    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+      <TextBox Name="AssetSearchInput" PlaceholderText="{Loc Key=Workbench.SearchAssets}" Text="{Binding Search, Mode=TwoWay}" />
+      <StackPanel Grid.Column="1" Name="AssetToolbar" Orientation="Horizontal" Spacing="4">
+        <Button Name="ImportAssetsButton" Classes="icon-button" Command="{Binding ImportCommand}"
+                ToolTip.Tip="{Loc Key=Workbench.ImportImages}" AutomationProperties.Name="{Loc Key=Workbench.ImportImages}">
+          <icons:MaterialIcon Kind="Import" />
+        </Button>
+        <Button Classes="icon-button" Command="{Binding PlaceCommand}" IsEnabled="{Binding HasSelectedItem}"
+                ToolTip.Tip="{Loc Key=Workbench.PlaceAsset}" AutomationProperties.Name="{Loc Key=Workbench.PlaceAsset}">
+          <icons:MaterialIcon Kind="ImagePlus" />
+        </Button>
+        <Button Classes="icon-button" Command="{Binding CollectCommand}"
+                ToolTip.Tip="{Loc Key=Workbench.CollectAssets}" AutomationProperties.Name="{Loc Key=Workbench.CollectAssets}">
+          <icons:MaterialIcon Kind="FolderDownload" />
+        </Button>
+        <common:ToolbarToggleButton Name="AssetListViewButton" Command="{Binding ListViewCommand}" IsChecked="{Binding IsListView, Mode=OneWay}"
+                                    ToolTip.Tip="{Loc Key=Workbench.AssetListView}" AutomationProperties.Name="{Loc Key=Workbench.AssetListView}">
+          <icons:MaterialIcon Kind="ViewList" />
+        </common:ToolbarToggleButton>
+        <common:ToolbarToggleButton Name="AssetIconViewButton" Command="{Binding IconViewCommand}" IsChecked="{Binding IsIconView, Mode=OneWay}"
+                                    ToolTip.Tip="{Loc Key=Workbench.AssetIconView}" AutomationProperties.Name="{Loc Key=Workbench.AssetIconView}">
+          <icons:MaterialIcon Kind="ViewGrid" />
+        </common:ToolbarToggleButton>
+      </StackPanel>
     </Grid>
-    <StackPanel Grid.Row="1" Spacing="5">
-      <TextBox PlaceholderText="{Loc Key=Workbench.SearchAssets}" Text="{Binding Search, Mode=TwoWay}" />
-      <CheckBox Content="{Loc Key=Workbench.AutoCopySources}" IsChecked="{Binding AutoCopyToSources, Mode=TwoWay}" />
-    </StackPanel>
-    <Grid Grid.Row="2" ColumnDefinitions="*,2*" ColumnSpacing="5">
-      <Grid RowDefinitions="Auto,*,Auto" RowSpacing="4">
+    <Grid Grid.Row="1" Name="AssetBrowserColumns">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="140" MinWidth="80" MaxWidth="640" />
+        <ColumnDefinition Width="6" />
+        <ColumnDefinition Width="*" MinWidth="88" />
+      </Grid.ColumnDefinitions>
+      <Grid RowDefinitions="Auto,*" RowSpacing="4">
         <Grid ColumnDefinitions="*,Auto">
           <TextBlock Classes="field" Text="{Loc Key=Workbench.AssetFolders}" VerticalAlignment="Center" />
           <Button Grid.Column="1" Classes="icon-button" Command="{Binding AddFolderCommand}"
@@ -26,45 +64,29 @@
             <icons:MaterialIcon Kind="FolderPlus" />
           </Button>
         </Grid>
-      <TreeView Grid.Row="1" Name="FolderTree" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder, Mode=TwoWay}" DragDrop.AllowDrop="True">
-        <TreeView.Styles><Style Selector="TreeViewItem"><Setter Property="IsExpanded" Value="True" /></Style></TreeView.Styles>
-        <TreeView.ItemTemplate>
-          <TreeDataTemplate x:DataType="vm:AssetFolderNode" ItemsSource="{Binding Children}">
-            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-          </TreeDataTemplate>
-        </TreeView.ItemTemplate>
-      </TreeView>
-        <StackPanel Grid.Row="2" IsVisible="{Binding HasSelectedFolder}" Spacing="4">
-          <TextBox PlaceholderText="{Loc Key=Workbench.AssetFolderName}" Text="{Binding FolderNameDraft, Mode=TwoWay}" />
-          <StackPanel Orientation="Horizontal" Spacing="4">
-            <Button Classes="icon-button" Command="{Binding RenameFolderCommand}"
-                    ToolTip.Tip="{Loc Key=Workbench.RenameAssetFolder}" AutomationProperties.Name="{Loc Key=Workbench.RenameAssetFolder}">
-              <icons:MaterialIcon Kind="Pencil" />
-            </Button>
-            <Button Classes="icon-button" Command="{Binding RemoveFolderCommand}"
-                    ToolTip.Tip="{Loc Key=Workbench.RemoveAssetFolder}" AutomationProperties.Name="{Loc Key=Workbench.RemoveAssetFolder}">
-              <icons:MaterialIcon Kind="FolderRemove" />
-            </Button>
-          </StackPanel>
-        </StackPanel>
+        <TreeView Grid.Row="1" Name="FolderTree" ItemsSource="{Binding Folders}" SelectedItem="{Binding SelectedFolder, Mode=TwoWay}" DragDrop.AllowDrop="True">
+          <TreeView.Styles><Style Selector="TreeViewItem"><Setter Property="IsExpanded" Value="True" /></Style></TreeView.Styles>
+          <TreeView.ItemTemplate>
+            <TreeDataTemplate x:DataType="vm:AssetFolderNode" ItemsSource="{Binding Children}">
+              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+            </TreeDataTemplate>
+          </TreeView.ItemTemplate>
+          <TreeView.ContextMenu>
+            <ContextMenu Opening="OnFolderMenuOpening" Closed="OnFolderMenuClosed">
+              <MenuItem Name="RenameFolderMenuItem" Header="{Loc Key=Workbench.RenameAssetFolder}" Click="OnRenameFolder" />
+              <MenuItem Name="RemoveFolderMenuItem" Header="{Loc Key=Workbench.RemoveAssetFolder}" Click="OnRemoveFolder" />
+            </ContextMenu>
+          </TreeView.ContextMenu>
+        </TreeView>
       </Grid>
-      <ListBox Grid.Column="1" Name="AssetList" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem, Mode=TwoWay}" DragDrop.AllowDrop="True">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:AssetLibraryRow">
-            <Grid ColumnDefinitions="56,*" ColumnSpacing="6" Margin="2">
-              <controls:AssetThumbnail Width="56" Height="48" Asset="{Binding Asset}" Directory="{Binding Directory}" Stretch="Uniform" />
-              <StackPanel Grid.Column="1" Spacing="2">
-                <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                <TextBlock Text="{Binding UsageLabel}" Classes="field" />
-                <TextBlock Text="{Binding StorageLabel}" Classes="field" />
-                <TextBlock Text="{Binding Status}" TextWrapping="Wrap" Foreground="{DynamicResource PreviewMuted}" />
-              </StackPanel>
-            </Grid>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
+      <GridSplitter Name="AssetFolderSplitter" Grid.Column="1" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
+      <ListBox Grid.Column="2" Name="AssetList" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled" DragDrop.AllowDrop="True">
+        <ListBox.Styles><Style Selector="ListBoxItem"><Setter Property="Padding" Value="4" /></Style></ListBox.Styles>
       </ListBox>
     </Grid>
-    <StackPanel Grid.Row="3" Spacing="4" IsVisible="{Binding HasSelectedItem}">
+    <StackPanel Grid.Row="2" Spacing="4" IsVisible="{Binding HasSelectedItem}">
       <TextBox PlaceholderText="{Loc Key=Workbench.AssetName}" Text="{Binding NameDraft, Mode=TwoWay}" />
       <StackPanel Orientation="Horizontal" Spacing="4">
         <Button Classes="icon-button" Command="{Binding RenameItemCommand}"

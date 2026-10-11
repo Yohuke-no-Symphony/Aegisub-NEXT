@@ -79,6 +79,18 @@ public sealed class ProjectSettingsViewModel : ObservableObject
         }
     }
 
+    public bool CopyImportedAssetsToSources
+    {
+        get => preferences.CopyImportedAssetsToSources;
+        set
+        {
+            if (preferences.CopyImportedAssetsToSources != value)
+            {
+                Apply(preferences with { CopyImportedAssetsToSources = value });
+            }
+        }
+    }
+
     /// <summary>确认单字段的有效输入；无效输入保留原文且不通知偏好更新。</summary>
     public bool Commit(ProjectSettingsField field)
     {
@@ -149,6 +161,7 @@ public sealed class ProjectSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(Preferences));
         OnPropertyChanged(nameof(AutoSaveEnabled));
         OnPropertyChanged(nameof(BackupEnabled));
+        OnPropertyChanged(nameof(CopyImportedAssetsToSources));
     }
 
     /// <summary>显示目录选择等界面操作的诊断。</summary>
@@ -173,6 +186,7 @@ public sealed class ProjectSettingsViewModel : ObservableObject
         OnPropertyChanged(nameof(Preferences));
         OnPropertyChanged(nameof(AutoSaveEnabled));
         OnPropertyChanged(nameof(BackupEnabled));
+        OnPropertyChanged(nameof(CopyImportedAssetsToSources));
         Changed?.Invoke(this, new(next));
     }
 

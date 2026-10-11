@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using AegiNext.Desktop.Settings.Projects;
 
 namespace AegiNext.Desktop.Settings.Transfer;
 
@@ -51,9 +52,10 @@ internal static class SettingsTransferJson
             {
                 foreach (var property in info.Properties)
                 {
-                    var optionalUpdatePreference = info.Type == typeof(WorkbenchPreferences) &&
-                        property.Name is nameof(WorkbenchPreferences.AutoCheckUpdates) or nameof(WorkbenchPreferences.UpdateChannel);
-                    property.IsRequired = property.Get is not null && property.Set is not null && !optionalUpdatePreference;
+                    var optionalPreference = info.Type == typeof(WorkbenchPreferences) &&
+                        property.Name is nameof(WorkbenchPreferences.AutoCheckUpdates) or nameof(WorkbenchPreferences.UpdateChannel) or nameof(WorkbenchPreferences.AssetBrowser) ||
+                        info.Type == typeof(ProjectPreferences) && property.Name == nameof(ProjectPreferences.CopyImportedAssetsToSources);
+                    property.IsRequired = property.Get is not null && property.Set is not null && !optionalPreference;
                 }
             }
         });

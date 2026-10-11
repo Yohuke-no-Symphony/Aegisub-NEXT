@@ -26,4 +26,8 @@ internal interface IWorkbenchDialogService
     Task<TrackStyleUpdateDecision> ConfirmTrackStyleChangeAsync(string trackName, string presetName, int subtitleCount);
     Task<bool> ConfirmTrackDeletionAsync(string trackName, int subtitleCount, CancellationToken cancellationToken)
         => Task.FromResult(false);
+    Task<string?> RenameAssetFolderAsync(string name, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
+    Task<bool> ConfirmAssetFolderDeletionAsync(string name, CancellationToken cancellationToken = default)
+        => Task.FromResult(false);
 }

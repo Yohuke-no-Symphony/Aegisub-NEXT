@@ -1,10 +1,27 @@
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Projects;
+using System.Text;
+using System.Text.Json.Nodes;
 
 namespace AegiNext.Desktop.Tests;
 
 public sealed class ProjectPreferencesTests
 {
+    [Fact]
+    public void PreviousSettingsExportUsesDefaultsForNewAssetPreferences()
+    {
+        var preferences = new WorkbenchPreferences { Projects = new() { AutoSaveIntervalMinutes = 9 } };
+        var json = JsonNode.Parse(WorkbenchPreferencesStore.Serialize(preferences))!;
+        Assert.True(json.AsObject().Remove(nameof(WorkbenchPreferences.AssetBrowser)));
+        Assert.True(json[nameof(WorkbenchPreferences.Projects)]!.AsObject().Remove(nameof(ProjectPreferences.CopyImportedAssetsToSources)));
+
+        var restored = WorkbenchPreferencesStore.Deserialize(Encoding.UTF8.GetBytes(json.ToJsonString()));
+
+        Assert.Equal(preferences, restored);
+        Assert.True(restored.Projects.CopyImportedAssetsToSources);
+        Assert.Equal(new(), restored.AssetBrowser);
+    }
+
     [Fact]
     public async Task LegacyPreferencesUseProtectionDefaultsWithoutRewritingTheFile()
     {
@@ -27,6 +44,7 @@ public sealed class ProjectPreferencesTests
         Assert.True(Path.IsPathFullyQualified(preferences.Projects.WorkspaceRoot));
         preferences.Projects.Validate();
         Assert.True(preferences.Projects.AutoSaveEnabled);
+        Assert.True(preferences.Projects.CopyImportedAssetsToSources);
         Assert.Equal(2, preferences.Projects.AutoSaveIntervalMinutes);
         Assert.True(preferences.Projects.BackupEnabled);
         Assert.Equal(5, preferences.Projects.BackupIntervalMinutes);
@@ -45,7 +63,8 @@ public sealed class ProjectPreferencesTests
             Projects = new()
             {
                 WorkspaceRoot = Path.Combine(directory.Path, "项目 空间"), AutoSaveEnabled = false,
-                AutoSaveIntervalMinutes = 3, BackupIntervalMinutes = 7, MaximumBackupCount = 4
+                AutoSaveIntervalMinutes = 3, BackupIntervalMinutes = 7, MaximumBackupCount = 4,
+                CopyImportedAssetsToSources = false
             }
         };
 
@@ -53,6 +72,7 @@ public sealed class ProjectPreferencesTests
 
         Assert.Equal(expected, store.Load());
         Assert.NotEqual(expected, expected with { Projects = expected.Projects with { BackupEnabled = false } });
+        Assert.NotEqual(expected, expected with { Projects = expected.Projects with { CopyImportedAssetsToSources = true } });
         Assert.NotEqual(expected.GetHashCode(), (expected with { Projects = expected.Projects with { MaximumBackupCount = 9 } }).GetHashCode());
     }
 

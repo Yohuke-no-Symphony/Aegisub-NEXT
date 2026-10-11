@@ -3,6 +3,7 @@ using System.Windows.Input;
 using AegiNext.Application;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.I18n;
+using AegiNext.Desktop.Settings.Assets;
 using AegiNext.Desktop.Workspace;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,7 +17,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
     private AssetLibraryRow? selectedItem;
     private string search = string.Empty;
     private string nameDraft = string.Empty;
-    private string folderNameDraft = string.Empty;
     private bool refreshing;
     private bool checking;
     private bool disposed;
@@ -38,15 +38,14 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
                 new(id, Localization.Get("Workbench.NewAssetFolder"), SelectedFolder?.Id)));
             SelectedFolder = FindFolder(Folders[0], id);
         }));
-        RenameFolderCommand = EditCommand(document => SelectedFolder?.Id is { } id
-            ? ProjectEditingOperations.RenameAssetFolder(document, id, FolderNameDraft.Trim()) : document);
-        RemoveFolderCommand = EditCommand(document => SelectedFolder?.Id is { } id
-            ? ProjectEditingOperations.RemoveAssetFolder(document, id) : document);
+        ListViewCommand = new RelayCommand(() => SetViewMode(AssetBrowserViewMode.LIST));
+        IconViewCommand = new RelayCommand(() => SetViewMode(AssetBrowserViewMode.ICONS));
         RenameItemCommand = EditCommand(document => SelectedItem is { } item
             ? ProjectEditingOperations.RenameAssetLibraryItem(document, item.Id, NameDraft.Trim()) : document);
         RemoveItemCommand = EditCommand(document => SelectedItem is { } item
             ? ProjectEditingOperations.RemoveUnusedAssetLibraryItems(document, [item.Id]) : document);
         session.Editor.StateChanged += OnDocumentChanged;
+        session.PreferencesChanged += OnPreferencesChanged;
         Localization.LanguageChanged += OnLanguageChanged;
         Refresh();
     }
@@ -59,12 +58,16 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
     public ICommand RelocateCommand { get; }
     public ICommand CollectCommand { get; }
     public ICommand AddFolderCommand { get; }
-    public ICommand RenameFolderCommand { get; }
-    public ICommand RemoveFolderCommand { get; }
+    public ICommand ListViewCommand { get; }
+    public ICommand IconViewCommand { get; }
     public ICommand RenameItemCommand { get; }
     public ICommand RemoveItemCommand { get; }
     public bool HasSelectedItem => SelectedItem is not null;
     public bool HasSelectedFolder => SelectedFolder?.Id is not null;
+    public bool IsListView => session.Preferences.AssetBrowser.ViewMode == AssetBrowserViewMode.LIST;
+    public bool IsIconView => !IsListView;
+    public double ThumbnailSize => session.Preferences.AssetBrowser.ThumbnailSize;
+    public double FolderPaneWidth => session.Preferences.AssetBrowser.FolderPaneWidth;
 
     public AssetFolderNode? SelectedFolder
     {
@@ -74,7 +77,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
             if (SetProperty(ref selectedFolder, value))
             {
                 OnPropertyChanged(nameof(HasSelectedFolder));
-                FolderNameDraft = value?.Id is null ? string.Empty : value.Name;
                 if (!refreshing)
                 {
                     RefreshItems();
@@ -106,19 +108,47 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
         }
     }
     public string NameDraft { get => nameDraft; set => SetProperty(ref nameDraft, value); }
-    public string FolderNameDraft { get => folderNameDraft; set => SetProperty(ref folderNameDraft, value); }
-    public bool AutoCopyToSources
+    internal void SetViewMode(AssetBrowserViewMode mode)
     {
-        get => session.Editor.Snapshot.AssetLibrary.AutoCopyToSources;
-        set
+        if (disposed)
         {
-            if (!refreshing && value != AutoCopyToSources)
-            {
-                _ = session.RunCommandAsync(() => session.EditAsync(() => session.Editor.Apply("Set image import policy",
-                    document => document with { AssetLibrary = document.AssetLibrary with { AutoCopyToSources = value } })));
-            }
+            return;
+        }
+        if (session.Preferences.AssetBrowser.ViewMode != mode)
+        {
+            session.UpdatePreferences(current => current with { AssetBrowser = current.AssetBrowser with { ViewMode = mode } });
+        }
+        else
+        {
+            OnPropertyChanged(nameof(IsListView));
+            OnPropertyChanged(nameof(IsIconView));
         }
     }
+
+    internal void ResizeThumbnails(double delta)
+    {
+        if (disposed || !double.IsFinite(delta))
+        {
+            return;
+        }
+        var size = Math.Clamp(ThumbnailSize + delta * 8, AssetBrowserPreferences.MINIMUM_THUMBNAIL_SIZE,
+            AssetBrowserPreferences.MAXIMUM_THUMBNAIL_SIZE);
+        session.UpdatePreferences(current => current with { AssetBrowser = current.AssetBrowser with { ThumbnailSize = size } });
+    }
+
+    internal void SetFolderPaneWidth(double width)
+    {
+        if (disposed || !double.IsFinite(width))
+        {
+            return;
+        }
+        width = Math.Clamp(width, AssetBrowserPreferences.MINIMUM_FOLDER_WIDTH, AssetBrowserPreferences.MAXIMUM_FOLDER_WIDTH);
+        session.UpdatePreferences(current => current with { AssetBrowser = current.AssetBrowser with { FolderPaneWidth = width } });
+    }
+
+    internal AssetFolderEditTarget? CaptureFolderTarget(Guid id) => session.CaptureAssetFolderTarget(id);
+    internal Task RenameFolderAsync(AssetFolderEditTarget target) => session.RenameAssetFolderAsync(target);
+    internal Task RemoveFolderAsync(AssetFolderEditTarget target) => session.RemoveAssetFolderAsync(target);
 
     internal Task MoveItemAsync(Guid itemId, Guid? folderId) => session.RunCommandAsync(() => session.EditAsync(() =>
         session.Editor.Apply("Move asset into folder", document => ProjectEditingOperations.MoveAssetLibraryItem(document, itemId, folderId))));
@@ -164,6 +194,18 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
     private void OnDocumentChanged(object? sender, ProjectEditorChangedEventArgs e) => Refresh();
     private void OnLanguageChanged(object? sender, EventArgs e) => Refresh();
 
+    private void OnPreferencesChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(IsListView));
+        OnPropertyChanged(nameof(IsIconView));
+        OnPropertyChanged(nameof(ThumbnailSize));
+        OnPropertyChanged(nameof(FolderPaneWidth));
+        foreach (var item in Items)
+        {
+            item.ThumbnailSize = ThumbnailSize;
+        }
+    }
+
     private void Refresh()
     {
         var folderId = SelectedFolder?.Id;
@@ -173,7 +215,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
             Folders.Clear();
             Folders.Add(BuildFolder(null));
             SelectedFolder = FindFolder(Folders[0], folderId) ?? Folders[0];
-            OnPropertyChanged(nameof(AutoCopyToSources));
         }
         finally
         {
@@ -204,7 +245,10 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
                      .OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             var asset = document.Assets.Single(asset => asset.Id == item.AssetId);
-            Items.Add(new(item, asset, session.ProjectDirectory, document.Layers.Count(layer => layer.Image?.AssetId == asset.Id)));
+            Items.Add(new(item, asset, session.ProjectDirectory, document.Layers.Count(layer => layer.Image?.AssetId == asset.Id))
+            {
+                ThumbnailSize = ThumbnailSize
+            });
         }
         SelectedItem = Items.FirstOrDefault(item => item.Id == id);
     }
@@ -219,6 +263,7 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
         availabilityCancellation.Cancel();
         availabilityCancellation.Dispose();
         session.Editor.StateChanged -= OnDocumentChanged;
+        session.PreferencesChanged -= OnPreferencesChanged;
         Localization.LanguageChanged -= OnLanguageChanged;
     }
 }

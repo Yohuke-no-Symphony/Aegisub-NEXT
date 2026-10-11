@@ -13,6 +13,28 @@ internal sealed class WindowWorkbenchDialogService : IWorkbenchDialogService
     private readonly Func<IStorageProvider>? storageProvider;
     private readonly Action<Window>? registerWindow;
 
+    /// <summary>重命名项目素材分类；取消或关闭返回空值。</summary>
+    public async Task<string?> RenameAssetFolderAsync(string name, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dialog = new AssetFolderRenameDialog(name);
+        registerWindow?.Invoke(dialog);
+        var answer = dialog.ShowDialog<string?>(ownerProvider());
+        using var registration = cancellationToken.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(null)));
+        return await answer;
+    }
+
+    /// <summary>确认删除素材分类，保留子文件夹和源文件。</summary>
+    public async Task<bool> ConfirmAssetFolderDeletionAsync(string name, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dialog = new AssetFolderDeletionDialog(name);
+        registerWindow?.Invoke(dialog);
+        var answer = dialog.ShowDialog<bool>(ownerProvider());
+        using var registration = cancellationToken.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(false)));
+        return await answer;
+    }
+
     internal WindowWorkbenchDialogService(Window owner, Func<IStorageProvider>? storageProvider = null,
         Action<Window>? registerWindow = null) : this(() => owner, storageProvider, registerWindow)
     {

@@ -84,7 +84,7 @@ internal sealed partial class AssetLibraryCoordinator(WorkbenchSession session, 
         var revision = session.TaskInputRevision;
         var directory = session.ProjectDirectory;
         var placement = capturedPlacement ?? CapturePlacement(position, time, trackId);
-        var requests = paths.Select(path => new ProjectImageImport(path, forceManaged || captured.AssetLibrary.AutoCopyToSources)).ToArray();
+        var requests = paths.Select(path => new ProjectImageImport(path, forceManaged || session.Preferences.Projects.CopyImportedAssetsToSources)).ToArray();
         Guid? selectedClip = null;
         await session.ApplicationContext.Tasks.Submit(new AssetLibraryTask(session, async context =>
         {
@@ -170,9 +170,10 @@ internal sealed partial class AssetLibraryCoordinator(WorkbenchSession session, 
         {
             return;
         }
+        var copyToSources = session.Preferences.Projects.CopyImportedAssetsToSources;
         await session.ApplicationContext.Tasks.Submit(new AssetLibraryTask(session, async context =>
         {
-            await using var prepared = await ProjectImageResources.PrepareAsync([new(path, captured.AssetLibrary.AutoCopyToSources)],
+            await using var prepared = await ProjectImageResources.PrepareAsync([new(path, copyToSources)],
                 directory, context.CancellationToken);
             var info = (await ProbeAsync(prepared.Assets, context.CancellationToken))[0];
             var asset = prepared.Assets[0];

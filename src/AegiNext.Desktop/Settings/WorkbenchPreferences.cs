@@ -7,6 +7,7 @@ using AegiNext.Desktop.Settings.Projects;
 using AegiNext.Desktop.Settings.TimingPostProcessor;
 using AegiNext.Desktop.Settings.Media;
 using AegiNext.Desktop.Settings.AudioAnalysis;
+using AegiNext.Desktop.Settings.Assets;
 using AegiNext.Desktop.Updates;
 
 namespace AegiNext.Desktop.Settings;
@@ -38,6 +39,7 @@ public sealed record WorkbenchPreferences
     public bool TimelineWaveformVisible { get; init; } = true;
     public ImmutableArray<string> CollapsedEffectCategories { get; init; } = ["clip", "fill", "stroke", "shadow", "composite", "path", "animation"];
     public ProjectPreferences Projects { get; init; } = new();
+    public AssetBrowserPreferences AssetBrowser { get; init; } = new();
     public TimingPostProcessorPreferences TimingPostProcessor { get; init; } = new();
     public ImmutableArray<AudioDeviceCalibration> AudioCalibrations { get; init; } = [];
 
@@ -47,7 +49,7 @@ public sealed record WorkbenchPreferences
         if (Version != 1 || !IsValidLanguage(Language) ||
             !Enum.IsDefined(Theme) || !Enum.IsDefined(PreviewQuality) || !Enum.IsDefined(PreviewDecodeMode) || !Enum.IsDefined(UpdateChannel) || !float.IsFinite(Volume) || Volume is < 0 or > 1 ||
             SubtitleAuditionMilliseconds < 1 || MaximumConcurrentTasks is < 1 or > 32 || AccentColor is null || AccentColor.Length != 7 || AccentColor[0] != '#' ||
-            AccentColor.AsSpan(1).ContainsAnyExcept(hexadecimalCharacters) || ShortcutBindings.IsDefault || AudioGraph is null || AudioAnalysis is null || TimelineClips is null || Projects is null || TimingPostProcessor is null)
+            AccentColor.AsSpan(1).ContainsAnyExcept(hexadecimalCharacters) || ShortcutBindings.IsDefault || AudioGraph is null || AudioAnalysis is null || TimelineClips is null || Projects is null || AssetBrowser is null || TimingPostProcessor is null)
         {
             throw new InvalidDataException("桌面偏好无效或版本不受支持。");
         }
@@ -61,6 +63,7 @@ public sealed record WorkbenchPreferences
         AudioAnalysis.Validate();
         TimelineClips.Validate();
         Projects.Validate();
+        AssetBrowser.Validate();
         TimingPostProcessor.Validate();
         if (AudioCalibrations.IsDefault || AudioCalibrations.Length > 32 || AudioCalibrations.Any(value => value is null) ||
             AudioCalibrations.Select(value => (value.DeviceId, value.Backend, value.SampleRate, value.Channels)).Distinct().Count() != AudioCalibrations.Length)
@@ -110,7 +113,7 @@ public sealed record WorkbenchPreferences
                TimelineSnapEnabled == other.TimelineSnapEnabled && TimelineStepEnabled == other.TimelineStepEnabled &&
                TimelineSpectrumVisible == other.TimelineSpectrumVisible && TimelineWaveformVisible == other.TimelineWaveformVisible &&
                CollapsedEffectCategories.AsSpan().SequenceEqual(other.CollapsedEffectCategories.AsSpan()) &&
-               Projects == other.Projects && TimingPostProcessor == other.TimingPostProcessor &&
+               Projects == other.Projects && AssetBrowser == other.AssetBrowser && TimingPostProcessor == other.TimingPostProcessor &&
                AudioCalibrations.AsSpan().SequenceEqual(other.AudioCalibrations.AsSpan()) &&
                ShortcutBindings.AsSpan().SequenceEqual(other.ShortcutBindings.AsSpan());
     }
@@ -144,6 +147,7 @@ public sealed record WorkbenchPreferences
             hash.Add(category);
         }
         hash.Add(Projects);
+        hash.Add(AssetBrowser);
         hash.Add(TimingPostProcessor);
         foreach (var calibration in AudioCalibrations)
         {

@@ -18,6 +18,14 @@
         </StackPanel>
       </Border>
       <Border Classes="card">
+        <StackPanel Spacing="8">
+          <TextBlock Text="{Loc Key=Settings.ProjectAssetImport}" />
+          <CheckBox Name="CopyImportedAssetsToggle" Content="{Loc Key=Settings.CopyImportedAssetsToSources}"
+                    IsChecked="{Binding CopyImportedAssetsToSources, Mode=TwoWay}" />
+          <TextBlock Classes="field" Text="{Loc Key=Settings.CopyImportedAssetsHint}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+      <Border Classes="card">
         <StackPanel Spacing="12">
           <CheckBox Name="AutoSaveToggle" Content="{Loc Key=Settings.ProjectAutoSave}"
                     IsChecked="{Binding AutoSaveEnabled, Mode=TwoWay}" />

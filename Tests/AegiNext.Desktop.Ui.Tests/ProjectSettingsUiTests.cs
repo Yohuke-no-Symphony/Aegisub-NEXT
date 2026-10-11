@@ -15,6 +15,45 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class ProjectSettingsUiTests
 {
     [AvaloniaFact]
+    public void ImportCopyToggleUpdatesGlobalProjectPreferencesWithoutDiscardingInvalidDrafts()
+    {
+        using var environment = new UiTestEnvironment();
+        var preferences = new WorkbenchPreferences { Projects = new() { WorkspaceRoot = environment.DirectoryPath } };
+        var window = new SettingsWindow(preferences);
+        try
+        {
+            window.Show();
+            window.SelectPage(SettingsPage.PROJECTS);
+            var changes = new List<ProjectPreferences>();
+            window.ProjectsChanged += (_, change) =>
+            {
+                changes.Add(change.Preferences);
+                preferences = preferences with { Projects = change.Preferences };
+                window.UpdatePreferences(preferences);
+            };
+            var interval = UiTestActions.Find<NumericDraftInput>(window, "AutoSaveIntervalInput");
+            interval.RawText = "3e-";
+            UiTestActions.Click(window, "CopyImportedAssetsToggle");
+
+            Assert.False(Assert.Single(changes).CopyImportedAssetsToSources);
+            Assert.Equal("3e-", interval.RawText);
+            Localization.SetLanguage("zh-CN");
+            Dispatcher.UIThread.RunJobs();
+            var toggle = UiTestActions.Find<CheckBox>(window, "CopyImportedAssetsToggle");
+            Assert.False(toggle.IsChecked);
+            Assert.Equal(Localization.Get("Settings.CopyImportedAssetsToSources"), toggle.Content);
+            Assert.Single(changes);
+            UiTestActions.Click(window, "CopyImportedAssetsToggle");
+            Assert.True(preferences.Projects.CopyImportedAssetsToSources);
+            Assert.Equal(2, changes.Count);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task ProjectAndThemePreferenceUpdatesKeepDirectLanguageSelection()
     {
         using var environment = new UiTestEnvironment();

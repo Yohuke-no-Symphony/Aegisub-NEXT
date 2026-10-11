@@ -1,6 +1,6 @@
 namespace AegiNext.Desktop.Settings.Projects;
 
-/// <summary>项目的默认位置及独立的自动保存、历史备份策略。</summary>
+/// <summary>项目的默认位置、素材导入及独立的自动保存、历史备份策略。</summary>
 public sealed record ProjectPreferences
 {
     public string WorkspaceRoot { get; init; } = ResolveDefaultWorkspaceRoot(
@@ -11,6 +11,7 @@ public sealed record ProjectPreferences
     public bool BackupEnabled { get; init; } = true;
     public int BackupIntervalMinutes { get; init; } = 5;
     public int MaximumBackupCount { get; init; } = 20;
+    public bool CopyImportedAssetsToSources { get; init; } = true;
 
     internal static string ResolveDefaultWorkspaceRoot(string documents, string profile, string temporary)
     {
