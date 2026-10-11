@@ -9,14 +9,39 @@
 | `src/AegiNext.Core` | Rational time, immutable project/scene models, validation, animation, masks, and effect DSL |
 | `src/AegiNext.Application` | Editing transactions, Undo/Redo, storage/resources, and subtitle format exchange |
 | `src/AegiNext.Rendering` | UI-independent Skia/HarfBuzz shaping, scene geometry, and linear F16 composition |
-| `src/AegiNext.Media` | Probing, frame ownership, native adapters, playback/analysis, preview, and export orchestration |
+| `src/AegiNext.Media` | Probing, frame ownership, native adapters, playback/analysis, and preview |
+| `src/AegiNext.Export` | Export capabilities/settings, presets, worker protocol, native export sessions, and final muxing orchestration |
 | `src/AegiNext.Desktop` | Avalonia workspace, panels, controls, menus, preferences, and platform hosts |
-| `src/AegiNext.ExportWorker` | Independent `aegn-exporter` process sharing Core and Rendering |
+| `src/AegiNext.ExportWorker` | Independent `aegn-exporter` host using Application to read snapshots and calling Export |
 | `native/decoder`, `native/audio`, `native/export` | Separate FFmpeg/SDL3 C ABIs |
 | `native/` | Optional macOS HDR diagnostic backend |
 | `Tests/`, `scripts/` | Focused verification, build, and packaging tools |
 
-Core has no Avalonia, Dock, FFmpeg, Skia, or filesystem dependency. Application owns business edits; Desktop composes services. Rendering and Media use explicit contracts and resources; business view models do not hold controls, Dock objects, or bitmaps.
+Core has no Avalonia, Dock, FFmpeg, Skia, or filesystem dependency. Application owns business edits; Desktop composes services. Rendering and Media use explicit contracts and resources. Export depends on Core, Media, and Rendering; Desktop and the worker call Export. Media has no reverse dependency on Export and owns neither its native library nor its presets. Business view models do not hold controls, Dock objects, or bitmaps.
+
+## Video export boundaries
+
+`AegiNext.Export` is an independent managed module. It defines formats, quality ranges, containers, and hardware candidates shared by settings validation, desktop drafts, and completion checks. CPU uses libx264, libx265, libvpx, libvpx-vp9, or libsvtav1. VP8 CQ saves both quality and bitrate; other formats' CRF modes use quality, while VBR/CBR use an explicit target bitrate. See [Video export](export.md) for user ranges, defaults, and platform support.
+
+Desktop freezes the project and settings, then starts an independent worker. Application retains ownership of tasks, editing transactions, and persistence. The worker checks source-audio/container compatibility before video encoding, calls native export for linear composition and encoding, and muxes final MP4, MKV, or WebM through the same native session. Intermediate NUT retains source presentation timestamps. Static HDR fields reach final muxing through explicit structures; absent temporary-container fields cannot be treated as evidence that source metadata is absent. External tools prepare AAC/Opus tracks; native muxing retains packets for copied audio.
+
+Native results read back the encoded video and final container to verify actual codec, bit depth, color, and static HDR. The parent also checks decoding backend, encoder, rate mode, parameter precision, and output evidence against the request before atomically committing the file. Rate-control evidence distinguishes `ConfiguredAndInitialized` from `RuntimeQueried`; QSV currently uses the former. The pinned Windows FFmpeg statically links its oneVPL dispatcher, so its session must not be passed to another dispatcher or inspected through private layouts to claim runtime-query evidence.
+
+Current native export **ABI 6** uses an **88-byte** request, **488-byte** result, **96-byte** HDR structure, and **32-byte** muxing request. The subtitle foreground structure remains **24 bytes**. Worker protocol is **3**. Rebuild and deploy the application, worker, native library, and contract fingerprint together with the same configuration. Export presets use version **2**; strict version 1 migration renames legacy `crf` to `quality` while preserving settings and identities. Unknown, missing, duplicate fields and batch conflicts still reject loading or import.
+
+Shared speed names have explicit CPU mappings. x264/x265 use their named presets, libvpx/VP9 use `cpu-used`, and SVT-AV1 uses a numeric preset. Hardware backends map to their supported levels.
+
+| Speed | libvpx / VP9 `cpu-used` | SVT-AV1 `preset` |
+|---|---|---|
+| ultrafast | 8 | 9 |
+| superfast | 7 | 9 |
+| veryfast | 6 | 8 |
+| faster | 5 | 8 |
+| fast | 4 | 7 |
+| medium | 3 | 6 |
+| slow | 2 | 4 |
+| slower | 1 | 2 |
+| veryslow | 0 | 0 |
 
 ## Time and storage
 

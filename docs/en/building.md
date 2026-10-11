@@ -8,7 +8,7 @@ Use .NET SDK **10.0.401** (stable patches in the same feature band) and **PowerS
 
 Native builds need CMake, Ninja, a compiler, the shared FFmpeg SDK, and SDL3. macOS uses Homebrew and the Apple SDK; Windows uses Scoop and x64 MinGW. Versions are defined in `ffmpeg-toolchain.json` and native dependency manifests; a CLI-only FFmpeg distribution is insufficient. Current media locks are FFmpeg 9.0.2 and SDL3 3.4.16.
 
-Use `-InstallDependencies` to prepare locked SDKs in `.dependencies/<RID>/<name>/<version>/`, where RID is `osx-arm64`, `osx-x64`, or `win-x64`. macOS builds FFmpeg, SDL3, libplacebo, Vulkan-Headers, Vulkan-Loader, shaderc, LittleCMS, x264, x265, and dav1d from sources locked in `native/sdk-dependencies.json`, and downloads the official MoltenVK SDK. Windows downloads the pinned FFmpeg shared development SDK and SDL3 MinGW SDK. Build tools remain system installations; missing supported tools are installed through Homebrew/Scoop.
+Use `-InstallDependencies` to prepare locked SDKs in `.dependencies/<RID>/<name>/<version>/`, where RID is `osx-arm64`, `osx-x64`, or `win-x64`. macOS builds FFmpeg, SDL3, libplacebo, Vulkan-Headers, Vulkan-Loader, shaderc, LittleCMS, x264, x265, dav1d, libvpx, SVT-AV1, and Opus from sources locked in `native/sdk-dependencies.json`, and downloads the official MoltenVK SDK. Added software encoding dependencies are **libvpx 1.17.0, SVT-AV1 4.2.0, and Opus 1.6.1**. Windows uses the pinned **Gyan FFmpeg 9.0.2 shared development SDK** and SDL3 MinGW SDK. Build tools remain system installations; missing supported tools are installed through Homebrew/Scoop.
 
 ```powershell
 # Both platforms: prepare media SDKs and build the Debug workbench
@@ -19,8 +19,9 @@ pwsh ./build.ps1 -Target Native -InstallDependencies
 
 The first source build downloads and compiles dependencies; `-Jobs` controls parallelism. Archives are verified against SHA256 and cached in `.dependencies/downloads/`. Installation receipts record recipe fingerprints and file checksums. Repeated installs reuse valid SDKs and repair managed SDKs when damaged or outdated. Staging, backups, validation, and rollback protect existing SDKs; retry recovers interrupted replacements. Failed build logs and sources remain under `.dependencies/.work/`. Unmanaged SDK directories and system library installations are preserved. The entire `.dependencies/` tree is ignored by Git.
 
-The macOS FFmpeg recipe enables x264, x265 (8/10 bit), dav1d software AV1 decoding, AAC, MP4/Matroska, and system media, TLS, compression, and character conversion support, with third-party autodetection disabled. Built-in decoders also cover formats such as ProRes, VP8/VP9, MPEG-2/4, MJPEG, and FFV1. Environment checks require a working `libdav1d` decoder in the selected SDK on both platforms. Project dynamic libraries link only project dependencies and system frameworks. Publishing collects the runtime dependency closure and license notices, including dav1d.
+The macOS FFmpeg recipe enables x264, x265 (8/10 bit), libvpx VP8/VP9, SVT-AV1, dav1d software AV1 decoding, AAC/Opus, MP4/Matroska/WebM, and system media, TLS, compression, and character conversion support, with third-party autodetection disabled. Built-in decoders also cover formats such as ProRes, VP8/VP9, MPEG-2/4, MJPEG, and FFV1. Environment checks require a `libdav1d` decoder in the selected SDK on both platforms. Project dynamic libraries link only project dependencies and system frameworks. Publishing collects the runtime dependency closure and original license/patent notices, including dav1d, libvpx, SVT-AV1, and Opus.
 
+The `Export`/`Workbench` capability gate checks that the selected SDK includes libx264 8-bit, libx265 10-bit, VP8 8-bit, VP9/AV1 8/10-bit, AAC/Opus encoders, and all three muxers, with their declared pixel/sample formats. An older SDK with the same version can still fail if encoding features are absent. Update project-managed SDKs through `-InstallDependencies`; explicit SDKs must supply complete capabilities. Encoder registration, SDK short-clip checks, and actual export on the target device are separate validation layers. A registered hardware candidate does not establish physical GPU support.
 
 Run from the repository root:
 
@@ -75,13 +76,28 @@ Native output is `artifacts/native/<RID>/<Configuration>/`; intermediate managed
 
 ```powershell
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects Application
+pwsh -NoProfile -File ./build.ps1 -Target Workbench -RunTests -TestProjects Export
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects 'Desktop.Ui'
 dotnet test Tests/AegiNext.Core.Tests/AegiNext.Core.Tests.csproj -c Release --filter 'FullyQualifiedName~EffectScript'
 ```
 
-Valid project filters: Core, Application, Rendering, Media, Desktop, Desktop.Ui. No tests run without `-RunTests`; Workbench testing also runs the corresponding native CTest suites. Release restores only selected test projects.
+Valid project filters: Core, Application, Rendering, Media, Export, Desktop, Desktop.Ui. No tests run without `-RunTests`; Workbench testing also runs the corresponding native CTest suites. Release restores only selected test projects. Export settings, presets, ABI, and worker contracts belong in `Tests/AegiNext.Export.Tests`; desktop entry points and controls remain in Desktop/Desktop.Ui tests.
 
 Real media/device tests require matching native output and explicit switches: `AEGINEXT_RUN_DECODER_TESTS=1`, `AEGINEXT_RUN_AUDIO_TESTS=1`, and for the actual system device `AEGINEXT_RUN_SYSTEM_AUDIO_TESTS=1`, plus real tool paths. Otherwise native cases skip. See [Media](media.md).
+
+Real export tests additionally require all three absolute file paths: `AEGINEXT_EXPORT_WORKER_PATH`, `AEGINEXT_FFMPEG_PATH`, and `AEGINEXT_FFPROBE_PATH`. They skip if any is absent. First build Workbench with the matching configuration; for example, run software export checks for macOS arm64 in PowerShell:
+
+```powershell
+$codecTestRid = 'osx-arm64'
+$codecTestSdk = (Resolve-Path ".dependencies/$codecTestRid/ffmpeg/9.0.2").Path
+$toolSuffix = if ($IsWindows) { '.exe' } else { '' }
+$env:AEGINEXT_EXPORT_WORKER_PATH = (Resolve-Path "src/AegiNext.ExportWorker/bin/Release/net10.0/$codecTestRid/aegn-exporter.dll").Path
+$env:AEGINEXT_FFMPEG_PATH = "$codecTestSdk/bin/ffmpeg$toolSuffix"
+$env:AEGINEXT_FFPROBE_PATH = "$codecTestSdk/bin/ffprobe$toolSuffix"
+dotnet test Tests/AegiNext.Export.Tests/AegiNext.Export.Tests.csproj -c Release --runtime $codecTestRid -p:AegiNextRuntimeIdentifier=$codecTestRid --filter 'FullyQualifiedName~VideoRateControlExportTests'
+```
+
+Use `win-x64` on Windows or `osx-x64` on Intel Macs. Paths must identify the built worker and selected SDK. Software encoding/decoding and package relocation checks do not replace physical NVENC/QSV/AMF, audible playback, or desktop visual acceptance.
 
 Build-script QA:
 
@@ -98,7 +114,7 @@ Set `AEGINEXT_EXPORT_PROFILE=1` before starting `aegn-exporter` to write an `AEG
 
 Capture worker stderr directly when diagnosing performance; the desktop exporter consumes it. Measure complete export wall time separately, including worker startup and final remux. Use the same media, project snapshot, configuration, and build mode when comparing FPS. Internal resampling and composition use at most four threads per stage; GPU encoding can still be limited by CPU composition.
 
-Export ABI 5 explicitly reports updated, unchanged, or empty subtitle foreground. Native export retains its F32 buffer and reuses prepared coverage for stable revisions. Consecutive updates use the scalar composition path without rebuilding coverage; the first subsequent unchanged frame prepares coverage once. Video backgrounds still pass through the same full-frame YUV resampling. Rebuild the application and worker together after an ABI change.
+Export ABI 6 continues to report updated, unchanged, or empty subtitle foreground. Native export retains its F32 buffer and reuses prepared coverage for stable revisions. Consecutive updates use the scalar composition path without rebuilding coverage; the first subsequent unchanged frame prepares coverage once. Video backgrounds still pass through the same full-frame YUV resampling. Rebuild the application and worker together after an ABI change; see [Architecture](architecture.md#video-export-boundaries) for contract sizes and versions.
 
 One-frame decode prefetch is automatic after the first frame confirms the VideoToolbox hardware backend. Software and other backends remain serial by default. Set `AEGINEXT_EXPORT_PREFETCH=0` to disable prefetch or `1` to force it for any backend; other explicit values also select serial decoding. The producer owns decoding and snapshots frame color metadata before publication. Rendering and encoding remain on the export thread. `read_ms` measures decoder service time, which may overlap later stages; `prefetch_wait_ms` measures the export thread's actual wait. Compare complete wall time rather than adding overlapping stage durations. The profiler reports the queue capacity and peak queued/in-flight frames.
 

@@ -8,7 +8,7 @@
 
 原生构建需要 CMake、Ninja、编译器、共享 FFmpeg SDK 和 SDL3。macOS 使用 Homebrew 与 Apple SDK，Windows 使用 Scoop 和 x64 MinGW。版本由 `ffmpeg-toolchain.json` 及原生依赖清单定义，只有命令行工具的 FFmpeg 包不够；当前媒体锁定 FFmpeg 9.0.2、SDL3 3.4.16。
 
-使用 `-InstallDependencies` 自动在项目的 `.dependencies/<RID>/<库名>/<版本>/` 准备锁定 SDK；RID 为 `osx-arm64`、`osx-x64` 或 `win-x64`。macOS 按 `native/sdk-dependencies.json` 中锁定的源码构建 FFmpeg、SDL3、libplacebo、Vulkan-Headers、Vulkan-Loader、shaderc、LittleCMS、x264、x265 和 dav1d，并下载官方 MoltenVK SDK。Windows 下载固定版本的 FFmpeg 共享开发包和 SDL3 MinGW 开发包。CMake、Ninja、Meson、pkgconf、编译器等构建工具继续使用系统安装，缺失且可自动安装的工具由 Homebrew/Scoop 补齐。
+使用 `-InstallDependencies` 自动在项目的 `.dependencies/<RID>/<库名>/<版本>/` 准备锁定 SDK；RID 为 `osx-arm64`、`osx-x64` 或 `win-x64`。macOS 按 `native/sdk-dependencies.json` 中锁定的源码构建 FFmpeg、SDL3、libplacebo、Vulkan-Headers、Vulkan-Loader、shaderc、LittleCMS、x264、x265、dav1d、libvpx、SVT-AV1 和 Opus，并下载官方 MoltenVK SDK。新增软件编码依赖锁定为 **libvpx 1.17.0、SVT-AV1 4.2.0、Opus 1.6.1**。Windows 使用锁定的 **Gyan FFmpeg 9.0.2 共享开发包**和 SDL3 MinGW 开发包。CMake、Ninja、Meson、pkgconf、编译器等构建工具继续使用系统安装，缺失且可自动安装的工具由 Homebrew/Scoop 补齐。
 
 ```powershell
 # 两个平台：安装媒体 SDK，并构建 Debug 工作台
@@ -19,7 +19,9 @@ pwsh ./build.ps1 -Target Native -InstallDependencies
 
 首次源码构建需要下载和编译，`-Jobs` 控制并行数。下载包按 SHA256 校验后保存在 `.dependencies/downloads/`，安装记录保存配方指纹和文件校验值；重复执行复用有效 SDK，受管理的损坏或过期 SDK 会重新准备。安装采用临时目录、替换前备份和验证失败回滚，中断后重试可恢复已有备份；失败日志和源码保留在 `.dependencies/.work/`。不覆盖未带项目安装记录的手动 SDK，也不卸载或切换系统库版本。整个 `.dependencies/` 不提交 Git。
 
-macOS 的 FFmpeg 显式启用 x264、x265（8/10 bit）、dav1d 软件 AV1 解码、AAC、MP4/Matroska 及系统音视频、TLS、压缩和字符转换支持，关闭系统第三方库自动探测。内置解码器还覆盖 ProRes、VP8/VP9、MPEG-2/4、MJPEG、FFV1 等格式。两个平台的环境检查均要求所选 SDK 提供实际可用的 `libdav1d` 解码器。项目动态库只链接项目依赖和系统框架，发布收集包括 dav1d 在内的运行时依赖闭包及许可证。
+macOS 的 FFmpeg 显式启用 x264、x265（8/10 bit）、libvpx 的 VP8/VP9、SVT-AV1、dav1d 软件 AV1 解码、AAC/Opus、MP4/Matroska/WebM 及系统音视频、TLS、压缩和字符转换支持，关闭系统第三方库自动探测。内置解码器还覆盖 ProRes、VP8/VP9、MPEG-2/4、MJPEG、FFV1 等格式。两个平台的环境检查均要求所选 SDK 提供 `libdav1d` 解码器。项目动态库只链接项目依赖和系统框架，发布收集包括 dav1d、libvpx、SVT-AV1、Opus 在内的运行时依赖闭包及原始许可证、专利声明。
+
+`Export`/`Workbench` 的环境门禁检查 libx264 8-bit、libx265 10-bit、VP8 8-bit、VP9/AV1 8/10-bit、AAC/Opus 编码器及三个封装器是否已编入所选 SDK，并检查声明的像素/采样格式。版本相同但缺少编码功能的旧 SDK 仍会失败；受项目管理的 SDK 通过 `-InstallDependencies` 更新，显式指定的 SDK 需要自行提供完整能力。编码器注册、SDK 短片检查与目标设备实际导出属于不同验证层，硬件候选已注册不代表实体显卡可用。
 
 在仓库根目录执行：
 
@@ -74,13 +76,28 @@ FFmpeg SDK 按显式路径 → 项目 SDK → `FFMPEG_DIR` → 包管理器前�
 
 ```powershell
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects Application
+pwsh -NoProfile -File ./build.ps1 -Target Workbench -RunTests -TestProjects Export
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects 'Desktop.Ui'
 dotnet test Tests/AegiNext.Core.Tests/AegiNext.Core.Tests.csproj -c Release --filter 'FullyQualifiedName~EffectScript'
 ```
 
-项目筛选支持 Core、Application、Rendering、Media、Desktop、Desktop.Ui。未指定 `-RunTests` 不运行测试；Workbench 测试也执行对应的原生 CTest 套件。Release 仅还原选中的测试项目。
+项目筛选支持 Core、Application、Rendering、Media、Export、Desktop、Desktop.Ui。未指定 `-RunTests` 不运行测试；Workbench 测试也执行对应的原生 CTest 套件。Release 仅还原选中的测试项目。导出参数、预设、ABI 与 worker 合同测试位于 `Tests/AegiNext.Export.Tests`，桌面入口与控件行为留在 Desktop/Desktop.Ui 测试。
 
 真实媒体/设备测试需要匹配原生产物、实际工具路径和显式开关：`AEGINEXT_RUN_DECODER_TESTS=1`、`AEGINEXT_RUN_AUDIO_TESTS=1`；系统设备额外需要 `AEGINEXT_RUN_SYSTEM_AUDIO_TESTS=1`。否则原生用例跳过，详见[媒体](media.md)。
+
+真实导出测试另需同时提供 `AEGINEXT_EXPORT_WORKER_PATH`、`AEGINEXT_FFMPEG_PATH`、`AEGINEXT_FFPROBE_PATH` 三个绝对文件路径，否则真实导出用例跳过。先构建同配置 Workbench；例如在 PowerShell 中运行 macOS arm64 软件导出检查：
+
+```powershell
+$codecTestRid = 'osx-arm64'
+$codecTestSdk = (Resolve-Path ".dependencies/$codecTestRid/ffmpeg/9.0.2").Path
+$toolSuffix = if ($IsWindows) { '.exe' } else { '' }
+$env:AEGINEXT_EXPORT_WORKER_PATH = (Resolve-Path "src/AegiNext.ExportWorker/bin/Release/net10.0/$codecTestRid/aegn-exporter.dll").Path
+$env:AEGINEXT_FFMPEG_PATH = "$codecTestSdk/bin/ffmpeg$toolSuffix"
+$env:AEGINEXT_FFPROBE_PATH = "$codecTestSdk/bin/ffprobe$toolSuffix"
+dotnet test Tests/AegiNext.Export.Tests/AegiNext.Export.Tests.csproj -c Release --runtime $codecTestRid -p:AegiNextRuntimeIdentifier=$codecTestRid --filter 'FullyQualifiedName~VideoRateControlExportTests'
+```
+
+Windows 将 RID 改为 `win-x64`，Intel Mac 改为 `osx-x64`。这些路径必须对应已构建的 worker 与所选 SDK。软件编码/解码及包搬移检查不能替代 NVENC/QSV/AMF 实体硬件、可听播放或桌面视觉验收。
 
 构建脚本 QA：
 
@@ -97,7 +114,7 @@ pwsh -NoProfile -File ./scripts/test-build.ps1
 
 诊断时直接捕获 worker stderr，桌面导出器会消费该输出。另行测量包含 worker 启动和最终封装的完整导出时间，比较 FPS 时使用相同素材、工程快照、配置和构建模式。内部重采样与合成每阶段最多使用四个线程；GPU 编码仍可能受 CPU 合成速度限制。
 
-导出 ABI 5 显式报告字幕前景已更新、未变化或为空。原生导出保留 F32 缓冲，并为稳定版本复用预计算的有效范围。连续更新时直接使用原有合成内核，省去有效范围构建；首次恢复为未变化状态时再构建一次。视频背景仍执行相同的全帧 YUV 重采样。ABI 变化后必须一起重新构建应用和 worker。
+导出 ABI 6 继续显式报告字幕前景已更新、未变化或为空。原生导出保留 F32 缓冲，并为稳定版本复用预计算的有效范围。连续更新时直接使用原有合成内核，省去有效范围构建；首次恢复为未变化状态时再构建一次。视频背景仍执行相同的全帧 YUV 重采样。ABI 变化后必须一起重新构建应用和 worker，合同尺寸和版本见[架构](architecture.md#视频导出边界)。
 
 首帧确认 VideoToolbox 硬件后端后，自动启用一帧解码预取；软件及其他后端默认串行。设置 `AEGINEXT_EXPORT_PREFETCH=0` 可关闭预取，`1` 可在任何后端强制启用；其他显式值也使用串行解码。生产线程独占解码，并在发布前固定帧的颜色信息；渲染与编码仍在导出线程执行。`read_ms` 表示解码服务耗时，可能与后续阶段重叠；`prefetch_wait_ms` 表示导出线程的实际等待耗时。比较完整导出时间，不要累加重叠阶段的时长。诊断计数包含队列容量和排队／读取中的峰值帧数。
 

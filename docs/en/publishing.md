@@ -38,12 +38,14 @@ scoop install nsis
 
 ## Package contents
 
-The complete payload includes self-contained .NET, the desktop app, `aegn-exporter`, FFmpeg/FFprobe, native modules, recursive runtime dependencies, original licenses, and the entire `i18n/` language-resource directory copied from the publish output.
+The complete payload includes self-contained .NET, the desktop app, `AegiNext.Export`, `aegn-exporter`, FFmpeg/FFprobe, native modules, recursive runtime dependencies, original license/patent notices, and the entire `i18n/` language-resource directory copied from the publish output. The export assembly, worker, and native export library must share a configuration and matching ABI contract fingerprint. Replacing only one can fail contract validation.
 
 - `media-runtime.json` selects package-local tools.
 - `package-manifest.json` records version, RID, Git identity/dirty state, runtime/tool versions, dependency/license origins, actual OS requirements, and file hashes.
 - macOS rewrites Mach-O dependency paths and signs the bundle; the highest native-library requirement becomes the minimum OS version. Default signing is ad-hoc; notarization is separate.
 - Windows collects x64 PE dependencies from selected SDK/compiler locations. Use `-RuntimeDependencyDirectory` and `-LicenseDirectory` for explicit additional sources.
+
+The selected FFmpeg SDK must provide H.264, HEVC, VP8, VP9, SVT-AV1, AAC/Opus, and MP4/Matroska/WebM. VP9/AV1 must accept both 8-bit and 10-bit output. macOS uses libvpx 1.17.0, SVT-AV1 4.2.0, and Opus 1.6.1 from the project source SDK, collecting these libraries and their runtime dependencies recursively. Windows uses the pinned Gyan 9.0.2 shared distribution. The dependency manifest locks sources, hashes, recipes, and license origins; see [Building](building.md) for preparation. System build tools may come from Homebrew/Scoop, while shipped encoding capabilities must come from the selected SDK.
 
 ## Installers and icons
 
@@ -65,4 +67,15 @@ pwsh -NoProfile -File ./scripts/publish/verify-package.ps1 -PackageDirectory ./a
 
 Verification checks complete file hashes and language-pack structure/encoding. Move the entire package; macOS copies/archives must retain extended attributes for signing. Use Finder or `ditto`, then verify the moved bundle's signature.
 
-On each target OS, check startup, media opening, audible playback, subtitle editing, actual export/cancel, and relocated operation without developer tools on PATH. Installer scopes, updates, native menus, DPI, and HDR display require their corresponding runtime/visual checks.
+On each target OS, check startup, media opening, audible playback, subtitle editing, actual export/cancel, and relocated operation without developer tools on PATH. Use the packaged worker and tools for export checks, covering at least these distinct capabilities:
+
+| Check | Required result |
+|---|---|
+| VP8, VP9, AV1 software export | Actual encoder, complete frame count, decodable output; check VP9/AV1 at both 8-bit and 10-bit |
+| CQ/CRF, VBR, CBR | Requested mode and parameters match the receipt; CQ also confirms target bitrate. Short-clip average bitrate is not rate-control evidence |
+| MKV, WebM, MP4 and audio | Supported combinations, source-audio copy, AAC/Opus, no audio; incompatible WebM audio is rejected before video encoding |
+| PQ, HLG, static HDR10 | Final-container 10-bit output, color labels, mastering/content-light, and subtitle brightness matching reference conditions |
+| Relocated independent execution | Tools still start and encode/decode without developer tools on PATH; original license/patent notices remain complete |
+| Windows hardware export | VP9 QSV and AV1 NVENC/QSV/AMF on compatible physical GPUs, distinguishing initialization confirmation from runtime-query evidence |
+
+Passing SDK software clips and dependency-closure relocation still leaves complete-application export, cancellation, and error feedback to check. Software output in a Windows VM does not establish physical GPU support. macOS has no added VP8/VP9/AV1 hardware encoding backend. Installer scopes, updates, native menus, DPI, HDR display, and export-panel appearance require their corresponding runtime/visual checks. QSV currently reports `ConfiguredAndInitialized`, not `RuntimeQueried`.

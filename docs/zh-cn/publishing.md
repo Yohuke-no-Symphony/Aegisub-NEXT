@@ -38,12 +38,14 @@ scoop install nsis
 
 ## 应用包内容
 
-完整内容包括自包含 .NET、桌面应用、`aegn-exporter`、FFmpeg/FFprobe、原生模块、递归运行时依赖、原始许可证，以及从发布输出整体复制的 `i18n/` 语言资源目录。
+完整内容包括自包含 .NET、桌面应用、`AegiNext.Export`、`aegn-exporter`、FFmpeg/FFprobe、原生模块、递归运行时依赖、原始许可证与专利声明，以及从发布输出整体复制的 `i18n/` 语言资源目录。导出库、worker 和 native export 必须来自同一配置，包含匹配的 ABI 契约指纹；只替换其中一个文件可能导致合同校验失败。
 
 - `media-runtime.json` 指定包内工具。
 - `package-manifest.json` 记录版本、RID、Git 身份/脏状态、运行时/工具版本、依赖/许可来源、实际系统要求和文件哈希。
 - macOS 重写 Mach-O 依赖路径并签名，最高原生库要求决定最低系统版本；默认临时签名，公证另行处理。
 - Windows 从选定 SDK/编译器位置收集 x64 PE 依赖；额外来源使用 `-RuntimeDependencyDirectory` 和 `-LicenseDirectory`。
+
+发布所选 FFmpeg SDK 必须提供 H.264、HEVC、VP8、VP9、SVT-AV1、AAC/Opus 及 MP4/Matroska/WebM；VP9/AV1 还需同时接受 8/10-bit。macOS 使用项目源码 SDK 的 libvpx 1.17.0、SVT-AV1 4.2.0、Opus 1.6.1，递归收集这些库与其运行时依赖；Windows 使用锁定的 Gyan 9.0.2 共享包。源码、哈希、配方与许可来源由依赖清单锁定，详细准备方式见[构建](building.md)。系统编译工具可来自 Homebrew/Scoop，发布的编码能力仍须来自选定 SDK。
 
 ## 安装器与图标
 
@@ -65,4 +67,15 @@ pwsh -NoProfile -File ./scripts/publish/verify-package.ps1 -PackageDirectory ./a
 
 校验覆盖完整文件哈希及语言包结构/编码。搬移整个应用包；macOS 拷贝/归档须保留签名所需的扩展属性，使用 Finder 或 `ditto`，再校验搬移后的签名。
 
-分别在目标系统检查启动、媒体打开、可听播放、字幕编辑、实际导出/取消，以及无开发工具 PATH 的搬移运行。安装范围、更新、原生菜单、DPI 和 HDR 显示需要对应实机/视觉检查。
+分别在目标系统检查启动、媒体打开、可听播放、字幕编辑、实际导出/取消，以及无开发工具 PATH 的搬移运行。导出检查应使用包内 worker 与工具，至少覆盖以下不同能力：
+
+| 检查 | 应确认的结果 |
+|---|---|
+| VP8、VP9、AV1 软件导出 | 实际编码器、完整帧数、可解码成片；VP9/AV1 分别检查 8/10-bit |
+| CQ/CRF、VBR、CBR | 所选模式与参数回执一致；CQ 同时确认目标码率，不能以短片平均码率代替码控证据 |
+| MKV、WebM、MP4 与音频 | 支持的格式组合、原音轨复制、AAC/Opus、无音频；WebM 不兼容音轨在视频编码前被拒绝 |
+| PQ、HLG 与静态 HDR10 | 10-bit、色彩标签与 mastering/content-light 在最终容器中保留，字幕亮度符合参考条件 |
+| 搬移后的独立运行 | 清除开发工具 PATH 后仍能启动工具并完成编码/解码，原始许可证与专利声明齐全 |
+| Windows 硬件导出 | 在支持的实体显卡上检查 VP9 QSV 与 AV1 NVENC/QSV/AMF，区分初始化确认和运行时查询证据 |
+
+SDK 软件短片与运行时闭包搬移通过后，仍需检查完整应用的导出、取消与错误反馈。Windows 虚拟机的软件输出不能证明实体 GPU 可用；macOS 没有新增 VP8/VP9/AV1 硬件编码后端。安装范围、更新、原生菜单、DPI、HDR 显示与导出面板外观需要对应实机/视觉检查，QSV 回执当前属于 `ConfiguredAndInitialized`，不标记为 `RuntimeQueried`。

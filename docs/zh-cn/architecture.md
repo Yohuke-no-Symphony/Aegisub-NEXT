@@ -9,14 +9,39 @@
 | `src/AegiNext.Core` | 有理时间、不可变工程/场景模型、验证、动画、蒙版和特效 DSL |
 | `src/AegiNext.Application` | 编辑事务、Undo/Redo、存储/资源和字幕格式交换 |
 | `src/AegiNext.Rendering` | 独立于 UI 的 Skia/HarfBuzz 排版、场景几何和线性 F16 合成 |
-| `src/AegiNext.Media` | 探测、帧所有权、原生适配、播放/分析、预览和导出编排 |
+| `src/AegiNext.Media` | 探测、帧所有权、原生适配、播放/分析与预览 |
+| `src/AegiNext.Export` | 导出能力与参数、预设、worker 协议、原生导出会话和最终封装编排 |
 | `src/AegiNext.Desktop` | Avalonia 工作区、面板、控件、菜单、偏好和平台宿主 |
-| `src/AegiNext.ExportWorker` | 共享 Core 与 Rendering 的独立 `aegn-exporter` 进程 |
+| `src/AegiNext.ExportWorker` | 使用 Application 读取快照、调用 Export 的独立 `aegn-exporter` 宿主 |
 | `native/decoder`、`native/audio`、`native/export` | 独立 FFmpeg/SDL3 C ABI |
 | `native/` | 可选 macOS HDR 诊断后端 |
 | `Tests/`、`scripts/` | 定向验证、构建和打包工具 |
 
-Core 不依赖 Avalonia、Dock、FFmpeg、Skia 或文件系统。Application 负责业务修改，Desktop 组合服务；Rendering 和 Media 使用显式契约与资源所有权。业务 ViewModel 不持有控件、Dock 对象或 Bitmap。
+Core 不依赖 Avalonia、Dock、FFmpeg、Skia 或文件系统。Application 负责业务修改，Desktop 组合服务；Rendering 和 Media 使用显式契约与资源所有权。Export 依赖 Core、Media 与 Rendering，Desktop 和 worker 调用 Export；Media 不反向依赖 Export，也不拥有导出动态库或预设。业务 ViewModel 不持有控件、Dock 对象或 Bitmap。
+
+## 视频导出边界
+
+`AegiNext.Export` 是独立托管模块，集中定义格式、品质范围、容器与硬件候选，供设置校验、桌面参数草稿和完成回执共同使用。CPU 使用 libx264、libx265、libvpx、libvpx-vp9 或 libsvtav1；VP8 的 CQ 同时保存质量与码率，其他格式的 CRF 只使用质量，VBR/CBR 使用明确的目标码率。用户范围、默认值及平台矩阵见[视频导出](export.md)。
+
+Desktop 捕获不可变工程和参数，再启动独立 worker；Application 继续拥有任务、编辑事务和持久化。worker 在视频编码前检查源音轨与容器兼容性，调用原生导出进行线性合成和编码，并在同一原生会话中封装最终 MP4、MKV 或 WebM。中间 NUT 保留源呈现时间戳；静态 HDR 字段通过显式结构传递到最终封装，不能从临时容器的缺失字段推断它们不存在。AAC/Opus 音轨准备由外部工具完成，复制音轨由原生封装保留音频包。
+
+原生结果在编码后和最终封装后读回核验实际编码、位深、色彩及静态 HDR。父进程同时校验请求对应的解码后端、编码器、码控、参数精度与输出证据，确认后才原子提交文件。码控证据区分 `ConfiguredAndInitialized` 与 `RuntimeQueried`；当前 QSV 使用前者。锁定 Windows FFmpeg 的 oneVPL dispatcher 为静态链接，不能把它的 session 交给独立 dispatcher 或依赖私有布局来声称运行时查询成功。
+
+当前 native export **ABI 6** 的请求结构为 **88 字节**、结果结构 **488 字节**、HDR 结构 **96 字节**、封装请求 **32 字节**，字幕前景结构仍为 **24 字节**。worker 协议为 **3**；应用、worker、原生库及契约指纹必须同配置重建和部署。导出预设版本为 **2**，版本 1 在严格校验后将旧 `crf` 迁移为 `quality`，保留参数与身份；未知、缺失、重复字段及整批冲突仍会拒绝读取或导入。
+
+统一速度名称在不同 CPU 编码器中有明确映射：x264/x265 使用同名预设，libvpx/VP9 使用 `cpu-used`，SVT-AV1 使用数字预设。硬件后端映射到其支持的档位。
+
+| 速度 | libvpx / VP9 `cpu-used` | SVT-AV1 `preset` |
+|---|---|---|
+| ultrafast | 8 | 9 |
+| superfast | 7 | 9 |
+| veryfast | 6 | 8 |
+| faster | 5 | 8 |
+| fast | 4 | 7 |
+| medium | 3 | 6 |
+| slow | 2 | 4 |
+| slower | 1 | 2 |
+| veryslow | 0 | 0 |
 
 ## 时间与存储
 
