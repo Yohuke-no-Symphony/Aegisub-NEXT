@@ -3,6 +3,7 @@ using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Rendering.Fonts;
+using AegiNext.Rendering.Images;
 using SkiaSharp;
 
 namespace AegiNext.Rendering.Projects;
@@ -13,7 +14,10 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     private const float PREVIEW_REFERENCE_WHITE_NITS = 203;
     private readonly IProjectAssetResolver assets;
     private readonly GRContext? graphicsContext;
-    private readonly Dictionary<ProjectAsset, SKImage> images = [];
+    private readonly ImageFrameCache images;
+    private readonly bool skipUnavailableImagesInPreview;
+    private readonly Dictionary<Guid, ProjectImageRenderException> previewImageFailures = [];
+    private ImmutableArray<ImageFrameIdentity?> previewImageFrames = [];
     private readonly SubtitleLayoutCache layouts = new();
     private readonly Dictionary<(Guid? Asset, string Family, SubtitleFontVariant? Variant, bool Bold, bool Italic), TextShaper> textShapers = [];
     private readonly Dictionary<(nint Handle, SubtitleFontVariant? Variant, int Instance, int Collection, bool Bold, bool Italic), TextShaper> actualTextShapers = [];
@@ -34,9 +38,11 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     private GpuLinearColorShader? extendedColorShader;
 
     /// <summary>绑定资源解析器、字体目录和可选 GPU 上下文；不接管借用资源生命周期。GPU 调用和释放须在创建线程的当前上下文中执行。</summary>
-    public ProjectSceneRenderer(IProjectAssetResolver assets, SystemFontCatalog? fontCatalog = null, GRContext? graphicsContext = null)
+    public ProjectSceneRenderer(IProjectAssetResolver assets, SystemFontCatalog? fontCatalog = null, GRContext? graphicsContext = null,
+        bool skipUnavailableImagesInPreview = false)
         : this(assets, fontCatalog, RenderSurfacePool.DEFAULT_RETAINED_BYTES, graphicsContext)
     {
+        this.skipUnavailableImagesInPreview = skipUnavailableImagesInPreview;
     }
 
     internal ProjectSceneRenderer(IProjectAssetResolver assets, SystemFontCatalog? fontCatalog, long maximumRetainedSurfaceBytes,
@@ -44,6 +50,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(assets);
         this.assets = assets;
+        images = new(assets);
         this.graphicsContext = graphicsContext;
         surfacePool = new(maximumRetainedSurfaceBytes, graphicsContext);
         systemFonts = new(() => new(fontCatalog ?? new SystemFontCatalog()));
@@ -53,6 +60,9 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     public RenderSurfacePoolStatistics RenderSurfaceStatistics => surfacePool.Statistics;
     internal int CachedSubtitleLayoutCount => layouts.Count;
     internal int CachedTextShaperCount => actualTextShapers.Count;
+    internal ulong DecodedImageFrameCount => images.DecodedFrames;
+    /// <summary>最近预览中被明确隔离的图片错误；完整渲染和导出始终严格失败。</summary>
+    public IReadOnlyDictionary<Guid, ProjectImageRenderException> PreviewImageFailures => previewImageFailures;
 
     /// <summary>在工程精确时间渲染透明的预乘 F16 字幕与图形层，调用方负责释放结果。</summary>
     public LinearRenderSurface Render(ProjectDocument document, MediaTime time)
@@ -88,7 +98,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         destination.Clear();
         foreach (var layer in layers)
         {
-            DrawLayer(document, destination.Canvas, layer);
+            DrawLayer(document, destination.Canvas, layer, time);
         }
     }
 
@@ -99,6 +109,25 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(document);
         Prepare(document);
         return FindGeometry(document, SceneEvaluator.Evaluate(prepared!, time), layerId, SKMatrix.Identity);
+    }
+
+    /// <summary>按实际绘制顺序从前向后命中可见轮廓，每次点击只求值场景一次。</summary>
+    public Guid? HitTestLayer(ProjectDocument document, MediaTime time, SKPoint point)
+    {
+        ObjectDisposedException.ThrowIf(isDisposed, this);
+        ArgumentNullException.ThrowIfNull(document);
+        Prepare(document);
+        var layers = SceneEvaluator.Evaluate(prepared!, time);
+        for (var index = layers.Length - 1; index >= 0; index--)
+        {
+            var layer = layers[index];
+            if (layer.Opacity > 0 && Geometry(document, layer, SKMatrix.Identity) is { HasInk: true } geometry &&
+                geometry.ContainsWorldPoint(point))
+            {
+                return layer.Source.Id;
+            }
+        }
+        return null;
     }
 
     /// <summary>将自动对齐转换为保持实际字形位置的显式锚点，不要求字幕在当前播放时间可见。</summary>
@@ -188,6 +217,11 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         Prepare(document);
         cancellationToken.ThrowIfCancellationRequested();
         var layers = EvaluatePreview(time);
+        var visibleImages = layers.Where(layer => layer.Source.Image is not null).Select(layer => layer.Source.Image!.AssetId).ToHashSet();
+        foreach (var id in previewImageFailures.Keys.Where(id => !visibleImages.Contains(id)).ToArray())
+        {
+            previewImageFailures.Remove(id);
+        }
         if (layers.IsEmpty && width == outputWidth && height == outputHeight && IsOpaqueBackground(bgra, width, height, rowBytes))
         {
             var pixels = new byte[checked(outputWidth * outputHeight * 4)];
@@ -212,7 +246,8 @@ public sealed partial class ProjectSceneRenderer : IDisposable
             previewTarget = new(new(outputWidth, outputHeight, PREVIEW_REFERENCE_WHITE_NITS), graphicsContext);
         }
 
-        if (!previewSceneValid || !Equivalent(previewLayers, layers))
+        var imageFrames = ImageFrames(document, layers, time, skipUnavailableImagesInPreview);
+        if (!previewSceneValid || !Equivalent(previewLayers, layers) || !previewImageFrames.SequenceEqual(imageFrames))
         {
             cancellationToken.ThrowIfCancellationRequested();
             previewSceneValid = false;
@@ -221,10 +256,12 @@ public sealed partial class ProjectSceneRenderer : IDisposable
             foreach (var evaluated in layers)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                DrawLayer(document, previewScene.Canvas, evaluated, sceneWidth, sceneHeight, (float)scale, cancellationToken);
+                DrawLayer(document, previewScene.Canvas, evaluated, time, sceneWidth, sceneHeight, (float)scale,
+                    skipUnavailableImagesInPreview, cancellationToken);
             }
 
             previewLayers = layers;
+            previewImageFrames = imageFrames;
             previewSceneValid = true;
         }
 
@@ -284,16 +321,12 @@ public sealed partial class ProjectSceneRenderer : IDisposable
             return;
         }
 
-        foreach (var image in images.Values)
-        {
-            image.Dispose();
-        }
+        images.Dispose();
 
         ClearLayouts();
         ClearPreview();
         ClearFrameCache();
         surfacePool.Dispose();
-        images.Clear();
         additiveBlend?.Dispose();
         extendedColorShader?.Dispose();
         linear.Dispose();
@@ -308,12 +341,6 @@ public sealed partial class ProjectSceneRenderer : IDisposable
             ClearPreview();
             ClearFrameCache();
             ClearLayouts();
-            foreach (var image in images.Values)
-            {
-                image.Dispose();
-            }
-
-            images.Clear();
         }
 
     }
@@ -327,9 +354,11 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         previewScene = null;
         previewTarget = null;
         previewLayers = [];
+        previewImageFrames = [];
         evaluatedPreviewLayers = [];
         evaluatedPreviewTime = null;
         previewSceneValid = false;
+        previewImageFailures.Clear();
     }
 
     private ImmutableArray<EvaluatedLayer> EvaluatePreview(MediaTime time)
@@ -373,7 +402,8 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         return true;
     }
 
-    private void DrawLayer(ProjectDocument document, SKCanvas parent, EvaluatedLayer layer, int renderWidth = 0, int renderHeight = 0, float blurScale = 1, CancellationToken cancellationToken = default)
+    private void DrawLayer(ProjectDocument document, SKCanvas parent, EvaluatedLayer layer, MediaTime projectTime, int renderWidth = 0,
+        int renderHeight = 0, float blurScale = 1, bool tolerateImageFailure = false, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         using var lease = surfacePool.Rent(new(renderWidth > 0 ? renderWidth : document.Width,
@@ -414,7 +444,15 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                     DrawShape(canvas, layer);
                     break;
                 case LayerKind.IMAGE:
-                    DrawImage(document, canvas, layer.Source.Image!);
+                    try
+                    {
+                        DrawImage(document, canvas, layer.Source, projectTime);
+                        previewImageFailures.Remove(layer.Source.Image!.AssetId);
+                    }
+                    catch (ProjectImageRenderException error) when (tolerateImageFailure)
+                    {
+                        previewImageFailures[error.AssetId] = error;
+                    }
                     break;
                 default:
                     throw new InvalidDataException("未知图层类型。");
@@ -449,19 +487,13 @@ public sealed partial class ProjectSceneRenderer : IDisposable
 
     private void DrawShape(SKCanvas canvas, EvaluatedLayer layer)
     {
-        var shape = layer.Source.Shape!;
-        using var path = shape.Kind == ShapeKind.PATH ? Path(shape.Path!) : new SKPath();
-        if (shape.Kind == ShapeKind.RECTANGLE)
+        var geometry = ShapeGeometry.CreatePath(layer.Source.Shape!);
+        using var path = Path(geometry);
+        if (geometry.Closed)
         {
-            path.AddRect(new(0, 0, (float)shape.Width, (float)shape.Height));
+            using var fill = Paint(layer.Fill);
+            canvas.DrawPath(path, fill);
         }
-        else if (shape.Kind == ShapeKind.ELLIPSE)
-        {
-            path.AddOval(new(0, 0, (float)shape.Width, (float)shape.Height));
-        }
-
-        using var fill = Paint(layer.Fill);
-        canvas.DrawPath(path, fill);
         if (layer.StrokeWidth > 0)
         {
             using var stroke = Paint(layer.Stroke);
@@ -472,37 +504,80 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         }
     }
 
-    private void DrawImage(ProjectDocument document, SKCanvas canvas, LayerImage layer)
+    private ImmutableArray<ImageFrameIdentity?> ImageFrames(ProjectDocument document, ImmutableArray<EvaluatedLayer> layers,
+        MediaTime time, bool tolerateImageFailure = false)
     {
-        var asset = document.Assets.Single(value => value.Id == layer.AssetId);
-        if (!images.TryGetValue(asset, out var image))
+        var result = ImmutableArray.CreateBuilder<ImageFrameIdentity?>(layers.Length);
+        foreach (var layer in layers)
         {
-            using var stream = assets.Open(asset);
-            using var data = SKData.Create(stream);
-            image = SKImage.FromEncodedData(data) ?? throw new InvalidDataException("无法解码项目图片。");
-            if ((long)image.Width * image.Height > 33177600)
+            try
             {
-                image.Dispose();
-                throw new InvalidDataException("图片超过像素预算。");
+                result.Add(layer.Source.Image is null ? null : ImageFrame(document, layer.Source, time));
             }
-
-            images.Add(asset, image);
+            catch (ProjectImageRenderException error) when (tolerateImageFailure)
+            {
+                previewImageFailures[error.AssetId] = error;
+                result.Add(new(document.Assets.Single(asset => asset.Id == error.AssetId), -1));
+            }
         }
+        return result.MoveToImmutable();
+    }
 
+    private ImageFrameIdentity ImageFrame(ProjectDocument document, ProjectLayer layer, MediaTime time)
+    {
+        var image = layer.Image!;
+        var asset = document.Assets.Single(value => value.Id == image.AssetId);
+        try
+        {
+            var frameIndex = image.Playback is { } playback ? images.GetMetadata(asset).GetFrameIndex(
+                ImagePlaybackTiming.GetSourceTime(layer, time), playback.Mode) : 0;
+            return new(asset, frameIndex);
+        }
+        catch (Exception error) when (IsImageFailure(error))
+        {
+            throw new ProjectImageRenderException(asset, error);
+        }
+    }
+
+    private void DrawImage(ProjectDocument document, SKCanvas canvas, ProjectLayer source, MediaTime time)
+    {
+        var layer = source.Image!;
+        var identity = ImageFrame(document, source, time);
+        using var lease = OpenImageFrame(identity);
+        var image = lease.Image;
+        var crop = layer.Crop;
+        var sourceBounds = new SKRect((float)(crop.X * image.Width), (float)(crop.Y * image.Height),
+            (float)((crop.X + crop.Width) * image.Width), (float)((crop.Y + crop.Height) * image.Height));
         var width = (float)layer.Width;
         var height = (float)layer.Height;
         var bounds = new SKRect(0, 0, width, height);
         canvas.ClipRect(bounds, SKClipOperation.Intersect, true);
         if (layer.Fit != ImageFit.STRETCH)
         {
-            var scale = layer.Fit == ImageFit.FIT ? Math.Min(width / image.Width, height / image.Height) : Math.Max(width / image.Width, height / image.Height);
-            var targetWidth = image.Width * scale;
-            var targetHeight = image.Height * scale;
+            var scale = layer.Fit == ImageFit.FIT ? Math.Min(width / sourceBounds.Width, height / sourceBounds.Height) :
+                Math.Max(width / sourceBounds.Width, height / sourceBounds.Height);
+            var targetWidth = sourceBounds.Width * scale;
+            var targetHeight = sourceBounds.Height * scale;
             bounds = new((width - targetWidth) / 2, (height - targetHeight) / 2, (width + targetWidth) / 2, (height + targetHeight) / 2);
         }
 
-        canvas.DrawImage(image, bounds, new SKSamplingOptions(SKFilterMode.Linear));
+        canvas.DrawImage(image, sourceBounds, bounds, new SKSamplingOptions(SKFilterMode.Linear));
     }
+
+    private ImageFrameLease OpenImageFrame(ImageFrameIdentity identity)
+    {
+        try
+        {
+            return images.GetFrame(identity);
+        }
+        catch (Exception error) when (IsImageFailure(error))
+        {
+            throw new ProjectImageRenderException(identity.Asset, error);
+        }
+    }
+
+    private static bool IsImageFailure(Exception error) => error is IOException or InvalidDataException or
+        UnauthorizedAccessException or NotSupportedException or ArgumentException;
 
     private ProjectLayerGeometry? FindGeometry(ProjectDocument document, ImmutableArray<EvaluatedLayer> layers,
         Guid id, SKMatrix parentToWorld)
@@ -539,15 +614,13 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                 hasInk = layout.HasInk;
                 break;
             case LayerKind.SHAPE:
-                var shape = layer.Source.Shape!;
-                if (shape.Path is { } geometry)
+                using (var path = ProjectShapeGeometry.CreatePath(layer.Source.Shape!))
                 {
-                    using var path = Path(geometry);
                     bounds = path.TightBounds;
-                }
-                else
-                {
-                    bounds = new(0, 0, (float)shape.Width, (float)shape.Height);
+                    if (bounds.Width == 0 || bounds.Height == 0)
+                    {
+                        bounds.Inflate((float)Math.Max(0.5, layer.StrokeWidth / 2), (float)Math.Max(0.5, layer.StrokeWidth / 2));
+                    }
                 }
 
                 break;
@@ -567,7 +640,10 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         local = SKMatrix.Concat(local, SKMatrix.CreateTranslation(-effectivePivot.X, -effectivePivot.Y));
         return new(bounds, effectivePivot, basePosition, SKMatrix.Concat(parentToWorld, local), parentToWorld, hasInk)
         {
-            VisibleGraphemes = visibleGraphemes
+            VisibleGraphemes = visibleGraphemes,
+            Shape = layer.Source.Shape,
+            ShapeStrokeWidth = layer.StrokeWidth,
+            ShapeHasFill = layer.Fill.Alpha > 0
         };
     }
 

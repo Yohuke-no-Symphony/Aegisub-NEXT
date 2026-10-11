@@ -75,7 +75,9 @@ public sealed class ProjectRenderSurfacePoolTests
         var document = ImageDocument();
         using var renderer = new ProjectSceneRenderer(resolver);
         using var fresh = new ProjectSceneRenderer(new GeneratedImageProjectAssetResolver(), null, 0);
-        Assert.Throws<IOException>(() => renderer.Render(document, MediaTime.Zero));
+        var error = Assert.Throws<ProjectImageRenderException>(() => renderer.Render(document, MediaTime.Zero));
+        Assert.Equal(document.Assets[0].Id, error.AssetId);
+        Assert.IsType<IOException>(error.InnerException);
         Assert.Equal(0, renderer.RenderSurfaceStatistics.ActiveLeases);
         Assert.Equal(1, renderer.RenderSurfaceStatistics.Allocations);
         using var actual = renderer.Render(document, MediaTime.Zero);

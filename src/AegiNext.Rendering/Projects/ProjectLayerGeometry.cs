@@ -1,3 +1,4 @@
+using AegiNext.Core.Projects;
 using SkiaSharp;
 
 namespace AegiNext.Rendering.Projects;
@@ -7,6 +8,9 @@ public sealed record ProjectLayerGeometry(SKRect LocalBounds, SKPoint LocalPivot
     SKMatrix LocalToWorld, SKMatrix ParentToWorld, bool HasInk = true)
 {
     public IReadOnlyList<SubtitleGraphemeGeometry>? VisibleGraphemes { get; init; }
+    public LayerShape? Shape { get; init; }
+    public double ShapeStrokeWidth { get; init; }
+    public bool ShapeHasFill { get; init; }
     public SKPoint WorldPivot => LocalToWorld.MapPoint(LocalPivot);
     public IReadOnlyList<SKPoint> WorldCorners =>
     [
@@ -24,6 +28,23 @@ public sealed record ProjectLayerGeometry(SKRect LocalBounds, SKPoint LocalPivot
             return false;
         }
         var local = outer.MapPoint(point);
+        if (Shape is { } shape)
+        {
+            using var path = ProjectShapeGeometry.CreatePath(shape);
+            if (ShapeHasFill && ShapeGeometry.CreatePath(shape).Closed && path.Contains(local.X, local.Y))
+            {
+                return true;
+            }
+            if (ShapeStrokeWidth <= 0)
+            {
+                return false;
+            }
+            using var stroke = new SKPaint { Style = SKPaintStyle.Stroke, StrokeWidth = (float)ShapeStrokeWidth,
+                StrokeJoin = SKStrokeJoin.Round };
+            using var outline = new SKPath();
+            stroke.GetFillPath(path, outline);
+            return outline.Contains(local.X, local.Y);
+        }
         if (VisibleGraphemes is null)
         {
             return LocalBounds.Contains(local);

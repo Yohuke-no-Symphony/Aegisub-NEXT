@@ -3,6 +3,7 @@ using System.Diagnostics;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
+using AegiNext.Rendering.Images;
 
 namespace AegiNext.Rendering.Projects;
 
@@ -10,6 +11,7 @@ public sealed partial class ProjectSceneRenderer
 {
     private LinearRenderSurface? frameSurface;
     private ImmutableArray<EvaluatedLayer> frameLayers = [];
+    private ImmutableArray<ImageFrameIdentity?> frameImageFrames = [];
     private bool frameValid;
     private ulong frameRevision;
     private ulong frameEvaluations;
@@ -65,7 +67,8 @@ public sealed partial class ProjectSceneRenderer
             frameEvaluateMilliseconds += Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         }
 
-        redrawn = !frameValid || !Equivalent(frameLayers, layers);
+        var imageFrames = ImageFrames(document, layers, time);
+        redrawn = !frameValid || !Equivalent(frameLayers, layers) || !frameImageFrames.SequenceEqual(imageFrames);
         if (redrawn)
         {
             frameValid = false;
@@ -76,7 +79,7 @@ public sealed partial class ProjectSceneRenderer
                 frameSurface.Clear();
                 foreach (var layer in layers)
                 {
-                    DrawLayer(document, frameSurface.Canvas, layer, cancellationToken: cancellationToken);
+                    DrawLayer(document, frameSurface.Canvas, layer, time, cancellationToken: cancellationToken);
                 }
             }
 
@@ -114,6 +117,7 @@ public sealed partial class ProjectSceneRenderer
         {
             frameRevision = checked(frameRevision + 1);
             frameLayers = layers;
+            frameImageFrames = imageFrames;
             frameValid = true;
         }
 
@@ -125,6 +129,7 @@ public sealed partial class ProjectSceneRenderer
         frameSurface?.Dispose();
         frameSurface = null;
         frameLayers = [];
+        frameImageFrames = [];
         frameValid = false;
     }
 }
