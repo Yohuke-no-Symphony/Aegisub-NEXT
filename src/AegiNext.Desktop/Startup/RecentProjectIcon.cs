@@ -8,34 +8,31 @@ internal sealed class RecentProjectIcon
 {
     private const uint HASH_OFFSET = 2166136261;
     private const uint HASH_PRIME = 16777619;
-    private const double SATURATION = 0.56;
-    private const double LIGHTNESS = 0.47;
+    private const double LIGHT_SATURATION = 0.50;
+    private const double LIGHT_LIGHTNESS = 0.82;
+    private const double DARK_SATURATION = 0.38;
+    private const double DARK_LIGHTNESS = 0.32;
 
-    internal RecentProjectIcon(string name, string path)
+    internal RecentProjectIcon(string name)
     {
         Initials = GetInitials(name);
-        var identity = OperatingSystem.IsWindows() ? path.ToUpperInvariant() : path;
+        var identity = name.Trim().Normalize(NormalizationForm.FormC);
         var hash = HASH_OFFSET;
         foreach (var value in Encoding.UTF8.GetBytes(identity))
         {
             hash = unchecked((hash ^ value) * HASH_PRIME);
         }
 
-        var color = new HslColor(1, hash % 360, SATURATION, LIGHTNESS).ToRgb();
-        Background = new SolidColorBrush(color);
-        var luminance = 0.2126 * Linearize(color.R) + 0.7152 * Linearize(color.G) + 0.0722 * Linearize(color.B);
-        Foreground = luminance > 0.179 ? Brushes.Black : Brushes.White;
+        var hue = hash % 360;
+        Background = new(new HslColor(1, hue, LIGHT_SATURATION, LIGHT_LIGHTNESS).ToRgb());
+        DarkBackground = new(new HslColor(1, hue, DARK_SATURATION, DARK_LIGHTNESS).ToRgb());
     }
 
     internal string Initials { get; }
     internal SolidColorBrush Background { get; }
-    internal IBrush Foreground { get; }
-
-    private static double Linearize(byte component)
-    {
-        var value = component / 255.0;
-        return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
-    }
+    internal SolidColorBrush DarkBackground { get; }
+    internal IBrush Foreground { get; } = Brushes.Black;
+    internal IBrush DarkForeground { get; } = Brushes.White;
 
     private static string GetInitials(string name)
     {

@@ -7,6 +7,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -168,7 +169,7 @@ public sealed class WelcomeWindowUiTests
                 opened.Add(path);
                 return Task.CompletedTask;
             }, () => Task.CompletedTask);
-        var window = new WelcomeWindow(viewModel);
+        var window = new WelcomeWindow(viewModel) { RequestedThemeVariant = ThemeVariant.Light };
         try
         {
             window.Show();
@@ -209,7 +210,7 @@ public sealed class WelcomeWindowUiTests
                 opened.Add(value);
                 return Task.CompletedTask;
             }, () => Task.CompletedTask);
-        var window = new WelcomeWindow(viewModel);
+        var window = new WelcomeWindow(viewModel) { RequestedThemeVariant = ThemeVariant.Light };
         try
         {
             window.Show();
@@ -219,7 +220,7 @@ public sealed class WelcomeWindowUiTests
             Assert.True(item.IsUnavailable);
             Assert.Contains("unavailable", entry.Classes);
             Assert.InRange(entry.Opacity, 0.1, 0.9);
-            Assert.Equal(Colors.DimGray, Assert.IsAssignableFrom<ISolidColorBrush>(icon.Background).Color);
+            Assert.Equal(Colors.Gainsboro, Assert.IsAssignableFrom<ISolidColorBrush>(icon.Background).Color);
             Assert.Equal(Localization.Get("Welcome.ProjectUnavailable"), item.Availability);
             Assert.True(entry.IsEffectivelyEnabled);
             Assert.False(viewModel.OpenSelectedProjectCommand.CanExecute(null));
@@ -239,7 +240,7 @@ public sealed class WelcomeWindowUiTests
             Assert.DoesNotContain("unavailable", entry.Classes);
             Assert.Equal(1, entry.Opacity);
             Assert.Same(item.IconBackground, icon.Background);
-            Assert.NotEqual(Colors.DimGray, Assert.IsAssignableFrom<ISolidColorBrush>(icon.Background).Color);
+            Assert.NotEqual(Colors.Gainsboro, Assert.IsAssignableFrom<ISolidColorBrush>(icon.Background).Color);
             Assert.Empty(item.Availability);
             Assert.True(viewModel.OpenSelectedProjectCommand.CanExecute(null));
             Assert.True(list.Focus());

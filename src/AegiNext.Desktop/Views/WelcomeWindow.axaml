@@ -2,11 +2,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:common="using:AegiNext.Desktop.Controls.Common"
         xmlns:startup="using:AegiNext.Desktop.Startup"
+        xmlns:styling="using:AegiNext.Desktop.Styling"
         xmlns:materialIcons="using:Material.Icons.Avalonia"
         x:Class="AegiNext.Desktop.Views.WelcomeWindow" x:DataType="startup:WelcomeViewModel"
         Classes="business-surface" Title="{Binding Title}"
         Width="960" Height="640" MinWidth="800" MinHeight="520"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource PreviewBackground}">
+  <Window.Resources>
+    <styling:ThemeVariantBrushConverter x:Key="ProjectIconBrushConverter" />
+  </Window.Resources>
   <Window.Styles>
     <Style Selector="ListBoxItem" x:DataType="startup:WelcomeListItem">
       <Setter Property="Padding" Value="0" />
@@ -59,10 +63,24 @@
             <Border Background="Transparent" Padding="12,10">
               <Grid Classes="project-entry" Classes.unavailable="{Binding IsUnavailable}"
                     ColumnDefinitions="40,*" ColumnSpacing="12">
-                <Border Name="ProjectIcon" Width="40" Height="40" CornerRadius="8" VerticalAlignment="Top"
-                        Background="{Binding IconBackground}">
-                  <TextBlock Name="ProjectIconInitials" Text="{Binding IconInitials}" Foreground="{Binding IconForeground}"
-                             FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <Border Name="ProjectIcon" Width="40" Height="40" CornerRadius="8" VerticalAlignment="Top">
+                  <Border.Background>
+                    <MultiBinding Converter="{StaticResource ProjectIconBrushConverter}">
+                      <Binding Path="IconBackground" />
+                      <Binding Path="IconDarkBackground" />
+                      <Binding Path="ActualThemeVariant" RelativeSource="{RelativeSource Self}" />
+                    </MultiBinding>
+                  </Border.Background>
+                  <TextBlock Name="ProjectIconInitials" Text="{Binding IconInitials}"
+                             FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock.Foreground>
+                      <MultiBinding Converter="{StaticResource ProjectIconBrushConverter}">
+                        <Binding Path="IconForeground" />
+                        <Binding Path="IconDarkForeground" />
+                        <Binding Path="ActualThemeVariant" RelativeSource="{RelativeSource Self}" />
+                      </MultiBinding>
+                    </TextBlock.Foreground>
+                  </TextBlock>
                 </Border>
                 <StackPanel Grid.Column="1" Spacing="3">
                   <TextBlock Classes="project-name" Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />

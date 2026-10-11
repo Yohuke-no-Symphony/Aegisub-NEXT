@@ -7,7 +7,7 @@ namespace AegiNext.Desktop.Startup;
 
 internal sealed class RecentProjectListItem(RecentProjectEntry entry) : WelcomeListItem
 {
-    private readonly RecentProjectIcon icon = new(entry.Name, entry.Path);
+    private readonly RecentProjectIcon icon = new(entry.Name);
 
     internal RecentProjectEntry Entry { get; } = entry;
     public override bool IsProject => true;
@@ -17,8 +17,10 @@ internal sealed class RecentProjectListItem(RecentProjectEntry entry) : WelcomeL
     public string Name => Entry.Name;
     public string Path => Entry.Path;
     public string IconInitials => icon.Initials;
-    public IBrush IconBackground => IsUnavailable ? Brushes.DimGray : icon.Background;
-    public IBrush IconForeground => IsUnavailable ? Brushes.Gainsboro : icon.Foreground;
+    public IBrush IconBackground => IsUnavailable ? Brushes.Gainsboro : icon.Background;
+    public IBrush IconForeground => icon.Foreground;
+    public IBrush IconDarkBackground => IsUnavailable ? Brushes.DimGray : icon.DarkBackground;
+    public IBrush IconDarkForeground => icon.DarkForeground;
     public bool IsUnavailable => !File.Exists(Path);
     public bool CanOpenFolder => Directory.Exists(System.IO.Path.GetDirectoryName(Path));
     public string Availability => IsUnavailable ? Localization.Get("Welcome.ProjectUnavailable") : string.Empty;
@@ -28,7 +30,7 @@ internal sealed class RecentProjectListItem(RecentProjectEntry entry) : WelcomeL
         OnPropertyChanged(nameof(IsUnavailable));
         OnPropertyChanged(nameof(CanOpenFolder));
         OnPropertyChanged(nameof(IconBackground));
-        OnPropertyChanged(nameof(IconForeground));
+        OnPropertyChanged(nameof(IconDarkBackground));
         OnPropertyChanged(nameof(Availability));
         OnPropertyChanged(nameof(PinActionLabel));
     }
