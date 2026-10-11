@@ -1,5 +1,6 @@
 using AegiNext.Desktop.Workspace;
 using AegiNext.Desktop.Controls;
+using AegiNext.Desktop.Controls.Common;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -12,7 +13,7 @@ internal sealed partial class ImageStyleView : UserControl, IWorkbenchPanelView
     private readonly ImageStyleViewModel viewModel;
     private readonly ComboBox fit;
     private readonly ComboBox playbackMode;
-    private readonly CheckBox animation;
+    private readonly ToolbarToggleButton animation;
     private readonly LayerPositionEditor position;
 
     internal ImageStyleView(ImageStyleViewModel viewModel, WorkbenchSession session)
@@ -25,7 +26,7 @@ internal sealed partial class ImageStyleView : UserControl, IWorkbenchPanelView
         fit.SelectionChanged += OnFitChanged;
         playbackMode = this.FindControl<ComboBox>("ImagePlaybackModeInput")!;
         playbackMode.SelectionChanged += OnFitChanged;
-        animation = this.FindControl<CheckBox>("ImageAnimationEnabledInput")!;
+        animation = this.FindControl<ToolbarToggleButton>("ImageAnimationEnabledInput")!;
         animation.IsCheckedChanged += OnAnimationChanged;
         position = this.FindControl<LayerPositionEditor>("PositionEditor")!;
         position.PresetPositionChanged += OnPositionPresetChanged;

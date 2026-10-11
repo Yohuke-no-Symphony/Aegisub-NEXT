@@ -1,57 +1,81 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:styles="using:AegiNext.Desktop.Panels.Styles" xmlns:controls="using:AegiNext.Desktop.Controls"
+             xmlns:common="using:AegiNext.Desktop.Controls.Common" xmlns:icons="using:Material.Icons.Avalonia"
              x:Class="AegiNext.Desktop.Panels.Styles.ImageStyleView" x:DataType="styles:ImageStyleViewModel">
-  <ScrollViewer>
-    <StackPanel Margin="8" Spacing="8">
-      <WrapPanel>
-        <Button Name="ReplaceImageButton" Margin="0,0,6,4" Content="{Loc Key=Workbench.ReplaceImage}" Command="{Binding ReplaceImageCommand}" />
-        <Button Name="ImageMatchSubtitleTimingButton" Margin="0,0,0,4" Content="{Loc Key=Workbench.MatchSubtitleTiming}"
-                ToolTip.Tip="{Loc Key=Workbench.MatchSubtitleTimingHint}" Command="{Binding MatchSubtitleTimingCommand}" IsEnabled="{Binding CanMatchSubtitleTiming}" />
-      </WrapPanel>
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.GraphicSize}" />
-      <controls:VectorDraftInput Name="ImageSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput"
-          XTextBinding="{Binding Width.RawText, Mode=TwoWay}" YTextBinding="{Binding Height.RawText, Mode=TwoWay}"
-          XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="0.001" Maximum="1000000" />
-      <CheckBox Name="ImageAspectRatioLock" Content="{Loc Key=Workbench.LockAspectRatio}" IsChecked="{Binding AspectRatioLocked, Mode=TwoWay}" />
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageFit}" />
-      <ComboBox Name="ImageFitInput" ItemsSource="{Binding FitChoices}" SelectedIndex="{Binding Fit, Mode=TwoWay}"
-                HorizontalAlignment="Stretch">
-        <ComboBox.ItemTemplate>
-          <DataTemplate x:DataType="styles:GraphicStyleChoice"><TextBlock Text="{Binding Label}" /></DataTemplate>
-        </ComboBox.ItemTemplate>
-      </ComboBox>
-      <TextBlock Classes="field" Margin="0,8,0,0" Text="{Loc Key=Workbench.ImageCrop}" />
+  <Grid Margin="8" RowDefinitions="Auto,*" RowSpacing="8">
+    <StackPanel Name="ImageStyleToolbar" Orientation="Horizontal" Spacing="4" HorizontalAlignment="Left">
+      <Button Name="ReplaceImageButton" Classes="icon-button" Command="{Binding ReplaceImageCommand}"
+              ToolTip.Tip="{Loc Key=Workbench.ReplaceImage}" AutomationProperties.Name="{Loc Key=Workbench.ReplaceImage}">
+        <icons:MaterialIcon Kind="ImageRefreshOutline" Width="18" Height="18" />
+      </Button>
+      <common:ToolbarToggleButton Name="ImageAnimationEnabledInput" IsChecked="{Binding AnimationEnabled, Mode=TwoWay}"
+              ToolTip.Tip="{Loc Key=Workbench.ImagePlaybackEnabled}" AutomationProperties.Name="{Loc Key=Workbench.ImagePlaybackEnabled}">
+        <icons:MaterialIcon Kind="AnimationPlayOutline" Width="18" Height="18" />
+      </common:ToolbarToggleButton>
+      <Border Width="1" Height="20" Margin="4,0" VerticalAlignment="Center" Background="{DynamicResource PreviewBorder}" />
+      <Button Name="ImageMatchSubtitleTimingButton" Classes="icon-button" Command="{Binding MatchSubtitleTimingCommand}"
+              IsEnabled="{Binding CanMatchSubtitleTiming}" ToolTip.ShowOnDisabled="True"
+              AutomationProperties.Name="{Loc Key=Workbench.MatchSubtitleTiming}">
+        <ToolTip.Tip>
+          <StackPanel Spacing="4">
+            <TextBlock Text="{Loc Key=Workbench.MatchSubtitleTiming}" />
+            <TextBlock Text="{Loc Key=Workbench.MatchSubtitleTimingHint}" MaxWidth="280" TextWrapping="Wrap" />
+          </StackPanel>
+        </ToolTip.Tip>
+        <icons:MaterialIcon Kind="TimerSyncOutline" Width="18" Height="18" />
+      </Button>
+      <Border Width="1" Height="20" Margin="4,0" VerticalAlignment="Center" Background="{DynamicResource PreviewBorder}" />
+      <Button Name="ImageEditCropButton" Classes="icon-button" Command="{Binding EditCropCommand}"
+              ToolTip.Tip="{Loc Key=Workbench.EditCropOnCanvas}" AutomationProperties.Name="{Loc Key=Workbench.EditCropOnCanvas}">
+        <icons:MaterialIcon Kind="Crop" Width="18" Height="18" />
+      </Button>
+      <Button Name="ImageResetCropButton" Classes="icon-button" Command="{Binding ResetCropCommand}"
+              ToolTip.Tip="{Loc Key=Workbench.ResetCrop}" AutomationProperties.Name="{Loc Key=Workbench.ResetCrop}">
+        <icons:MaterialIcon Kind="Restore" Width="18" Height="18" />
+      </Button>
+    </StackPanel>
+    <ScrollViewer Grid.Row="1">
       <StackPanel Spacing="8">
-        <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropPosition}" />
-        <controls:VectorDraftInput Name="ImageCropPositionInput" XFieldKey="ImageCropXInput" YFieldKey="ImageCropYInput"
-            XTextBinding="{Binding CropX.RawText, Mode=TwoWay}" YTextBinding="{Binding CropY.RawText, Mode=TwoWay}"
-            XBinding="{Binding CropX.Value, Mode=TwoWay}" YBinding="{Binding CropY.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
-        <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropSize}" />
-        <controls:VectorDraftInput Name="ImageCropSizeInput" XFieldKey="ImageCropWidthInput" YFieldKey="ImageCropHeightInput"
-            XTextBinding="{Binding CropWidth.RawText, Mode=TwoWay}" YTextBinding="{Binding CropHeight.RawText, Mode=TwoWay}"
-            XBinding="{Binding CropWidth.Value, Mode=TwoWay}" YBinding="{Binding CropHeight.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
-        <WrapPanel>
-          <Button Name="ImageEditCropButton" Margin="0,0,6,0" Content="{Loc Key=Workbench.EditCropOnCanvas}" Command="{Binding EditCropCommand}" />
-          <Button Name="ImageResetCropButton" Content="{Loc Key=Workbench.ResetCrop}" Command="{Binding ResetCropCommand}" />
-        </WrapPanel>
-      </StackPanel>
-      <CheckBox Name="ImageAnimationEnabledInput" Content="{Loc Key=Workbench.ImagePlaybackEnabled}" IsChecked="{Binding AnimationEnabled, Mode=TwoWay}" />
-      <StackPanel Spacing="8" IsVisible="{Binding AnimationEnabled}">
-        <TextBlock Classes="field" Text="{Loc Key=Workbench.ImagePlaybackMode}" />
-        <ComboBox Name="ImagePlaybackModeInput" ItemsSource="{Binding PlaybackModeChoices}" SelectedIndex="{Binding PlaybackMode, Mode=TwoWay}" HorizontalAlignment="Stretch">
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.GraphicSize}" />
+        <controls:VectorDraftInput Name="ImageSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput"
+            XTextBinding="{Binding Width.RawText, Mode=TwoWay}" YTextBinding="{Binding Height.RawText, Mode=TwoWay}"
+            XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="0.001" Maximum="1000000" />
+        <CheckBox Name="ImageAspectRatioLock" Content="{Loc Key=Workbench.LockAspectRatio}" IsChecked="{Binding AspectRatioLocked, Mode=TwoWay}" />
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageFit}" />
+        <ComboBox Name="ImageFitInput" ItemsSource="{Binding FitChoices}" SelectedIndex="{Binding Fit, Mode=TwoWay}"
+                  HorizontalAlignment="Stretch">
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="styles:GraphicStyleChoice"><TextBlock Text="{Binding Label}" /></DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-        <controls:NumericDragLabel Classes="field" Input="{Binding #ImagePlaybackOffsetInput}" Text="{Loc Key=Workbench.ImagePlaybackOffset}" />
-        <controls:NumericDraftInput Name="ImagePlaybackOffsetInput" RawText="{Binding PlaybackOffset.RawText, Mode=TwoWay}"
-            Value="{Binding PlaybackOffset.Value, Mode=TwoWay}" Minimum="-1000000000" Maximum="1000000000" Increment="0.1" />
-        <controls:NumericDragLabel Classes="field" Input="{Binding #ImagePlaybackSpeedInput}" Text="{Loc Key=Workbench.ImagePlaybackSpeed}" />
-        <controls:NumericDraftInput Name="ImagePlaybackSpeedInput" RawText="{Binding PlaybackSpeed.RawText, Mode=TwoWay}"
-            Value="{Binding PlaybackSpeed.Value, Mode=TwoWay}" Minimum="0.01" Maximum="100" Increment="0.1" />
+        <TextBlock Classes="field" Margin="0,8,0,0" Text="{Loc Key=Workbench.ImageCrop}" />
+        <StackPanel Spacing="8">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropPosition}" />
+          <controls:VectorDraftInput Name="ImageCropPositionInput" XFieldKey="ImageCropXInput" YFieldKey="ImageCropYInput"
+              XTextBinding="{Binding CropX.RawText, Mode=TwoWay}" YTextBinding="{Binding CropY.RawText, Mode=TwoWay}"
+              XBinding="{Binding CropX.Value, Mode=TwoWay}" YBinding="{Binding CropY.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropSize}" />
+          <controls:VectorDraftInput Name="ImageCropSizeInput" XFieldKey="ImageCropWidthInput" YFieldKey="ImageCropHeightInput"
+              XTextBinding="{Binding CropWidth.RawText, Mode=TwoWay}" YTextBinding="{Binding CropHeight.RawText, Mode=TwoWay}"
+              XBinding="{Binding CropWidth.Value, Mode=TwoWay}" YBinding="{Binding CropHeight.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
+        </StackPanel>
+        <StackPanel Spacing="8" IsVisible="{Binding AnimationEnabled}">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.ImagePlaybackMode}" />
+          <ComboBox Name="ImagePlaybackModeInput" ItemsSource="{Binding PlaybackModeChoices}" SelectedIndex="{Binding PlaybackMode, Mode=TwoWay}" HorizontalAlignment="Stretch">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="styles:GraphicStyleChoice"><TextBlock Text="{Binding Label}" /></DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <controls:NumericDragLabel Classes="field" Input="{Binding #ImagePlaybackOffsetInput}" Text="{Loc Key=Workbench.ImagePlaybackOffset}" />
+          <controls:NumericDraftInput Name="ImagePlaybackOffsetInput" RawText="{Binding PlaybackOffset.RawText, Mode=TwoWay}"
+              Value="{Binding PlaybackOffset.Value, Mode=TwoWay}" Minimum="-1000000000" Maximum="1000000000" Increment="0.1" />
+          <controls:NumericDragLabel Classes="field" Input="{Binding #ImagePlaybackSpeedInput}" Text="{Loc Key=Workbench.ImagePlaybackSpeed}" />
+          <controls:NumericDraftInput Name="ImagePlaybackSpeedInput" RawText="{Binding PlaybackSpeed.RawText, Mode=TwoWay}"
+              Value="{Binding PlaybackSpeed.Value, Mode=TwoWay}" Minimum="0.01" Maximum="100" Increment="0.1" />
+        </StackPanel>
+        <controls:LayerPositionEditor Name="PositionEditor" Draft="{Binding Position}"
+            ShowPositionMode="False" ShowAutomaticPositionAction="False" />
       </StackPanel>
-      <controls:LayerPositionEditor Name="PositionEditor" Draft="{Binding Position}"
-          ShowPositionMode="False" ShowAutomaticPositionAction="False" />
-    </StackPanel>
-  </ScrollViewer>
+    </ScrollViewer>
+  </Grid>
 </UserControl>
