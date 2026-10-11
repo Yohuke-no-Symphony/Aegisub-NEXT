@@ -197,10 +197,12 @@ internal sealed partial class AssetLibraryCoordinator(WorkbenchSession session, 
             return;
         }
         var captured = session.Editor.Snapshot;
+        var revision = session.TaskInputRevision;
+        var directory = session.ProjectDirectory;
         var asset = captured.Assets.Single(value => value.Id == assetId);
         var path = relocate ? await dialogs.OpenFileAsync("RelocateImage", "Images", ImageFileTypes.Patterns)
-            : ProjectAssetLocation.Resolve(asset, session.ProjectDirectory);
-        if (path is null)
+            : ProjectAssetLocation.Resolve(asset, directory);
+        if (path is null || !IsCurrent(captured, revision, directory))
         {
             return;
         }

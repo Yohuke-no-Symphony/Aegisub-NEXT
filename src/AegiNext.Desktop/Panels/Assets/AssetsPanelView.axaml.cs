@@ -29,6 +29,7 @@ internal sealed partial class AssetsPanelView : UserControl, IWorkbenchPanelView
     private readonly ColumnDefinition folderColumn;
     private readonly Grid browserColumns;
     private AssetFolderEditTarget? folderMenuTarget;
+    private AssetItemEditTarget? itemMenuTarget;
     private bool synchronizingWidth;
     private bool? showingIcons;
     private WrapPanel? iconPanel;
@@ -114,6 +115,10 @@ internal sealed partial class AssetsPanelView : UserControl, IWorkbenchPanelView
             {
                 viewModel.SelectedFolder = folder;
             }
+            else if (source.GetSelfAndVisualAncestors().Contains(assetList))
+            {
+                viewModel.SelectedItem = row;
+            }
             return;
         }
         if (!properties.IsLeftButtonPressed)
@@ -156,6 +161,60 @@ internal sealed partial class AssetsPanelView : UserControl, IWorkbenchPanelView
     }
 
     private void OnFolderMenuClosed(object? sender, RoutedEventArgs e) => folderMenuTarget = null;
+
+    private void OnItemMenuOpening(object? sender, CancelEventArgs e)
+    {
+        CancelGestures();
+        itemMenuTarget = viewModel.SelectedItem is { } item ? viewModel.CaptureItemTarget(item.Id) : null;
+        e.Cancel = itemMenuTarget is null || session.IsProjectBusy;
+        if (itemMenuTarget is { } target)
+        {
+            assetList.ContextMenu!.Items.OfType<MenuItem>().Single(item => item.Name == "RemoveAssetMenuItem").IsEnabled =
+                viewModel.CanRemoveItem(target);
+        }
+    }
+
+    private void OnItemMenuClosed(object? sender, RoutedEventArgs e) => itemMenuTarget = null;
+
+    private async void OnPlaceItem(object? sender, RoutedEventArgs e)
+    {
+        if (itemMenuTarget is { } target)
+        {
+            await viewModel.PlaceItemAsync(target);
+        }
+    }
+
+    private async void OnRenameItem(object? sender, RoutedEventArgs e)
+    {
+        if (itemMenuTarget is { } target)
+        {
+            await viewModel.RenameItemAsync(target);
+        }
+    }
+
+    private async void OnRemoveItem(object? sender, RoutedEventArgs e)
+    {
+        if (itemMenuTarget is { } target)
+        {
+            await viewModel.RemoveItemAsync(target);
+        }
+    }
+
+    private async void OnRefreshItem(object? sender, RoutedEventArgs e)
+    {
+        if (itemMenuTarget is { } target)
+        {
+            await viewModel.RefreshItemAsync(target);
+        }
+    }
+
+    private async void OnRelocateItem(object? sender, RoutedEventArgs e)
+    {
+        if (itemMenuTarget is { } target)
+        {
+            await viewModel.RefreshItemAsync(target, true);
+        }
+    }
 
     private async void OnRenameFolder(object? sender, RoutedEventArgs e)
     {
@@ -220,7 +279,7 @@ internal sealed partial class AssetsPanelView : UserControl, IWorkbenchPanelView
         }
     }
 
-    private double IconPanelWidth => Math.Max(Math.Max(88, viewModel.ThumbnailSize + 24) + 12,
+    private double IconPanelWidth => Math.Max(Math.Max(72, viewModel.ThumbnailSize + 16) + 8,
         assetScrollViewer?.Viewport.Width ?? assetList.Bounds.Width - assetList.Padding.Left - assetList.Padding.Right -
         assetList.BorderThickness.Left - assetList.BorderThickness.Right);
 
@@ -337,6 +396,8 @@ internal sealed partial class AssetsPanelView : UserControl, IWorkbenchPanelView
             assetList.RemoveHandler(PointerWheelChangedEvent, OnAssetWheel);
             folderTree.ContextMenu?.Close();
             folderMenuTarget = null;
+            assetList.ContextMenu?.Close();
+            itemMenuTarget = null;
             CancelGestures();
         }
     }

@@ -6,6 +6,8 @@ namespace AegiNext.Desktop.Tests.Workspace;
 internal sealed class WorkspaceDialogStub : IWorkbenchDialogService
 {
     internal string? OpenPath { get; set; }
+    internal int OpenFileRequests { get; private set; }
+    internal TaskCompletionSource<string?>? PendingOpenFile { get; set; }
     internal string[]? OpenFilePatterns { get; private set; }
     internal string? SavePath { get; set; }
     internal ProjectCreationRequest? NewProjectRequest { get; set; }
@@ -54,6 +56,10 @@ internal sealed class WorkspaceDialogStub : IWorkbenchDialogService
     internal int IntegerInputRequests { get; private set; }
     internal IntegerInputRequest? LastIntegerInputRequest { get; private set; }
     internal TaskCompletionSource<int?>? PendingIntegerInput { get; set; }
+    internal string? AssetRenameChoice { get; set; }
+    internal int AssetRenameRequests { get; private set; }
+    internal string? RenamedAssetName { get; private set; }
+    internal TaskCompletionSource<string?>? PendingAssetRename { get; set; }
 
     internal string[]? OpenPaths { get; set; }
     internal int OpenFilesRequests { get; private set; }
@@ -85,8 +91,17 @@ internal sealed class WorkspaceDialogStub : IWorkbenchDialogService
 
     public Task<string?> OpenFileAsync(string title, string typeName, string[] patterns)
     {
+        OpenFileRequests++;
         OpenFilePatterns = [.. patterns];
-        return Task.FromResult(OpenPath);
+        return PendingOpenFile?.Task ?? Task.FromResult(OpenPath);
+    }
+
+    public Task<string?> RenameAssetItemAsync(string name, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        AssetRenameRequests++;
+        RenamedAssetName = name;
+        return PendingAssetRename?.Task.WaitAsync(cancellationToken) ?? Task.FromResult(AssetRenameChoice);
     }
 
     public Task<string?> SaveFileAsync(string title, string typeName, string[] patterns, string extension,

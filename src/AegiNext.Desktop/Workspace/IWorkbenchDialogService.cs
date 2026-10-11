@@ -28,6 +28,8 @@ internal interface IWorkbenchDialogService
         => Task.FromResult(false);
     Task<string?> RenameAssetFolderAsync(string name, CancellationToken cancellationToken = default)
         => Task.FromResult<string?>(null);
+    Task<string?> RenameAssetItemAsync(string name, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
     Task<bool> ConfirmAssetFolderDeletionAsync(string name, CancellationToken cancellationToken = default)
         => Task.FromResult(false);
 }

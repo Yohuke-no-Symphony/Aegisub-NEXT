@@ -25,14 +25,28 @@ internal sealed class AssetLibraryRow(ProjectAssetLibraryItem item, ProjectAsset
             {
                 OnPropertyChanged(nameof(IconItemWidth));
                 OnPropertyChanged(nameof(ThumbnailPixelSize));
+                OnPropertyChanged(nameof(ListThumbnailSize));
+                OnPropertyChanged(nameof(ListThumbnailPixelSize));
             }
         }
     }
-    public double IconItemWidth => Math.Max(88, ThumbnailSize + 24);
+    public double IconItemWidth => Math.Max(72, ThumbnailSize + 16);
     public int ThumbnailPixelSize => (int)Math.Ceiling(ThumbnailSize * 2);
+    public double ListThumbnailSize => Math.Clamp(ThumbnailSize / 4, 16, 24);
+    public int ListThumbnailPixelSize => (int)Math.Ceiling(ListThumbnailSize * 2);
+    public bool HasStatus => !string.IsNullOrEmpty(Status);
+    public string DetailsTooltip => string.Join(Environment.NewLine, new[] { Name, UsageLabel, StorageLabel, Status }
+        .Where(value => !string.IsNullOrEmpty(value)));
     public string Status
     {
         get => status;
-        internal set => SetProperty(ref status, value);
+        internal set
+        {
+            if (SetProperty(ref status, value))
+            {
+                OnPropertyChanged(nameof(HasStatus));
+                OnPropertyChanged(nameof(DetailsTooltip));
+            }
+        }
     }
 }

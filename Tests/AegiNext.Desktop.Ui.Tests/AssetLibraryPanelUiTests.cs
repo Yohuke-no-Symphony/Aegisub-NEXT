@@ -70,6 +70,8 @@ public sealed class AssetLibraryPanelUiTests
             Flush(window);
             Assert.IsType<VirtualizingStackPanel>(list.ItemsPanelRoot);
             Assert.Same(selected, list.SelectedItem);
+            AssertCompactListRows(list);
+            Assert.Single(panel.GetVisualDescendants().OfType<TextBox>());
             var splitter = panel.FindControl<GridSplitter>("AssetFolderSplitter")!;
             var start = splitter.TranslatePoint(new Point(splitter.Bounds.Width / 2, splitter.Bounds.Height / 2), window)!.Value;
             var initialWidth = model.FolderPaneWidth;
@@ -107,11 +109,14 @@ public sealed class AssetLibraryPanelUiTests
             window.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Light;
             Flush(window);
             await WaitUntilAsync(() => panel.GetVisualDescendants().OfType<AssetThumbnail>().Any(thumbnail => thumbnail.Source is not null));
+            AssertCompactListRows(list);
             Capture(window, "asset-browser-list-light.png");
             Click(window, panel.FindControl<ToolbarToggleButton>("AssetIconViewButton")!);
             model.ResizeThumbnails(6);
             await WaitUntilAsync(() => panel.GetVisualDescendants().OfType<AssetThumbnail>().Any(thumbnail => thumbnail.Source is not null));
             Flush(window);
+            Assert.All(list.GetVisualDescendants().OfType<ListBoxItem>(), container =>
+                Assert.True(container.Bounds.Height <= model.ThumbnailSize + 32));
             Capture(window, "asset-browser-icons-light.png");
             Localization.SetLanguage("zh-CN");
             window.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
@@ -151,6 +156,7 @@ public sealed class AssetLibraryPanelUiTests
             Flush(window);
             Assert.Equal(first.Id, model.SelectedFolder!.Id);
             Assert.True(tree.ContextMenu!.IsOpen);
+            Assert.All(tree.ContextMenu.Items.OfType<MenuItem>(), item => Assert.NotNull(item.Icon));
             model.SelectedFolder = model.Folders[0].Children.Single(folder => folder.Id == second.Id);
             var remove = tree.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Name == "RemoveFolderMenuItem");
             UiTestActions.ClickFontMenuItem(remove);
@@ -349,6 +355,126 @@ public sealed class AssetLibraryPanelUiTests
         finally
         {
             window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AssetContextMenuTargetsClickedItemAndReplacesInlineActions(bool icons)
+    {
+        await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
+        var asset = WriteImageFixture(context.Session.ProjectDirectory, "menu.png", SKColors.Coral);
+        var first = new ProjectAssetLibraryItem(Guid.NewGuid(), asset.Id, "First");
+        var second = new ProjectAssetLibraryItem(Guid.NewGuid(), asset.Id, "Second");
+        var original = new ProjectDocument { Assets = [asset], AssetLibrary = new() { Items = [first, second] } };
+        context.Session.Editor.Reset(original);
+        var model = context.ViewModel.Assets;
+        if (icons)
+        {
+            model.IconViewCommand.Execute(null);
+        }
+        using var panel = new AssetsPanelView(model, context.Session);
+        var window = new Window { Width = 620, Height = 400, Content = panel, RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark };
+        try
+        {
+            window.Show();
+            Flush(window);
+            var list = panel.FindControl<ListBox>("AssetList")!;
+            Assert.Single(panel.GetVisualDescendants().OfType<TextBox>());
+            model.SelectedItem = model.Items.Single(item => item.Id == second.Id);
+            OpenAssetMenu(window, list, first.Name);
+            Assert.Equal(first.Id, model.SelectedItem!.Id);
+            Assert.All(list.ContextMenu!.Items.OfType<MenuItem>(), item => Assert.NotNull(item.Icon));
+            Assert.Equal(5, list.ContextMenu.Items.OfType<MenuItem>().Count());
+            var rename = list.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Name == "RenameAssetMenuItem");
+            Localization.SetLanguage("zh-CN");
+            Assert.Equal(Localization.Get("Workbench.RenameAsset"), rename.Header);
+            if (!list.ContextMenu.IsOpen)
+            {
+                OpenAssetMenu(window, list, first.Name);
+            }
+            Capture(window, icons ? "asset-menu-icons-dark.png" : "asset-menu-list-dark.png");
+            model.SelectedItem = model.Items.Single(item => item.Id == second.Id);
+            UiTestActions.ClickFontMenuItem(rename);
+            var dialog = await FindDialogAsync<AssetItemRenameDialog>(context.Window);
+            var input = UiTestActions.Find<TextBox>(dialog, "AssetItemNameInput");
+            Assert.Equal(first.Name, input.Text);
+            input.Text = "   ";
+            Assert.False(UiTestActions.Find<Button>(dialog, "ConfirmButton").IsEnabled);
+            input.Text = "Renamed";
+            Click(dialog, UiTestActions.Find<Button>(dialog, "ConfirmButton"));
+            await WaitUntilAsync(() => context.Session.Editor.Snapshot.AssetLibrary.Items.Any(item => item.Name == "Renamed"));
+            Assert.Equal(second, context.Session.Editor.Snapshot.AssetLibrary.Items.Single(item => item.Id == second.Id));
+            Assert.True(context.Session.Editor.Undo());
+            Assert.Same(original, context.Session.Editor.Snapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+
+            OpenAssetMenu(window, list, first.Name);
+            model.SelectedItem = model.Items.Single(item => item.Id == second.Id);
+            UiTestActions.ClickFontMenuItem(list.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Name == "PlaceAssetMenuItem"));
+            await WaitUntilAsync(() => context.Session.Editor.Snapshot.Layers.Length == 1);
+            Assert.Equal(first.Name, Assert.Single(context.Session.Editor.Snapshot.Layers).Name);
+            OpenAssetMenu(window, list, first.Name);
+            Assert.False(list.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Name == "RemoveAssetMenuItem").IsEnabled);
+            list.ContextMenu.Close();
+            Assert.True(context.Session.Editor.Undo());
+            Assert.Same(original, context.Session.Editor.Snapshot);
+
+            OpenAssetMenu(window, list, first.Name);
+            model.SelectedItem = model.Items.Single(item => item.Id == second.Id);
+            UiTestActions.ClickFontMenuItem(list.ContextMenu.Items.OfType<MenuItem>().Single(item => item.Name == "RemoveAssetMenuItem"));
+            await WaitUntilAsync(() => context.Session.Editor.Snapshot.AssetLibrary.Items.Length == 1);
+            Assert.Equal(second, Assert.Single(context.Session.Editor.Snapshot.AssetLibrary.Items));
+            Assert.True(File.Exists(Path.Combine(context.Session.ProjectDirectory, "menu.png")));
+            Assert.True(context.Session.Editor.Undo());
+            Assert.Same(original, context.Session.Editor.Snapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+            var blank = list.TranslatePoint(new Point(list.Bounds.Width / 2, list.Bounds.Height - 8), window)!.Value;
+            window.MouseDown(blank, MouseButton.Right);
+            window.MouseUp(blank, MouseButton.Right);
+            Assert.False(list.ContextMenu.IsOpen);
+            Assert.Null(model.SelectedItem);
+        }
+        finally
+        {
+            foreach (var dialog in context.Window.OwnedWindows.OfType<AssetItemRenameDialog>().ToArray())
+            {
+                dialog.Close(null);
+            }
+            window.Close();
+            Localization.SetLanguage("en-US");
+        }
+    }
+
+    private static void OpenAssetMenu(Window window, ListBox list, string name)
+    {
+        Flush(window);
+        var label = list.GetVisualDescendants().OfType<TextBlock>().First(text => text.Text == name);
+        var point = label.TranslatePoint(new Point(label.Bounds.Width / 2, label.Bounds.Height / 2), window)!.Value;
+        window.MouseDown(point, MouseButton.Right);
+        window.MouseUp(point, MouseButton.Right);
+        Flush(window);
+        Assert.True(list.ContextMenu!.IsOpen);
+    }
+
+    private static void AssertCompactListRows(ListBox list)
+    {
+        var containers = list.GetVisualDescendants().OfType<ListBoxItem>().ToArray();
+        Assert.NotEmpty(containers);
+        foreach (var container in containers)
+        {
+            Assert.Equal(32, container.Bounds.Height);
+            var row = Assert.IsType<AssetLibraryRow>(container.DataContext);
+            var thumbnail = Assert.Single(container.GetVisualDescendants().OfType<AssetThumbnail>());
+            var title = container.GetVisualDescendants().OfType<TextBlock>().Single(text => text.Text == row.Name);
+            Assert.InRange(thumbnail.Bounds.Width, 16, 24);
+            Assert.InRange(thumbnail.Bounds.Height, 1, 24);
+            var imageCenter = thumbnail.TranslatePoint(new Rect(thumbnail.Bounds.Size).Center, container)!.Value;
+            var textCenter = title.TranslatePoint(new Rect(title.Bounds.Size).Center, container)!.Value;
+            Assert.InRange(Math.Abs(imageCenter.Y - textCenter.Y), 0, 0.5);
+            Assert.True(title.TranslatePoint(default, container)!.Value.X >= thumbnail.TranslatePoint(default, container)!.Value.X + thumbnail.Bounds.Width);
         }
     }
 

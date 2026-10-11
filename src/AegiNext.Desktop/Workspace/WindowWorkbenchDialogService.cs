@@ -13,6 +13,17 @@ internal sealed class WindowWorkbenchDialogService : IWorkbenchDialogService
     private readonly Func<IStorageProvider>? storageProvider;
     private readonly Action<Window>? registerWindow;
 
+    /// <summary>重命名项目素材项；取消或关闭返回空值。</summary>
+    public async Task<string?> RenameAssetItemAsync(string name, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var dialog = new AssetItemRenameDialog(name);
+        registerWindow?.Invoke(dialog);
+        var answer = dialog.ShowDialog<string?>(ownerProvider());
+        using var registration = cancellationToken.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(null)));
+        return await answer;
+    }
+
     /// <summary>重命名项目素材分类；取消或关闭返回空值。</summary>
     public async Task<string?> RenameAssetFolderAsync(string name, CancellationToken cancellationToken = default)
     {

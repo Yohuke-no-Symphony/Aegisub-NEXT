@@ -16,7 +16,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
     private AssetFolderNode? selectedFolder;
     private AssetLibraryRow? selectedItem;
     private string search = string.Empty;
-    private string nameDraft = string.Empty;
     private bool refreshing;
     private bool checking;
     private bool disposed;
@@ -28,8 +27,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
         this.session = session;
         ImportCommand = Command(() => session.Assets.PickImportAsync(false, SelectedFolder?.Id));
         PlaceCommand = Command(() => SelectedItem is { } item ? session.Assets.PlaceAsync(item.Id) : Task.CompletedTask);
-        RefreshCommand = Command(() => SelectedItem is { } item ? session.Assets.RefreshAssetAsync(item.Asset.Id) : Task.CompletedTask);
-        RelocateCommand = Command(() => SelectedItem is { } item ? session.Assets.RefreshAssetAsync(item.Asset.Id, true) : Task.CompletedTask);
         CollectCommand = Command(() => session.Assets.CollectAsync());
         AddFolderCommand = Command(() => session.EditAsync(() =>
         {
@@ -40,10 +37,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
         }));
         ListViewCommand = new RelayCommand(() => SetViewMode(AssetBrowserViewMode.LIST));
         IconViewCommand = new RelayCommand(() => SetViewMode(AssetBrowserViewMode.ICONS));
-        RenameItemCommand = EditCommand(document => SelectedItem is { } item
-            ? ProjectEditingOperations.RenameAssetLibraryItem(document, item.Id, NameDraft.Trim()) : document);
-        RemoveItemCommand = EditCommand(document => SelectedItem is { } item
-            ? ProjectEditingOperations.RemoveUnusedAssetLibraryItems(document, [item.Id]) : document);
         session.Editor.StateChanged += OnDocumentChanged;
         session.PreferencesChanged += OnPreferencesChanged;
         Localization.LanguageChanged += OnLanguageChanged;
@@ -54,14 +47,10 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
     public ObservableCollection<AssetLibraryRow> Items { get; } = [];
     public ICommand ImportCommand { get; }
     public ICommand PlaceCommand { get; }
-    public ICommand RefreshCommand { get; }
-    public ICommand RelocateCommand { get; }
     public ICommand CollectCommand { get; }
     public ICommand AddFolderCommand { get; }
     public ICommand ListViewCommand { get; }
     public ICommand IconViewCommand { get; }
-    public ICommand RenameItemCommand { get; }
-    public ICommand RemoveItemCommand { get; }
     public bool HasSelectedItem => SelectedItem is not null;
     public bool HasSelectedFolder => SelectedFolder?.Id is not null;
     public bool IsListView => session.Preferences.AssetBrowser.ViewMode == AssetBrowserViewMode.LIST;
@@ -91,7 +80,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
         {
             if (SetProperty(ref selectedItem, value))
             {
-                NameDraft = value?.Name ?? string.Empty;
                 OnPropertyChanged(nameof(HasSelectedItem));
             }
         }
@@ -107,7 +95,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
             }
         }
     }
-    public string NameDraft { get => nameDraft; set => SetProperty(ref nameDraft, value); }
     internal void SetViewMode(AssetBrowserViewMode mode)
     {
         if (disposed)
@@ -150,6 +137,13 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
     internal Task RenameFolderAsync(AssetFolderEditTarget target) => session.RenameAssetFolderAsync(target);
     internal Task RemoveFolderAsync(AssetFolderEditTarget target) => session.RemoveAssetFolderAsync(target);
 
+    internal AssetItemEditTarget? CaptureItemTarget(Guid id) => session.CaptureAssetItemTarget(id);
+    internal bool CanRemoveItem(AssetItemEditTarget target) => session.CanRemoveAssetItem(target);
+    internal Task PlaceItemAsync(AssetItemEditTarget target) => session.PlaceAssetItemAsync(target);
+    internal Task RenameItemAsync(AssetItemEditTarget target) => session.RenameAssetItemAsync(target);
+    internal Task RemoveItemAsync(AssetItemEditTarget target) => session.RemoveAssetItemAsync(target);
+    internal Task RefreshItemAsync(AssetItemEditTarget target, bool relocate = false) => session.RefreshAssetItemAsync(target, relocate);
+
     internal Task MoveItemAsync(Guid itemId, Guid? folderId) => session.RunCommandAsync(() => session.EditAsync(() =>
         session.Editor.Apply("Move asset into folder", document => ProjectEditingOperations.MoveAssetLibraryItem(document, itemId, folderId))));
 
@@ -188,8 +182,6 @@ internal sealed class AssetsPanelViewModel : ObservableObject, IDisposable
     }
 
     private AsyncRelayCommand Command(Func<Task> execute) => new(() => session.RunCommandAsync(execute));
-    private AsyncRelayCommand EditCommand(Func<ProjectDocument, ProjectDocument> update) => Command(() => session.EditAsync(() =>
-        session.Editor.Apply("Edit asset library", update)));
 
     private void OnDocumentChanged(object? sender, ProjectEditorChangedEventArgs e) => Refresh();
     private void OnLanguageChanged(object? sender, EventArgs e) => Refresh();
