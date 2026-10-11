@@ -97,6 +97,21 @@
       "url": "https://github.com/libsdl-org/SDL/releases/download/release-3.4.16/SDL3-devel-3.4.16-mingw.zip",
       "sha256": "9828bb735cf8a007bcf0ac5aa9f01f3fcb54b7ca67c932e775c905c5d5053a60",
       "archive": "sdl3-windows.zip"
+    },
+    "libvpx": {
+      "url": "https://github.com/webmproject/libvpx/archive/refs/tags/v1.17.0.tar.gz",
+      "sha256": "1020f184046187baa2985dbde38e0691f49c44088bca7a1842b0236c6081dc0a",
+      "archive": "libvpx.tar.gz"
+    },
+    "svt-av1": {
+      "url": "https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v4.2.0/SVT-AV1-v4.2.0.tar.gz",
+      "sha256": "c7b13c4a84bd3751aa35fcc72be13e6875467e7c2216879251a486e5b1e4e740",
+      "archive": "svt-av1.tar.gz"
+    },
+    "opus": {
+      "url": "https://downloads.xiph.org/releases/opus/opus-1.6.1.tar.gz",
+      "sha256": "6ffcb593207be92584df15b32466ed64bbec99109f007c82205f0194572411a1",
+      "archive": "opus.tar.gz"
     }
   },
   "packages": {
@@ -106,7 +121,10 @@
       "dependencies": [
         "x264",
         "x265",
-        "dav1d"
+        "dav1d",
+        "libvpx",
+        "svt-av1",
+        "opus"
       ],
       "sources": [
         "ffmpeg"
@@ -139,6 +157,9 @@
         "--enable-libx264",
         "--enable-libx265",
         "--enable-libdav1d",
+        "--enable-libvpx",
+        "--enable-libsvtav1",
+        "--enable-libopus",
         "--enable-pthreads",
         "--enable-zlib",
         "--enable-bzlib",
@@ -300,6 +321,50 @@
       "requiredFiles": [
         "include/MoltenVK/mvk_private_api.h",
         "lib/libMoltenVK.dylib"
+      ]
+    },
+    "libvpx": {
+      "version": "1.17.0",
+      "recipe": "libvpx",
+      "dependencies": [],
+      "sources": [
+        "libvpx"
+      ],
+      "requiredFiles": [
+        "include/vpx/vpx_encoder.h",
+        "lib/libvpx.dylib",
+        "lib/pkgconfig/vpx.pc",
+        "share/licenses/libvpx/LICENSE",
+        "share/licenses/libvpx/PATENTS"
+      ]
+    },
+    "svt-av1": {
+      "version": "4.2.0",
+      "recipe": "cmake",
+      "dependencies": [],
+      "sources": [
+        "svt-av1"
+      ],
+      "requiredFiles": [
+        "include/svt-av1/EbSvtAv1Enc.h",
+        "lib/libSvtAv1Enc.dylib",
+        "lib/pkgconfig/SvtAv1Enc.pc",
+        "share/licenses/svt-av1/LICENSE.md",
+        "share/licenses/svt-av1/PATENTS.md"
+      ]
+    },
+    "opus": {
+      "version": "1.6.1",
+      "recipe": "cmake",
+      "dependencies": [],
+      "sources": [
+        "opus"
+      ],
+      "requiredFiles": [
+        "include/opus/opus.h",
+        "lib/libopus.dylib",
+        "lib/pkgconfig/opus.pc",
+        "share/licenses/opus/COPYING"
       ]
     }
   }

@@ -34,6 +34,11 @@ Describe 'Locked dependency manifest' {
             [array]::IndexOf($order, 'x264') | Should -BeLessThan ([array]::IndexOf($order, 'ffmpeg'))
             [array]::IndexOf($order, 'dav1d') | Should -BeGreaterOrEqual 0
             [array]::IndexOf($order, 'dav1d') | Should -BeLessThan ([array]::IndexOf($order, 'ffmpeg'))
+            foreach ($encoder in @('libvpx', 'svt-av1', 'opus'))
+            {
+                [array]::IndexOf($order, $encoder) | Should -BeGreaterOrEqual 0
+                [array]::IndexOf($order, $encoder) | Should -BeLessThan ([array]::IndexOf($order, 'ffmpeg'))
+            }
             [array]::IndexOf($order, 'shaderc') | Should -BeLessThan ([array]::IndexOf($order, 'libplacebo'))
             [array]::IndexOf($order, 'vulkan-headers') | Should -BeLessThan ([array]::IndexOf($order, 'vulkan-loader'))
             @($order | Select-Object -Unique).Count | Should -Be $order.Count
@@ -70,6 +75,22 @@ Describe 'Locked dependency manifest' {
             Get-AegiNextSdkFingerprint $manifest 'ffmpeg' 'MacOS' | Should -Not -Be $first
             $manifest.packages.x264.dependencies = @('ffmpeg')
             { Get-AegiNextSdkInstallOrder $manifest @('ffmpeg') 'MacOS' } | Should -Throw '*cyclic*'
+        }
+    }
+
+    It 'invalidates FFmpeg when any new export library source changes and requires upstream notices' {
+        InModuleScope AegiNext.Build {
+            foreach ($name in @('libvpx', 'svt-av1', 'opus'))
+            {
+                $manifest = Get-AegiNextDependencyManifest
+                $first = Get-AegiNextSdkFingerprint $manifest 'ffmpeg' 'MacOS'
+                $manifest.sources[$name].sha256 = 'a' * 64
+                Get-AegiNextSdkFingerprint $manifest 'ffmpeg' 'MacOS' | Should -Not -Be $first
+                @($manifest.packages[$name].requiredFiles | Where-Object { $_ -like 'share/licenses/*' }).Count | Should -BeGreaterThan 0
+            }
+            $manifest = Get-AegiNextDependencyManifest
+            $manifest.packages.libvpx.requiredFiles | Should -Contain 'share/licenses/libvpx/PATENTS'
+            $manifest.packages['svt-av1'].requiredFiles | Should -Contain 'share/licenses/svt-av1/PATENTS.md'
         }
     }
 }
@@ -219,6 +240,51 @@ Describe 'Software AV1 SDK preparation' {
             Should -Invoke Invoke-AegiNextSdkCommand -Times 1 -Exactly -ParameterFilter {
                 $FilePath -eq 'fixture-brew' -and $Arguments[0] -eq 'install' -and $Arguments[1] -eq 'meson'
             }
+        }
+    }
+}
+
+Describe 'Software export SDK preparation' {
+    It 'refuses missing licenses and incorrect prepared versions for <Name>' -TestCases @(
+        @{ Name = 'libvpx'; Module = 'vpx'; License = 'LICENSE' }
+        @{ Name = 'svt-av1'; Module = 'SvtAv1Enc'; License = 'PATENTS.md' }
+        @{ Name = 'opus'; Module = 'opus'; License = 'COPYING' }
+    ) {
+        param($Name, $Module, $License)
+        InModuleScope AegiNext.Build -Parameters @{ Repository = $TestDrive; Name = $Name; Module = $Module; License = $License } {
+            param($Repository, $Name, $Module, $License)
+            $manifest = Get-AegiNextDependencyManifest
+            $root = Join-Path $Repository "prepared $Name"
+            foreach ($file in $manifest.packages[$Name].requiredFiles)
+            {
+                $path = Join-Path $root $file
+                [IO.Directory]::CreateDirectory((Split-Path $path)) | Out-Null
+                Set-Content -LiteralPath $path -Value 'prepared SDK file'
+            }
+            Mock Assert-AegiNextSdkReceipt {}
+            $pc = Join-Path $root "lib/pkgconfig/$Module.pc"
+            Set-Content -LiteralPath $pc -Value "Version: $($manifest.packages[$Name].version)"
+            { Test-AegiNextPreparedSdk $root $Repository ([pscustomobject]@{ Platform = 'MacOS' }) $manifest $Name } | Should -Not -Throw
+            Set-Content -LiteralPath $pc -Value 'Version: 0.0.0'
+            { Test-AegiNextPreparedSdk $root $Repository ([pscustomobject]@{ Platform = 'MacOS' }) $manifest $Name } | Should -Throw '*locked version*'
+            Remove-Item -LiteralPath (Join-Path $root "share/licenses/$Name/$License")
+            { Test-AegiNextPreparedSdk $root $Repository ([pscustomobject]@{ Platform = 'MacOS' }) $manifest $Name } | Should -Throw "*$License*"
+        }
+    }
+
+    It 'copies upstream patent notices alongside copyright licenses' {
+        $source = Join-Path $TestDrive 'codec source'
+        [IO.Directory]::CreateDirectory($source) | Out-Null
+        foreach ($name in @('LICENSE.md', 'PATENTS.md', 'unrelated.md'))
+        {
+            Set-Content -LiteralPath (Join-Path $source $name) -Value $name
+        }
+        InModuleScope AegiNext.Build -Parameters @{ Source = $source; Stage = (Join-Path $TestDrive 'sdk') } {
+            param($Source, $Stage)
+            Copy-AegiNextSdkLicense $Source $Stage 'svt-av1'
+            Test-Path -LiteralPath (Join-Path $Stage 'share/licenses/svt-av1/LICENSE.md') | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $Stage 'share/licenses/svt-av1/PATENTS.md') | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $Stage 'share/licenses/svt-av1/unrelated.md') | Should -BeFalse
         }
     }
 }

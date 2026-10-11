@@ -66,7 +66,7 @@ Describe 'Workbench and Application selection' {
 }
 
 Describe 'Fixed export capabilities' {
-    It 'requires the selected SDK encoders formats and both muxers without using PATH' {
+    It 'requires the selected SDK encoder bit depths audio formats and three muxers without using PATH' {
         InModuleScope AegiNext.Build {
             Mock Invoke-AegiNextCommand {
                 param($FilePath, $Arguments)
@@ -74,16 +74,21 @@ Describe 'Fixed export capabilities' {
                 $output = switch ($Arguments[-1]) {
                     'encoder=libx264' { "Encoder libx264 [H264]:`nSupported pixel formats: yuv420p yuv420p10le" }
                     'encoder=libx265' { "Encoder libx265 [HEVC]:`nSupported pixel formats: yuv420p yuv420p10le" }
+                    'encoder=libvpx' { "Encoder libvpx [VP8]:`nSupported pixel formats: yuv420p yuva420p" }
+                    'encoder=libvpx-vp9' { "Encoder libvpx-vp9 [VP9]:`nSupported pixel formats: yuv420p yuv420p10le yuv420p12le" }
+                    'encoder=libsvtav1' { "Encoder libsvtav1 [SVT-AV1]:`nSupported pixel formats: yuv420p yuv420p10le" }
                     'encoder=aac' { "Encoder aac [AAC]:`nSupported sample formats: fltp" }
+                    'encoder=libopus' { "Encoder libopus [Opus]:`nSupported sample formats: s16 flt" }
                     'muxer=mp4' { 'Muxer mp4 [MP4]:' }
                     'muxer=matroska' { 'Muxer matroska [Matroska]:' }
+                    'muxer=webm' { 'Muxer webm [WebM]:' }
                     default { throw 'Unexpected capability probe.' }
                 }
                 [pscustomobject]@{ ExitCode = 0; Output = $output }
             }
             $check = Get-AegiNextExportCapabilityCheck -RepositoryRoot '/repo' -HostInfo ([pscustomobject]@{ Platform = 'Windows' }) -FfmpegRoot '/chosen sdk'
             $check.Status | Should -Be 'Ready'
-            Should -Invoke Invoke-AegiNextCommand -Times 5 -Exactly
+            Should -Invoke Invoke-AegiNextCommand -Times 12 -Exactly
         }
     }
 
@@ -98,6 +103,41 @@ Describe 'Fixed export capabilities' {
             $check.Status | Should -Be 'Invalid'
             $check.Detail | Should -BeLike '*libx265*yuv420p10le*'
             Should -Invoke Invoke-AegiNextCommand -Times 2 -Exactly
+        }
+    }
+
+    It 'rejects an incomplete VP9 AV1 Opus or WebM capability in the selected SDK' -TestCases @(
+        @{ Missing = 'encoder=libvpx-vp9'; Detail = 'libvpx-vp9'; Output = "Encoder libvpx-vp9 [VP9]:`nSupported pixel formats: yuv420p" }
+        @{ Missing = 'encoder=libsvtav1'; Detail = 'libsvtav1'; Output = "Encoder libsvtav1 [AV1]:`nSupported pixel formats: yuv420p10le" }
+        @{ Missing = 'encoder=libopus'; Detail = 'libopus'; Output = "Encoder libopus [Opus]:`nSupported sample formats: s16" }
+        @{ Missing = 'muxer=webm'; Detail = 'webm'; Output = "Unknown format 'webm'." }
+    ) {
+        param($Missing, $Detail, $Output)
+        InModuleScope AegiNext.Build -Parameters @{ Missing = $Missing; Detail = $Detail; Output = $Output } {
+            param($Missing, $Detail, $Output)
+            $script:missingCapability = $Missing
+            $script:missingCapabilityOutput = $Output
+            Mock Invoke-AegiNextCommand {
+                param($Arguments)
+                $capability = $Arguments[-1]
+                $kind, $name = $capability.Split('=')
+                $output = if ($capability -eq $script:missingCapability)
+                {
+                    $script:missingCapabilityOutput
+                }
+                elseif ($kind -eq 'muxer')
+                {
+                    "Muxer $name [fixture]:"
+                }
+                else
+                {
+                    "Encoder $name [fixture]:`nSupported pixel formats: yuv420p yuv420p10le`nSupported sample formats: fltp flt"
+                }
+                [pscustomobject]@{ ExitCode = 0; Output = $output }
+            }
+            $check = Get-AegiNextExportCapabilityCheck '/repo' ([pscustomobject]@{ Platform = 'MacOS' }) '/chosen sdk'
+            $check.Status | Should -Be 'Invalid'
+            $check.Detail | Should -BeLike "*$Detail*"
         }
     }
 }

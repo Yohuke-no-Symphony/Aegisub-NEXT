@@ -220,6 +220,19 @@ Describe 'Platform publishing boundaries' {
         Get-Content -LiteralPath (Join-Path $TestDrive "licenses/$($records[0].File)") -Raw | Should -Match 'Actual notice text'
     }
 
+    It 'retains codec patent grants from packaged dependency license directories' {
+        $root = Join-Path $TestDrive 'codec SDK'
+        $upstream = Join-Path $root 'share/licenses/svt-av1'
+        [IO.Directory]::CreateDirectory($upstream) | Out-Null
+        Set-Content -LiteralPath (Join-Path $upstream 'PATENTS.md') -Value 'Upstream patent grant.'
+        Set-Content -LiteralPath (Join-Path $upstream 'LICENSE.md') -Value 'Upstream copyright notice.'
+        $records = @(Copy-AegiNextLicenseFile -Roots @($root) -Destination (Join-Path $TestDrive 'codec licenses'))
+        $records.Count | Should -Be 2
+        $patent = $records | Where-Object File -Like '*PATENTS.md'
+        Get-Content -LiteralPath (Join-Path $TestDrive "codec licenses/$($patent.File)") -Raw | Should -Match 'Upstream patent grant'
+        $patent.Sha256 | Should -Be ((Get-FileHash -LiteralPath (Join-Path $upstream 'PATENTS.md')).Hash.ToLowerInvariant())
+    }
+
     It 'verifies relocation and rejects a missing or modified packaged file' {
         $root = Join-Path $TestDrive "relocated package $([char]0x4e2d)$([char]0x6587)"
         [IO.Directory]::CreateDirectory($root) | Out-Null

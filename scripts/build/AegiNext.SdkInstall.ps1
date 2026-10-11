@@ -117,7 +117,7 @@ function Install-AegiNextSdkTool
             $result['meson'] = 'meson'
             $result['python3'] = 'python@3.14'
         }
-        if ($HostInfo.Architecture -eq 'X64' -and ('ffmpeg' -in $Names -or 'dav1d' -in $Names))
+        if ($HostInfo.Architecture -eq 'X64' -and ('ffmpeg' -in $Names -or 'dav1d' -in $Names -or 'libvpx' -in $Names -or 'svt-av1' -in $Names))
         {
             $result['nasm'] = 'nasm'
         }

@@ -51,7 +51,7 @@ function Copy-AegiNextSdkLicense
 {
     param([string] $Source, [string] $Stage, [string] $Name)
     $destination = Join-Path $Stage "share/licenses/$Name"
-    foreach ($file in Get-ChildItem -LiteralPath $Source -File -Recurse | Where-Object { $_.Name -match '^(LICENSE|LICENCE|COPYING|COPYRIGHT)([._-].*)?$' })
+    foreach ($file in Get-ChildItem -LiteralPath $Source -File -Recurse | Where-Object { $_.Name -match '^(LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE|PATENTS)([._-].*)?$' })
     {
         $relative = [IO.Path]::GetRelativePath($Source, $file.FullName)
         $target = Join-Path $destination $relative
@@ -103,6 +103,16 @@ function Invoke-AegiNextSdkRecipe
             Invoke-AegiNextSdkCommand (Find-AegiNextCommand 'make') @("-j$Jobs") $source $environment
             Invoke-AegiNextSdkCommand (Find-AegiNextCommand 'make') @('install') $source $environment
         }
+        'libvpx'
+        {
+            $target = if ($HostInfo.Architecture -eq 'Arm64') { 'arm64-darwin23-gcc' } else { 'x86_64-darwin23-gcc' }
+            $options = @("--prefix=$Stage", "--target=$target", '--enable-shared', '--disable-static', '--enable-pic',
+                '--enable-vp8', '--enable-vp9', '--enable-vp9-highbitdepth', '--disable-examples', '--disable-tools',
+                '--disable-docs', '--disable-unit-tests', '--disable-install-srcs')
+            Invoke-AegiNextSdkCommand (Find-AegiNextCommand 'bash') (@((Join-Path $source 'configure')) + $options) $source $environment
+            Invoke-AegiNextSdkCommand (Find-AegiNextCommand 'make') @("-j$Jobs") $source $environment
+            Invoke-AegiNextSdkCommand (Find-AegiNextCommand 'make') @('install') $source $environment
+        }
         'x265'
         {
             $high = Join-Path $Work 'build-10bit'
@@ -138,6 +148,10 @@ function Invoke-AegiNextSdkRecipe
             $options = switch ($Name)
             {
                 'sdl3' { @('-DSDL_SHARED=ON', '-DSDL_STATIC=OFF', '-DSDL_TESTS=OFF', '-DSDL_TEST_LIBRARY=OFF') }
+                'svt-av1' { @('-DBUILD_SHARED_LIBS=ON', '-DBUILD_APPS=OFF', '-DBUILD_TESTING=OFF', '-DNATIVE=OFF',
+                    '-DREPRODUCIBLE_BUILDS=ON') }
+                'opus' { @('-DOPUS_BUILD_SHARED_LIBRARY=ON', '-DOPUS_BUILD_TESTING=OFF', '-DOPUS_BUILD_PROGRAMS=OFF',
+                    '-DOPUS_INSTALL_PKG_CONFIG_MODULE=ON', '-DOPUS_INSTALL_CMAKE_CONFIG_MODULE=ON') }
                 'vulkan-headers' { @('-DVULKAN_HEADERS_ENABLE_TESTS=OFF') }
                 'vulkan-loader' { @('-DBUILD_TESTS=OFF', '-DBUILD_WERROR=OFF', '-DUPDATE_DEPS=OFF',
                     "-DVULKAN_HEADERS_INSTALL_DIR=$(Get-AegiNextProjectSdkRoot $RepositoryRoot $HostInfo 'vulkan-headers')") }
@@ -250,12 +264,13 @@ function Test-AegiNextPreparedSdk
             throw $check.Check.Detail
         }
     }
-    elseif ($Name -eq 'dav1d')
+    elseif ($Name -in @('dav1d', 'libvpx', 'svt-av1', 'opus'))
     {
-        $pc = Get-Content -LiteralPath (Join-Path $Root 'lib/pkgconfig/dav1d.pc') -Raw
+        $module = switch ($Name) { 'libvpx' { 'vpx' } 'svt-av1' { 'SvtAv1Enc' } default { $Name } }
+        $pc = Get-Content -LiteralPath (Join-Path $Root "lib/pkgconfig/$module.pc") -Raw
         if ($pc -notmatch ('(?m)^Version:\s*' + [regex]::Escape($package.version) + '\s*$'))
         {
-            throw 'Prepared dav1d does not match the locked version.'
+            throw "Prepared $Name does not match the locked version."
         }
     }
     elseif ($Name -eq 'vulkan-headers')

@@ -56,13 +56,13 @@ function Copy-AegiNextLicenseFile
     foreach ($root in $Roots)
     {
         if (!$root -or !(Test-Path -LiteralPath $root -PathType Container) -or !$seen.Add($root)) { continue }
-        $files = @(Get-ChildItem -LiteralPath $root -File | Where-Object Name -match '^(LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE|THIRD.?PARTY)')
+        $files = @(Get-ChildItem -LiteralPath $root -File | Where-Object Name -match '^(LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE|PATENTS|THIRD.?PARTY)')
         foreach ($subdirectory in @('share/licenses', 'share/doc', 'licenses', 'doc', 'docs'))
         {
             $directory = Join-Path $root $subdirectory
             if (Test-Path -LiteralPath $directory -PathType Container)
             {
-                $files += Get-ChildItem -LiteralPath $directory -File -Recurse | Where-Object Name -match 'LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE'
+                $files += Get-ChildItem -LiteralPath $directory -File -Recurse | Where-Object Name -match 'LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE|PATENTS'
             }
         }
         foreach ($file in $files)
