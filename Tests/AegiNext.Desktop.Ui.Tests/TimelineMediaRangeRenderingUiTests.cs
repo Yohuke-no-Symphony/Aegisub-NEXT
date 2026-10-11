@@ -24,6 +24,7 @@ public sealed class TimelineMediaRangeRenderingUiTests
     public async Task MediaDurationChangesOnlyTheBackgroundWithinTheVideo(bool dark)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         context.Session.UpdatePreferences(context.Session.Preferences with
         {
             Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT
@@ -247,6 +248,7 @@ public sealed class TimelineMediaRangeRenderingUiTests
     public async Task LongerSubtitleContentDoesNotInventOrExtendTheVideoBackground()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         context.Session.UpdatePreferences(context.Session.Preferences with
         {
             Theme = WorkbenchTheme.LIGHT, TimelineClips = Palette("#336699FF")
@@ -278,6 +280,7 @@ public sealed class TimelineMediaRangeRenderingUiTests
         await using var context = new MainWindowTestContext(
             mediaProbe: (_, _) => Task.FromResult(new VideoPreviewMedia(0, new(900), new(17, 4), VideoWidth: 1, VideoHeight: 1)),
             videoSourceFactory: () => new PreviewTestSource(1, 900000, 901000, 902000, 903000, 904000, 904250));
+        await context.Session.ApplicationContext.Initialization;
         context.Session.UpdatePreferences(context.Session.Preferences with
         {
             Theme = WorkbenchTheme.LIGHT, TimelineClips = Palette("#336699FF")

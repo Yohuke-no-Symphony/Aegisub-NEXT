@@ -22,6 +22,7 @@ public sealed class TimelineDisplayOptionsUiTests
     public async Task AudioVisibilityButtonsAreIndependentAndSurviveFloatingTheFixedPanel()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var timeline = UiTestActions.Find<SubtitleTimelineControl>(context.Window, "Timeline");
         var originalViewport = timeline.Viewport;
         var originalPosition = timeline.Position;

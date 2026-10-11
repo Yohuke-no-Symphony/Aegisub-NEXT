@@ -19,6 +19,7 @@ public sealed class TimelineExpandedClipsUiTests
     public async Task LeftToolbarButtonsChangeTheSharedControlModesAndSurvivePanelReactivation()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var timeline = UiTestActions.Find<SubtitleTimelineControl>(context.Window, "Timeline");
         Assert.True(timeline.IsSnapEnabled);
         Assert.False(timeline.IsStepEnabled);

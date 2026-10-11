@@ -20,6 +20,7 @@ public sealed class TimelineClipPaletteUiTests
     public async Task EveryClipColorInputFitsTheScrolledViewportInBothThemes(bool dark, string language)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var settings = OpenColors(context);
         settings.SelectPage(SettingsPage.APPEARANCE);
         UiTestActions.Find<ComboBox>(settings, "ThemeCombo").SelectedIndex = dark ? 2 : 1;
@@ -63,6 +64,7 @@ public sealed class TimelineClipPaletteUiTests
     public async Task EachClipColorCommitsRgbaFromActualInputAndPersistsAcrossSettingsReopen(string pickerName, int field)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var document = context.Session.DocumentSnapshot;
         var original = context.Session.Preferences;
         var timeline = UiTestActions.Find<SubtitleTimelineControl>(context.Window, "Timeline");
@@ -103,6 +105,7 @@ public sealed class TimelineClipPaletteUiTests
     public async Task InvalidClipColorSurvivesThemeLanguageAndAnotherFieldCommitAndEscapeRestoresOnlyItsField()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var document = context.Session.DocumentSnapshot;
         var original = context.Session.Preferences.TimelineClips;
         var settings = OpenColors(context);
@@ -143,6 +146,7 @@ public sealed class TimelineClipPaletteUiTests
     public async Task ResetColorsClearsEveryInvalidClipInputAndPersistsOneColorUpdateWithoutProjectEdits()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var original = context.Session.Preferences with
         {
             AccentColor = "#AABBCC", AudioGraph = AudioGraphPalettes.Get(2), Theme = WorkbenchTheme.DARK,

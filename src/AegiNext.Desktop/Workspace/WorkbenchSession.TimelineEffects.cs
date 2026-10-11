@@ -20,7 +20,7 @@ internal sealed partial class WorkbenchSession
             return false;
         }
 
-        ViewModel.CancelGestures();
+        PrepareTimelineEffectSelection(layer);
         InvalidateTimingSession();
         using var updateLease = BeginWorkbenchUpdate();
         SelectedLayerId = layer.Id;
@@ -37,6 +37,18 @@ internal sealed partial class WorkbenchSession
         RevealSubtitleColorTagTargets(layer.SubtitleId is { } cueId ? [cueId] : []);
         RefreshDocument();
         return true;
+    }
+
+    internal void PrepareTimelineEffectSelection(ProjectLayer layer)
+    {
+        ViewModel.CancelGestures();
+        CancelSceneGesture();
+        if (SceneEditing.Mode == CanvasEditMode.CROP && layer.Image is null ||
+            SceneEditing.Mode == CanvasEditMode.SHAPE_PATH && layer.Shape?.Kind != ShapeKind.PATH)
+        {
+            using var updateLease = BeginWorkbenchUpdate();
+            ViewModel.Effects.EditMode = CanvasEditMode.POSITION;
+        }
     }
 
     internal Task ClearTimelineEffectClipAsync(TimelineEffectClipId id, ProjectDocument expected) =>

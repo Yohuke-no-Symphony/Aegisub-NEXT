@@ -235,9 +235,10 @@ public sealed class TimelineMultiClipMoveUiTests
     }
 
     [AvaloniaFact]
-    public async Task EffectBlankAreaSelectsItsTrackAndClearsClipAndKeyframeSelections()
+    public async Task EffectBlockBlankSelectsItsTargetAndOutsideBlankClearsClipAndKeyframeSelections()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var first = new SubtitleLine { Start = MediaTime.Zero, End = new(8), Text = "Animated" };
         var layer = Layer(first) with { Tracks = [new(AnimationProperty.OPACITY, [new(new(1), 0.25)])] };
         var document = new ProjectDocument { Subtitles = [first], Layers = [layer] };
@@ -253,6 +254,19 @@ public sealed class TimelineMultiClipMoveUiTests
         Assert.Same(timeline, context.Window.InputHitTest(blankPoint));
         context.Window.MouseDown(blankPoint, MouseButton.Left);
         context.Window.MouseUp(blankPoint, MouseButton.Left);
+        Flush(context.Window);
+
+        Assert.Equal(layer.Id, context.Session.SelectedLayerId);
+        Assert.Equal(new TimelineEffectClipId(layer.Id, new(AnimationProperty.OPACITY)),
+            context.ViewModel.Timeline.SelectedEffectClipId);
+        Assert.Null(context.Session.SelectedKeyTime);
+        Assert.Equal(position, timeline.Position);
+        Assert.False(timeline.HasActiveDrag);
+
+        var outside = WindowPoint(context, timeline, new(timeline.GetClipRectangle(layer.Id)!.Value.Right + 40, key.Y));
+        Assert.Same(timeline, context.Window.InputHitTest(outside));
+        context.Window.MouseDown(outside, MouseButton.Left);
+        context.Window.MouseUp(outside, MouseButton.Left);
         Flush(context.Window);
 
         Assert.Equal(ProjectTrack.DEFAULT_TRACK_ID, context.Session.CurrentTrackId);

@@ -19,6 +19,7 @@ public sealed class MainWindowSeekSchedulingUiTests
     public async Task TimelineShowsLatestTargetImmediatelyAndOldSeekCompletionCannotReplaceReleasedTarget()
     {
         await using var context = new SeekSchedulingTestContext();
+        await WaitAsync(context.Window.Session.ApplicationContext.Initialization);
         await context.OpenMediaAsync();
         var window = context.Window;
         var first = context.Source.BlockNextSeek(new(5));
@@ -32,12 +33,12 @@ public sealed class MainWindowSeekSchedulingUiTests
         AssertDisplayedTarget(window, new(5));
         Assert.Equal(MediaTime.Zero, context.Controller.Snapshot.Position);
         await WaitAsync(first.Entered);
-        var obsolete = context.Controller.SeekAsync(first.Target);
+        var obsolete = context.Controller.SeekInteractiveAsync(first.Target);
         window.MouseMove(finalPoint);
         window.MouseUp(finalPoint, MouseButton.Left);
         Assert.False(timeline.HasActiveDrag);
         AssertDisplayedTarget(window, new(10));
-        var current = context.Controller.SeekAsync(final.Target);
+        var current = context.Controller.CompleteInteractiveSeekAsync(final.Target, false);
 
         first.Release();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => WaitAsync(obsolete));

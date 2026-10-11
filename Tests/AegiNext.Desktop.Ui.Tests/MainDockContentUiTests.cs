@@ -46,6 +46,7 @@ public sealed class MainDockContentUiTests
     public async Task OpeningMediaKeepsTimelineAndRealSubtitleInputsAttached()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var main = context.Window;
         await context.OpenMediaAsync();
         await main.ViewModel.ExecuteCommandAsync(WorkbenchCommand.ADD_SUBTITLE);
@@ -67,9 +68,11 @@ public sealed class MainDockContentUiTests
         main.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
         main.UpdateLayout();
+        UiTestActions.ExpandEffectsCategory(main, "PathCategory");
         var path = UiTestActions.Find<Button>(main, "PathButton");
         AssertAttached(path, main);
         Assert.True(path.IsEffectivelyEnabled);
+        UiTestActions.ExpandEffectsCategory(main, "TransformCategory");
         var reset = UiTestActions.Find<Button>(main, "ResetPositionButton");
         AssertAttached(reset, main);
         Assert.True(reset.IsEffectivelyEnabled);

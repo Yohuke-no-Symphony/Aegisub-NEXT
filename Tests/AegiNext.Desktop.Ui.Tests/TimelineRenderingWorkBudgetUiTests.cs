@@ -107,6 +107,7 @@ public sealed class TimelineRenderingWorkBudgetUiTests
         var document = CreateDocument(2048);
         using var timeline = new SubtitleTimelineControl { IsWaveformVisible = false, IsSpectrumVisible = false };
         timeline.SetDocument(document, null, null);
+        timeline.TimelineViewState = TimelineEffectClipTestState.ExpandAll(document);
         var window = new Window { Width = 800, Height = 260, Content = timeline };
         window.Show();
         try

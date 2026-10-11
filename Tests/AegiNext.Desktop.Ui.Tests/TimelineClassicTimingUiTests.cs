@@ -21,6 +21,7 @@ public sealed class TimelineClassicTimingUiTests
     public async Task ClassicTimingDefaultsOffAndItsBottomLeftTogglePersistsAndIsSharedWithTheFloatingWindow()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var timeline = Prepare(context);
         var panel = Panel(timeline);
         var button = UiTestActions.Find<ToolbarToggleButton>(context.Window, "TimelineClassicTimingButton");
@@ -107,6 +108,7 @@ public sealed class TimelineClassicTimingUiTests
         MouseButton button, int clickMs, int startMs, int endMs)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var scene = CreateScene(context);
         context.Session.Editor.Reset(scene.Document);
         var timeline = Prepare(context);
@@ -149,6 +151,7 @@ public sealed class TimelineClassicTimingUiTests
         MouseButton button, int clickMs, int startMs, int endMs)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var scene = CreateScene(context);
         context.Session.Editor.Reset(scene.Document);
         var timeline = Prepare(context);
@@ -173,6 +176,7 @@ public sealed class TimelineClassicTimingUiTests
     public async Task EqualBoundariesAreRejectedWithALocalizedErrorAndNoEdit(MouseButton button, int clickMs, string language)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         Localization.SetLanguage(language);
         var scene = CreateScene(context);
         context.Session.Editor.Reset(scene.Document);
@@ -196,6 +200,7 @@ public sealed class TimelineClassicTimingUiTests
         MouseButton button, string language)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         Localization.SetLanguage(language);
         var scene = CreateScene(context, true);
         context.Session.Editor.Reset(scene.Document);
@@ -219,6 +224,7 @@ public sealed class TimelineClassicTimingUiTests
     public async Task ClassicBodyClickWithoutASelectedCueDoesNotSelectOrCreateACue(MouseButton button)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var scene = CreateScene(context);
         context.Session.Editor.Reset(scene.Document);
         var timeline = Prepare(context);
@@ -240,6 +246,7 @@ public sealed class TimelineClassicTimingUiTests
     public async Task NormalModeRightClickStillSelectsTheClickedCueAndOpensItsContextMenu()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var scene = CreateScene(context);
         context.Session.Editor.Reset(scene.Document);
         var timeline = Prepare(context);
@@ -271,6 +278,7 @@ public sealed class TimelineClassicTimingUiTests
         bool snap, RawInputModifiers modifiers, int expectedMs)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var scene = CreateScene(context);
         context.Session.Editor.Reset(scene.Document);
         var timeline = Prepare(context);
@@ -292,6 +300,7 @@ public sealed class TimelineClassicTimingUiTests
     public async Task ClassicModePreservesRulerSeekingAndHeaderSelectionAndContextMenus()
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         await context.OpenMediaAsync();
         var scene = CreateScene(context);
         context.Session.Editor.Reset(scene.Document);

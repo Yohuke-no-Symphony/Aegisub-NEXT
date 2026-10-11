@@ -197,7 +197,7 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
             return false;
         }
 
-        session.ViewModel.CancelGestures();
+        session.PrepareTimelineEffectSelection(layer);
         using var updateLease = session.BeginWorkbenchUpdate();
         try
         {
