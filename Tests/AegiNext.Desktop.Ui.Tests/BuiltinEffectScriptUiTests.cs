@@ -2,14 +2,53 @@ using AegiNext.Application;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
+using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Shortcuts;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class BuiltinEffectScriptUiTests
 {
+    [AvaloniaTheory]
+    [InlineData(LayerKind.IMAGE)]
+    [InlineData(LayerKind.SHAPE)]
+    public async Task GraphicSelectionCanApplyFadeUsingTheVisiblePresetControls(LayerKind kind)
+    {
+        await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
+        await context.Session.EffectScripts.Completion;
+        var asset = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.IMAGE, "sources/test.png");
+        var layer = new ProjectLayer
+        {
+            Kind = kind, End = new(4),
+            Image = kind == LayerKind.IMAGE ? new(asset.Id, 100, 60) : null,
+            Shape = kind == LayerKind.SHAPE ? new(ShapeKind.RECTANGLE, 100, 60) : null
+        };
+        var document = new ProjectDocument { Assets = kind == LayerKind.IMAGE ? [asset] : [], Layers = [layer] };
+        context.Session.Editor.Reset(document);
+        context.Session.SelectLayer(layer.Id, [layer.Id]);
+        context.Window.GetCommand(WorkbenchCommand.VIEW_EFFECTS).Execute(null);
+        var selector = UiTestActions.Find<ComboBox>(context.Window, "PresetCombo");
+        Assert.DoesNotContain(Localization.Get("Workbench.LetterPulse"), selector.Items.Cast<string>());
+        selector.SelectedItem = Localization.Get("Workbench.Fade");
+        Dispatcher.UIThread.RunJobs();
+
+        UiTestActions.Click(context.Window, "ApplyPresetButton");
+        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+
+        Assert.Null(context.Session.LastError);
+        Assert.Equal(AnimationProperty.OPACITY, Assert.Single(context.Session.DocumentSnapshot.Layers[0].Tracks).Property);
+        Assert.Equal(0, Assert.Single(SceneEvaluator.Evaluate(context.Session.DocumentSnapshot, new(0))).Opacity);
+        Assert.Equal(1, Assert.Single(SceneEvaluator.Evaluate(context.Session.DocumentSnapshot, new(2))).Opacity);
+        Assert.True(context.Session.Editor.Undo());
+        Assert.Same(document, context.Session.DocumentSnapshot);
+        Assert.False(context.Session.Editor.CanUndo);
+    }
+
     [AvaloniaTheory]
     [InlineData("fade-in-out")]
     [InlineData("pop-in")]

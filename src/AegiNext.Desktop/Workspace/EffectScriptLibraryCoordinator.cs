@@ -11,6 +11,8 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
 {
     private int queuedOperations;
     private EffectScriptChoice[] choices = [];
+    private EffectScriptPresetDocument? analyzedLibrary;
+    private readonly HashSet<Guid> subtitleOnlyPresets = [];
     private readonly Lock operationsGate = new();
     private readonly HashSet<Task> operations = [];
     public Task Completion
@@ -70,9 +72,26 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
     {
         var vm = session.ViewModel.Effects;
         var selectedId = vm.Preset >= 0 && vm.Preset < choices.Length ? choices[vm.Preset].Id : null;
+        var library = session.EffectScriptLibrary.Snapshot;
+        if (!ReferenceEquals(analyzedLibrary, library))
+        {
+            subtitleOnlyPresets.Clear();
+            foreach (var preset in library.Presets)
+            {
+                if (EffectScriptCompatibility.RequiresSubtitle(EffectScriptParser.Parse(preset.Source)))
+                {
+                    subtitleOnlyPresets.Add(preset.Id);
+                }
+            }
+            analyzedLibrary = library;
+        }
+        var targets = SelectedTargets();
+        var supportsSubtitleEffects = targets.All(layer => layer.Kind == LayerKind.SUBTITLE && layer.SubtitleId.HasValue);
         choices = BuiltinEffectScripts.Templates.Select(template => new EffectScriptChoice(template.Script.Id,
-            BuiltinName(template.Script.Id), template.Source))
-            .Concat(session.EffectScriptLibrary.Snapshot.Presets.Select(preset => new EffectScriptChoice(preset.Id.ToString("D"), preset.Name, preset.Source)))
+            BuiltinName(template.Script.Id), template.Source, EffectScriptCompatibility.RequiresSubtitle(template.Script)))
+            .Concat(library.Presets.Select(preset => new EffectScriptChoice(preset.Id.ToString("D"), preset.Name,
+                preset.Source, subtitleOnlyPresets.Contains(preset.Id))))
+            .Where(choice => supportsSubtitleEffects || !choice.RequiresSubtitle)
             .ToArray();
         var names = choices.Select(choice => choice.Name).ToArray();
         if (!vm.Presets.SequenceEqual(names))
@@ -101,10 +120,7 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
         }
         var target = session.SceneEditing.Target;
         AnimationTrackTarget? context = target.TextRangeId is not null || target.State != SubtitleAnimationState.NORMAL ? target : null;
-        var selected = target.TextRangeId is not null && session.SelectedLayer is { } rangeLayer
-            ? new HashSet<Guid> { rangeLayer.Id } : session.TimelineClipIds().ToHashSet();
-        var layerIds = session.Editor.Snapshot.Layers
-            .Where(layer => layer.SubtitleId is not null && selected.Contains(layer.Id)).Select(layer => layer.Id).ToArray();
+        var layerIds = SelectedTargets().Select(layer => layer.Id).ToArray();
         if (layerIds.Length == 0)
         {
             return Task.CompletedTask;
@@ -113,6 +129,13 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
         session.ClearKeyframeSelection();
         return session.ApplicationContext.Tasks.Submit(new ApplyEffectScriptTask(session, source, layerIds,
             session.Editor.Snapshot, session.TaskInputRevision, context)).Completion;
+    }
+
+    private ProjectLayer[] SelectedTargets()
+    {
+        var selected = session.SceneEditing.Target.TextRangeId is not null && session.SelectedLayer is { } rangeLayer
+            ? new HashSet<Guid> { rangeLayer.Id } : session.TimelineClipIds().ToHashSet();
+        return session.Editor.Snapshot.Layers.Where(layer => selected.Contains(layer.Id)).ToArray();
     }
 
     internal async Task UpsertAsync(EffectScriptPreset preset)
