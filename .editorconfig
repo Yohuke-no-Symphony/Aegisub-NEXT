@@ -84,15 +84,15 @@ dotnet_diagnostic.CA1707.severity = none
 # 草稿字段身份遵循项目 ALL_UPPER 命名。
 dotnet_diagnostic.CA1707.severity = none
 
-[src/AegiNext.Media/Encoding/Presets/VideoExportPresetCollection.cs]
+[src/AegiNext.Export/Presets/VideoExportPresetCollection.cs]
 # 版本化预设集合与既有公共合同一致，预算常量遵循 ALL_UPPER 命名。
 dotnet_diagnostic.CA1711.severity = none
 dotnet_diagnostic.CA1707.severity = none
 
-[src/AegiNext.Media/Encoding/Presets/VideoExportPresetStore.cs]
+[src/AegiNext.Export/Presets/VideoExportPresetStore.cs]
 # 交换文件预算常量遵循项目 ALL_UPPER 命名。
 dotnet_diagnostic.CA1707.severity = none
 
-[src/AegiNext.Media/Encoding/Presets/VideoExportPresetValidator.cs]
+[src/AegiNext.Export/Presets/VideoExportPresetValidator.cs]
 # 名称预算是共享的公共合同，常量遵循项目 ALL_UPPER 命名。
 dotnet_diagnostic.CA1707.severity = none

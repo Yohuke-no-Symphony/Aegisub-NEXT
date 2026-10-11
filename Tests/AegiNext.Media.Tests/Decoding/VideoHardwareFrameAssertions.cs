@@ -1,3 +1,4 @@
+using AegiNext.Testing.Media;
 using AegiNext.Media.Decoding;
 
 namespace AegiNext.Media.Tests.Decoding;

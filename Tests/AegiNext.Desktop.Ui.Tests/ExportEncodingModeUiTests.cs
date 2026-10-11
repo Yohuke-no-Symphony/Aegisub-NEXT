@@ -2,7 +2,7 @@ using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Shortcuts;
-using AegiNext.Media.Encoding;
+using AegiNext.Export;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 

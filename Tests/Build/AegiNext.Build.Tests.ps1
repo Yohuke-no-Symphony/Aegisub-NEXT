@@ -298,12 +298,12 @@ Describe 'Build plans are pure and preserve target boundaries' {
         $plan[6].Arguments | Should -Contain 'Release'
     }
 
-    It 'defaults RunTests to the five managed projects including application and desktop lifecycle tests' {
+    It 'defaults RunTests to the six managed projects including export and desktop lifecycle tests' {
         $parameters.Target = 'Managed'
         $plan = @(Get-AegiNextBuildPlan @parameters -RunTests)
 
-        $plan.Count | Should -Be 12
-        foreach ($name in @('Core', 'Application', 'Rendering', 'Media', 'Desktop'))
+        $plan.Count | Should -Be 14
+        foreach ($name in @('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop'))
         {
             @($plan | Where-Object { $_.Arguments -contains (Join-Path $repository "Tests/AegiNext.$name.Tests/AegiNext.$name.Tests.csproj") }).Count |
                 Should -Be 2

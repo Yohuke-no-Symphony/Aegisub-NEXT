@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Media.Probing;
 
 namespace AegiNext.Desktop.Tests.Rendering;
@@ -24,7 +25,7 @@ internal sealed class PreviewQualityFixture : IDisposable
         try
         {
             var mediaPath = Path.Combine(directory, "quality fixture 中文.mkv");
-            var result = await ProbeProcessRunner.RunAsync(ffmpeg,
+            var result = await MediaToolProcess.RunAsync(ffmpeg,
                 ["-v", "error", "-nostdin", "-f", "lavfi", "-i", $"testsrc2=size={width}x{height}:rate=25",
                     "-frames:v", "1", "-c:v", "ffv1", "-level", "3", "-threads", "1", "-pix_fmt", "yuv420p",
                     "-vf", "setsar=1/1,setparams=range=limited:color_primaries=bt709:color_trc=bt709:colorspace=bt709",

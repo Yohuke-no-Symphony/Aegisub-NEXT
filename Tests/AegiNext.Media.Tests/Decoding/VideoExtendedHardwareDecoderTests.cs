@@ -1,3 +1,4 @@
+using AegiNext.Testing.Media;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Decoding;
 using AegiNext.Media.Preview;

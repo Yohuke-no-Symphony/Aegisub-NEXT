@@ -1,53 +1,12 @@
-using System.Text.Json;
 using AegiNext.Application;
-using AegiNext.Media.Encoding;
+using AegiNext.Export.Worker;
 
 namespace AegiNext.ExportWorker;
 
 internal static class Program
 {
-    private static async Task<int> Main()
+    private static Task<int> Main()
     {
-        try
-        {
-            var input = await Console.In.ReadLineAsync().ConfigureAwait(false);
-            if (input is null)
-            {
-                throw new InvalidDataException("导出 worker 需要快照请求。");
-            }
-
-            var job = JsonSerializer.Deserialize<ExportWorkerJob>(input, ExportWire.Options)
-                ?? throw new InvalidDataException("缺少导出请求。");
-            ExportWire.ValidateJob(job);
-            var document = ProjectStore.Deserialize(job.Project);
-            var output = Path.Combine(job.TemporaryDirectory, "output" + job.Extension);
-            var request = new VideoExportRequest(document, job.ProjectDirectory, output)
-            {
-                Codec = job.Codec, Preset = job.Preset, Crf = job.Crf, AudioMode = job.AudioMode,
-                AudioBitrate = job.AudioBitrate, FfmpegPath = job.FfmpegPath,
-                EncodingMode = job.EncodingMode, VideoBitrate = job.VideoBitrate, DecodeMode = job.DecodeMode,
-                RateControlMode = job.RateControlMode
-            };
-            var progress = new WorkerProgress();
-            var encoded = NativeVideoExport.Run(request, Path.Combine(job.TemporaryDirectory, "video.nut"), progress, CancellationToken.None);
-            VideoExporter.ValidateCompletedRateControl(request, encoded.RateControl);
-            await ExportMuxer.RunAsync(request, Path.Combine(job.TemporaryDirectory, "video.nut"), encoded.OutputColor,
-                CancellationToken.None).ConfigureAwait(false);
-            Send(new("complete", encoded.Frames, Encoder: encoded.Encoder, Decoder: encoded.Decoder,
-                OutputColor: encoded.OutputColor, RateControl: encoded.RateControl));
-            return 0;
-        }
-        catch (Exception error)
-        {
-            Send(new("error", Error: error.Message));
-            await Console.Error.WriteLineAsync(error.ToString()).ConfigureAwait(false);
-            return 1;
-        }
-    }
-
-    internal static void Send(ExportWorkerMessage message)
-    {
-        Console.Out.WriteLine(JsonSerializer.Serialize(message, ExportWire.Options));
-        Console.Out.Flush();
+        return ExportWorkerHost.RunAsync(Console.In, Console.Out, Console.Error, ProjectStore.Deserialize);
     }
 }

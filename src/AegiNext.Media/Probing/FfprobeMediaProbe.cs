@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using System.Security.Cryptography;
 
 namespace AegiNext.Media.Probing;
@@ -50,9 +51,9 @@ public sealed class FfprobeMediaProbe
             string.Join(Environment.NewLine, new[] { identityOutput.StandardError, mediaOutput.StandardError }.Where(value => value.Length > 0)));
     }
 
-    private async Task<ProbeProcessOutput> RunAsync(string[] arguments, CancellationToken cancellationToken)
+    private async Task<MediaToolProcessOutput> RunAsync(string[] arguments, CancellationToken cancellationToken)
     {
-        var result = await ProbeProcessRunner.RunAsync(options.ExecutablePath, arguments, options.Timeout,
+        var result = await MediaToolProcess.RunAsync(options.ExecutablePath, arguments, options.Timeout,
             options.MaximumOutputCharacters, options.MaximumErrorCharacters, cancellationToken).ConfigureAwait(false);
         if (result.ExitCode != 0)
         {

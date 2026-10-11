@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Media.Probing;
 
 namespace AegiNext.Media.Tests.Decoding;
@@ -39,7 +40,7 @@ internal sealed class HardwareDecoderFixture : IDisposable
                     "-chroma_sample_location", "left"]);
             }
             arguments.AddRange(["-y", path]);
-            var result = await ProbeProcessRunner.RunAsync(ffmpeg!, arguments, TimeSpan.FromSeconds(60),
+            var result = await MediaToolProcess.RunAsync(ffmpeg!, arguments, TimeSpan.FromSeconds(60),
                 1024 * 1024, 1024 * 1024, CancellationToken.None);
             Assert.True(result.ExitCode == 0, result.StandardError);
             return new(directory, path);

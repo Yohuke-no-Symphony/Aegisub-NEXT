@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AegiNext.Export</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AegiNextNativeRuntimeIdentifier Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</AegiNextNativeRuntimeIdentifier>
+    <AegiNextNativeRuntimeIdentifier Condition="'$(AegiNextNativeRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</AegiNextNativeRuntimeIdentifier>
+    <AegiNextNativeDirectory>$(MSBuildThisFileDirectory)../../artifacts/native/$(AegiNextNativeRuntimeIdentifier)/$(Configuration)</AegiNextNativeDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AegiNext.Core/AegiNext.Core.csproj" />
+    <ProjectReference Include="../AegiNext.Media/AegiNext.Media.csproj" />
+    <ProjectReference Include="../AegiNext.Rendering/AegiNext.Rendering.csproj" />
+    <InternalsVisibleTo Include="AegiNext.Export.Tests" />
+    <None Include="$(AegiNextNativeDirectory)/libaeginext_export.dylib" Link="libaeginext_export.dylib"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          Condition="$(AegiNextNativeRuntimeIdentifier.StartsWith('osx-')) And Exists('$(AegiNextNativeDirectory)/libaeginext_export.dylib')" />
+    <None Include="$(AegiNextNativeDirectory)/aeginext_export.dll" Link="aeginext_export.dll"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          Condition="$(AegiNextNativeRuntimeIdentifier.StartsWith('win-')) And Exists('$(AegiNextNativeDirectory)/aeginext_export.dll')" />
+    <None Include="$(AegiNextNativeDirectory)/libaeginext_export.so" Link="libaeginext_export.so"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          Condition="$(AegiNextNativeRuntimeIdentifier.StartsWith('linux-')) And Exists('$(AegiNextNativeDirectory)/libaeginext_export.so')" />
+    <None Include="$(AegiNextNativeDirectory)/aeginext_export.contract.sha256" Link="aeginext_export.contract.sha256"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          Condition="Exists('$(AegiNextNativeDirectory)/aeginext_export.contract.sha256')" />
+  </ItemGroup>
+  <Import Project="../../scripts/build/ValidateExportContract.targets" />
+</Project>

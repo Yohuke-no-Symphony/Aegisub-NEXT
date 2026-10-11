@@ -1,0 +1,9 @@
+<Project>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)DecoderFixture.cs" Link="Shared/Media/DecoderFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SdrPreviewFixture.cs" Link="Shared/Media/SdrPreviewFixture.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)VideoCompatibilityFixture.cs" Link="Shared/Media/VideoCompatibilityFixture.cs" />
+    <None Include="$(MSBuildThisFileDirectory)Fixtures/VideoCompatibility/**/*"
+          Link="Fixtures/VideoCompatibility/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

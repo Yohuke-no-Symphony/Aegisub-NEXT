@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Media.Probing;
 
 namespace AegiNext.Desktop.Tests.Controllers;
@@ -46,7 +47,7 @@ internal sealed class UnmarkedPreviewFixture : IDisposable
         Assert.False(string.IsNullOrWhiteSpace(ffmpeg));
         Assert.True(Path.IsPathFullyQualified(ffmpeg));
         Assert.True(File.Exists(ffmpeg));
-        var result = await ProbeProcessRunner.RunAsync(ffmpeg, ["-v", "error", "-nostdin", .. arguments],
+        var result = await MediaToolProcess.RunAsync(ffmpeg, ["-v", "error", "-nostdin", .. arguments],
             TimeSpan.FromSeconds(60), 1024 * 1024, 1024 * 1024, CancellationToken.None);
         Assert.True(result.ExitCode == 0, result.StandardError);
     }

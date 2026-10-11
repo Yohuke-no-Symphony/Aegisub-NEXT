@@ -4,8 +4,8 @@ using System.Globalization;
 using System.Text;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
-using AegiNext.Media.Encoding;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export;
+using AegiNext.Export.Presets;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Settings.Export;

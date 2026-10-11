@@ -7,7 +7,7 @@ using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Audio;
 using AegiNext.Media.Decoding;
-using AegiNext.Media.Encoding;
+using AegiNext.Export;
 using AegiNext.Media.Preview;
 using AegiNext.Media.Probing;
 using AegiNext.Rendering.Projects;

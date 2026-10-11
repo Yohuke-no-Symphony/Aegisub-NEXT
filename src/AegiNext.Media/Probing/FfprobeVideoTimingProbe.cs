@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using System.Globalization;
 using System.Security.Cryptography;
 using AegiNext.Core.Media;
@@ -80,9 +81,9 @@ public sealed class FfprobeVideoTimingProbe
         return index;
     }
 
-    private async Task<ProbeProcessOutput> RunAsync(string[] arguments, CancellationToken cancellationToken)
+    private async Task<MediaToolProcessOutput> RunAsync(string[] arguments, CancellationToken cancellationToken)
     {
-        var result = await ProbeProcessRunner.RunAsync(options.ExecutablePath, arguments, options.Timeout,
+        var result = await MediaToolProcess.RunAsync(options.ExecutablePath, arguments, options.Timeout,
             options.MaximumOutputCharacters, options.MaximumErrorCharacters, cancellationToken).ConfigureAwait(false);
         if (result.ExitCode != 0 || !string.IsNullOrWhiteSpace(result.StandardError))
         {

@@ -4,7 +4,7 @@ using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Transfer;
 using AegiNext.Desktop.Startup;
-using AegiNext.Media.Encoding;
+using AegiNext.Export;
 
 namespace AegiNext.Desktop.Workspace;
 

@@ -5,7 +5,7 @@ using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Effects;
 using AegiNext.Desktop.Settings.Export;
 using AegiNext.Desktop.Settings.Styles;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export.Presets;
 
 namespace AegiNext.Desktop.Tests;
 

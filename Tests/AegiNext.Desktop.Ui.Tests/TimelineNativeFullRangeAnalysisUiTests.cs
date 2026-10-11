@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using System.Text.Json;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controllers;
@@ -37,7 +38,7 @@ public sealed class TimelineNativeFullRangeAnalysisUiTests
         var path = Path.Combine(Path.GetTempPath(), $"aeginext-full-range-ui-{Guid.NewGuid():N}.m4a");
         try
         {
-            var encoded = await ProbeProcessRunner.RunAsync(executable,
+            var encoded = await MediaToolProcess.RunAsync(executable,
                 ["-v", "error", "-nostdin", "-f", "lavfi", "-i", "sine=frequency=6000:sample_rate=44100:duration=300",
                     "-c:a", "aac", "-b:a", "128k", "-y", path], TimeSpan.FromSeconds(60), 65536, 65536,
                 TestContext.Current.CancellationToken);

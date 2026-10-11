@@ -9,8 +9,8 @@ using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Transfer;
 using AegiNext.Media.Decoding;
-using AegiNext.Media.Encoding;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export;
+using AegiNext.Export.Presets;
 
 namespace AegiNext.Desktop.Tests.Settings.Transfer;
 

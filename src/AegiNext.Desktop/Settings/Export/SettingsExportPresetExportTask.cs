@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using AegiNext.Application.Tasks;
 using AegiNext.Desktop.Startup;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export.Presets;
 
 namespace AegiNext.Desktop.Settings.Export;
 

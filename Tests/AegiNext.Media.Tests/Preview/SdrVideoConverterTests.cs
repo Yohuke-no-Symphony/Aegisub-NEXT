@@ -1,3 +1,4 @@
+using AegiNext.Testing.Media;
 using System.Diagnostics.CodeAnalysis;
 using AegiNext.Core.Media;
 using AegiNext.Media.Decoding;

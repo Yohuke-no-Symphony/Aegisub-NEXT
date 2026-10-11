@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -479,7 +480,7 @@ public sealed class TimelinePlaybackPerformanceTests
             "-color_range", "tv", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
             "-video_track_timescale", "60000", "-y", path
         };
-        var result = await ProbeProcessRunner.RunAsync(MediaToolchain.ResolveFfmpeg(), arguments,
+        var result = await MediaToolProcess.RunAsync(MediaToolchain.ResolveFfmpeg(), arguments,
             TimeSpan.FromSeconds(60), 1024 * 1024, 1024 * 1024, TestContext.Current.CancellationToken);
         Assert.True(result.ExitCode == 0, result.StandardError);
         return path;

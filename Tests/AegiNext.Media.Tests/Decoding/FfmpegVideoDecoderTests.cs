@@ -1,3 +1,4 @@
+using AegiNext.Testing.Media;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using AegiNext.Core.Media;

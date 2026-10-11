@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Audio;
 using AegiNext.Media.Probing;
@@ -50,7 +51,7 @@ public sealed class FfmpegAudioDecoderTests
         var path = Path.Combine(Path.GetTempPath(), $"aeginext-audio-{Guid.NewGuid():N}.mkv");
         try
         {
-            var encoded = await ProbeProcessRunner.RunAsync(executable,
+            var encoded = await MediaToolProcess.RunAsync(executable,
                 ["-v", "error", "-nostdin", "-f", "lavfi", "-i", "sine=frequency=1000:sample_rate=44100:duration=1",
                     "-af", "asetpts=PTS+0.5/TB", "-c:a", "pcm_s16le", "-y", path],
                 TimeSpan.FromSeconds(20), 1024 * 1024, 1024 * 1024, CancellationToken.None);

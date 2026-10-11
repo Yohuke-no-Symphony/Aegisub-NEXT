@@ -3,7 +3,7 @@ using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Transfer;
 using AegiNext.Desktop.Startup;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export.Presets;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;

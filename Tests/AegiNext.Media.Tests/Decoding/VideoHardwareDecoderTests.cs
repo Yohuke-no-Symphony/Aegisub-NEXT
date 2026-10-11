@@ -1,3 +1,4 @@
+using AegiNext.Testing.Media;
 using System.Runtime.InteropServices;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Decoding;
@@ -125,17 +126,17 @@ public sealed class VideoHardwareDecoderTests
     [Trait("Category", "DecoderIntegration")]
     public async Task UnsupportedHardwareCodecFallsBackOnlyInAutoAndExplicitHardwareRejects()
     {
-        using var fixture = await Preview.SdrPreviewFixture.CreateAsync(false);
-        using var auto = FfmpegVideoDecoder.Open(fixture.MediaPath, Preview.SdrPreviewFixture.VIDEO_STREAM_INDEX, new VideoDecoderOptions { Mode = VideoDecodeMode.Auto });
+        using var fixture = await SdrPreviewFixture.CreateAsync(false);
+        using var auto = FfmpegVideoDecoder.Open(fixture.MediaPath, SdrPreviewFixture.VIDEO_STREAM_INDEX, new VideoDecoderOptions { Mode = VideoDecodeMode.Auto });
         using var frame = Assert.IsType<DecodedVideoFrame>(auto.ReadFrame());
         Assert.Equal(VideoDecoderBackend.Software, auto.SessionInfo.ActiveBackend);
         Assert.NotEmpty(auto.SessionInfo.FallbackReason);
         Assert.Throws<NotSupportedException>(() => FfmpegVideoDecoder.Open(fixture.MediaPath,
-            Preview.SdrPreviewFixture.VIDEO_STREAM_INDEX, new VideoDecoderOptions { Mode = VideoDecodeMode.Hardware }));
+            SdrPreviewFixture.VIDEO_STREAM_INDEX, new VideoDecoderOptions { Mode = VideoDecodeMode.Hardware }));
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
         Assert.ThrowsAny<OperationCanceledException>(() => FfmpegVideoDecoder.Open(fixture.MediaPath,
-            Preview.SdrPreviewFixture.VIDEO_STREAM_INDEX, new VideoDecoderOptions { Mode = VideoDecodeMode.Auto }, cancelled.Token));
+            SdrPreviewFixture.VIDEO_STREAM_INDEX, new VideoDecoderOptions { Mode = VideoDecodeMode.Auto }, cancelled.Token));
     }
 
     private static void AssertFrameFactsEqual(DecodedVideoFrame expected, DecodedVideoFrame actual)

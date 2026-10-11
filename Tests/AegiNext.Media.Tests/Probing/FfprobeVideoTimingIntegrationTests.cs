@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Probing;
 using Xunit.Abstractions;
@@ -23,7 +24,7 @@ public sealed class FfprobeVideoTimingIntegrationTests(ITestOutputHelper output)
             var source = Path.Combine(directory, "帧时间 空格' $() [VFR].mkv");
             var filter = variable ? "select='eq(n,0)+eq(n,1)+eq(n,3)+eq(n,6)+eq(n,9)'" : "null";
             filter += FormattableString.Invariant($",setpts=PTS+{originSeconds}/TB");
-            var encoded = await ProbeProcessRunner.RunAsync(ffmpeg,
+            var encoded = await MediaToolProcess.RunAsync(ffmpeg,
                 ["-v", "error", "-nostdin", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=10:duration=1",
                     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=8000:duration=1",
                     "-map", "1:a", "-map", "0:v", "-vf", filter, "-fps_mode", "vfr",

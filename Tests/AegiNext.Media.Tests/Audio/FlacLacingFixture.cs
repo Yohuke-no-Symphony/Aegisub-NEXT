@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using System.Buffers.Binary;
 using System.Globalization;
 using AegiNext.Core.Timing;
@@ -74,7 +75,7 @@ internal sealed class FlacLacingFixture : IDisposable
 
     private static async Task RunFfmpegAsync(string executable, string[] arguments)
     {
-        var result = await ProbeProcessRunner.RunAsync(executable, arguments, TimeSpan.FromSeconds(20),
+        var result = await MediaToolProcess.RunAsync(executable, arguments, TimeSpan.FromSeconds(20),
             1024 * 1024, 1024 * 1024, CancellationToken.None);
         Assert.True(result.ExitCode == 0, result.StandardError);
     }

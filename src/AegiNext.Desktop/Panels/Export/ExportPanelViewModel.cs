@@ -2,7 +2,7 @@ using System.Windows.Input;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Desktop.Workspace;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export.Presets;
 using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Panels.Export;

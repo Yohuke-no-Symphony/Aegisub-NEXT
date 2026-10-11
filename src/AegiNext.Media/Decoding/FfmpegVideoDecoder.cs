@@ -24,6 +24,12 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
     /// <summary>最新已完成原生操作的会话快照；读取不等待解码。</summary>
     public VideoDecodeSessionInfo SessionInfo => Volatile.Read(ref sessionInfo);
 
+    /// <summary>查询原生解码模块的共享核心身份，供其他媒体模块验证运行时一致性。</summary>
+    public static MediaCoreInfo GetCoreInfo()
+    {
+        return new(NativeDecodeMethods.CoreVersion(), NativeDecodeMethods.CoreCapabilities());
+    }
+
     /// <summary>
     /// 核验 C ABI 与编译／运行 FFmpeg 版本，返回后端身份。
     /// </summary>

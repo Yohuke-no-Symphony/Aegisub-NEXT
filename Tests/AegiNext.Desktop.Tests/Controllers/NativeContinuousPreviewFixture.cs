@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Media.Probing;
 
 namespace AegiNext.Desktop.Tests.Controllers;
@@ -41,7 +42,7 @@ internal sealed class NativeContinuousPreviewFixture : IDisposable
                     "-vf", "setsar=1/1,setparams=range=limited:color_primaries=bt709:color_trc=bt709:colorspace=bt709",
                     "-color_range", "tv", "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709",
                     "-chroma_sample_location", "left", "-video_track_timescale", "60000", "-y", path]);
-            var result = await ProbeProcessRunner.RunAsync(ffmpeg, arguments,
+            var result = await MediaToolProcess.RunAsync(ffmpeg, arguments,
                 TimeSpan.FromSeconds(60), 1024 * 1024, 1024 * 1024, CancellationToken.None);
             Assert.True(result.ExitCode == 0, result.StandardError);
             return new(directory, path);

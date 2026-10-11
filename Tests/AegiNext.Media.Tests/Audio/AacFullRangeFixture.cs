@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using System.Globalization;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Probing;
@@ -31,7 +32,7 @@ internal sealed class AacFullRangeFixture : IDisposable
         try
         {
             var encodedPath = shortPacketDurations ? Path.Combine(directory, "source.mp4") : fixture.MediaPath;
-            var encoded = await ProbeProcessRunner.RunAsync(executable,
+            var encoded = await MediaToolProcess.RunAsync(executable,
                 ["-v", "error", "-nostdin", "-f", "lavfi", "-i",
                     $"sine=frequency=1000:sample_rate={sampleRate}:duration={seconds.ToString(CultureInfo.InvariantCulture)}",
                     "-c:a", "aac", "-b:a", "96k", "-y", encodedPath],
@@ -39,7 +40,7 @@ internal sealed class AacFullRangeFixture : IDisposable
             Assert.True(encoded.ExitCode == 0, encoded.StandardError);
             if (shortPacketDurations)
             {
-                var remuxed = await ProbeProcessRunner.RunAsync(executable,
+                var remuxed = await MediaToolProcess.RunAsync(executable,
                     ["-v", "error", "-nostdin", "-i", encodedPath, "-c:a", "copy", "-bsf:a",
                         "setts=pts='PTS-8*gte(N,3)-16*gte(N,4)':dts='DTS-8*gte(N,3)-16*gte(N,4)'", "-y", fixture.MediaPath],
                     TimeSpan.FromSeconds(30), 1024 * 1024, 1024 * 1024, CancellationToken.None);

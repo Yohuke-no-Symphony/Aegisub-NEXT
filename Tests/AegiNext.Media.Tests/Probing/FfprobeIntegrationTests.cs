@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using System.Text.Json;
 using AegiNext.Media.Probing;
 using Xunit.Abstractions;
@@ -34,7 +35,7 @@ public sealed class FfprobeIntegrationTests(ITestOutputHelper output)
                 parameters += ":hdr10=1:master-display=G(13250,34500)B(7500,3000)R(34000,16000)WP(15635,16450)L(10000000,1):max-cll=1000,400";
             }
 
-            var encoded = await ProbeProcessRunner.RunAsync(ffmpeg,
+            var encoded = await MediaToolProcess.RunAsync(ffmpeg,
                 ["-v", "error", "-nostdin", "-f", "lavfi", "-i", "testsrc2=size=64x48:rate=24000/1001",
                     "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=48000", "-t", "0.3", "-map", "0:v:0", "-map", "1:a:0",
                     "-c:v", "libx265", "-preset", "ultrafast", "-threads", "1", "-x265-params", parameters,

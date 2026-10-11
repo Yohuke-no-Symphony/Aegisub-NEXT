@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Media.Probing;
 
 namespace AegiNext.Media.Tests.Decoding;
@@ -22,7 +23,7 @@ internal sealed class FilmGrainDecoderFixture : IDisposable
         try
         {
             var path = Path.Combine(directory, "grain.h264");
-            var result = await ProbeProcessRunner.RunAsync(Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH")!,
+            var result = await MediaToolProcess.RunAsync(Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH")!,
                 ["-v", "error", "-nostdin", "-i", original.MediaPath, "-c:v", "copy", "-an", "-bsf:v", "h264_mp4toannexb", "-f", "h264", "-y", path],
                 TimeSpan.FromSeconds(30), 65536, 65536, CancellationToken.None);
             Assert.Equal(0, result.ExitCode);

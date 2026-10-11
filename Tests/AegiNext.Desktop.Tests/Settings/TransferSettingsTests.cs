@@ -1,6 +1,6 @@
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Transfer;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export.Presets;
 
 namespace AegiNext.Desktop.Tests.Settings;
 

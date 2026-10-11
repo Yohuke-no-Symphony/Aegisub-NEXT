@@ -2,8 +2,8 @@ using AegiNext.Core.Presets;
 using AegiNext.Desktop.Startup;
 using AegiNext.Desktop.Tests.Workspace;
 using AegiNext.Desktop.Workspace;
-using AegiNext.Media.Encoding;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export;
+using AegiNext.Export.Presets;
 
 namespace AegiNext.Desktop.Tests.Startup;
 

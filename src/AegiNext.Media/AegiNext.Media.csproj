@@ -26,10 +26,7 @@
     <None Include="$(AegiNextNativeDirectory)/libaeginext_audio.dylib" Link="libaeginext_audio.dylib"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
           Condition="$(AegiNextNativeRuntimeIdentifier.StartsWith('osx-')) And Exists('$(AegiNextNativeDirectory)/libaeginext_audio.dylib')" />
-    <None Include="$(AegiNextNativeDirectory)/libaeginext_export.dylib" Link="libaeginext_export.dylib"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
-          Condition="$(AegiNextNativeRuntimeIdentifier.StartsWith('osx-')) And Exists('$(AegiNextNativeDirectory)/libaeginext_export.dylib')" />
-    <None Include="$(AegiNextNativeDirectory)/*.dll"
+    <None Include="$(AegiNextNativeDirectory)/*.dll" Exclude="$(AegiNextNativeDirectory)/aeginext_export.dll"
           Link="%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
           Condition="$(AegiNextNativeRuntimeIdentifier.StartsWith('win-')) And Exists('$(AegiNextNativeDirectory)/aeginext_decode.dll')" />
@@ -41,10 +38,5 @@
           Link="libaeginext_decode.so"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
            Condition="$(AegiNextNativeRuntimeIdentifier.StartsWith('linux-')) And Exists('$(AegiNextNativeDirectory)/libaeginext_decode.so')" />
-    <None Include="$(AegiNextNativeDirectory)/aeginext_export.contract.sha256"
-          Link="aeginext_export.contract.sha256"
-          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
-          Condition="Exists('$(AegiNextNativeDirectory)/aeginext_export.contract.sha256')" />
   </ItemGroup>
-  <Import Project="../../scripts/build/ValidateExportContract.targets" />
 </Project>

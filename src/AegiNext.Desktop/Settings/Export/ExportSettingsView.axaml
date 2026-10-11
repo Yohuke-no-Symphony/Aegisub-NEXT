@@ -1,7 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:common="using:AegiNext.Desktop.Controls.Common"
              xmlns:controls="using:AegiNext.Desktop.Controls"
-             xmlns:presets="using:AegiNext.Media.Encoding.Presets"
+             xmlns:presets="using:AegiNext.Export.Presets"
              xmlns:vm="using:AegiNext.Desktop.Settings.Export"
              x:Class="AegiNext.Desktop.Settings.Export.ExportSettingsView"
              x:DataType="vm:ExportSettingsViewModel" Classes="business-surface">

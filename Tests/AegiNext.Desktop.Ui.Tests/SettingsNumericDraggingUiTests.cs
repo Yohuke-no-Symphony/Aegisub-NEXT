@@ -6,7 +6,7 @@ using AegiNext.Desktop.Settings.Tasks;
 using AegiNext.Desktop.Settings.TimingPostProcessor;
 using AegiNext.Desktop.Views;
 using AegiNext.Desktop.Workspace;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export.Presets;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;

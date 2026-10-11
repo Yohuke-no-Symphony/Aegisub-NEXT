@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Media.Probing;
 using System.Text.Json;
 
@@ -46,10 +47,10 @@ internal sealed record NativeScrubFixture(string Name, string Path)
                 arguments.AddRange(["-y", path]);
                 try
                 {
-                    var result = await ProbeProcessRunner.RunAsync(executable, arguments, TimeSpan.FromMinutes(3),
+                    var result = await MediaToolProcess.RunAsync(executable, arguments, TimeSpan.FromMinutes(3),
                         65536, 65536, TestContext.Current.CancellationToken);
                     Assert.True(result.ExitCode == 0, result.StandardError);
-                    var probe = await ProbeProcessRunner.RunAsync(MediaToolchain.ResolveFfprobe(),
+                    var probe = await MediaToolProcess.RunAsync(MediaToolchain.ResolveFfprobe(),
                         ["-v", "error", "-select_streams", "v:0", "-show_entries",
                             "stream=codec_name,width,height,r_frame_rate,avg_frame_rate:format=duration:packet=pts_time,flags",
                             "-of", "json", path], TimeSpan.FromSeconds(30), 1024 * 1024, 65536, TestContext.Current.CancellationToken);

@@ -1,3 +1,4 @@
+using AegiNext.Media.Processes;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Analysis;
 using AegiNext.Media.Audio;
@@ -202,7 +203,7 @@ public sealed class WaveformFileAnalysisTests
             samples[48064] = 24576;
             samples[48192] = -16384;
             WriteWave(input, WaveformAnalyzer.SAMPLE_RATE, samples);
-            var encoded = await ProbeProcessRunner.RunAsync(executable,
+            var encoded = await MediaToolProcess.RunAsync(executable,
                 ["-v", "error", "-nostdin", "-i", input, "-af", "asetpts=PTS+0.5/TB", "-c:a", "pcm_s16le", "-y", path],
                 TimeSpan.FromSeconds(20), 1024 * 1024, 1024 * 1024, CancellationToken.None);
             Assert.True(encoded.ExitCode == 0, encoded.StandardError);

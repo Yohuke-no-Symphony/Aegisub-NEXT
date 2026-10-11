@@ -1,8 +1,8 @@
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Layouts;
-using AegiNext.Media.Encoding;
-using AegiNext.Media.Encoding.Presets;
+using AegiNext.Export;
+using AegiNext.Export.Presets;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 
