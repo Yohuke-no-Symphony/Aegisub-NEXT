@@ -86,6 +86,7 @@
       <GridSplitter Name="AssetFolderSplitter" Grid.Column="1" ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
       <ListBox Grid.Column="2" Name="AssetList" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+               Background="Transparent" BorderThickness="0"
                Classes.list-mode="{Binding IsListView}" Classes.icon-mode="{Binding IsIconView}"
                ScrollViewer.HorizontalScrollBarVisibility="Disabled" DragDrop.AllowDrop="True">
         <ListBox.Styles>
