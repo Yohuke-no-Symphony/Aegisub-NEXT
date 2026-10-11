@@ -69,7 +69,7 @@ public sealed class TimelineEffectClearingUiTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public async Task PropertyRowLabelAndBlankClearAllTrackClipsAndNodeTargetsIncludingUnselectedClips(bool collapsed, bool blank)
+    public async Task EffectBlockLabelAndBlankClearOnlyTheirCompleteTarget(bool collapsed, bool blank)
     {
         await using var context = new MainWindowTestContext();
         var first = Line(0);
@@ -84,13 +84,10 @@ public sealed class TimelineEffectClearingUiTests
         context.Session.Editor.Reset(document);
         context.Session.SelectLayer(first.Id, [first.Id]);
         var timeline = Prepare(context);
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.MASK_NODE_POSITION);
-        if (collapsed)
-        {
-            context.ViewModel.Timeline.SetAnimationRowCollapsed(new(row, true));
-            Flush(context.Window);
-        }
-        var rectangle = timeline.GetAnimationRowRectangle(row)!.Value;
+        var row = new TimelineEffectClipId(first.Id, document.Layers[0].Tracks[0].Target);
+        context.ViewModel.Timeline.SetEffectClipCollapsed(new(row, collapsed));
+        Flush(context.Window);
+        var rectangle = timeline.GetEffectClipRectangle(row)!.Value;
         var panel = Panel(timeline);
         OpenMenu(context, timeline, blank
             ? new(rectangle.Left + 60, rectangle.Bottom - 3)
@@ -108,15 +105,16 @@ public sealed class TimelineEffectClearingUiTests
         }
         Flush(context.Window);
 
-        Assert.All(context.Session.DocumentSnapshot.Layers.Take(2), layer => Assert.Empty(layer.Tracks));
+        Assert.Equal(document.Layers[0].Tracks[1], Assert.Single(context.Session.DocumentSnapshot.Layers[0].Tracks));
+        Assert.Same(document.Layers[1], context.Session.DocumentSnapshot.Layers[1]);
         Assert.Same(document.Layers[2], context.Session.DocumentSnapshot.Layers[2]);
         Assert.Same(document.Layers[0].Mask, context.Session.DocumentSnapshot.Layers[0].Mask);
-        Assert.Null(timeline.GetAnimationRowRectangle(row));
+        Assert.Null(timeline.GetEffectClipRectangle(row));
         Assert.True(context.Session.Editor.Undo());
         Assert.Same(document, context.Session.DocumentSnapshot);
         Assert.False(context.Session.Editor.CanUndo);
         Flush(context.Window);
-        Assert.NotNull(timeline.GetAnimationRowRectangle(row));
+        Assert.NotNull(timeline.GetEffectClipRectangle(row));
     }
 
     [AvaloniaTheory]
@@ -137,12 +135,9 @@ public sealed class TimelineEffectClearingUiTests
         context.Session.Editor.Reset(document);
         context.Session.SelectLayer(first.Id, [first.Id]);
         var timeline = Prepare(context);
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.MASK_NODE_POSITION);
-        if (collapsed)
-        {
-            context.ViewModel.Timeline.SetAnimationRowCollapsed(new(row, true));
-            Flush(context.Window);
-        }
+        var row = new TimelineEffectClipId(second.Id, document.Layers[1].Tracks[marker ? 1 : 0].Target);
+        context.ViewModel.Timeline.SetEffectClipCollapsed(new(row, collapsed));
+        Flush(context.Window);
         var point = marker
             ? timeline.KeyframeMarkers.First(value => value.Identity.LayerId == second.Id && value.Identity.OperationId is not null &&
                 !value.Identity.IsOperationStart).Position
@@ -154,7 +149,7 @@ public sealed class TimelineEffectClearingUiTests
             Assert.True(panel.AnimationMenu.IsOpen);
             Assert.False(panel.ClipMenu.IsOpen);
             Assert.Equal(first.Id, Assert.Single(context.ViewModel.Timeline.SelectedLayerIds));
-            Assert.Equal(Localization.Get("Workbench.ClearClipAnimationPropertyTracks"),
+            Assert.Equal(Localization.Get("Workbench.ClearEffectClip"),
                 TimelineTrackTestActions.Item(panel.AnimationMenu, "ClearAnimationPropertyTracksMenuItem").Header);
             context.Session.SelectLayer(third.Id, [first.Id, third.Id]);
             await ExecuteAsync(panel.AnimationMenu, "ClearAnimationPropertyTracksMenuItem");
@@ -167,12 +162,12 @@ public sealed class TimelineEffectClearingUiTests
 
         var cleared = context.Session.DocumentSnapshot;
         Assert.Same(document.Layers[0], cleared.Layers[0]);
-        Assert.Empty(cleared.Layers[1].Tracks);
+        Assert.Equal(document.Layers[1].Tracks[marker ? 0 : 1], Assert.Single(cleared.Layers[1].Tracks));
         Assert.Same(document.Layers[2], cleared.Layers[2]);
         Assert.Same(document.Layers[1].Mask, cleared.Layers[1].Mask);
         Assert.Equal(third.Id, context.Session.SelectedLayerId);
         Assert.Equal(new[] { first.Id, third.Id }.Order(), context.ViewModel.Timeline.SelectedLayerIds.Order());
-        Assert.NotNull(timeline.GetAnimationRowRectangle(row));
+        Assert.Null(timeline.GetEffectClipRectangle(row));
         Assert.True(context.Session.Editor.Undo());
         Assert.Same(document, context.Session.DocumentSnapshot);
         Assert.False(context.Session.Editor.CanUndo);
@@ -236,7 +231,7 @@ public sealed class TimelineEffectClearingUiTests
         {
             Assert.True(panel.AnimationMenu.IsOpen);
             Assert.False(panel.ClipMenu.IsOpen);
-            Assert.Equal(Localization.Get("Workbench.ClearClipAnimationPropertyTracks"),
+            Assert.Equal(Localization.Get("Workbench.ClearEffectClip"),
                 TimelineTrackTestActions.Item(panel.AnimationMenu, "ClearAnimationPropertyTracksMenuItem").Header);
             Assert.Same(document, context.Session.DocumentSnapshot);
             Assert.Equal(first.Start, context.Session.DocumentSnapshot.Subtitles[0].Start);
@@ -336,6 +331,16 @@ public sealed class TimelineEffectClearingUiTests
 
     private static void OpenMenu(MainWindowTestContext context, SubtitleTimelineControl timeline, Point local)
     {
+        if (local.Y < timeline.RulerHeight || local.Y >= timeline.Bounds.Height)
+        {
+            var previousOffset = timeline.Viewport.VerticalOffset;
+            context.ViewModel.Timeline.Viewport = timeline.Viewport with
+            {
+                VerticalOffset = Math.Max(0, previousOffset + local.Y - timeline.RulerHeight - 24)
+            };
+            Flush(context.Window);
+            local = new(local.X, local.Y - timeline.Viewport.VerticalOffset + previousOffset);
+        }
         var point = timeline.TranslatePoint(local, context.Window)!.Value;
         Assert.Same(timeline, context.Window.InputHitTest(point));
         context.Window.MouseDown(point, MouseButton.Right);

@@ -61,9 +61,8 @@ public sealed class TimelineViewStatePersistenceUiTests
                 Assert.Same(preview, session.PreviewDocument);
             }
 
-            var row = new TimelineAnimationRowId(TimelineRowScope.TRACK,
-                committed.Tracks[0].Id, AnimationProperty.OPACITY);
-            session.SetTimelineAnimationRowCollapsed(row, true);
+            var row = new TimelineEffectClipId(id, new(AnimationProperty.OPACITY));
+            session.SetTimelineEffectClipCollapsed(row, false);
             Dispatcher.UIThread.RunJobs();
 
             Assert.True(session.HasUnsavedChanges);
@@ -87,7 +86,7 @@ public sealed class TimelineViewStatePersistenceUiTests
             Assert.Equal(invalid ? "7e-" : "72.50", box.Text);
             Assert.Equal(undo, session.Editor.UndoLabel);
             var persisted = await ProjectStore.LoadAsync(session.ProjectPath!);
-            Assert.Equal(row, Assert.Single(persisted.TimelineViewState.CollapsedAnimationRows));
+            Assert.Equal(row, Assert.Single(persisted.TimelineViewState.ExpandedAnimationClips));
             Assert.Equal(committed.Subtitles[0].Style.FontSize, persisted.Subtitles[0].Style.FontSize);
         }
         finally

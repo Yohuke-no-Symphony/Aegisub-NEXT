@@ -16,14 +16,14 @@ public sealed class TimelineTrackCollapseWorkflowTests
         await context.InitializeAsync();
         var track = document.Tracks[0].Id;
         var child = document.Layers[0];
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, child.TrackId, AnimationProperty.OPACITY);
+        var row = new TimelineEffectClipId(child.Id, new(AnimationProperty.OPACITY));
 
         context.Session.SetTimelineTrackCollapsed(track, true);
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
         context.Session.SetTimelineTrackCollapsed(child.TrackId, true);
 
         Assert.Equal(new[] { track, child.TrackId }.Order(), context.Session.TimelineViewState.CollapsedTrackIds);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.Same(document, context.Editor.Snapshot);
         Assert.True(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.HasUnsavedChanges);
@@ -31,7 +31,7 @@ public sealed class TimelineTrackCollapseWorkflowTests
         Assert.False(context.Editor.CanRedo);
         context.Session.SetTimelineTrackCollapsed(track, false);
         context.Session.SetTimelineTrackCollapsed(child.TrackId, false);
-        context.Session.SetTimelineAnimationRowCollapsed(row, false);
+        context.Session.SetTimelineEffectClipCollapsed(row, true);
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.Same(document, context.Editor.Snapshot);
     }
@@ -41,8 +41,8 @@ public sealed class TimelineTrackCollapseWorkflowTests
     {
         var document = CreateDocument();
         var child = document.Layers[0];
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, child.TrackId, AnimationProperty.OPACITY);
-        document = document with { TimelineViewState = new() { CollapsedAnimationRows = [row] } };
+        var row = new TimelineEffectClipId(child.Id, new(AnimationProperty.OPACITY));
+        document = document with { TimelineViewState = new() { ExpandedAnimationClips = [row] } };
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         var model = context.Session.ViewModel.Timeline;
@@ -64,7 +64,7 @@ public sealed class TimelineTrackCollapseWorkflowTests
         Assert.Equal(1, publications);
         Assert.False(model.CollapseAllTracksCommand.CanExecute(null));
         Assert.True(model.ExpandAllTracksCommand.CanExecute(null));
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.Equal(document.Tracks[0].Id, model.SoloTrackId);
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
@@ -72,7 +72,7 @@ public sealed class TimelineTrackCollapseWorkflowTests
         model.ExpandAllTracksCommand.Execute(null);
 
         Assert.Empty(context.Session.TimelineViewState.CollapsedTrackIds);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.Equal(2, publications);
         Assert.False(model.ExpandAllTracksCommand.CanExecute(null));
         Assert.True(model.CollapseAllTracksCommand.CanExecute(null));

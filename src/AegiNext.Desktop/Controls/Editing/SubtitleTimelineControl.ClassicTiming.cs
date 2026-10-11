@@ -42,7 +42,7 @@ public sealed partial class SubtitleTimelineControl
             return false;
         }
 
-        if (properties.IsRightButtonPressed && FindClipAnimationContext(point) is not null)
+        if (FindEffectClip(point) is not null || FindKeyframe(point) is not null)
         {
             return false;
         }

@@ -204,6 +204,8 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
             session.SelectedLayerId = layer.Id;
             session.SelectedCueId = layer.SubtitleId;
             session.ViewModel.Effects.SelectedIds = [layer.Id];
+            session.ViewModel.Effects.Document = session.Editor.Snapshot;
+            session.ViewModel.Effects.SelectedLayer = layer;
             session.SelectedKeyTime = e.OperationId is null ? e.OldTime : null;
             session.SceneEditing.TransformOperationId = e.OperationId;
             session.ViewModel.Effects.Target = e.Target;

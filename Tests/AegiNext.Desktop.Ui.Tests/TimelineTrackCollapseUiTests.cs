@@ -20,10 +20,10 @@ public sealed class TimelineTrackCollapseUiTests
         var track = editor.Snapshot.Tracks[0].Id;
         var cue = editor.AddSubtitle(new(0), new(4), "Animated", track);
         editor.SetKeyframe(cue, AnimationProperty.OPACITY, new(new(1), 0.5));
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, track, AnimationProperty.OPACITY);
+        var row = new TimelineEffectClipId(cue, new(AnimationProperty.OPACITY));
         using var timeline = new SubtitleTimelineControl();
         timeline.SetDocument(editor.Snapshot, null, null);
-        timeline.TimelineViewState = new() { CollapsedAnimationRows = [row] };
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [] };
         TimelineTrackCollapseEventArgs? request = null;
         timeline.TrackCollapseRequested += (_, e) => request = e;
         var selections = 0;
@@ -35,7 +35,7 @@ public sealed class TimelineTrackCollapseUiTests
         try
         {
             Prepare(window);
-            var expanded = timeline.GetAnimationRowRectangle(row);
+            var expanded = timeline.GetEffectClipRectangle(row);
 
             ClickExpander(window, timeline, track);
 
@@ -43,13 +43,13 @@ public sealed class TimelineTrackCollapseUiTests
             Assert.Equal(track, request.Id);
             Assert.True(request.IsCollapsed);
             Assert.False(timeline.IsTrackCollapsed(track));
-            Assert.Equal(expanded, timeline.GetAnimationRowRectangle(row));
+            Assert.Equal(expanded, timeline.GetEffectClipRectangle(row));
             Assert.Equal(0, selections);
             timeline.TimelineViewState = timeline.TimelineViewState with { CollapsedTrackIds = [request.Id] };
             Prepare(window);
             Assert.True(timeline.IsTrackCollapsed(track));
-            Assert.Null(timeline.GetAnimationRowRectangle(row));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
+            Assert.Null(timeline.GetEffectClipRectangle(row));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
             Assert.NotNull(timeline.GetClipRectangle(cue));
 
             ClickExpander(window, timeline, track);
@@ -57,8 +57,8 @@ public sealed class TimelineTrackCollapseUiTests
             Assert.False(request.IsCollapsed);
             timeline.TimelineViewState = timeline.TimelineViewState with { CollapsedTrackIds = [] };
             Prepare(window);
-            Assert.Equal(expanded, timeline.GetAnimationRowRectangle(row));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
+            Assert.Equal(expanded, timeline.GetEffectClipRectangle(row));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
             Assert.Equal(0, selections);
         }
         finally
@@ -75,10 +75,10 @@ public sealed class TimelineTrackCollapseUiTests
             Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 40, 20),
             Tracks = [new(AnimationProperty.OPACITY, [new(new(1), 0.5)])]
         };
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, child.TrackId, AnimationProperty.OPACITY);
+        var row = new TimelineEffectClipId(child.Id, new(AnimationProperty.OPACITY));
         using var timeline = new SubtitleTimelineControl();
         timeline.SetDocument(new() { Layers = [child] }, null, null);
-        timeline.TimelineViewState = new() { CollapsedAnimationRows = [row] };
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [] };
         var requests = new List<TimelineTrackCollapseEventArgs>();
         timeline.TrackCollapseRequested += (_, e) =>
         {
@@ -100,14 +100,14 @@ public sealed class TimelineTrackCollapseUiTests
             Assert.Equal(child.TrackId, Assert.Single(requests).Id);
             Assert.True(timeline.IsTrackCollapsed(child.TrackId));
             Assert.Null(timeline.GetTrackExpanderRectangle(child.Id));
-            Assert.Null(timeline.GetAnimationRowRectangle(row));
+            Assert.Null(timeline.GetEffectClipRectangle(row));
 
             ClickExpander(window, timeline, child.TrackId);
 
             Assert.False(timeline.IsTrackCollapsed(child.TrackId));
             Assert.NotNull(timeline.GetClipRectangle(child.Id));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
             Assert.Equal(new[] { child.TrackId, child.TrackId }, requests.Select(request => request.Id));
         }
         finally

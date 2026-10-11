@@ -22,10 +22,11 @@ public sealed class TimelineAnimationRowCollapseUiTests
         var secondValue = CreateValue(property, true);
         var layer = CreateLayer(property, [new(new(1), firstValue), new(new(3), secondValue)]);
         var document = new ProjectDocument { Layers = [layer] };
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, layer.TrackId, property);
+        var rowId = new TimelineEffectClipId(layer.Id, new(property));
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(document, null, layer);
-        var requests = new List<TimelineAnimationRowCollapseEventArgs>();
+        timeline.TimelineViewState = TimelineEffectClipTestState.ExpandAll(document);
+        var requests = new List<TimelineEffectClipCollapseEventArgs>();
         AcceptCollapseRequests(timeline, requests);
         var unrelatedEvents = 0;
         timeline.SeekRequested += (_, _) => unrelatedEvents++;
@@ -40,7 +41,7 @@ public sealed class TimelineAnimationRowCollapseUiTests
         try
         {
             Prepare(window);
-            var expandedRectangle = timeline.GetAnimationRowRectangle(rowId)!.Value;
+            var expandedRectangle = timeline.GetEffectClipRectangle(rowId)!.Value;
             var expandedPoints = layer.Tracks[0].Keyframes.SelectMany(key =>
                 Enumerable.Range(0, key.Value.ComponentCount).Select(component =>
                     timeline.GetKeyframePoint(layer.Id, property, key.Time, key.Value, component)!.Value)).ToArray();
@@ -51,8 +52,8 @@ public sealed class TimelineAnimationRowCollapseUiTests
             var request = Assert.Single(requests);
             Assert.Equal(rowId, request.Id);
             Assert.True(request.IsCollapsed);
-            Assert.True(timeline.IsAnimationRowCollapsed(rowId));
-            var collapsedRectangle = timeline.GetAnimationRowRectangle(rowId)!.Value;
+            Assert.True(timeline.IsEffectClipCollapsed(rowId));
+            var collapsedRectangle = timeline.GetEffectClipRectangle(rowId)!.Value;
             Assert.Equal(40, collapsedRectangle.Height);
             Assert.True(collapsedRectangle.Height < expandedRectangle.Height);
             Assert.Equal(expandedContentHeight - expandedRectangle.Height + 40, timeline.ContentHeight, 8);
@@ -74,15 +75,15 @@ public sealed class TimelineAnimationRowCollapseUiTests
             Assert.Equal(new[] { property }, timeline.GetAnimationProperties(layer.Id));
             Assert.False(timeline.HasActiveDrag);
             Assert.Equal(0, unrelatedEvents);
-            Assert.Empty(document.TimelineViewState.CollapsedAnimationRows);
+            Assert.Empty(document.TimelineViewState.ExpandedAnimationClips);
 
             ClickExpander(window, timeline, rowId);
 
             Assert.Equal(2, requests.Count);
             Assert.Equal(rowId, requests[1].Id);
             Assert.False(requests[1].IsCollapsed);
-            Assert.False(timeline.IsAnimationRowCollapsed(rowId));
-            Assert.Equal(expandedRectangle, timeline.GetAnimationRowRectangle(rowId));
+            Assert.False(timeline.IsEffectClipCollapsed(rowId));
+            Assert.Equal(expandedRectangle, timeline.GetEffectClipRectangle(rowId));
             var restoredPoints = layer.Tracks[0].Keyframes.SelectMany(key =>
                 Enumerable.Range(0, key.Value.ComponentCount).Select(component =>
                     timeline.GetKeyframePoint(layer.Id, property, key.Time, key.Value, component)!.Value)).ToArray();
@@ -100,32 +101,33 @@ public sealed class TimelineAnimationRowCollapseUiTests
     public void PointerCollapseOnlyRequestsTheStateAndWaitsForItsConsumerToAcceptIt()
     {
         var layer = CreateLayer(AnimationProperty.OPACITY, [new(new(1), 0.25)]);
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, layer.TrackId, AnimationProperty.OPACITY);
+        var rowId = new TimelineEffectClipId(layer.Id, new(AnimationProperty.OPACITY));
         using var timeline = new SubtitleTimelineControl();
         timeline.SetDocument(new() { Layers = [layer] }, null, layer);
-        TimelineAnimationRowCollapseEventArgs? request = null;
-        timeline.AnimationRowCollapseRequested += (_, e) => request = e;
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [rowId] };
+        TimelineEffectClipCollapseEventArgs? request = null;
+        timeline.EffectClipCollapseRequested += (_, e) => request = e;
         var window = new Window { Width = 700, Height = 300, Content = timeline };
         window.Show();
         try
         {
             Prepare(window);
-            var originalRectangle = timeline.GetAnimationRowRectangle(rowId)!.Value;
+            var originalRectangle = timeline.GetEffectClipRectangle(rowId)!.Value;
 
             ClickExpander(window, timeline, rowId);
 
             Assert.NotNull(request);
             Assert.Equal(rowId, request.Id);
             Assert.True(request.IsCollapsed);
-            Assert.False(timeline.IsAnimationRowCollapsed(rowId));
-            Assert.Equal(originalRectangle, timeline.GetAnimationRowRectangle(rowId));
-            Assert.Empty(timeline.TimelineViewState.CollapsedAnimationRows);
+            Assert.False(timeline.IsEffectClipCollapsed(rowId));
+            Assert.Equal(originalRectangle, timeline.GetEffectClipRectangle(rowId));
+            Assert.Equal(rowId, Assert.Single(timeline.TimelineViewState.ExpandedAnimationClips));
 
-            timeline.TimelineViewState = new() { CollapsedAnimationRows = [request.Id] };
+            timeline.TimelineViewState = new();
             Prepare(window);
 
-            Assert.True(timeline.IsAnimationRowCollapsed(rowId));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(rowId)!.Value.Height);
+            Assert.True(timeline.IsEffectClipCollapsed(rowId));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(rowId)!.Value.Height);
         }
         finally
         {
@@ -134,67 +136,59 @@ public sealed class TimelineAnimationRowCollapseUiTests
     }
 
     [AvaloniaFact]
-    public void ClipsInOneTrackShareThePropertyStateWhileOtherTracksAndPropertiesRemainIndependent()
+    public void BlocksAreIndependentAndSequentialClipsReuseTheMaximumStackHeight()
     {
-        var otherTrack = new ProjectTrack { Name = "Other" };
-        var firstCue = new SubtitleLine { End = new(3), Text = "First" };
-        var secondCue = new SubtitleLine { Start = new(4), End = new(7), Text = "Second" };
-        var otherCue = new SubtitleLine { End = new(3), Text = "Other" };
-        var first = CreateSubtitleLayer(firstCue) with
+        var first = CreateLayer(AnimationProperty.OPACITY, [new(new(1), 0.25)]) with
         {
+            Start = new(0), End = new(3),
             Tracks = [new(AnimationProperty.OPACITY, [new(new(1), 0.25)]), new(AnimationProperty.ROTATION, [new(new(1), 40)])]
         };
-        var second = CreateSubtitleLayer(secondCue) with { Tracks = [new(AnimationProperty.OPACITY, [new(new(1), 0.75)])] };
-        var other = CreateSubtitleLayer(otherCue) with { TrackId = otherTrack.Id, Tracks = [new(AnimationProperty.OPACITY, [new(new(1), 0.5)])] };
-        var document = new ProjectDocument
-        {
-            Tracks = [ProjectTrack.Default, otherTrack], Subtitles = [firstCue, secondCue, otherCue], Layers = [first, second, other]
-        };
-        var sharedId = new TimelineAnimationRowId(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.OPACITY);
-        var rotationId = sharedId with { Property = AnimationProperty.ROTATION };
-        var otherId = sharedId with { OwnerId = otherTrack.Id };
+        var second = CreateLayer(AnimationProperty.OPACITY, [new(new(1), 0.75)]) with { Start = new(4), End = new(7) };
+        var firstId = new TimelineEffectClipId(first.Id, new(AnimationProperty.OPACITY));
+        var secondId = new TimelineEffectClipId(second.Id, new(AnimationProperty.OPACITY));
+        var rotationId = new TimelineEffectClipId(first.Id, new(AnimationProperty.ROTATION));
+        var document = new ProjectDocument { Layers = [first, second] };
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 70 };
         timeline.SetDocument(document, null, null);
-        var requests = new List<TimelineAnimationRowCollapseEventArgs>();
+        var requests = new List<TimelineEffectClipCollapseEventArgs>();
         AcceptCollapseRequests(timeline, requests);
         var window = new Window { Width = 900, Height = 500, Content = timeline };
         window.Show();
         try
         {
             Prepare(window);
-            var rotationHeight = timeline.GetAnimationRowRectangle(rotationId)!.Value.Height;
-            var otherHeight = timeline.GetAnimationRowRectangle(otherId)!.Value.Height;
+            var compactHeight = timeline.ContentHeight;
+            Assert.True(timeline.IsEffectClipCollapsed(firstId));
+            Assert.True(timeline.IsEffectClipCollapsed(secondId));
+            var firstBlock = timeline.GetEffectClipRectangle(firstId)!.Value;
+            var secondBlock = timeline.GetEffectClipRectangle(secondId)!.Value;
+            Assert.Equal(timeline.GetClipRectangle(first.Id)!.Value.Width, firstBlock.Width);
+            Assert.Equal(timeline.GetClipRectangle(second.Id)!.Value.Left, secondBlock.Left);
+            Assert.True(firstBlock.Bottom < secondBlock.Bottom);
 
-            ClickExpander(window, timeline, sharedId);
+            ClickExpander(window, timeline, secondId);
 
-            Assert.True(timeline.IsAnimationRowCollapsed(sharedId));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(sharedId)!.Value.Height);
-            var firstPoint = timeline.GetKeyframePoint(first.Id, AnimationProperty.OPACITY, new(1), 0.25)!.Value;
-            var secondPoint = timeline.GetKeyframePoint(second.Id, AnimationProperty.OPACITY, new(1), 0.75)!.Value;
-            Assert.Equal(firstPoint.Y, secondPoint.Y, 8);
-            Assert.False(timeline.IsAnimationRowCollapsed(rotationId));
-            Assert.Equal(rotationHeight, timeline.GetAnimationRowRectangle(rotationId)!.Value.Height);
-            Assert.False(timeline.IsAnimationRowCollapsed(otherId));
-            Assert.Equal(otherHeight, timeline.GetAnimationRowRectangle(otherId)!.Value.Height);
+            Assert.False(timeline.IsEffectClipCollapsed(secondId));
+            Assert.True(timeline.IsEffectClipCollapsed(firstId));
+            Assert.True(timeline.IsEffectClipCollapsed(rotationId));
+            Assert.Equal(76, timeline.GetEffectClipRectangle(secondId)!.Value.Height);
+            Assert.Equal(compactHeight, timeline.ContentHeight);
 
-            timeline.ToggleTrackCollapse(ProjectTrack.DEFAULT_TRACK_ID);
+            ClickExpander(window, timeline, firstId);
+
+            Assert.Equal(compactHeight + 36, timeline.ContentHeight);
+            Assert.Equal(40, timeline.GetEffectClipRectangle(rotationId)!.Value.Height);
+            timeline.ToggleTrackCollapse(first.TrackId);
             Prepare(window);
-
-            Assert.Null(timeline.GetAnimationRowRectangle(sharedId));
-            Assert.Null(timeline.GetKeyframePoint(first.Id, AnimationProperty.OPACITY, new(1), 0.25));
-            Assert.True(timeline.IsAnimationRowCollapsed(sharedId));
-            Assert.Equal(sharedId, Assert.Single(timeline.TimelineViewState.CollapsedAnimationRows));
-            Assert.NotNull(timeline.GetClipRectangle(first.Id));
-            Assert.NotNull(timeline.GetClipRectangle(second.Id));
-
-            timeline.ToggleTrackCollapse(ProjectTrack.DEFAULT_TRACK_ID);
+            Assert.Null(timeline.GetEffectClipRectangle(firstId));
+            Assert.Null(timeline.GetEffectClipRectangle(secondId));
+            Assert.False(timeline.IsEffectClipCollapsed(firstId));
+            Assert.False(timeline.IsEffectClipCollapsed(secondId));
+            timeline.ToggleTrackCollapse(first.TrackId);
             Prepare(window);
-
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(sharedId)!.Value.Height);
-            Assert.Equal(firstPoint, timeline.GetKeyframePoint(first.Id, AnimationProperty.OPACITY, new(1), 0.25));
-            Assert.Equal(secondPoint, timeline.GetKeyframePoint(second.Id, AnimationProperty.OPACITY, new(1), 0.75));
-            Assert.Equal(otherHeight, timeline.GetAnimationRowRectangle(otherId)!.Value.Height);
-            Assert.Single(requests);
+            Assert.Equal(76, timeline.GetEffectClipRectangle(firstId)!.Value.Height);
+            Assert.Equal(76, timeline.GetEffectClipRectangle(secondId)!.Value.Height);
+            Assert.Equal(2, requests.Count);
         }
         finally
         {
@@ -206,10 +200,11 @@ public sealed class TimelineAnimationRowCollapseUiTests
     public void CollapsingATrackPreservesItsClipAnimationRowState()
     {
         var child = CreateLayer(AnimationProperty.OPACITY, [new(new(1), 0.25)]);
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, child.TrackId, AnimationProperty.OPACITY);
+        var rowId = new TimelineEffectClipId(child.Id, new(AnimationProperty.OPACITY));
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 70 };
         timeline.SetDocument(new() { Layers = [child] }, null, null);
-        var requests = new List<TimelineAnimationRowCollapseEventArgs>();
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [rowId] };
+        var requests = new List<TimelineEffectClipCollapseEventArgs>();
         AcceptCollapseRequests(timeline, requests);
         var window = new Window { Width = 800, Height = 350, Content = timeline };
         window.Show();
@@ -224,16 +219,16 @@ public sealed class TimelineAnimationRowCollapseUiTests
             Prepare(window);
 
             Assert.NotNull(timeline.GetClipRectangle(child.Id));
-            Assert.Null(timeline.GetAnimationRowRectangle(rowId));
-            Assert.True(timeline.IsAnimationRowCollapsed(rowId));
-            Assert.Equal(rowId, Assert.Single(timeline.TimelineViewState.CollapsedAnimationRows));
+            Assert.Null(timeline.GetEffectClipRectangle(rowId));
+            Assert.True(timeline.IsEffectClipCollapsed(rowId));
+            Assert.Empty(timeline.TimelineViewState.ExpandedAnimationClips);
 
             window.MouseDown(groupExpander, MouseButton.Left);
             window.MouseUp(groupExpander, MouseButton.Left);
             Prepare(window);
 
             Assert.NotNull(timeline.GetClipRectangle(child.Id));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(rowId)!.Value.Height);
+            Assert.Equal(40, timeline.GetEffectClipRectangle(rowId)!.Value.Height);
             Assert.NotNull(timeline.GetKeyframePoint(child.Id, AnimationProperty.OPACITY, new(1), 0.25));
             Assert.Single(requests);
         }
@@ -254,9 +249,10 @@ public sealed class TimelineAnimationRowCollapseUiTests
         var layer = CreateLayer(property, [key]);
         var source = new ProjectDocument { Layers = [layer] };
         var editor = new ProjectEditor(source);
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, layer.TrackId, property);
+        var rowId = new TimelineEffectClipId(layer.Id, new(property));
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(source, null, layer);
+        timeline.TimelineViewState = TimelineEffectClipTestState.ExpandAll(source);
         AcceptCollapseRequests(timeline, []);
         var edits = 0;
         timeline.KeyframeSelected += (_, e) =>
@@ -309,13 +305,13 @@ public sealed class TimelineAnimationRowCollapseUiTests
 
             Assert.Equal(1, edits);
             Assert.Equal(key with { Time = new(2) }, Assert.Single(editor.Snapshot.Layers[0].Tracks[0].Keyframes));
-            Assert.True(timeline.IsAnimationRowCollapsed(rowId));
+            Assert.True(timeline.IsEffectClipCollapsed(rowId));
             Assert.True(editor.Undo());
             timeline.SetDocument(editor.Snapshot, null, editor.Snapshot.Layers[0]);
             Assert.Same(source, editor.Snapshot);
             Assert.False(editor.CanUndo);
             Assert.True(editor.CanRedo);
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(rowId)!.Value.Height);
+            Assert.Equal(40, timeline.GetEffectClipRectangle(rowId)!.Value.Height);
             Assert.Equal(point, timeline.GetKeyframePoint(layer.Id, property, key.Time, value));
         }
         finally
@@ -333,9 +329,10 @@ public sealed class TimelineAnimationRowCollapseUiTests
         {
             Start = new(1), End = new(4)
         };
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, layer.TrackId, AnimationProperty.OPACITY);
+        var rowId = new TimelineEffectClipId(layer.Id, new(AnimationProperty.OPACITY));
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(new() { Layers = [layer] }, null, layer);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [rowId] };
         AcceptCollapseRequests(timeline, []);
         var timing = new List<TimelineTimingEventArgs>();
         var keyEvents = 0;
@@ -382,10 +379,11 @@ public sealed class TimelineAnimationRowCollapseUiTests
     {
         var layer = CreateLayer(AnimationProperty.OPACITY, [new(new(1), 0.25)]);
         var document = new ProjectDocument { Layers = [layer] };
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, layer.TrackId, AnimationProperty.OPACITY);
+        var rowId = new TimelineEffectClipId(layer.Id, new(AnimationProperty.OPACITY));
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(document, null, layer);
-        var requests = new List<TimelineAnimationRowCollapseEventArgs>();
+        timeline.TimelineViewState = TimelineEffectClipTestState.ExpandAll(document);
+        var requests = new List<TimelineEffectClipCollapseEventArgs>();
         AcceptCollapseRequests(timeline, requests);
         var edits = 0;
         timeline.KeyframeSelected += (_, e) => e.SelectionAccepted = true;
@@ -400,7 +398,7 @@ public sealed class TimelineAnimationRowCollapseUiTests
             window.MouseMove(collapsed);
             Assert.NotNull(timeline.HoveredKeyframe);
 
-            timeline.TimelineViewState = new();
+            timeline.TimelineViewState = new() { ExpandedAnimationClips = [rowId] };
             Prepare(window);
 
             Assert.Null(timeline.HoveredKeyframe);
@@ -412,7 +410,7 @@ public sealed class TimelineAnimationRowCollapseUiTests
             Assert.True(timeline.HasActiveDrag);
             window.MouseMove(expanded + new Vector(40, 0));
 
-            timeline.TimelineViewState = new() { CollapsedAnimationRows = [rowId] };
+            timeline.TimelineViewState = new();
             Prepare(window);
 
             Assert.False(timeline.HasActiveDrag);
@@ -420,7 +418,7 @@ public sealed class TimelineAnimationRowCollapseUiTests
             window.MouseUp(expanded + new Vector(40, 0), MouseButton.Left);
             Assert.Equal(0, edits);
             Assert.Single(requests);
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(rowId)!.Value.Height);
+            Assert.Equal(40, timeline.GetEffectClipRectangle(rowId)!.Value.Height);
             Assert.Equal(collapsed, timeline.GetKeyframePoint(layer.Id, AnimationProperty.OPACITY, new(1), 0.25));
             Assert.Equal(new MediaTime(1), Assert.Single(layer.Tracks[0].Keyframes).Time);
         }
@@ -462,22 +460,22 @@ public sealed class TimelineAnimationRowCollapseUiTests
         return (TimelineComponentMask)((1 << value.ComponentCount) - 1);
     }
 
-    private static void AcceptCollapseRequests(SubtitleTimelineControl timeline, List<TimelineAnimationRowCollapseEventArgs> requests)
+    private static void AcceptCollapseRequests(SubtitleTimelineControl timeline, List<TimelineEffectClipCollapseEventArgs> requests)
     {
-        timeline.AnimationRowCollapseRequested += (_, e) =>
+        timeline.EffectClipCollapseRequested += (_, e) =>
         {
             requests.Add(e);
-            var current = timeline.TimelineViewState.CollapsedAnimationRows;
+            var current = timeline.TimelineViewState.ExpandedAnimationClips;
             timeline.TimelineViewState = timeline.TimelineViewState with
             {
-                CollapsedAnimationRows = e.IsCollapsed ? current.Add(e.Id) : current.Remove(e.Id)
+                ExpandedAnimationClips = e.IsCollapsed ? current.Remove(e.Id) : current.Add(e.Id)
             };
         };
     }
 
-    private static void ClickExpander(Window window, SubtitleTimelineControl timeline, TimelineAnimationRowId rowId)
+    private static void ClickExpander(Window window, SubtitleTimelineControl timeline, TimelineEffectClipId rowId)
     {
-        var point = timeline.GetAnimationRowExpanderRectangle(rowId)!.Value.Center;
+        var point = timeline.GetEffectClipExpanderRectangle(rowId)!.Value.Center;
         Assert.Same(timeline, window.InputHitTest(point));
         window.MouseDown(point, MouseButton.Left);
         window.MouseUp(point, MouseButton.Left);

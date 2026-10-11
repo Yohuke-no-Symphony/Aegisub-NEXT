@@ -30,7 +30,8 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     private readonly MenuItem trackStyleItem;
     private readonly MenuItem autoTrackStyleItem;
     private readonly MenuItem animationClearItem;
-    private bool animationContextIsClip;
+    private readonly MenuItem effectClipCollapseItem;
+    private readonly MenuItem contextKeyframeDeleteItem;
     private readonly ToolbarToggleButton snapButton;
     private readonly ToolbarToggleButton stepButton;
     private readonly ToolbarToggleButton spectrumButton;
@@ -100,12 +101,17 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         ClipMenu.Items.Add(CreateMenuItem("DeleteTimelineClipsMenuItem", "DeleteTimelineClips", viewModel.DeleteClipsCommand));
         ClipMenu.Items.Add(colorTagMenu.Item);
         AnimationMenu = new();
-        animationClearItem = new() { Name = "ClearAnimationPropertyTracksMenuItem", Command = viewModel.ClearAnimationPropertyTracksCommand };
+        contextKeyframeDeleteItem = CreateMenuItem("DeleteTimelineKeyframeMenuItem", "DeleteKeyframe", viewModel.DeleteContextKeyframeCommand);
+        AnimationMenu.Items.Add(contextKeyframeDeleteItem);
+        animationClearItem = new() { Name = "ClearAnimationPropertyTracksMenuItem", Command = viewModel.ClearEffectClipCommand };
         AnimationMenu.Items.Add(animationClearItem);
+        effectClipCollapseItem = new() { Name = "ToggleEffectClipCollapseMenuItem", Command = viewModel.ToggleEffectClipCollapseCommand };
+        AnimationMenu.Items.Add(effectClipCollapseItem);
         RefreshAnimationMenu();
         timeline.TrackContextRequested += OnTrackContextRequested;
         timeline.ClipContextRequested += OnClipContextRequested;
-        timeline.AnimationRowContextRequested += OnAnimationRowContextRequested;
+        timeline.EffectClipContextRequested += OnEffectClipContextRequested;
+        timeline.EffectClipSelected += OnEffectClipSelected;
         timeline.TrackSoloRequested += OnTrackSoloRequested;
         timeline.TrackCollapseRequested += OnTrackCollapseRequested;
         timeline.SeekRequested += async (_, e) =>
@@ -126,7 +132,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         timeline.ClipsMoveCompleted += async (_, e) => await viewModel.CommitClipsMoveAsync(e);
         timeline.KeyframeSelected += (_, e) => e.SelectionAccepted = viewModel.SelectKeyframe(e);
         timeline.KeyframeMoved += async (_, e) => await viewModel.MoveKeyframeAsync(e);
-        timeline.AnimationRowCollapseRequested += OnAnimationRowCollapseRequested;
+        timeline.EffectClipCollapseRequested += OnEffectClipCollapseRequested;
         AddHandler(PointerPressedEvent, OnPreviewPointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerReleasedEvent, OnPreviewPointerReleased, RoutingStrategies.Tunnel);
         timeline.AddHandler(PointerPressedEvent, (_, _) => viewModel.IsSeeking = timeline.IsSeeking, RoutingStrategies.Bubble, true);
@@ -188,7 +194,8 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             WorkbenchCommand.AUDITION_BEFORE_SUBTITLE or WorkbenchCommand.AUDITION_AFTER_SUBTITLE or
                 WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE => session.CanAuditionSubtitle && !timeline.HasActiveDrag,
             WorkbenchCommand.END_TEXT_INPUT => timeline.HasActiveDrag,
-            WorkbenchCommand.COPY_CLIPS or WorkbenchCommand.DELETE_SUBTITLE => viewModel.CanCopyClips,
+            WorkbenchCommand.COPY_CLIPS => viewModel.CanCopyClips,
+            WorkbenchCommand.DELETE_SUBTITLE => viewModel.CanDeleteTimelineSelection,
             WorkbenchCommand.PASTE_CLIPS => !session.IsProjectBusy && timeline.GetClipPasteTarget() is not null &&
                 (viewModel.CanPasteClips || TopLevel.GetTopLevel(this)?.Clipboard is not null),
             _ => false
@@ -230,7 +237,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
                 _ = viewModel.PasteSelectedClipsAsync(target);
                 break;
             case WorkbenchCommand.DELETE_SUBTITLE:
-                _ = viewModel.DeleteSelectedClipsAsync();
+                _ = viewModel.DeleteTimelineSelectionAsync();
                 break;
         }
         return true;
@@ -272,6 +279,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             case nameof(viewModel.SelectedTrackId):
             case nameof(viewModel.SelectedMaskNodeId):
             case nameof(viewModel.EffectTarget):
+            case nameof(viewModel.SelectedEffectClipId):
             case nameof(viewModel.Viewport):
             case nameof(viewModel.FullDuration):
             case nameof(viewModel.MediaDuration):
@@ -305,8 +313,11 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             });
         }
     }
-    private void OnAnimationRowCollapseRequested(object? sender, TimelineAnimationRowCollapseEventArgs e) =>
-        viewModel.SetAnimationRowCollapsed(e);
+    private void OnEffectClipCollapseRequested(object? sender, TimelineEffectClipCollapseEventArgs e) =>
+        viewModel.SetEffectClipCollapsed(e);
+
+    private void OnEffectClipSelected(object? sender, TimelineEffectClipSelectionEventArgs e) =>
+        e.SelectionAccepted = viewModel.SelectEffectClip(e);
 
     private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -317,7 +328,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
 
         if (ReferenceEquals(e.Source, timeline) && e.GetCurrentPoint(timeline).Properties.IsLeftButtonPressed &&
             (timeline.TryRequestTrackSolo(e.GetPosition(timeline)) || timeline.TryRequestTrackCollapse(e.GetPosition(timeline)) ||
-                timeline.TryRequestAnimationRowCollapse(e.GetPosition(timeline))))
+                timeline.TryRequestEffectClipCollapse(e.GetPosition(timeline))))
         {
             animationRowCollapsePointer = e.Pointer;
             e.Handled = true;
@@ -352,6 +363,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         {
             timeline.Position = viewModel.Position;
             timeline.EffectTarget = viewModel.EffectTarget;
+            timeline.SelectedEffectClipId = viewModel.SelectedEffectClipId;
             timeline.SelectedMaskNodeId = viewModel.SelectedMaskNodeId;
             timeline.IsSnapEnabled = viewModel.IsSnapEnabled;
             timeline.IsStepEnabled = viewModel.IsStepEnabled;
@@ -433,18 +445,22 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         RefreshColorTagMenu();
         ClipMenu.Open(timeline);
     }
-    private void OnAnimationRowContextRequested(object? sender, TimelineAnimationRowContextEventArgs e)
+    private void OnEffectClipContextRequested(object? sender, TimelineEffectClipContextEventArgs e)
     {
         TrackMenu.Close();
         ClipMenu.Close();
         AnimationMenu.Close();
-        viewModel.SetAnimationRowContext(e);
-        animationContextIsClip = e.ClipId.HasValue;
+        viewModel.SetEffectClipContext(e);
         RefreshAnimationMenu();
         AnimationMenu.Open(timeline);
     }
-    private void RefreshAnimationMenu() => animationClearItem.Header = Localization.Get("Workbench." +
-        (animationContextIsClip ? "ClearClipAnimationPropertyTracks" : "ClearAnimationPropertyTracks"));
+    private void RefreshAnimationMenu()
+    {
+        contextKeyframeDeleteItem.IsVisible = viewModel.HasContextKeyframe;
+        animationClearItem.Header = Localization.Get("Workbench.ClearEffectClip");
+        effectClipCollapseItem.Header = Localization.Get("Workbench." +
+            (viewModel.IsContextEffectClipCollapsed ? "ExpandEffectClip" : "CollapseEffectClip"));
+    }
     private void RefreshTrackMenu()
     {
         collapseTrackItem.IsEnabled = viewModel.SelectedTrackId.HasValue;
@@ -561,10 +577,11 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             overview.ViewportChanged -= OnViewportChanged;
             timeline.TrackContextRequested -= OnTrackContextRequested;
             timeline.ClipContextRequested -= OnClipContextRequested;
-            timeline.AnimationRowContextRequested -= OnAnimationRowContextRequested;
+            timeline.EffectClipContextRequested -= OnEffectClipContextRequested;
+            timeline.EffectClipSelected -= OnEffectClipSelected;
             timeline.TrackSoloRequested -= OnTrackSoloRequested;
             timeline.TrackCollapseRequested -= OnTrackCollapseRequested;
-            timeline.AnimationRowCollapseRequested -= OnAnimationRowCollapseRequested;
+            timeline.EffectClipCollapseRequested -= OnEffectClipCollapseRequested;
             RemoveHandler(PointerPressedEvent, OnPreviewPointerPressed);
             RemoveHandler(PointerReleasedEvent, OnPreviewPointerReleased);
             animationRowCollapsePointer = null;

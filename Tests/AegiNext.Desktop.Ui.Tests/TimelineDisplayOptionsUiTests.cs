@@ -156,6 +156,7 @@ public sealed class TimelineDisplayOptionsUiTests
         var layer = Layer(cue) with { Tracks = [new(AnimationProperty.OPACITY, [new(MediaTime.Zero, 0.25), new(new(2), 0.75)])] };
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 50 };
         timeline.SetDocument(new() { Subtitles = [cue], Layers = [layer] }, cue.Id, layer);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [new(layer.Id, new(AnimationProperty.OPACITY))] };
         timeline.SetSpectrogram(new SpectrogramData(2, 1, new MediaTime(10), [0, 255], [0, 0, 0, 0]));
         var window = new Window { Width = 600, Height = 300, Content = timeline, RequestedThemeVariant = ThemeVariant.Dark };
         window.Show();

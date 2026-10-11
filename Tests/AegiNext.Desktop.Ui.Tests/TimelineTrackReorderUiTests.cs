@@ -27,7 +27,7 @@ public sealed class TimelineTrackReorderUiTests
         context.Session.Editor.Reset(original);
         var timeline = Prepare(context);
         var animatedTrack = original.Tracks[0].Id;
-        var animation = new TimelineAnimationRowId(TimelineRowScope.TRACK, animatedTrack, AnimationProperty.OPACITY);
+        var animation = new TimelineEffectClipId(original.Layers.First(layer => layer.TrackId == animatedTrack && layer.Tracks.Any(track => track.Property == AnimationProperty.OPACITY)).Id, new(AnimationProperty.OPACITY));
         if (collapsed)
         {
             context.Session.SetTimelineTrackCollapsed(animatedTrack, true);
@@ -36,7 +36,7 @@ public sealed class TimelineTrackReorderUiTests
         var source = original.Tracks[upward ? 2 : 0].Id;
         var target = original.Tracks[upward ? 0 : 2].Id;
         var origin = HeaderPoint(context, timeline, source);
-        var rowBefore = timeline.GetAnimationRowRectangle(animation);
+        var rowBefore = timeline.GetEffectClipRectangle(animation);
         var offsetBefore = timeline.Viewport.VerticalOffset;
         var targetHeader = timeline.GetTrackHeaderRectangle(target)!.Value;
         var destination = WindowPoint(context, timeline, new(60, upward ? targetHeader.Top + 1 : targetHeader.Bottom - 1));
@@ -53,13 +53,13 @@ public sealed class TimelineTrackReorderUiTests
         Assert.False(context.Session.Editor.CanUndo);
         if (rowBefore is { } before)
         {
-            var during = timeline.GetAnimationRowRectangle(animation)!.Value;
+            var during = timeline.GetEffectClipRectangle(animation)!.Value;
             Assert.Equal(before.Height, during.Height);
             Assert.Equal(before.Top + offsetBefore, during.Top + timeline.Viewport.VerticalOffset, 6);
         }
         else
         {
-            Assert.Null(timeline.GetAnimationRowRectangle(animation));
+            Assert.Null(timeline.GetEffectClipRectangle(animation));
         }
 
         context.Window.MouseUp(destination, MouseButton.Left);
@@ -77,7 +77,7 @@ public sealed class TimelineTrackReorderUiTests
         if (!collapsed)
         {
             var header = timeline.GetTrackHeaderRectangle(animatedTrack)!.Value;
-            var animatedRow = timeline.GetAnimationRowRectangle(animation)!.Value;
+            var animatedRow = timeline.GetEffectClipRectangle(animation)!.Value;
             Assert.InRange(animatedRow.Top, header.Top, header.Bottom);
             Assert.InRange(animatedRow.Bottom, header.Top, header.Bottom);
         }
@@ -321,8 +321,8 @@ public sealed class TimelineTrackReorderUiTests
             window.MouseDown(origin, MouseButton.Left);
             window.MouseMove(destination);
             Assert.Same(original, editor.Snapshot);
-            var animation = new TimelineAnimationRowId(TimelineRowScope.TRACK, target.Id, AnimationProperty.OPACITY);
-            Assert.NotNull(timeline.GetAnimationRowRectangle(animation));
+            var animation = new TimelineEffectClipId(shape.Id, new(AnimationProperty.OPACITY));
+            Assert.NotNull(timeline.GetEffectClipRectangle(animation));
             window.MouseUp(destination, MouseButton.Left);
             Flush(window);
 
@@ -330,7 +330,7 @@ public sealed class TimelineTrackReorderUiTests
             Assert.Equal(target.Id, moved.TrackId);
             Assert.Equal(new AegiNext.Core.Timing.MediaTime(7), moved.Start);
             Assert.Equal(shape.Tracks, moved.Tracks);
-            Assert.NotNull(timeline.GetAnimationRowRectangle(animation));
+            Assert.NotNull(timeline.GetEffectClipRectangle(animation));
             Assert.Same(image, editor.Snapshot.Layers.Single(clip => clip.Id == image.Id));
             Assert.Equal(1, commits);
             Assert.True(editor.Undo());

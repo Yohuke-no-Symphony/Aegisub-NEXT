@@ -58,9 +58,8 @@ public sealed class BuiltinEffectScriptUiTests
         }
         Assert.Equal(expectedTracks.SelectMany(track => track.Keyframes), actualTracks.SelectMany(track => track.Keyframes));
         Assert.Equal(expectedTracks.Select(track => track.Property), actualTracks.Select(track => track.Property));
-        Assert.All(actual.Tracks, track => Assert.Contains(
-            new TimelineAnimationRowId(TimelineRowScope.TRACK, actual.TrackId, track.Property,
-                track.Target.TextRangeId, track.Target.State), context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.All(actual.Tracks, track => Assert.DoesNotContain(
+            new TimelineEffectClipId(actual.Id, track.Target), context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.True(context.Session.Editor.Undo());
         Assert.Same(before, context.Session.DocumentSnapshot);
     }

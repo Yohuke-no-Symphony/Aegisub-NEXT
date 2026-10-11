@@ -28,7 +28,7 @@ public sealed class TimelineEffectClearingWorkflowTests
     }
 
     [Fact]
-    public async Task RowClearingIncludesUnselectedClipsAndKeepsOtherTracks()
+    public async Task EffectClearingOnlyTouchesTheFrozenClipAndKeepsOtherTracks()
     {
         var other = new ProjectTrack { Name = "Other" };
         var first = Line(0);
@@ -42,12 +42,12 @@ public sealed class TimelineEffectClearingWorkflowTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         context.Session.SelectLayer(first.Id, [first.Id]);
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.OPACITY);
+        var effect = new TimelineEffectClipId(first.Id, new(AnimationProperty.OPACITY));
 
-        await context.Session.ClearTimelineAnimationRowAsync(row, document);
+        await context.Session.ClearTimelineEffectClipAsync(effect, document);
 
-        Assert.All(context.Editor.Snapshot.Layers.Take(2), layer =>
-            Assert.Equal(AnimationProperty.ROTATION, Assert.Single(layer.Tracks).Property));
+        Assert.Equal(AnimationProperty.ROTATION, Assert.Single(context.Editor.Snapshot.Layers[0].Tracks).Property);
+        Assert.Same(document.Layers[1], context.Editor.Snapshot.Layers[1]);
         Assert.Same(document.Layers[2], context.Editor.Snapshot.Layers[2]);
         Assert.Equal(first.Id, Assert.Single(context.Session.ViewModel.Timeline.SelectedLayerIds));
         Assert.True(context.Editor.Undo());
@@ -80,7 +80,7 @@ public sealed class TimelineEffectClearingWorkflowTests
     }
 
     [Fact]
-    public async Task ClipPropertyContextClearsAllNodeTargetsAndRepresentationsOnlyOnFrozenClip()
+    public async Task EffectContextOnlyClearsTheExactMaskNodeOnTheFrozenClip()
     {
         var first = Line(0);
         var second = Line(3);
@@ -103,15 +103,17 @@ public sealed class TimelineEffectClearingWorkflowTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         context.Session.SelectLayer(first.Id, [first.Id]);
-        context.Session.ViewModel.Timeline.SetAnimationRowContext(new(
-            new(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.MASK_NODE_POSITION), second.Id));
+        context.Session.ViewModel.Timeline.SetEffectClipContext(new(
+            new(second.Id, new(AnimationProperty.MASK_NODE_POSITION, firstNode.Id))));
         context.Session.SelectLayer(first.Id, [first.Id, second.Id]);
 
-        await context.Session.ViewModel.Timeline.ClearAnimationPropertyTracksCommand.ExecuteAsync(null);
+        await context.Session.ViewModel.Timeline.ClearEffectClipCommand.ExecuteAsync(null);
 
         var cleared = context.Editor.Snapshot;
         Assert.Same(document.Layers[0], cleared.Layers[0]);
-        Assert.Equal(AnimationProperty.ROTATION, Assert.Single(cleared.Layers[1].Tracks).Property);
+        Assert.Equal(2, cleared.Layers[1].Tracks.Length);
+        Assert.Contains(cleared.Layers[1].Tracks, track => track.Target == new AnimationTrackTarget(AnimationProperty.MASK_NODE_POSITION, secondNode.Id));
+        Assert.DoesNotContain(cleared.Layers[1].Tracks, track => track.Target == new AnimationTrackTarget(AnimationProperty.MASK_NODE_POSITION, firstNode.Id));
         Assert.Same(hit.Mask, cleared.Layers[1].Mask);
         Assert.Same(hit.Transform, cleared.Layers[1].Transform);
         Assert.Equal(first.Id, context.Session.SelectedLayerId);
@@ -131,12 +133,12 @@ public sealed class TimelineEffectClearingWorkflowTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
 
-        await context.Session.ClearTimelineClipAnimationPropertyTracksAsync(Guid.NewGuid(), AnimationProperty.OPACITY, document);
+        await context.Session.ClearTimelineEffectClipAsync(new(Guid.NewGuid(), new(AnimationProperty.OPACITY)), document);
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
         Assert.IsType<KeyNotFoundException>(context.Session.LastError);
 
-        await context.Session.ClearTimelineClipAnimationPropertyTracksAsync(line.Id, AnimationProperty.BLUR, document);
+        await context.Session.ClearTimelineEffectClipAsync(new(line.Id, new(AnimationProperty.BLUR)), document);
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
     }
@@ -152,7 +154,7 @@ public sealed class TimelineEffectClearingWorkflowTests
         var input = context.Session.ViewModel.Subtitles.Rows[0];
         input.StartText = "invalid";
         await context.Session.ClearTimelineClipAnimationTracksAsync([line.Id], document);
-        await context.Session.ClearTimelineClipAnimationPropertyTracksAsync(line.Id, AnimationProperty.OPACITY, document);
+        await context.Session.ClearTimelineEffectClipAsync(new(line.Id, new(AnimationProperty.OPACITY)), document);
         Assert.Same(document, context.Editor.Snapshot);
         Assert.Equal("invalid", input.StartText);
         input.Accept(line);
@@ -160,9 +162,8 @@ public sealed class TimelineEffectClearingWorkflowTests
         var changed = context.Editor.Snapshot;
 
         await context.Session.ClearTimelineClipAnimationTracksAsync([line.Id], document);
-        await context.Session.ClearTimelineClipAnimationPropertyTracksAsync(line.Id, AnimationProperty.OPACITY, document);
-        await context.Session.ClearTimelineAnimationRowAsync(
-            new(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.OPACITY), document);
+        await context.Session.ClearTimelineEffectClipAsync(new(line.Id, new(AnimationProperty.OPACITY)), document);
+
 
         Assert.Same(changed, context.Editor.Snapshot);
         Assert.True(context.Editor.Undo());
@@ -170,15 +171,14 @@ public sealed class TimelineEffectClearingWorkflowTests
     }
 
     [Fact]
-    public async Task UnknownRowOwnerDoesNotModifySnapshotOrHistory()
+    public async Task UnknownEffectClipDoesNotModifySnapshotOrHistory()
     {
         var line = Line(0);
         var document = new ProjectDocument { Subtitles = [line], Layers = [Layer(line)] };
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
 
-        await context.Session.ClearTimelineAnimationRowAsync(
-            new(TimelineRowScope.TRACK, Guid.NewGuid(), AnimationProperty.OPACITY), document);
+        await context.Session.ClearTimelineEffectClipAsync(new(Guid.NewGuid(), new(AnimationProperty.OPACITY)), document);
 
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);

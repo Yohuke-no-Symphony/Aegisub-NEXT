@@ -44,6 +44,7 @@ public sealed class TimelineKeyframeTimeDragUiTests
         var editor = new ProjectEditor(source);
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(source, null, layer);
+        timeline.TimelineViewState = TimelineEffectClipTestState.ExpandAll(source);
         var edits = 0;
         timeline.KeyframeSelected += (_, e) => e.SelectionAccepted = true;
         timeline.KeyframeMoved += (_, e) =>

@@ -156,8 +156,8 @@ public sealed class TimelineTrackSoloUiTests
         using var timeline = new SubtitleTimelineControl();
         timeline.SetDocument(editor.Snapshot, null, null);
         timeline.ToggleTrackCollapse(first);
-        var animation = new TimelineAnimationRowId(TimelineRowScope.TRACK, solo, AnimationProperty.OPACITY);
-        timeline.TimelineViewState = timeline.TimelineViewState with { CollapsedAnimationRows = [animation] };
+        var animation = new TimelineEffectClipId(cue, new(AnimationProperty.OPACITY));
+        timeline.TimelineViewState = timeline.TimelineViewState with { ExpandedAnimationClips = [] };
         var window = new Window { Width = 850, Height = 260, Content = timeline };
         var events = new List<Guid>();
         var unrelated = 0;
@@ -191,18 +191,18 @@ public sealed class TimelineTrackSoloUiTests
             Assert.Equal(solo, timeline.SoloTrackId);
             Assert.Null(timeline.GetTrackHeaderRectangle(first));
             Assert.True(timeline.IsTrackCollapsed(first));
-            Assert.True(timeline.IsAnimationRowCollapsed(animation));
+            Assert.True(timeline.IsEffectClipCollapsed(animation));
             Assert.Equal(before.StartSeconds, timeline.Viewport.StartSeconds);
             Assert.Equal(before.PixelsPerSecond, timeline.Viewport.PixelsPerSecond);
             ClickSolo(window, timeline, solo);
             Assert.Null(timeline.SoloTrackId);
             Assert.True(timeline.IsTrackCollapsed(first));
-            Assert.True(timeline.IsAnimationRowCollapsed(animation));
+            Assert.True(timeline.IsEffectClipCollapsed(animation));
             Assert.Equal(before, timeline.Viewport);
             Assert.Equal(new[] { solo, solo }, events);
             Assert.Equal(0, unrelated);
             Assert.NotNull(timeline.GetTrackHeaderRectangle(first));
-            Assert.NotNull(timeline.GetAnimationRowRectangle(animation));
+            Assert.NotNull(timeline.GetEffectClipRectangle(animation));
         }
         finally
         {

@@ -112,57 +112,6 @@ internal sealed partial class WorkbenchSession
             ? EditAsync(() => ClearTimelineAnimationTracks(selection, null)) : Task.CompletedTask);
     }
 
-    internal Task ClearTimelineAnimationRowAsync(TimelineAnimationRowId row, ProjectDocument expected,
-        IReadOnlyCollection<Guid>? layerIds = null)
-    {
-        var selection = layerIds?.ToArray();
-        return RunCommandAsync(() =>
-        {
-            if (!TimelineContextIsCurrent(expected))
-            {
-                return Task.CompletedTask;
-            }
-            var targets = selection ?? TimelineAnimationRowLayerIds(expected, row).ToArray();
-            return EditAsync(() => ClearTimelineAnimationTargetRows(targets, row));
-        });
-    }
-
-    internal Task ClearTimelineClipAnimationRowAsync(Guid layerId, TimelineAnimationRowId row,
-        ProjectDocument expected) => RunCommandAsync(() => TimelineContextIsCurrent(expected)
-        ? EditAsync(() => ClearTimelineAnimationTargetRows([layerId], row)) : Task.CompletedTask);
-
-    private void ClearTimelineAnimationTargetRows(IReadOnlyCollection<Guid> layerIds, TimelineAnimationRowId row)
-    {
-        ViewModel.CancelGestures();
-        if (AnimationPropertyMetadata.IsNodeProperty(row.Property))
-        {
-            editor.ClearAnimationTracks(layerIds, row.Property);
-        }
-        else
-        {
-            editor.ClearAnimationTracks(layerIds, new AnimationTrackTarget(row.Property, TextRangeId: row.TextRangeId, State: row.State));
-        }
-        ClearKeyframeSelection();
-    }
-
-    internal Task ClearTimelineClipAnimationPropertyTracksAsync(Guid layerId, AnimationProperty property,
-        ProjectDocument expected) => RunCommandAsync(() => TimelineContextIsCurrent(expected)
-        ? EditAsync(() => ClearTimelineAnimationTracks([layerId], property)) : Task.CompletedTask);
-
-    internal static ImmutableArray<Guid> TimelineAnimationRowLayerIds(ProjectDocument source, TimelineAnimationRowId row)
-    {
-        if (row.Scope != TimelineRowScope.TRACK)
-        {
-            throw new ArgumentOutOfRangeException(nameof(row));
-        }
-        if (!source.Tracks.Any(track => track.Id == row.OwnerId))
-        {
-            throw new KeyNotFoundException("轨道不存在。");
-        }
-
-        return [.. source.Layers.Where(clip => clip.TrackId == row.OwnerId).Select(clip => clip.Id)];
-    }
-
     private void ClearTimelineAnimationTracks(IReadOnlyCollection<Guid> layerIds, AnimationProperty? property)
     {
         ViewModel.CancelGestures();

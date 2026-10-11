@@ -18,7 +18,7 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class TimelineAnimationRowCollapseRenderingUiTests
 {
     [AvaloniaFact]
-    public void CoincidentCollapsedNodeKeysKeepTheirIdentitiesAndSelectedNodeWinsHoverClickAndDrag()
+    public void CollapsedNodeBlocksKeepTheirIdentitiesAndHitNodesOverrideTheCurrentSelection()
     {
         using var environment = new UiTestEnvironment();
         var firstNode = new MaskNode { Position = new(10, 20) };
@@ -32,7 +32,6 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
         };
         var document = new ProjectDocument { Subtitles = [cue], Layers = [layer] };
         var editor = new ProjectEditor(document);
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.MASK_NODE_POSITION);
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(document, cue.Id, layer);
         AcceptCollapseRequests(timeline);
@@ -62,10 +61,9 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
         try
         {
             Flush(window);
-            ClickExpander(window, timeline, rowId);
             var firstPoint = timeline.GetKeyframePoint(layer.Id, firstTarget, new(1), firstNode.Position)!.Value;
             var secondPoint = timeline.GetKeyframePoint(layer.Id, secondTarget, new(1), secondNode.Position)!.Value;
-            Assert.Equal(firstPoint, secondPoint);
+            Assert.NotEqual(firstPoint.Y, secondPoint.Y);
             Assert.Equal(2, timeline.KeyframeMarkers.Count);
             Assert.Equal(2, timeline.KeyframeMarkers.Select(marker => marker.Identity.Target).Distinct().Count());
             Assert.All(timeline.KeyframeMarkers, marker =>
@@ -73,12 +71,13 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
 
             foreach (var target in new[] { firstTarget, secondTarget })
             {
-                timeline.SelectedMaskNodeId = target.NodeId;
-                window.MouseMove(firstPoint);
+                timeline.SelectedMaskNodeId = target == firstTarget ? secondNode.Id : firstNode.Id;
+                var hitPoint = target == firstTarget ? firstPoint : secondPoint;
+                window.MouseMove(hitPoint);
                 Assert.Equal(target, timeline.HoveredKeyframe!.Identity.Target);
-                Assert.Same(timeline, window.InputHitTest(firstPoint));
-                window.MouseDown(firstPoint, MouseButton.Left);
-                window.MouseUp(firstPoint, MouseButton.Left);
+                Assert.Same(timeline, window.InputHitTest(hitPoint));
+                window.MouseDown(hitPoint, MouseButton.Left);
+                window.MouseUp(hitPoint, MouseButton.Left);
                 Assert.Equal(target, selections[^1].Target);
                 Assert.Null(selections[^1].OperationId);
                 Assert.False(timeline.HasActiveDrag);
@@ -122,7 +121,6 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
         var layer = CreateMaskedLayer(cue, operationNode, keyNode) with { Tracks = [operationTrack, keyTrack] };
         var document = new ProjectDocument { Subtitles = [cue], Layers = [layer] };
         var editor = new ProjectEditor(document);
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, ProjectTrack.DEFAULT_TRACK_ID, AnimationProperty.MASK_NODE_POSITION);
         using var timeline = new SubtitleTimelineControl
         {
             PixelsPerSecond = 80, IsSnapEnabled = false, SelectedMaskNodeId = operationNode.Id, EffectTarget = operationTarget
@@ -152,7 +150,6 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
         try
         {
             Flush(window);
-            ClickExpander(window, timeline, rowId);
             var markers = timeline.KeyframeMarkers.ToArray();
             Assert.Equal(4, markers.Length);
             Assert.Equal(4, markers.Select(marker => marker.Identity).Distinct().Count());
@@ -161,8 +158,9 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
             var ordinaryMarker = Assert.Single(markers, marker => marker.Identity.Target == keyTarget &&
                 marker.Identity.Time == operationMarker.Identity.Time);
             Assert.Null(ordinaryMarker.Identity.OperationId);
-            Assert.Equal(operationMarker.Position, ordinaryMarker.Position);
-            Assert.All(markers, marker => Assert.Equal(operationMarker.Position.Y, marker.Position.Y, 8));
+            Assert.Equal(operationMarker.Position.X, ordinaryMarker.Position.X);
+            Assert.NotEqual(operationMarker.Position.Y, ordinaryMarker.Position.Y);
+            Assert.Equal(2, markers.Select(marker => marker.Position.Y).Distinct().Count());
             var point = operationMarker.Position;
             window.MouseMove(point);
             Assert.Equal(operation.Id, timeline.HoveredKeyframe!.Identity.OperationId);
@@ -182,7 +180,8 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
             Assert.True(editor.Undo());
             timeline.SetDocument(editor.Snapshot, cue.Id, editor.Snapshot.Layers[0]);
             Assert.Same(document, editor.Snapshot);
-            timeline.SelectedMaskNodeId = keyNode.Id;
+            timeline.SelectedMaskNodeId = operationNode.Id;
+            point = ordinaryMarker.Position;
             window.MouseMove(point);
             Assert.Equal(keyTarget, timeline.HoveredKeyframe!.Identity.Target);
             Assert.Null(timeline.HoveredKeyframe.Identity.OperationId);
@@ -213,9 +212,10 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
             Name = "动画 Line ABC 123", Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 40, 20), Start = new(1), End = new(5),
             Tracks = [new(AnimationProperty.OPACITY, [new(new(1), 0.25), new(new(3), 0.75)])]
         };
-        var rowId = new TimelineAnimationRowId(TimelineRowScope.TRACK, layer.TrackId, AnimationProperty.OPACITY);
+        var rowId = new TimelineEffectClipId(layer.Id, new(AnimationProperty.OPACITY));
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(new() { Layers = [layer] }, null, layer);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [rowId] };
         AcceptCollapseRequests(timeline);
         var window = new Window
         {
@@ -254,7 +254,7 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
                 Assert.True(ColorDistance(fill, background) > 50);
                 Assert.True(ColorDistance(fill, collapsed.GetPixel(samples[0], lineY)) > 20);
             }
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(rowId)!.Value.Height);
+            Assert.Equal(40, timeline.GetEffectClipRectangle(rowId)!.Value.Height);
         }
         finally
         {
@@ -273,19 +273,19 @@ public sealed class TimelineAnimationRowCollapseRenderingUiTests
 
     private static void AcceptCollapseRequests(SubtitleTimelineControl timeline)
     {
-        timeline.AnimationRowCollapseRequested += (_, e) =>
+        timeline.EffectClipCollapseRequested += (_, e) =>
         {
-            var current = timeline.TimelineViewState.CollapsedAnimationRows;
+            var current = timeline.TimelineViewState.ExpandedAnimationClips;
             timeline.TimelineViewState = new()
             {
-                CollapsedAnimationRows = e.IsCollapsed ? current.Add(e.Id) : current.Remove(e.Id)
+                ExpandedAnimationClips = e.IsCollapsed ? current.Remove(e.Id) : current.Add(e.Id)
             };
         };
     }
 
-    private static void ClickExpander(Window window, SubtitleTimelineControl timeline, TimelineAnimationRowId id)
+    private static void ClickExpander(Window window, SubtitleTimelineControl timeline, TimelineEffectClipId id)
     {
-        var point = timeline.GetAnimationRowExpanderRectangle(id)!.Value.Center;
+        var point = timeline.GetEffectClipExpanderRectangle(id)!.Value.Center;
         Assert.Same(timeline, window.InputHitTest(point));
         window.MouseDown(point, MouseButton.Left);
         window.MouseUp(point, MouseButton.Left);

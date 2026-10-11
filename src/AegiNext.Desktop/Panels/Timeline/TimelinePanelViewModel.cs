@@ -49,10 +49,6 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     private ProjectDocument? clipContextDocument;
     private Guid[] clipContextIds = [];
     private Guid? clipContextPrimary;
-    private TimelineAnimationRowId? animationContext;
-    private Guid? animationContextClipId;
-    private ProjectDocument? animationContextDocument;
-    private Guid[] animationContextIds = [];
 
     internal TimelinePanelViewModel(WorkbenchSession session)
     {
@@ -74,8 +70,9 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
         DeleteClipsCommand = new(DeleteContextClipsAsync, () => IsClipContextCurrent && clipContextIds.Length > 0);
         ClearClipAnimationTracksCommand = new(ClearContextClipAnimationTracksAsync,
             () => IsClipContextCurrent && HasAnimationTracks(clipContextIds));
-        ClearAnimationPropertyTracksCommand = new(ClearContextAnimationPropertyTracksAsync,
-            () => IsAnimationContextCurrent && HasAnimationTracks(animationContextIds, animationContext!.Property));
+        ClearEffectClipCommand = new(ClearContextEffectClipAsync, () => IsEffectClipContextCurrent);
+        DeleteContextKeyframeCommand = new(DeleteContextKeyframeAsync, () => CanDeleteContextKeyframe);
+        ToggleEffectClipCollapseCommand = new(ToggleContextEffectClipCollapse, () => IsEffectClipContextCurrent);
         MoveClipsCommand = new(MoveContextClipsAsync, () => IsClipContextCurrent && clipContextIds.Length > 0);
         CreateSubtitleCommand = new(CreateContextSubtitleAsync, () => IsClipContextCurrent && clipContext?.TrackId is not null);
     }
@@ -87,6 +84,10 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
         {
             if (SetProperty(ref document, value))
             {
+                InvalidateEffectSelection();
+                effectClipContext = null;
+                effectClipContextDocument = null;
+                contextKeyframe = null;
                 ValidateTrackSoloDocument(value);
                 documentDuration = Math.Max(1, value.Layers.Select(layer => Seconds(layer.End))
                     .Concat(value.Subtitles.Select(cue => Seconds(cue.End))).DefaultIfEmpty(1).Max());
@@ -141,7 +142,9 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     public AsyncRelayCommand PasteClipsCommand { get; }
     public AsyncRelayCommand DeleteClipsCommand { get; }
     public AsyncRelayCommand ClearClipAnimationTracksCommand { get; }
-    public AsyncRelayCommand ClearAnimationPropertyTracksCommand { get; }
+    public AsyncRelayCommand ClearEffectClipCommand { get; }
+    public AsyncRelayCommand DeleteContextKeyframeCommand { get; }
+    public RelayCommand ToggleEffectClipCollapseCommand { get; }
     public AsyncRelayCommand MoveClipsCommand { get; }
     public AsyncRelayCommand CreateSubtitleCommand { get; }
     /// <summary>使用共享命令对实际选中的字幕片段执行关联的时间后续处理。</summary>
@@ -150,8 +153,6 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     public bool CanCopyClips => session.CanCopyTimelineClips;
     public bool CanPasteClips => session.CanPasteTimelineClips;
     private bool IsClipContextCurrent => clipContext is not null && ReferenceEquals(Document, clipContextDocument) &&
-        !session.IsClosing && !session.ViewModel.IsBusy;
-    private bool IsAnimationContextCurrent => animationContext is not null && ReferenceEquals(Document, animationContextDocument) &&
         !session.IsClosing && !session.ViewModel.IsBusy;
     public StylePresetListItem[] StylePresets => session.StyleLibrary.Snapshot.Presets
         .Select(preset => new StylePresetListItem(preset.Id, preset.Name)).ToArray();
@@ -247,7 +248,13 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     public ProjectLayer? SelectedLayer
     {
         get => selectedLayer;
-        set => SetProperty(ref selectedLayer, value);
+        set
+        {
+            if (SetProperty(ref selectedLayer, value) && selectedEffectClipId is { } id && id.LayerId != value?.Id)
+            {
+                InvalidateEffectSelection();
+            }
+        }
     }
 
     public TimelineTimingPreview? TimingPreview
@@ -366,7 +373,14 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     public IReadOnlyList<Guid> SelectedLayerIds
     {
         get => selectedLayerIds;
-        set => SetProperty(ref selectedLayerIds, value);
+        set
+        {
+            if (SetProperty(ref selectedLayerIds, value) && selectedEffectClipId is { } id &&
+                (value.Count != 1 || value[0] != id.LayerId))
+            {
+                InvalidateEffectSelection();
+            }
+        }
     }
 
     public double MediaDuration
@@ -445,6 +459,10 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
         {
             if (SetProperty(ref effectTarget, value))
             {
+                if (selectedEffectClipId is { } id && id.Target != value)
+                {
+                    InvalidateEffectSelection();
+                }
                 OnPropertyChanged(nameof(EffectProperty));
             }
         }
@@ -499,7 +517,15 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     /// <summary>同步非字幕片段选择。</summary>
     public void SelectLayer(Guid id) => session.SelectLayer(id, [id]);
     /// <summary>将时间线的主层和多选集合同步到同一会话选择。</summary>
-    public bool SelectLayers(TimelineSelectionEventArgs value) => session.SelectTimelineLayers(value);
+    public bool SelectLayers(TimelineSelectionEventArgs value)
+    {
+        if (!session.SelectTimelineLayers(value))
+        {
+            return false;
+        }
+        ResetEffectSelection();
+        return true;
+    }
     /// <summary>切换当前轨道，保留工程合成顺序。</summary>
     public bool SelectTrack(Guid id) => session.SelectTrack(id);
     /// <summary>一次完成的时间线手势对应一次工程事务。</summary>
@@ -513,13 +539,6 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
 
     /// <summary>按经典鼠标输入修改当前主选字幕的单个时间边界。</summary>
     public Task CommitClassicTimingAsync(TimelineClassicTimingEventArgs value) => session.CommitClassicTimingAsync(value);
-    /// <summary>选择关键帧并同步属性检查器。</summary>
-    public bool SelectKeyframe(TimelineKeyframeEventArgs value) => session.SelectKeyframe(value);
-    /// <summary>更新工程的独立属性行视图状态，不提交内容草稿。</summary>
-    public void SetAnimationRowCollapsed(TimelineAnimationRowCollapseEventArgs value) =>
-        session.SetTimelineAnimationRowCollapsed(value.Id, value.IsCollapsed);
-    /// <summary>提交完成的关键帧手势。</summary>
-    public Task MoveKeyframeAsync(TimelineKeyframeEventArgs value) => session.RunCommandAsync(() => session.EditAsync(() => session.MoveKeyframe(value)));
     /// <summary>提交冻结目标集合的一次整体平移。</summary>
     public Task CommitClipsMoveAsync(TimelineClipsMoveEventArgs value) => session.CommitTimelineClipsMoveAsync(value);
     /// <summary>捕获主体菜单打开时的工程、选择及时间。</summary>
@@ -530,16 +549,6 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
         clipContextIds = session.TimelineClipIds().ToArray();
         clipContextPrimary = SelectedLayer is { } primary && clipContextIds.Contains(primary.Id)
             ? primary.Id : clipContextIds.Cast<Guid?>().FirstOrDefault();
-        RefreshClipCommands();
-    }
-
-    /// <summary>固定属性菜单打开时的工程、属性及命中片段或整行集合，不改变片段选择。</summary>
-    public void SetAnimationRowContext(TimelineAnimationRowContextEventArgs value)
-    {
-        animationContext = value.Id;
-        animationContextClipId = value.ClipId;
-        animationContextDocument = Document;
-        animationContextIds = value.ClipId is { } id ? [id] : WorkbenchSession.TimelineAnimationRowLayerIds(Document, value.Id).ToArray();
         RefreshClipCommands();
     }
 
@@ -570,11 +579,6 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     private Task DeleteContextClipsAsync() => session.DeleteTimelineClipsAsync(clipContextIds, clipContextDocument);
     private Task ClearContextClipAnimationTracksAsync() =>
         session.ClearTimelineClipAnimationTracksAsync(clipContextIds, clipContextDocument);
-    private Task ClearContextAnimationPropertyTracksAsync() => animationContext is { } row && animationContextDocument is { } source
-        ? animationContextClipId is { } id
-            ? session.ClearTimelineClipAnimationRowAsync(id, row, source)
-            : session.ClearTimelineAnimationRowAsync(row, source, animationContextIds)
-        : Task.CompletedTask;
     private Task MoveContextClipsAsync() => session.MoveTimelineClipsAsync(clipContextIds, clipContextDocument);
     private Task CreateContextSubtitleAsync() => clipContext?.TrackId is { } trackId && clipContextDocument is { } source
         ? session.CreateTimelineSubtitleAsync(trackId, clipContext.Time, source) : Task.CompletedTask;
@@ -585,7 +589,9 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
         PasteClipsCommand.NotifyCanExecuteChanged();
         DeleteClipsCommand.NotifyCanExecuteChanged();
         ClearClipAnimationTracksCommand.NotifyCanExecuteChanged();
-        ClearAnimationPropertyTracksCommand.NotifyCanExecuteChanged();
+        ClearEffectClipCommand.NotifyCanExecuteChanged();
+        DeleteContextKeyframeCommand.NotifyCanExecuteChanged();
+        ToggleEffectClipCollapseCommand.NotifyCanExecuteChanged();
         RefreshMoveCommand();
         CreateSubtitleCommand.NotifyCanExecuteChanged();
     }

@@ -787,7 +787,6 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
 
     private void OnDocumentChanged(object? sender, EventArgs e)
     {
-        InitializeNewTimelineAnimationRows(editor.Snapshot);
         ClearInspectorPreview();
         if (!committingTimingCreation)
         {

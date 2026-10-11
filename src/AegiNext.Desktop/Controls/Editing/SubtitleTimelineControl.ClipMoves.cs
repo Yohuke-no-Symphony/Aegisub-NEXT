@@ -69,8 +69,7 @@ public sealed partial class SubtitleTimelineControl
             return clip;
         }
 
-        var time = TimeAt(point.X, KeyModifiers.Alt);
-        return row.Clips.Reverse().FirstOrDefault(layer => layer.Start <= time && time < layer.End);
+        return FindEffectClip(point) is { } block ? layersById.GetValueOrDefault(block.Id.LayerId) : null;
     }
 
     private void RequestClipContext(Point point, KeyModifiers modifiers)

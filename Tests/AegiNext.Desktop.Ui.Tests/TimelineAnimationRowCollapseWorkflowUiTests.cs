@@ -27,7 +27,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
     {
         using var environment = new UiTestEnvironment();
         var document = CreateDocument();
-        document = document with { Layers = [document.Layers[0] with { Tracks = [] }] };
+        document = document with { Layers = [document.Layers[0] with { Tracks = [] }], TimelineViewState = new() };
         await using var session = await CreateSessionAsync(environment, new(), document);
         var row = GetRowId(document, TimelineRowScope.TRACK);
         var layerId = document.Layers[0].Id;
@@ -38,20 +38,20 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             session.Editor.SetKeyframe(layerId, AnimationProperty.OPACITY, new(new(0), 0.25));
             Flush(window);
 
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
             ClickAnimationExpander(window, timeline, row);
             session.Editor.SetKeyframe(layerId, AnimationProperty.OPACITY, new(new(0), 0.5));
             Flush(window);
 
-            Assert.False(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(76, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.False(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(76, timeline.GetEffectClipRectangle(row)!.Value.Height);
             ClickAnimationExpander(window, timeline, row);
             session.Editor.SetKeyframe(layerId, AnimationProperty.OPACITY, new(new(0), 0.75));
             Flush(window);
 
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
         }
         finally
         {
@@ -77,13 +77,13 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         try
         {
             var timeline = UiTestActions.Find<SubtitleTimelineControl>(window, "Timeline");
-            Assert.Equal(76, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.Equal(76, timeline.GetEffectClipRectangle(row)!.Value.Height);
 
             ClickAnimationExpander(window, timeline, row);
 
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
-            Assert.Equal(row, Assert.Single(session.TimelineViewState.CollapsedAnimationRows));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
+            Assert.Empty(session.TimelineViewState.ExpandedAnimationClips);
             Assert.Same(original, session.DocumentSnapshot);
             Assert.True(session.HasUnsavedChanges);
             Assert.False(session.Editor.HasUnsavedChanges);
@@ -96,20 +96,20 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             Flush(window);
 
             Assert.Equal(1280, session.DocumentSnapshot.Width);
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
             Assert.True(session.Editor.Undo());
             await session.WaitForProjectIdleAsync();
             Flush(window);
             Assert.Same(original, session.DocumentSnapshot);
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
             Assert.True(session.HasUnsavedChanges);
 
             ClickAnimationExpander(window, timeline, row);
 
-            Assert.False(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(76, timeline.GetAnimationRowRectangle(row)!.Value.Height);
-            Assert.Empty(session.TimelineViewState.CollapsedAnimationRows);
+            Assert.False(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(76, timeline.GetEffectClipRectangle(row)!.Value.Height);
+            Assert.Equal(row, Assert.Single(session.TimelineViewState.ExpandedAnimationClips));
             Assert.False(session.HasUnsavedChanges);
             Assert.False(session.Editor.CanUndo);
             Assert.True(session.Editor.CanRedo);
@@ -157,8 +157,8 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
 
             ClickAnimationExpander(window, timeline, row, useTouch);
 
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
             Assert.True(box.IsFocused);
             Assert.Equal(rawText, box.Text);
             Assert.Equal(rawText, session.ViewModel.Styles.Subtitle.FontSizeText);
@@ -172,7 +172,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
 
             ClickAnimationExpander(window, timeline, row, useTouch);
 
-            Assert.False(timeline.IsAnimationRowCollapsed(row));
+            Assert.False(timeline.IsEffectClipCollapsed(row));
             Assert.True(box.IsFocused);
             Assert.Equal(rawText, box.Text);
             Assert.Equal(rawText, session.ViewModel.Styles.Subtitle.FontSizeText);
@@ -180,7 +180,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             Assert.Same(preview, session.PreviewDocument);
             Assert.True(session.HasProjectDrafts);
             Assert.True(session.HasUnsavedChanges);
-            Assert.Empty(session.ViewModel.Timeline.TimelineViewState.CollapsedAnimationRows);
+            Assert.Equal(row, Assert.Single(session.ViewModel.Timeline.TimelineViewState.ExpandedAnimationClips));
             Assert.False(session.Editor.CanUndo);
         }
         finally
@@ -231,8 +231,8 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             {
                 ClickAnimationExpander(window, timeline, row);
 
-                Assert.Equal(collapsed, timeline.IsAnimationRowCollapsed(row));
-                Assert.Equal(collapsed ? 40 : 76, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+                Assert.Equal(collapsed, timeline.IsEffectClipCollapsed(row));
+                Assert.Equal(collapsed ? 40 : 76, timeline.GetEffectClipRectangle(row)!.Value.Height);
                 Assert.True(box.IsFocused);
                 Assert.Equal(rawText, box.Text);
                 Assert.Equal(rawText, session.ViewModel.Effects.RotationText);
@@ -241,7 +241,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
                 Assert.Same(preview, session.ViewModel.Preview.Scene.Document);
                 Assert.True(session.HasProjectDrafts);
                 Assert.True(session.HasUnsavedChanges);
-                Assert.Equal(collapsed, session.ViewModel.Timeline.TimelineViewState.CollapsedAnimationRows.Contains(row));
+                Assert.Equal(!collapsed, session.ViewModel.Timeline.TimelineViewState.ExpandedAnimationClips.Contains(row));
                 Assert.False(session.Editor.HasUnsavedChanges);
                 Assert.False(session.Editor.CanUndo);
                 Assert.True(session.Editor.CanRedo);
@@ -271,11 +271,11 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         try
         {
             var timeline = UiTestActions.Find<SubtitleTimelineControl>(window, "Timeline");
-            var collapse = timeline.TranslatePoint(timeline.GetAnimationRowExpanderRectangle(row)!.Value.Center, window)!.Value;
+            var collapse = timeline.TranslatePoint(timeline.GetEffectClipExpanderRectangle(row)!.Value.Center, window)!.Value;
             Assert.Same(timeline, window.InputHitTest(collapse));
             window.MouseDown(collapse, MouseButton.Left);
             Flush(window);
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
             var styles = window.Panels[WorkbenchPanelIds.STYLES];
             var outside = styles.TranslatePoint(new Point(styles.Bounds.Width / 2, styles.Bounds.Height / 2), window)!.Value;
             Assert.NotNull(window.InputHitTest(outside));
@@ -306,14 +306,14 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             var keys = session.DocumentSnapshot.Layers.Single(layer => layer.Id == layerId).Tracks[0].Keyframes;
             Assert.Equal(new MediaTime(3), keys[1].Time);
             Assert.Equal(0.75, keys[1].Value.Scalar);
-            Assert.Equal(row, Assert.Single(session.TimelineViewState.CollapsedAnimationRows));
+            Assert.Empty(session.TimelineViewState.ExpandedAnimationClips);
             Assert.True(session.Editor.CanUndo);
             Assert.True(session.Editor.Undo());
             await session.WaitForProjectIdleAsync();
             Assert.Same(original, session.DocumentSnapshot);
             Assert.False(session.Editor.CanUndo);
             Assert.True(session.Editor.CanRedo);
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
         }
         finally
         {
@@ -323,11 +323,11 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
 
     [AvaloniaTheory]
     [InlineData(TimelineRowScope.TRACK)]
-    public async Task ManualSaveAndProjectSwitchRestoreCompactRowsWhileLegacyEmptyStateOpensExpanded(TimelineRowScope scope)
+    public async Task ManualSaveAndProjectSwitchRestoreExpandedBlocksWhileLegacyEmptyStateOpensCompact(TimelineRowScope scope)
     {
         using var environment = new UiTestEnvironment();
         var dialogs = new StartupTestDialogService();
-        var document = CreateDocument();
+        var document = CreateDocument() with { TimelineViewState = new() };
         await using var session = await CreateSessionAsync(environment, dialogs, document);
         var originalPath = session.ProjectPath!;
         var original = session.DocumentSnapshot;
@@ -350,25 +350,25 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             Assert.False(session.HasUnsavedChanges);
             Assert.False(session.Editor.CanUndo);
             Assert.Same(original, session.DocumentSnapshot);
-            Assert.Equal(row, Assert.Single((await ProjectStore.LoadAsync(originalPath)).TimelineViewState.CollapsedAnimationRows));
+            Assert.Equal(row, Assert.Single((await ProjectStore.LoadAsync(originalPath)).TimelineViewState.ExpandedAnimationClips));
 
             Assert.Equal(ProjectOpenStatus.OPENED, (await session.OpenProjectAsync(secondPath)).Status);
             await session.WaitForProjectIdleAsync();
             Flush(window);
 
-            Assert.Empty(session.TimelineViewState.CollapsedAnimationRows);
-            Assert.Empty(timeline.TimelineViewState.CollapsedAnimationRows);
-            Assert.False(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(76, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.Empty(session.TimelineViewState.ExpandedAnimationClips);
+            Assert.Empty(timeline.TimelineViewState.ExpandedAnimationClips);
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
             Assert.False(session.HasUnsavedChanges);
 
             Assert.Equal(ProjectOpenStatus.OPENED, (await session.OpenProjectAsync(originalPath)).Status);
             await session.WaitForProjectIdleAsync();
             Flush(window);
 
-            Assert.Equal(row, Assert.Single(session.TimelineViewState.CollapsedAnimationRows));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.Equal(row, Assert.Single(session.TimelineViewState.ExpandedAnimationClips));
+            Assert.False(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(76, timeline.GetEffectClipRectangle(row)!.Value.Height);
             Assert.False(session.HasUnsavedChanges);
             Assert.False(session.Editor.CanUndo);
             Assert.False(session.Editor.CanRedo);
@@ -392,28 +392,28 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         {
             var timeline = UiTestActions.Find<SubtitleTimelineControl>(window, "Timeline");
             ClickAnimationExpander(window, timeline, row);
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
 
-            ClickOuterTrackExpander(window, timeline, row.OwnerId);
+            ClickOuterTrackExpander(window, timeline, original.Layers[0].TrackId);
 
-            Assert.True(timeline.IsTrackCollapsed(row.OwnerId));
-            Assert.Null(timeline.GetAnimationRowRectangle(row));
-            Assert.Equal(row, Assert.Single(session.TimelineViewState.CollapsedAnimationRows));
+            Assert.True(timeline.IsTrackCollapsed(original.Layers[0].TrackId));
+            Assert.Null(timeline.GetEffectClipRectangle(row));
+            Assert.Empty(session.TimelineViewState.ExpandedAnimationClips);
             Assert.True(session.HasUnsavedChanges);
             Assert.Same(original, session.DocumentSnapshot);
 
-            ClickOuterTrackExpander(window, timeline, row.OwnerId);
+            ClickOuterTrackExpander(window, timeline, original.Layers[0].TrackId);
 
-            Assert.False(timeline.IsTrackCollapsed(row.OwnerId));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
-            Assert.Equal(row, Assert.Single(session.TimelineViewState.CollapsedAnimationRows));
+            Assert.False(timeline.IsTrackCollapsed(original.Layers[0].TrackId));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
+            Assert.Empty(session.TimelineViewState.ExpandedAnimationClips);
             Assert.False(session.Editor.CanUndo);
 
             ClickAnimationExpander(window, timeline, row);
 
-            Assert.False(timeline.IsAnimationRowCollapsed(row));
-            Assert.Empty(session.TimelineViewState.CollapsedAnimationRows);
+            Assert.False(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(row, Assert.Single(session.TimelineViewState.ExpandedAnimationClips));
             Assert.False(session.HasUnsavedChanges);
             Assert.Same(original, session.DocumentSnapshot);
         }
@@ -438,13 +438,13 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         {
             Flush(window);
             var disposedTimeline = UiTestActions.Find<SubtitleTimelineControl>(window, "Timeline");
-            var disposedPoint = disposedTimeline.GetAnimationRowExpanderRectangle(row)!.Value.Center;
+            var disposedPoint = disposedTimeline.GetEffectClipExpanderRectangle(row)!.Value.Center;
             panel.Dispose();
             window.Content = null;
             Flush(window);
 
-            Assert.True(disposedTimeline.TryRequestAnimationRowCollapse(disposedPoint));
-            Assert.Empty(session.TimelineViewState.CollapsedAnimationRows);
+            Assert.True(disposedTimeline.TryRequestEffectClipCollapse(disposedPoint));
+            Assert.Equal(row, Assert.Single(session.TimelineViewState.ExpandedAnimationClips));
             Assert.False(session.HasUnsavedChanges);
             Assert.Same(original, session.DocumentSnapshot);
 
@@ -453,9 +453,9 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             Flush(window);
             var timeline = UiTestActions.Find<SubtitleTimelineControl>(window, "Timeline");
             Assert.NotSame(disposedTimeline, timeline);
-            var requests = new List<TimelineAnimationRowCollapseEventArgs>();
-            timeline.AnimationRowCollapseRequested += (_, e) => requests.Add(e);
-            var point = timeline.TranslatePoint(timeline.GetAnimationRowExpanderRectangle(row)!.Value.Center, window)!.Value;
+            var requests = new List<TimelineEffectClipCollapseEventArgs>();
+            timeline.EffectClipCollapseRequested += (_, e) => requests.Add(e);
+            var point = timeline.TranslatePoint(timeline.GetEffectClipExpanderRectangle(row)!.Value.Center, window)!.Value;
             Assert.Same(timeline, window.InputHitTest(point));
 
             window.MouseDown(point, MouseButton.Left);
@@ -465,11 +465,11 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             var request = Assert.Single(requests);
             Assert.Equal(row, request.Id);
             Assert.True(request.IsCollapsed);
-            Assert.Equal(row, Assert.Single(session.TimelineViewState.CollapsedAnimationRows));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
-            Assert.False(disposedTimeline.IsAnimationRowCollapsed(row));
-            Assert.Empty(disposedTimeline.TimelineViewState.CollapsedAnimationRows);
+            Assert.Empty(session.TimelineViewState.ExpandedAnimationClips);
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.Equal(40, timeline.GetEffectClipRectangle(row)!.Value.Height);
+            Assert.False(disposedTimeline.IsEffectClipCollapsed(row));
+            Assert.Equal(row, Assert.Single(disposedTimeline.TimelineViewState.ExpandedAnimationClips));
             Assert.Same(original, session.DocumentSnapshot);
             Assert.False(session.Editor.CanUndo);
             Assert.True(session.HasUnsavedChanges);
@@ -517,7 +517,8 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         var cue = new SubtitleLine { End = new(4), Text = "Collapse 中文 ABC 123" };
         return new()
         {
-            Name = "Animation row collapse",
+            Name = "Effect clip collapse",
+            TimelineViewState = new() { ExpandedAnimationClips = [new(cue.Id, new(AnimationProperty.OPACITY))] },
             Subtitles = [cue],
             Layers =
             [
@@ -530,9 +531,9 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         };
     }
 
-    private static TimelineAnimationRowId GetRowId(ProjectDocument document, TimelineRowScope scope)
+    private static TimelineEffectClipId GetRowId(ProjectDocument document, TimelineRowScope scope)
     {
-        return new(scope, Assert.Single(document.Tracks).Id, AnimationProperty.OPACITY);
+        return new(Assert.Single(document.Layers).Id, new(AnimationProperty.OPACITY));
     }
 
     private static MainWindow ShowWindow(WorkbenchSession session)
@@ -543,11 +544,11 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         return window;
     }
 
-    private static void ClickAnimationExpander(MainWindow window, SubtitleTimelineControl timeline, TimelineAnimationRowId row,
+    private static void ClickAnimationExpander(MainWindow window, SubtitleTimelineControl timeline, TimelineEffectClipId row,
         bool useTouch = false)
     {
         Flush(window);
-        var rectangle = timeline.GetAnimationRowExpanderRectangle(row)!.Value;
+        var rectangle = timeline.GetEffectClipExpanderRectangle(row)!.Value;
         if (rectangle.Center.Y < timeline.RulerHeight || rectangle.Center.Y > timeline.Bounds.Height)
         {
             window.ViewModel.Timeline.Viewport = window.ViewModel.Timeline.Viewport with
@@ -555,7 +556,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
                 VerticalOffset = Math.Max(0, timeline.Viewport.VerticalOffset + rectangle.Top - timeline.RulerHeight)
             };
             Flush(window);
-            rectangle = timeline.GetAnimationRowExpanderRectangle(row)!.Value;
+            rectangle = timeline.GetEffectClipExpanderRectangle(row)!.Value;
         }
         Assert.True(rectangle.Center.Y >= timeline.RulerHeight);
         Assert.True(rectangle.Center.Y < timeline.Bounds.Height);

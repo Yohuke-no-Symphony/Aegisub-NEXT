@@ -58,7 +58,7 @@ public sealed class MaskAllNodesTimelineUiTests
             var clip = timeline.GetClipRectangle(layer.Id);
             var point = timeline.GetKeyframePoint(layer.Id, firstTarget, new(1), first.Position)!.Value;
             var thirdPoint = timeline.GetKeyframePoint(layer.Id, thirdTarget, new(1), third.Position)!.Value;
-            Assert.Equal(timeline.KeyframeMarkers.First(marker => marker.Identity.Target == firstTarget).Curve,
+            Assert.NotEqual(timeline.KeyframeMarkers.First(marker => marker.Identity.Target == firstTarget).Curve,
                 timeline.KeyframeMarkers.First(marker => marker.Identity.Target == thirdTarget).Curve);
             Assert.True(point.Y > thirdPoint.Y);
             using var selected = Capture(timeline);
@@ -92,7 +92,7 @@ public sealed class MaskAllNodesTimelineUiTests
     }
 
     [AvaloniaFact]
-    public void DifferentClipsSharePropertyRowsAndAnUnselectedNodesDragChangesOnlyItsOwnStableTarget()
+    public void DifferentClipsReuseBlockSpaceAndAnUnselectedNodesDragChangesOnlyItsOwnStableTarget()
     {
         using var environment = new UiTestEnvironment();
         var firstCue = new SubtitleLine { End = new(4) };
@@ -161,7 +161,7 @@ public sealed class MaskAllNodesTimelineUiTests
     }
 
     [AvaloniaFact]
-    public void CoincidentKeysPreferTheSelectedNodeWithoutCombiningTheirIdentities()
+    public void CoincidentKeysInDifferentNodeBlocksRemainIndependentlySelectable()
     {
         using var environment = new UiTestEnvironment();
         var cue = new SubtitleLine { End = new(4) };
@@ -186,7 +186,8 @@ public sealed class MaskAllNodesTimelineUiTests
         {
             Flush(window);
             var point = timeline.GetKeyframePoint(layer.Id, secondTarget, new(1), second.Position)!.Value;
-            Assert.Equal(point, timeline.GetKeyframePoint(layer.Id, firstTarget, new(1), first.Position));
+            Assert.NotEqual(point, timeline.GetKeyframePoint(layer.Id, firstTarget, new(1), first.Position));
+            timeline.SelectedMaskNodeId = first.Id;
             window.MouseMove(point);
             Assert.Equal(secondTarget, timeline.HoveredKeyframe!.Identity.Target);
             window.MouseDown(point, MouseButton.Left);
@@ -201,7 +202,7 @@ public sealed class MaskAllNodesTimelineUiTests
     }
 
     [AvaloniaFact]
-    public void TenThousandAnimatedPointsKeepOnePropertyRowAndEveryStableTarget()
+    public void TenThousandAnimatedPointsKeepIndependentCompactBlocksAndOnlyVisibleMarkers()
     {
         using var environment = new UiTestEnvironment();
         var cue = new SubtitleLine { End = new(4) };
@@ -224,13 +225,23 @@ public sealed class MaskAllNodesTimelineUiTests
             Flush(window);
             Assert.Equal(AnimationProperty.MASK_NODE_POSITION, Assert.Single(timeline.GetAnimationProperties(layer.Id)));
             Assert.Equal(10000, timeline.GetAnimationTargets(layer.Id).Count);
-            Assert.Equal(10000, timeline.KeyframeMarkers.Select(marker => marker.Identity.Target).Distinct().Count());
-            Assert.Single(timeline.KeyframeMarkers.Select(marker => marker.Curve).Distinct());
-            Assert.True(timeline.GetClipRectangle(layer.Id)!.Value.Bottom < window.Bounds.Height);
+            Assert.InRange(timeline.KeyframeMarkers.Count, 1, 6);
+            Assert.All(timeline.KeyframeMarkers, marker =>
+                Assert.Equal(40, timeline.GetEffectClipRectangle(new(layer.Id, marker.Identity.Target))!.Value.Height));
+            Assert.True(timeline.ContentHeight >= 10000 * 40);
+            Assert.True(timeline.GetClipRectangle(layer.Id)!.Value.Bottom > window.Bounds.Height);
             var source = timeline.GetClipRectangle(layer.Id);
             timeline.SelectedMaskNodeId = nodes[^1].Id;
             Assert.Equal(source, timeline.GetClipRectangle(layer.Id));
             Assert.Equal(10000, timeline.GetAnimationTargets(layer.Id).Count);
+            var firstTarget = new AnimationTrackTarget(AnimationProperty.MASK_NODE_POSITION, nodes[0].Id);
+            var firstBlock = timeline.GetEffectClipRectangle(new(layer.Id, firstTarget))!.Value;
+            timeline.SetViewport(timeline.Viewport with { VerticalOffset = firstBlock.Top - timeline.RulerHeight }, 4);
+            Flush(window);
+            Assert.InRange(timeline.KeyframeMarkers.Count, 1, 6);
+            var marker = Assert.Single(timeline.KeyframeMarkers, value => value.Identity.Target == firstTarget);
+            window.MouseMove(marker.Position);
+            Assert.Equal(firstTarget, timeline.HoveredKeyframe!.Identity.Target);
         }
         finally
         {

@@ -69,7 +69,6 @@ public sealed partial class SubtitleTimelineControl
                 DrawSpectrogram(drawing, body, spectrumOverview, spectrumOverviewBitmap);
                 DrawSpectrogram(drawing, body, spectrum, spectrumBitmap);
             }
-            DrawAnimationRowBackgrounds(drawing, body);
             DrawMediaRangeFill(drawing, body);
             if (IsWaveformVisible)
             {
@@ -196,23 +195,6 @@ public sealed partial class SubtitleTimelineControl
         ? PreviewLayerId is { } id && rowsByLayer.GetValueOrDefault(id)?.TrackId == row.TrackId ? [layersById[id]] : []
         : VisibleClipsForRow(row);
 
-    private void DrawAnimationRowBackgrounds(DrawingContext context, Rect body)
-    {
-        foreach (var row in rows)
-        {
-            if (row.CurveHeight <= 0)
-            {
-                continue;
-            }
-
-            var rectangle = new Rect(body.Left, RowY(row), body.Width, row.CurveHeight).Intersect(body);
-            if (rectangle.Width > 0 && rectangle.Height > 0)
-            {
-                context.DrawRectangle(drawingPalette.AnimationSurface, null, rectangle);
-            }
-        }
-    }
-
     private void DrawTimelineRows(DrawingContext context, bool previewOnly)
     {
         var grid = drawingPalette.Grid;
@@ -243,16 +225,9 @@ public sealed partial class SubtitleTimelineControl
                         }
                         var layer = DisplayedLayer(clip);
                         var tracks = TracksFor(layer);
-                        foreach (var animation in row.Animations)
+                        foreach (var block in row.Effects.ForLayer(clip.Id))
                         {
-                            foreach (var target in animation.TargetsFor(clip.Id).OrderBy(target => IsSelectedMaskTarget(clip.Id, target)))
-                            {
-                                if (CurveRectangle(clip.Id, target) is { } curve &&
-                                    curve.Bottom >= RulerHeight && curve.Top <= Bounds.Height)
-                                {
-                                    DrawEffects(context, clip, layer, DisplayedTrack(layer, target, tracks), curve, animation.IsCollapsed);
-                                }
-                            }
+                            DrawEffectClip(context, clip, layer, block, tracks);
                         }
                     }
                 }
@@ -308,6 +283,38 @@ public sealed partial class SubtitleTimelineControl
                     }
                 }
             }
+        }
+    }
+
+    private void DrawEffectClip(DrawingContext context, ProjectLayer source, ProjectLayer layer, TimelineEffectClip block,
+        Dictionary<AnimationTrackTarget, AnimationTrack> tracks)
+    {
+        if (GetEffectClipRectangle(block.Id) is not { } rectangle ||
+            rectangle.Bottom < RulerHeight || rectangle.Top > Bounds.Height ||
+            rectangle.Right < HeaderWidth || rectangle.Left > Bounds.Width)
+        {
+            return;
+        }
+        var active = SelectedEffectClipId == block.Id;
+        using var bounds = context.PushClip(rectangle.Intersect(BodyRectangle()));
+        context.DrawRectangle(active ? drawingPalette.SelectedTrack : drawingPalette.Track,
+            active ? new Pen(drawingPalette.ActiveClipBorder, 1.5) : drawingPalette.Grid,
+            rectangle.Deflate(new Thickness(0, 1)), 3, 3);
+        if (CurveRectangle(layer.Id, block.Id.Target) is { } curve)
+        {
+            DrawEffects(context, source, layer, DisplayedTrack(layer, block.Id.Target, tracks), curve, block.IsCollapsed);
+        }
+        var visible = rectangle.Intersect(BodyRectangle());
+        var textLeft = visible.Left + 4;
+        if (GetEffectClipExpanderRectangle(block.Id) is { } button)
+        {
+            DrawExpander(context, button, block.IsCollapsed);
+            textLeft = button.Right + 2;
+        }
+        if (visible.Right > textLeft + 2)
+        {
+            DrawCenteredText(context, block.Title, new(textLeft, rectangle.Top, visible.Right - textLeft - 2, 20),
+                drawingPalette.Foreground, 11);
         }
     }
 
@@ -374,6 +381,5 @@ public sealed partial class SubtitleTimelineControl
             }
         }
 
-        DrawPropertyTitles(context, foreground);
     }
 }

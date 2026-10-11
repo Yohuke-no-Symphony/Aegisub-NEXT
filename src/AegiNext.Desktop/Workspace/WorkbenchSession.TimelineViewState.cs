@@ -6,30 +6,28 @@ internal sealed partial class WorkbenchSession
 {
     private TimelineViewState timelineViewState = new();
     private TimelineViewState savedTimelineViewState = new();
-    private readonly HashSet<TimelineAnimationRowId> knownTimelineAnimationRows = [];
 
     internal TimelineViewState TimelineViewState => timelineViewState;
     internal bool HasUnsavedChanges => HasProjectDrafts || editor.HasUnsavedChanges ||
         !TimelineViewStatesEqual(timelineViewState, savedTimelineViewState);
 
-    internal void SetTimelineAnimationRowCollapsed(TimelineAnimationRowId id, bool isCollapsed)
+    internal void SetTimelineEffectClipCollapsed(TimelineEffectClipId id, bool isCollapsed)
     {
         ArgumentNullException.ThrowIfNull(id);
-        if (closing || IsProjectBusy)
+        if (closing || IsProjectBusy || !HasTimelineEffectClip(DocumentSnapshot, id))
         {
             return;
         }
 
-        knownTimelineAnimationRows.Add(id);
-        var rows = timelineViewState.CollapsedAnimationRows;
-        if (rows.Contains(id) == isCollapsed)
+        var clips = timelineViewState.ExpandedAnimationClips;
+        if (clips.Contains(id) != isCollapsed)
         {
             return;
         }
 
         ApplyTimelineViewState(timelineViewState with
         {
-            CollapsedAnimationRows = isCollapsed ? rows.Add(id) : rows.Remove(id)
+            ExpandedAnimationClips = isCollapsed ? clips.Remove(id) : clips.Add(id)
         });
     }
 
@@ -85,33 +83,11 @@ internal sealed partial class WorkbenchSession
     internal void ResetTimelineViewState(ProjectDocument document)
     {
         var state = NormalizeTimelineViewState(document.TimelineViewState);
-        knownTimelineAnimationRows.Clear();
-        knownTimelineAnimationRows.UnionWith(GetTimelineAnimationRows(document));
-        knownTimelineAnimationRows.UnionWith(state.CollapsedAnimationRows);
+        ViewModel.Timeline.ResetEffectSelection();
         timelineViewState = state;
         savedTimelineViewState = state;
         ViewModel.Timeline.TimelineViewState = state;
     }
-
-    private void InitializeNewTimelineAnimationRows(ProjectDocument document)
-    {
-        var added = GetTimelineAnimationRows(document).Where(knownTimelineAnimationRows.Add).ToArray();
-        if (added.Length == 0)
-        {
-            return;
-        }
-
-        ApplyTimelineViewState(timelineViewState with
-        {
-            CollapsedAnimationRows = [.. timelineViewState.CollapsedAnimationRows.Union(added)]
-        });
-    }
-
-    private static IEnumerable<TimelineAnimationRowId> GetTimelineAnimationRows(ProjectDocument document) =>
-        document.Layers.SelectMany(layer => layer.Tracks
-            .Where(track => !track.Keyframes.IsEmpty || !track.Transforms.IsEmpty)
-            .Select(track => new TimelineAnimationRowId(TimelineRowScope.TRACK, layer.TrackId, track.Property,
-                track.Target.TextRangeId, track.Target.State)));
 
     internal ProjectDocument CreatePersistenceSnapshot(ProjectDocument contentSnapshot)
     {
@@ -168,14 +144,16 @@ internal sealed partial class WorkbenchSession
     private static TimelineViewState NormalizeTimelineViewState(TimelineViewState state)
     {
         state.Validate();
-        var sorted = state.CollapsedAnimationRows.OrderBy(row => row.Scope).ThenBy(row => row.OwnerId)
-            .ThenBy(row => row.Property).ToArray();
+        var sorted = state.ExpandedAnimationClips.OrderBy(clip => clip.LayerId)
+            .ThenBy(clip => clip.Target.Property).ThenBy(clip => clip.Target.TextRangeId)
+            .ThenBy(clip => clip.Target.State).ThenBy(clip => clip.Target.NodeId).ToArray();
         var sortedTracks = state.CollapsedTrackIds.Order().ToArray();
-        return state.CollapsedAnimationRows.SequenceEqual(sorted) && state.CollapsedTrackIds.SequenceEqual(sortedTracks)
-            ? state : state with { CollapsedAnimationRows = [.. sorted], CollapsedTrackIds = [.. sortedTracks] };
+        return state.CollapsedAnimationRows.IsEmpty && state.ExpandedAnimationClips.SequenceEqual(sorted) &&
+            state.CollapsedTrackIds.SequenceEqual(sortedTracks)
+            ? state : state with { CollapsedAnimationRows = [], ExpandedAnimationClips = [.. sorted], CollapsedTrackIds = [.. sortedTracks] };
     }
 
     private static bool TimelineViewStatesEqual(TimelineViewState first, TimelineViewState second) =>
-        first.CollapsedAnimationRows.SequenceEqual(second.CollapsedAnimationRows) &&
+        first.ExpandedAnimationClips.SequenceEqual(second.ExpandedAnimationClips) &&
         first.CollapsedTrackIds.SequenceEqual(second.CollapsedTrackIds);
 }

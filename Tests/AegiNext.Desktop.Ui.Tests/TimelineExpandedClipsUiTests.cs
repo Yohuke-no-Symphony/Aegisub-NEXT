@@ -119,6 +119,7 @@ public sealed class TimelineExpandedClipsUiTests
         };
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(new() { Subtitles = [cue], Layers = [layer] }, null, null);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [new(layer.Id, layer.Tracks[0].Target)] };
         TimelineKeyframeEventArgs? moved = null;
         var selectedComponents = TimelineComponentMask.NONE;
         timeline.KeyframeSelected += (_, e) =>
@@ -163,6 +164,7 @@ public sealed class TimelineExpandedClipsUiTests
         };
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 100 };
         timeline.SetDocument(new() { Subtitles = [cue], Layers = [layer] }, null, null);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [new(layer.Id, layer.Tracks[0].Target)] };
         var window = new Window { Width = 600, Height = 240, Content = timeline, RequestedThemeVariant = ThemeVariant.Dark };
         window.Show();
         try

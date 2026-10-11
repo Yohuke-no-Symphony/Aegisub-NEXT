@@ -32,8 +32,8 @@ public sealed class TimelineStyleInteractionBoundaryUiTests
         context.Session.SelectCue(first);
         var committed = context.Session.DocumentSnapshot;
         context.Session.Editor.Reset(committed);
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, firstTrack, AnimationProperty.OPACITY);
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        var row = new TimelineEffectClipId(first, new(AnimationProperty.OPACITY));
+        context.Session.SetTimelineEffectClipCollapsed(row, true);
         context.Window.Layouts.Activate(WorkbenchPanelIds.STYLES);
         context.Window.Layouts.Float(WorkbenchPanelIds.STYLES);
         var floating = Assert.Single(context.Window.Layouts.FloatingWindows);
@@ -81,9 +81,9 @@ public sealed class TimelineStyleInteractionBoundaryUiTests
             Flush(context.Window);
             Assert.False(timeline.IsTrackCollapsed(firstTrack));
             Assert.False(timeline.IsTrackCollapsed(otherTrack));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
-            Assert.NotNull(timeline.GetAnimationRowRectangle(row));
-            Assert.NotNull(timeline.GetAnimationRowRectangle(new(TimelineRowScope.TRACK, otherTrack, AnimationProperty.OPACITY)));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
+            Assert.NotNull(timeline.GetEffectClipRectangle(row));
+            Assert.NotNull(timeline.GetEffectClipRectangle(new(second, new(AnimationProperty.OPACITY))));
             Assert.Equal(viewport.StartSeconds, timeline.Viewport.StartSeconds);
             Assert.Equal(viewport.PixelsPerSecond, timeline.Viewport.PixelsPerSecond);
             AssertDraftUnchanged(context, text, rawText, committed, preview, selection);
@@ -94,7 +94,7 @@ public sealed class TimelineStyleInteractionBoundaryUiTests
             AssertDraftUnchanged(context, text, rawText, committed, preview, selection);
             ClickTrackExpander(context.Window, timeline, firstTrack);
             Assert.False(timeline.IsTrackCollapsed(firstTrack));
-            Assert.True(timeline.IsAnimationRowCollapsed(row));
+            Assert.True(timeline.IsEffectClipCollapsed(row));
             AssertDraftUnchanged(context, text, rawText, committed, preview, selection);
         }
         finally

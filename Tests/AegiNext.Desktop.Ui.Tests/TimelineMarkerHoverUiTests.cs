@@ -22,6 +22,7 @@ public sealed class TimelineMarkerHoverUiTests
         var layer = Layer(cue) with { Tracks = [new(AnimationProperty.SCALE, [new(new(1), value)])] };
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(new() { Subtitles = [cue], Layers = [layer] }, null, null);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [new(layer.Id, layer.Tracks[0].Target)] };
         TimelineKeyframeEventArgs? changed = null;
         timeline.KeyframeSelected += (_, e) => e.SelectionAccepted = true;
         timeline.KeyframeMoved += (_, e) => changed = e;
@@ -57,6 +58,7 @@ public sealed class TimelineMarkerHoverUiTests
         var layer = Layer(cue) with { Tracks = [new(AnimationProperty.SCALE, [new(new(1), value)])] };
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80 };
         timeline.SetDocument(new() { Subtitles = [cue], Layers = [layer] }, null, null);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [new(layer.Id, layer.Tracks[0].Target)] };
         var window = new Window { Width = 650, Height = 240, Content = timeline, RequestedThemeVariant = ThemeVariant.Dark };
         window.Show();
         try
@@ -100,6 +102,7 @@ public sealed class TimelineMarkerHoverUiTests
         var layer = Layer(cue) with { Tracks = [new(AnimationProperty.FILL, [new(new(1), value)])] };
         using var timeline = new SubtitleTimelineControl { PixelsPerSecond = 80, IsSnapEnabled = false };
         timeline.SetDocument(new() { Subtitles = [cue], Layers = [layer] }, null, null);
+        timeline.TimelineViewState = new() { ExpandedAnimationClips = [new(layer.Id, layer.Tracks[0].Target)] };
         TimelineKeyframeEventArgs? changed = null;
         timeline.KeyframeSelected += (_, e) => e.SelectionAccepted = true;
         timeline.KeyframeMoved += (_, e) => changed = e;

@@ -55,8 +55,8 @@ public sealed class TimelineAnimationRowsUiTests
             var x = timeline.GetKeyframePoint(layer.Id, AnimationProperty.POSITION, new(1), new ScenePoint(10, 20))!.Value;
             var rotation = timeline.GetKeyframePoint(layer.Id, AnimationProperty.ROTATION, new(1), 40)!.Value;
             var opacity = timeline.GetKeyframePoint(layer.Id, AnimationProperty.OPACITY, new(1), 0.25)!.Value;
-            Assert.True(x.Y < rotation.Y && rotation.Y < opacity.Y);
-            Assert.True(opacity.Y < timeline.GetClipRectangle(layer.Id)!.Value.Top);
+            Assert.True(x.Y > rotation.Y && rotation.Y > opacity.Y);
+            Assert.True(x.Y < timeline.GetClipRectangle(layer.Id)!.Value.Top);
             Assert.Same(timeline, window.InputHitTest(x));
             window.MouseDown(x, MouseButton.Left);
             Assert.True(timeline.HasActiveDrag);

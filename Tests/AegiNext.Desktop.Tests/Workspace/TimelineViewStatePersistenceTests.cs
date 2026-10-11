@@ -11,18 +11,18 @@ public sealed class TimelineViewStatePersistenceTests
     [Theory]
     [InlineData(LayerKind.SUBTITLE)]
     [InlineData(LayerKind.SHAPE)]
-    public async Task InitializationRestoresCollapsedRowsWithoutChangingTheEditorSnapshotOrHistory(LayerKind kind)
+    public async Task InitializationRestoresExpandedClipsWithoutChangingTheEditorSnapshotOrHistory(LayerKind kind)
     {
         var document = CreateDocument();
-        var row = GetRowId(document, kind);
-        document = document with { TimelineViewState = new() { CollapsedAnimationRows = [row] } };
+        var row = GetClipId(document, kind);
+        document = document with { TimelineViewState = new() { ExpandedAnimationClips = [row] } };
         await using var context = new WorkspaceSessionTestContext(document);
 
         await context.InitializeAsync();
 
         Assert.Same(document, context.Editor.Snapshot);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
-        Assert.Equal(row, Assert.Single(context.Session.ViewModel.Timeline.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
+        Assert.Equal(row, Assert.Single(context.Session.ViewModel.Timeline.TimelineViewState.ExpandedAnimationClips));
         Assert.False(context.Editor.HasUnsavedChanges);
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.CanUndo);
@@ -37,28 +37,28 @@ public sealed class TimelineViewStatePersistenceTests
         var document = CreateDocument();
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
-        var row = GetRowId(document, kind);
+        var row = GetClipId(document, kind);
 
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
 
         Assert.Same(document, context.Editor.Snapshot);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
-        Assert.Equal(row, Assert.Single(context.Session.ViewModel.Timeline.TimelineViewState.CollapsedAnimationRows));
-        Assert.Empty(context.Editor.Snapshot.TimelineViewState.CollapsedAnimationRows);
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
+        Assert.Equal(row, Assert.Single(context.Session.ViewModel.Timeline.TimelineViewState.ExpandedAnimationClips));
+        Assert.Empty(context.Editor.Snapshot.TimelineViewState.ExpandedAnimationClips);
         Assert.True(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.HasUnsavedChanges);
         Assert.False(context.Editor.CanUndo);
         Assert.False(context.Editor.CanRedo);
 
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
 
-        Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows);
+        Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips);
         Assert.Same(document, context.Editor.Snapshot);
 
-        context.Session.SetTimelineAnimationRowCollapsed(row, false);
+        context.Session.SetTimelineEffectClipCollapsed(row, true);
 
-        Assert.Empty(context.Session.TimelineViewState.CollapsedAnimationRows);
-        Assert.Empty(context.Session.ViewModel.Timeline.TimelineViewState.CollapsedAnimationRows);
+        Assert.Empty(context.Session.TimelineViewState.ExpandedAnimationClips);
+        Assert.Empty(context.Session.ViewModel.Timeline.TimelineViewState.ExpandedAnimationClips);
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.CanUndo);
@@ -66,19 +66,19 @@ public sealed class TimelineViewStatePersistenceTests
     }
 
     [Fact]
-    public async Task ViewChangesPreserveRedoAndContentUndoDoesNotUndoTheCollapsedRows()
+    public async Task ViewChangesPreserveRedoAndContentUndoDoesNotUndoTheExpandedClips()
     {
         var document = CreateDocument();
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
-        var row = GetRowId(document, LayerKind.SUBTITLE);
+        var row = GetClipId(document, LayerKind.SUBTITLE);
         context.Editor.Apply("Resize project", value => value with { Width = 1280 });
         await context.Session.WaitForProjectIdleAsync();
         Assert.True(context.Editor.Undo());
         await context.Session.WaitForProjectIdleAsync();
         var redoLabel = context.Editor.RedoLabel;
 
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
 
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
@@ -89,14 +89,14 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.True(context.Editor.Redo());
         await context.Session.WaitForProjectIdleAsync();
         Assert.Equal(1280, context.Editor.Snapshot.Width);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.True(context.Editor.Undo());
         await context.Session.WaitForProjectIdleAsync();
         Assert.Same(document, context.Editor.Snapshot);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.True(context.Session.HasUnsavedChanges);
 
-        context.Session.SetTimelineAnimationRowCollapsed(row, false);
+        context.Session.SetTimelineEffectClipCollapsed(row, true);
 
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.True(context.Editor.CanRedo);
@@ -110,9 +110,9 @@ public sealed class TimelineViewStatePersistenceTests
         await context.InitializeAsync();
         var originalPath = await OpenFixtureAsync(context, CreateDocument());
         var originalSnapshot = context.Editor.Snapshot;
-        var subtitleRow = GetRowId(originalSnapshot, LayerKind.SUBTITLE);
-        var sceneRow = GetRowId(originalSnapshot, LayerKind.SHAPE);
-        context.Session.SetTimelineAnimationRowCollapsed(subtitleRow, true);
+        var subtitleRow = GetClipId(originalSnapshot, LayerKind.SUBTITLE);
+        var sceneRow = GetClipId(originalSnapshot, LayerKind.SHAPE);
+        context.Session.SetTimelineEffectClipCollapsed(subtitleRow, false);
 
         await context.Session.ExecuteCommandAsync(WorkbenchCommand.SAVE_PROJECT);
 
@@ -120,9 +120,9 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.Same(originalSnapshot, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
-        Assert.Equal(subtitleRow, Assert.Single((await ProjectStore.LoadAsync(originalPath)).TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(subtitleRow, Assert.Single((await ProjectStore.LoadAsync(originalPath)).TimelineViewState.ExpandedAnimationClips));
 
-        context.Session.SetTimelineAnimationRowCollapsed(sceneRow, true);
+        context.Session.SetTimelineEffectClipCollapsed(sceneRow, false);
         context.Dialogs.SavePath = Path.Combine(context.DirectoryPath, "relocated", "saved-as.aeginext");
 
         await context.Session.ExecuteCommandAsync(WorkbenchCommand.SAVE_PROJECT_AS);
@@ -130,17 +130,17 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.Null(context.Session.LastError);
         Assert.Equal(context.Dialogs.SavePath, context.Session.ProjectPath);
         Assert.False(context.Session.HasUnsavedChanges);
-        Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.OwnerId), (await ProjectStore.LoadAsync(context.Dialogs.SavePath)).TimelineViewState.CollapsedAnimationRows);
+        Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.LayerId), (await ProjectStore.LoadAsync(context.Dialogs.SavePath)).TimelineViewState.ExpandedAnimationClips);
 
         var reopenedOriginal = await context.Session.OpenProjectAsync(originalPath);
 
         Assert.Equal(ProjectOpenStatus.OPENED, reopenedOriginal.Status);
-        Assert.Equal(subtitleRow, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(subtitleRow, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.False(context.Session.HasUnsavedChanges);
         var reopenedCopy = await context.Session.OpenProjectAsync(context.Dialogs.SavePath);
         Assert.Equal(ProjectOpenStatus.OPENED, reopenedCopy.Status);
-        Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.OwnerId), context.Session.TimelineViewState.CollapsedAnimationRows);
-        Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.OwnerId), context.Session.ViewModel.Timeline.TimelineViewState.CollapsedAnimationRows);
+        Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.LayerId), context.Session.TimelineViewState.ExpandedAnimationClips);
+        Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.LayerId), context.Session.ViewModel.Timeline.TimelineViewState.ExpandedAnimationClips);
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.CanUndo);
         Assert.False(context.Editor.CanRedo);
@@ -150,18 +150,18 @@ public sealed class TimelineViewStatePersistenceTests
     public async Task ReturningToANonemptySavedViewStateClearsDirtyWithoutAContentEdit()
     {
         var document = CreateDocument();
-        var row = GetRowId(document, LayerKind.SHAPE);
-        document = document with { TimelineViewState = new() { CollapsedAnimationRows = [row] } };
+        var row = GetClipId(document, LayerKind.SHAPE);
+        document = document with { TimelineViewState = new() { ExpandedAnimationClips = [row] } };
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
 
-        context.Session.SetTimelineAnimationRowCollapsed(row, false);
+        context.Session.SetTimelineEffectClipCollapsed(row, true);
 
         Assert.True(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.HasUnsavedChanges);
         Assert.Same(document, context.Editor.Snapshot);
 
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
 
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.Same(document, context.Editor.Snapshot);
@@ -178,8 +178,8 @@ public sealed class TimelineViewStatePersistenceTests
         await context.InitializeAsync();
         await OpenFixtureAsync(context, CreateDocument());
         var snapshot = context.Editor.Snapshot;
-        var row = GetRowId(snapshot, LayerKind.SUBTITLE);
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        var row = GetClipId(snapshot, LayerKind.SUBTITLE);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
         Assert.False(context.Editor.HasUnsavedChanges);
         Assert.True(context.Session.HasUnsavedChanges);
 
@@ -187,7 +187,7 @@ public sealed class TimelineViewStatePersistenceTests
         await context.Session.Persistence.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
         var saved = Assert.Single(storage.SavedSnapshots);
-        Assert.Equal(row, Assert.Single(saved.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(saved.TimelineViewState.ExpandedAnimationClips));
         Assert.Equal(snapshot.Layers, saved.Layers);
         Assert.Equal(snapshot.Subtitles, saved.Subtitles);
         Assert.Same(snapshot, context.Editor.Snapshot);
@@ -210,9 +210,9 @@ public sealed class TimelineViewStatePersistenceTests
         await context.InitializeAsync();
         await OpenFixtureAsync(context, CreateDocument());
         var snapshot = context.Editor.Snapshot;
-        var subtitleRow = GetRowId(snapshot, LayerKind.SUBTITLE);
-        var sceneRow = GetRowId(snapshot, LayerKind.SHAPE);
-        context.Session.SetTimelineAnimationRowCollapsed(subtitleRow, true);
+        var subtitleRow = GetClipId(snapshot, LayerKind.SUBTITLE);
+        var sceneRow = GetClipId(snapshot, LayerKind.SHAPE);
+        context.Session.SetTimelineEffectClipCollapsed(subtitleRow, false);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         storage.SaveWork = async cancellationToken =>
@@ -226,17 +226,17 @@ public sealed class TimelineViewStatePersistenceTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             if (returnToPreviousSavePoint)
             {
-                context.Session.SetTimelineAnimationRowCollapsed(subtitleRow, false);
+                context.Session.SetTimelineEffectClipCollapsed(subtitleRow, true);
             }
             else
             {
-                context.Session.SetTimelineAnimationRowCollapsed(sceneRow, true);
+                context.Session.SetTimelineEffectClipCollapsed(sceneRow, false);
             }
 
             release.TrySetResult();
             await context.Session.Persistence.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.Equal(subtitleRow, Assert.Single(Assert.Single(storage.SavedSnapshots).TimelineViewState.CollapsedAnimationRows));
+            Assert.Equal(subtitleRow, Assert.Single(Assert.Single(storage.SavedSnapshots).TimelineViewState.ExpandedAnimationClips));
             Assert.True(context.Session.HasUnsavedChanges);
             Assert.False(context.Editor.HasUnsavedChanges);
             Assert.Same(snapshot, context.Editor.Snapshot);
@@ -246,9 +246,9 @@ public sealed class TimelineViewStatePersistenceTests
             await context.Session.Persistence.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Equal(2, storage.SavedSnapshots.Count);
-            var expectedRows = returnToPreviousSavePoint ? Array.Empty<TimelineAnimationRowId>() : new[] { subtitleRow, sceneRow };
-            Assert.Equal(expectedRows, storage.SavedSnapshots[1].TimelineViewState.CollapsedAnimationRows);
-            Assert.Equal(expectedRows, context.Session.TimelineViewState.CollapsedAnimationRows);
+            var expectedRows = returnToPreviousSavePoint ? Array.Empty<TimelineEffectClipId>() : new[] { subtitleRow, sceneRow };
+            Assert.Equal(expectedRows.OrderBy(id => id.LayerId), storage.SavedSnapshots[1].TimelineViewState.ExpandedAnimationClips);
+            Assert.Equal(expectedRows.OrderBy(id => id.LayerId), context.Session.TimelineViewState.ExpandedAnimationClips);
             Assert.False(context.Session.HasUnsavedChanges);
             Assert.Same(snapshot, context.Editor.Snapshot);
         }
@@ -259,7 +259,7 @@ public sealed class TimelineViewStatePersistenceTests
     }
 
     [Fact]
-    public async Task FailedAutoSaveKeepsViewDirtyAndTheNextTickRetriesTheSameCollapsedRows()
+    public async Task FailedAutoSaveKeepsViewDirtyAndTheNextTickRetriesTheSameExpandedClips()
     {
         var clock = new ManualPlaybackTimeProvider();
         var storage = new ProjectPersistenceStorageStub();
@@ -267,8 +267,8 @@ public sealed class TimelineViewStatePersistenceTests
         await context.InitializeAsync();
         await OpenFixtureAsync(context, CreateDocument());
         var snapshot = context.Editor.Snapshot;
-        var row = GetRowId(snapshot, LayerKind.SHAPE);
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        var row = GetClipId(snapshot, LayerKind.SHAPE);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
         var failure = new IOException("Timeline view state save failed");
         storage.SaveWork = _ => Task.FromException(failure);
 
@@ -281,27 +281,27 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.True(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.HasUnsavedChanges);
         Assert.Same(snapshot, context.Editor.Snapshot);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         storage.SaveWork = null;
 
         clock.Advance(TimeSpan.FromMinutes(2));
         await context.Session.Persistence.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Equal(2, storage.SaveAttempts);
-        Assert.Equal(row, Assert.Single(Assert.Single(storage.SavedSnapshots).TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(Assert.Single(storage.SavedSnapshots).TimelineViewState.ExpandedAnimationClips));
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.Same(snapshot, context.Editor.Snapshot);
     }
 
     [Fact]
-    public async Task FailedManualSaveAsPreservesTheActiveProjectAndUnsavedCollapsedRows()
+    public async Task FailedManualSaveAsPreservesTheActiveProjectAndUnsavedExpandedClips()
     {
         await using var context = new WorkspaceSessionTestContext();
         await context.InitializeAsync();
         var originalPath = await OpenFixtureAsync(context, CreateDocument());
         var snapshot = context.Editor.Snapshot;
-        var row = GetRowId(snapshot, LayerKind.SUBTITLE);
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        var row = GetClipId(snapshot, LayerKind.SUBTITLE);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
         var destination = Path.Combine(context.DirectoryPath, "directory.aeginext");
         Directory.CreateDirectory(destination);
         context.Dialogs.SavePath = destination;
@@ -313,20 +313,20 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.True(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.HasUnsavedChanges);
         Assert.Same(snapshot, context.Editor.Snapshot);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
-        Assert.Empty((await ProjectStore.LoadAsync(originalPath)).TimelineViewState.CollapsedAnimationRows);
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
+        Assert.Empty((await ProjectStore.LoadAsync(originalPath)).TimelineViewState.ExpandedAnimationClips);
         Assert.False(context.Editor.CanUndo);
     }
 
     [Fact]
-    public async Task DecliningDiscardOfViewOnlyChangesKeepsTheActiveProjectAndCollapsedRows()
+    public async Task DecliningDiscardOfViewOnlyChangesKeepsTheActiveProjectAndExpandedClips()
     {
         await using var context = new WorkspaceSessionTestContext();
         await context.InitializeAsync();
         var originalPath = await OpenFixtureAsync(context, CreateDocument());
         var snapshot = context.Editor.Snapshot;
-        var row = GetRowId(snapshot, LayerKind.SUBTITLE);
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        var row = GetClipId(snapshot, LayerKind.SUBTITLE);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
         var nextPath = Path.Combine(context.DirectoryPath, "next.aeginext");
         await ProjectStore.SaveAsync(CreateDocument(), nextPath);
         context.Dialogs.UnsavedChoice = 0;
@@ -337,7 +337,7 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.Equal(1, context.Dialogs.ConfirmationRequests);
         Assert.Equal(originalPath, context.Session.ProjectPath);
         Assert.Same(snapshot, context.Editor.Snapshot);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
         Assert.True(context.Session.HasUnsavedChanges);
         Assert.False(context.Editor.HasUnsavedChanges);
     }
@@ -351,8 +351,8 @@ public sealed class TimelineViewStatePersistenceTests
         var path = await OpenFixtureAsync(context, CreateDocument());
         var snapshot = context.Editor.Snapshot;
         var cleanTitle = context.Session.ViewModel.Title;
-        var row = GetRowId(snapshot, LayerKind.SUBTITLE);
-        context.Session.SetTimelineAnimationRowCollapsed(row, true);
+        var row = GetClipId(snapshot, LayerKind.SUBTITLE);
+        context.Session.SetTimelineEffectClipCollapsed(row, false);
 
         Assert.Equal(cleanTitle + " •", context.Session.ViewModel.Title);
         Assert.True(context.Session.HasUnsavedChanges);
@@ -367,8 +367,8 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.Equal(cleanTitle + " •", context.Session.ViewModel.Title);
         Assert.Same(snapshot, context.Editor.Snapshot);
         Assert.True(context.Session.HasUnsavedChanges);
-        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.CollapsedAnimationRows));
-        Assert.Empty((await ProjectStore.LoadAsync(path)).TimelineViewState.CollapsedAnimationRows);
+        Assert.Equal(row, Assert.Single(context.Session.TimelineViewState.ExpandedAnimationClips));
+        Assert.Empty((await ProjectStore.LoadAsync(path)).TimelineViewState.ExpandedAnimationClips);
         context.Dialogs.UnsavedChoice = 1;
         var beforeDisposeCalled = false;
 
@@ -388,7 +388,7 @@ public sealed class TimelineViewStatePersistenceTests
         Assert.False(context.Session.HasUnsavedChanges);
         Assert.Equal(cleanTitle, context.Session.ViewModel.Title);
         Assert.Same(snapshot, context.Editor.Snapshot);
-        Assert.Equal(row, Assert.Single((await ProjectStore.LoadAsync(path)).TimelineViewState.CollapsedAnimationRows));
+        Assert.Equal(row, Assert.Single((await ProjectStore.LoadAsync(path)).TimelineViewState.ExpandedAnimationClips));
         await context.Session.DisposeAsync();
         Assert.Equal(0, clock.ActiveTimerCount);
     }
@@ -402,9 +402,9 @@ public sealed class TimelineViewStatePersistenceTests
         await context.InitializeAsync();
         await OpenFixtureAsync(context, CreateDocument());
         var snapshot = context.Editor.Snapshot;
-        var subtitleRow = GetRowId(snapshot, LayerKind.SUBTITLE);
-        var sceneRow = GetRowId(snapshot, LayerKind.SHAPE);
-        context.Session.SetTimelineAnimationRowCollapsed(subtitleRow, true);
+        var subtitleRow = GetClipId(snapshot, LayerKind.SUBTITLE);
+        var sceneRow = GetClipId(snapshot, LayerKind.SHAPE);
+        context.Session.SetTimelineEffectClipCollapsed(subtitleRow, false);
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         storage.SaveWork = async cancellationToken =>
@@ -418,17 +418,17 @@ public sealed class TimelineViewStatePersistenceTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             context.Editor.Apply("Resize during timeline state save", document => document with { Width = 1280 });
             var newerSnapshot = context.Editor.Snapshot;
-            context.Session.SetTimelineAnimationRowCollapsed(sceneRow, true);
+            context.Session.SetTimelineEffectClipCollapsed(sceneRow, false);
             release.TrySetResult();
             await context.Session.Persistence.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
             var saved = Assert.Single(storage.SavedSnapshots);
             Assert.Equal(snapshot.Width, saved.Width);
-            Assert.Equal(subtitleRow, Assert.Single(saved.TimelineViewState.CollapsedAnimationRows));
+            Assert.Equal(subtitleRow, Assert.Single(saved.TimelineViewState.ExpandedAnimationClips));
             Assert.Same(newerSnapshot, context.Editor.Snapshot);
             Assert.True(context.Editor.HasUnsavedChanges);
             Assert.True(context.Session.HasUnsavedChanges);
-            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.OwnerId), context.Session.TimelineViewState.CollapsedAnimationRows);
+            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.LayerId), context.Session.TimelineViewState.ExpandedAnimationClips);
             Assert.Equal("Resize during timeline state save", context.Editor.UndoLabel);
             Assert.True(context.Editor.Undo());
             await context.Session.WaitForProjectIdleAsync();
@@ -436,7 +436,7 @@ public sealed class TimelineViewStatePersistenceTests
             Assert.Same(snapshot, context.Editor.Snapshot);
             Assert.False(context.Editor.HasUnsavedChanges);
             Assert.True(context.Session.HasUnsavedChanges);
-            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.OwnerId), context.Session.TimelineViewState.CollapsedAnimationRows);
+            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.LayerId), context.Session.TimelineViewState.ExpandedAnimationClips);
             Assert.True(context.Editor.CanRedo);
             storage.SaveWork = null;
             clock.Advance(TimeSpan.FromMinutes(2));
@@ -444,7 +444,7 @@ public sealed class TimelineViewStatePersistenceTests
 
             Assert.Equal(2, storage.SavedSnapshots.Count);
             Assert.Equal(snapshot.Width, storage.SavedSnapshots[1].Width);
-            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.OwnerId), storage.SavedSnapshots[1].TimelineViewState.CollapsedAnimationRows);
+            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.LayerId), storage.SavedSnapshots[1].TimelineViewState.ExpandedAnimationClips);
             Assert.Same(snapshot, context.Editor.Snapshot);
             Assert.False(context.Session.HasUnsavedChanges);
             Assert.True(context.Editor.Redo());
@@ -452,7 +452,7 @@ public sealed class TimelineViewStatePersistenceTests
             Assert.Same(newerSnapshot, context.Editor.Snapshot);
             Assert.True(context.Editor.HasUnsavedChanges);
             Assert.True(context.Session.HasUnsavedChanges);
-            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.OwnerId), context.Session.TimelineViewState.CollapsedAnimationRows);
+            Assert.Equal(new[] { subtitleRow, sceneRow }.OrderBy(row => row.LayerId), context.Session.TimelineViewState.ExpandedAnimationClips);
         }
         finally
         {
@@ -484,10 +484,10 @@ public sealed class TimelineViewStatePersistenceTests
         };
     }
 
-    private static TimelineAnimationRowId GetRowId(ProjectDocument document, LayerKind kind)
+    private static TimelineEffectClipId GetClipId(ProjectDocument document, LayerKind kind)
     {
         var clip = Assert.Single(document.Layers, layer => layer.Kind == kind);
-        return new(TimelineRowScope.TRACK, clip.TrackId, AnimationProperty.OPACITY);
+        return new(clip.Id, new(AnimationProperty.OPACITY));
     }
 
     private static async Task<string> OpenFixtureAsync(WorkspaceSessionTestContext context, ProjectDocument document)
