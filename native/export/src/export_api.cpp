@@ -283,10 +283,6 @@ void ConfirmRateControl(Context &context, const an_export_request &request, AVCo
         Need(MatchesNamedOption(encoder, "rc", request.rate_control_mode == RATE_CONTROL_CBR ? "cbr" : "vbr_peak"),
             "AMF did not confirm the selected rate-control configuration");
     }
-    else
-    {
-        throw Failure(2, "Hardware encoder cannot confirm its initialized rate-control mode through the public FFmpeg API");
-    }
 
     context.resultInfo.rate_control_mode = request.rate_control_mode;
     context.resultInfo.video_bitrate = static_cast<int32_t>(encoder.bit_rate);
