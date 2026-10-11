@@ -97,7 +97,7 @@ public sealed class SubtitleDetailsFieldsUiTests
         Assert.InRange(Math.Abs(separator.Bounds.Height - 24), 0, 1);
         Assert.True(separator.Bounds.Height > separator.Bounds.Width);
         var names = new[] { "BoldSelectionButton", "ItalicSelectionButton", "UnderlineSelectionButton", "StrikethroughSelectionButton",
-            "ApplyToSelectionButton", "ApplySelectionStyleButton", "ClearSelectionStyleButton" };
+            "ApplyToSelectionButton", "ClearSelectionStyleButton" };
         var buttons = names.Select(name => UiTestActions.Find<Button>(host, name)).ToArray();
         var centerY = BoundsIn(buttons[0], toolbar).Center.Y;
         var previousRight = double.NegativeInfinity;
@@ -113,7 +113,7 @@ public sealed class SubtitleDetailsFieldsUiTests
         var separatorBounds = BoundsIn(separator, toolbar);
         Assert.True(BoundsIn(buttons[3], toolbar).Right <= separatorBounds.Left);
         Assert.True(separatorBounds.Right <= BoundsIn(buttons[4], toolbar).Left);
-        foreach (var key in new[] { "ApplyToSelection", "ApplySelectionStyle", "ClearSelectionStyle" })
+        foreach (var key in new[] { "ApplyToSelection", "ClearSelectionStyle" })
         {
             var button = UiTestActions.Find<Button>(host, key + "Button");
             Assert.IsType<MaterialIcon>(button.Content);
@@ -123,7 +123,7 @@ public sealed class SubtitleDetailsFieldsUiTests
         var original = context.Session.Editor.Snapshot;
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = language == "zh-CN" ? "en-US" : "zh-CN" });
         Flush(host);
-        foreach (var key in new[] { "ApplyToSelection", "ApplySelectionStyle", "ClearSelectionStyle" })
+        foreach (var key in new[] { "ApplyToSelection", "ClearSelectionStyle" })
         {
             var button = UiTestActions.Find<Button>(host, key + "Button");
             Assert.Equal(Localization.Get("Workbench." + key + "Hint"), ToolTip.GetTip(button));
@@ -201,6 +201,9 @@ public sealed class SubtitleDetailsFieldsUiTests
         context.Session.SelectCue(id);
         await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SUBTITLE_DETAILS);
         var host = Assert.Single(context.Window.Layouts.FloatingWindows);
+        host.Width = 950;
+        host.Height = 1200;
+        Flush(host);
         var loop = UiTestActions.Find<ToggleButton>(host, "SubtitleLoopToggle");
         var play = UiTestActions.Find<Button>(host, "SubtitlePlayPauseButton");
         var initialPlayKind = Assert.IsType<MaterialIcon>(play.Content).Kind;
@@ -263,16 +266,15 @@ public sealed class SubtitleDetailsFieldsUiTests
         Assert.Equal(ScrollBarVisibility.Disabled, scroll.HorizontalScrollBarVisibility);
         var toolbar = UiTestActions.Find<Grid>(host, "SubtitleDetailsToolbar");
         var toolbarScroll = UiTestActions.Find<ScrollViewer>(host, "SelectionToolbarScroll");
-        var restore = UiTestActions.Find<Button>(host, "RestoreDraftButton");
-        var actions = UiTestActions.Find<StackPanel>(host, "SubtitleDetailsActions");
-        Assert.Same(actions, restore.Parent);
-        Assert.Equal(1, Grid.GetColumn(actions));
+        var enable = UiTestActions.Find<ToolbarToggleButton>(host, "EnableKaraokeToggle");
+        var timingActions = UiTestActions.Find<WrapPanel>(host, "KaraokeTimingActions");
+        Assert.Same(enable, timingActions.Children[0]);
         Assert.Equal(ScrollBarVisibility.Disabled, toolbarScroll.VerticalScrollBarVisibility);
         Assert.True(toolbarScroll.Extent.Width > toolbarScroll.Viewport.Width);
         var toolbarBounds = BoundsIn(toolbar, host);
-        var restoreBounds = BoundsIn(restore, host);
-        Assert.InRange(Math.Abs(restoreBounds.Right - toolbarBounds.Right), 0, 1);
-        Assert.True(restoreBounds.Left >= 0 && restoreBounds.Right <= host.ClientSize.Width);
+        Assert.InRange(Math.Abs(BoundsIn(toolbarScroll, host).Width - toolbarBounds.Width), 0, 1);
+        Assert.Equal(0, enable.Bounds.Left);
+        Assert.Equal(0, enable.Bounds.Top);
         Assert.True(body.IsEffectivelyVisible);
         Assert.True(UiTestActions.Find<KaraokeClipAxis>(host, "KaraokeAxis").IsEffectivelyVisible);
         Assert.True(UiTestActions.Find<ComboBox>(host, "SubtitleVisualStateInput").IsEffectivelyEnabled);
@@ -290,12 +292,13 @@ public sealed class SubtitleDetailsFieldsUiTests
     [InlineData(460, "zh-CN")]
     [InlineData(950, "en-US")]
     [InlineData(950, "zh-CN")]
-    public async Task ToolbarKeepsLabeledHighlightAndResetAtTheRightWithLocalizedMagnet(double width, string language)
+    public async Task TimingToolbarStartsWithLabeledHighlightAndLocalizedMagnet(double width, string language)
     {
         await using var context = new MainWindowTestContext();
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = language });
         var id = context.Session.Editor.AddSubtitle(new(0), new(4), "Subtitle 中文 123");
         context.Session.SelectCue(id);
+        Assert.True(context.Session.Details.GenerateAllTiming());
         var original = context.Session.Editor.Snapshot;
         context.Session.Editor.Reset(original);
         await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SUBTITLE_DETAILS);
@@ -303,42 +306,29 @@ public sealed class SubtitleDetailsFieldsUiTests
         host.Width = width;
         host.Height = 900;
         Flush(host);
-        var toolbar = UiTestActions.Find<Grid>(host, "SubtitleDetailsToolbar");
         var timingActions = UiTestActions.Find<WrapPanel>(host, "KaraokeTimingActions");
-        var actions = UiTestActions.Find<StackPanel>(host, "SubtitleDetailsActions");
         var snap = UiTestActions.Find<ToolbarToggleButton>(host, "KaraokeSnapToggle");
         var enable = UiTestActions.Find<ToolbarToggleButton>(host, "EnableKaraokeToggle");
-        var restore = UiTestActions.Find<Button>(host, "RestoreDraftButton");
         Assert.Same(timingActions, snap.Parent);
         Assert.Equal(MaterialIconKind.Magnet, Assert.IsType<MaterialIcon>(snap.Content).Kind);
         Assert.Equal(32, snap.Bounds.Width);
         Assert.Equal(32, snap.Bounds.Height);
-        Assert.Same(actions, enable.Parent);
-        Assert.Same(actions, restore.Parent);
+        Assert.Same(enable, timingActions.Children[0]);
         Assert.True(enable.Bounds.Width > enable.Bounds.Height);
         var enableContent = Assert.IsType<IconText>(enable.Content);
-        var restoreContent = Assert.IsType<IconText>(restore.Content);
         Assert.Equal("EnableHighlight", enableContent.IconKey);
-        Assert.Equal("Reset", restoreContent.IconKey);
         foreach (var selectedLanguage in new[] { language, language == "zh-CN" ? "en-US" : "zh-CN" })
         {
             context.Session.UpdatePreferences(context.Session.Preferences with { Language = selectedLanguage });
             Flush(host);
             Assert.Equal(Localization.Get("Workbench.EnableKaraoke"), enableContent.Text);
-            Assert.Equal(Localization.Get("Workbench.RestoreDraft"), restoreContent.Text);
             Assert.Equal(Localization.Get("Workbench.KaraokeSnapHint"), ToolTip.GetTip(snap));
             Assert.Equal(Localization.Get("Workbench.KaraokeSnap"), AutomationProperties.GetName(snap));
             Assert.Equal(Localization.Get("Workbench.EnableKaraokeHint"), ToolTip.GetTip(enable));
             Assert.Equal(enableContent.Text, AutomationProperties.GetName(enable));
-            Assert.Equal(restoreContent.Text, ToolTip.GetTip(restore));
-            Assert.Equal(restoreContent.Text, AutomationProperties.GetName(restore));
-            var toolbarBounds = BoundsIn(toolbar, host);
-            var enableBounds = BoundsIn(enable, host);
-            var restoreBounds = BoundsIn(restore, host);
-            Assert.InRange(Math.Abs(restoreBounds.Right - toolbarBounds.Right), 0, 1);
-            Assert.True(enableBounds.Left >= 0 && enableBounds.Right <= restoreBounds.Left);
-            Assert.True(restoreBounds.Right <= host.ClientSize.Width);
-            Assert.InRange(Math.Abs(enableBounds.Center.Y - restoreBounds.Center.Y), 0, 1);
+            Assert.Equal(0, enable.Bounds.Left);
+            Assert.Equal(0, enable.Bounds.Top);
+            Assert.True(enable.Bounds.Right <= timingActions.Bounds.Width);
         }
         var axis = UiTestActions.Find<KaraokeClipAxis>(host, "KaraokeAxis");
         UiTestActions.Click(host, "KaraokeSnapToggle");
@@ -478,7 +468,7 @@ public sealed class SubtitleDetailsFieldsUiTests
         enable.BringIntoView();
         Flush(host);
         Assert.True(enable.IsEffectivelyEnabled);
-        UiTestActions.Click(host, "GenerateAllTimingButton");
+        UiTestActions.Click(host, "EnableKaraokeToggle");
         Flush(host);
         Assert.True(enable.IsChecked);
         UiTestActions.Find<ComboBox>(host, "SubtitleVisualStateInput").SelectedIndex = 2;

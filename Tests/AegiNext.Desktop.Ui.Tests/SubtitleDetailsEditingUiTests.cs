@@ -65,7 +65,7 @@ public sealed class SubtitleDetailsEditingUiTests
         {
             Assert.False(UiTestActions.Find<Button>(host, name).IsEffectivelyEnabled);
         }
-        foreach (var name in new[] { "ApplyToSelectionButton", "ApplySelectionStyleButton", "ClearSelectionStyleButton" })
+        foreach (var name in new[] { "ApplyToSelectionButton", "ClearSelectionStyleButton" })
         {
             Assert.True(UiTestActions.Find<Button>(host, name).IsEffectivelyEnabled);
         }

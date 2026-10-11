@@ -88,7 +88,7 @@ public sealed class WorkbenchLibraryIconUiTests
             "Merge", "Style", "Effects", "Subtitles", "SubtitleEditor", "Timeline", "Magnet", "Spectrum",
             "Waveform", "Keyframe", "Path", "Mask", "Group", "Bold", "Italic", "Volume", "Mute", "Keyboard",
             "ValidateScript", "SaveEffectAs", "AddPathPoint", "RemovePathPoint", "ResetPosition", "ResetColors",
-            "ManageEffectScripts", "ApplySelectionPreset", "ApplySelectionStyle", "ClearSelectionStyle", "VIEW_LOG" };
+            "ManageEffectScripts", "ApplySelectionPreset", "ClearSelectionStyle", "VIEW_LOG" };
         var content = new WrapPanel();
         foreach (var key in keys)
         {

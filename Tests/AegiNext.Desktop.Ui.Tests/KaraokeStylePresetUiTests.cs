@@ -132,7 +132,11 @@ public sealed class KaraokeStylePresetUiTests
         context.Session.SelectCue(id);
         await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SUBTITLE_DETAILS);
         var host = Assert.Single(context.Window.Layouts.FloatingWindows);
-        UiTestActions.Click(host, "GenerateAllTimingButton");
+        host.Width = 950;
+        host.Height = 1200;
+        Dispatcher.UIThread.RunJobs();
+        host.UpdateLayout();
+        UiTestActions.Click(host, "EnableKaraokeToggle");
         UiTestActions.Find<ComboBox>(host, "SubtitleVisualStateInput").SelectedIndex = 2;
         var selector = UiTestActions.Find<ComboBox>(host, "SelectionStylePresetCombo");
         Assert.Equal(Guid.Empty, Assert.IsType<StylePresetListItem>(selector.SelectedItem).Id);

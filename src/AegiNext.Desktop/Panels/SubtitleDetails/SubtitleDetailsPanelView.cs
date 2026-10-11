@@ -41,7 +41,10 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
     private readonly TextBlock error = new() { Foreground = Brushes.IndianRed, TextWrapping = TextWrapping.Wrap };
     private readonly NumericDraftInput duration = TimingInput("KaraokeDurationInput");
     private readonly ComboBox kind = new() { Name = "KaraokeHighlightKindInput", Width = 200 };
-    private readonly ComboBox presets = new() { Name = "SelectionStylePresetCombo", Width = 200 };
+    private readonly ComboBox presets = new()
+    {
+        Name = "SelectionStylePresetCombo", Width = 120, Height = 32, VerticalAlignment = VerticalAlignment.Center
+    };
     private readonly FontFamilyPicker selectionFont = new() { Name = "SelectionFontInput", Width = 200, RestoreOnEscape = false, CommitOnLostFocus = false };
     private readonly ComboBox visualState = new() { Name = "SubtitleVisualStateInput" };
     private readonly DraftPopup clipPopup = new() { OverlayDismissEventPassThrough = true,
@@ -159,32 +162,13 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
         BuildStyleFields();
         styleToolbar.Children.Add(ToolbarSeparator("VisualStateSeparator"));
         styleToolbar.Children.Add(visualState);
-        var restore = Button("Workbench.RestoreDraft", "Reset", () =>
-        {
-            coordinator.Restore("All");
-            return Task.CompletedTask;
-        });
-        restore.Margin = new(0);
-        restore.Height = restore.MinHeight = 32;
-        restore.VerticalAlignment = VerticalAlignment.Center;
-        var toolbar = new Grid { Name = "SubtitleDetailsToolbar", ColumnDefinitions = new("*,Auto") };
+        var toolbar = new Grid { Name = "SubtitleDetailsToolbar" };
         toolbar.Children.Add(new ScrollViewer
         {
             Name = "SelectionToolbarScroll", Content = styleToolbar, Height = 32,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Hidden,
             VerticalScrollBarVisibility = ScrollBarVisibility.Disabled
         });
-        var actions = new StackPanel
-        {
-            Name = "SubtitleDetailsActions",
-            Orientation = Orientation.Horizontal,
-            Spacing = 8,
-            Margin = new(8, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Children = { enableKaraoke, restore }
-        };
-        Grid.SetColumn(actions, 1);
-        toolbar.Children.Add(actions);
         enableKaraoke.PropertyChanged += (_, e) =>
         {
             if (!synchronizing && e.Property == ToggleButton.IsCheckedProperty)
@@ -267,12 +251,12 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
             bodyOnlyFields.Add(button);
         }
         styleToolbar.Children.Add(ToolbarSeparator("SelectionActionSeparator"));
+        presets.Resources["ComboBoxThemeMinWidth"] = 0d;
+        presets.DisplayMemberBinding = new Binding("Name");
+        bindings.Add(presets.Bind(ToolTip.TipProperty, Localization.Observe("Workbench.StylePreset").ToBinding()));
+        bindings.Add(presets.Bind(AutomationProperties.NameProperty, Localization.Observe("Workbench.StylePreset").ToBinding()));
+        styleToolbar.Children.Add(presets);
         styleToolbar.Children.Add(SelectionAction("Workbench.ApplyToSelection", "ApplySelectionPreset", ApplyPresetAsync));
-        styleToolbar.Children.Add(SelectionAction("Workbench.ApplySelectionStyle", "ApplySelectionStyle", () =>
-        {
-            coordinator.TryCommit();
-            return Task.CompletedTask;
-        }));
         styleToolbar.Children.Add(SelectionAction("Workbench.ClearSelectionStyle", "ClearSelectionStyle", () =>
         {
             if (IsEditingVisualState)
@@ -314,8 +298,6 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
         styleFields.Children.Add(Field("Workbench.Shadow", StyleColor(nameof(SubtitleDetailsStyleDraft.Shadow), "SelectionShadowInput")));
         styleFields.Children.Add(ShadowOffset(null, "Selection"));
         styleFields.Children.Add(Field("Workbench.ShadowBlur", Number(null, nameof(SubtitleDetailsStyleDraft.ShadowBlurText), "SelectionShadowBlurInput", 0, 512)));
-        presets.DisplayMemberBinding = new Binding("Name");
-        styleFields.Children.Add(Field("Workbench.StylePreset", presets));
     }
 
     private ColorDraftInput StyleColor(string property, string name)
@@ -702,7 +684,6 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
             rich.SetSelection(selectionStart, selectionEnd);
             error.Text = coordinator.Error ?? rich.RenderDiagnostic;
             error.IsVisible = !string.IsNullOrEmpty(error.Text);
-            play.IsEnabled = line is not null && session.Controller.MediaInfo is not null;
             if (coordinator.IsPlaying != lastPlaybackState)
             {
                 play.Content = WorkbenchIcon.Create(coordinator.IsPlaying ? "Pause" : "Play");
@@ -711,8 +692,6 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
             ToolTip.SetTip(play, playbackHint);
             AutomationProperties.SetName(play, playbackHint);
             lastPlaybackState = coordinator.IsPlaying;
-            enableKaraoke.IsEnabled = line is { Text.Length: > 0 };
-            enableKaraoke.IsChecked = coordinator.IsKaraokeEnabled;
             axis.IsVisible = line is not null;
             visualState.IsEnabled = line is not null;
             visualState.ItemsSource = new SubtitleVisualStateChoice[]
@@ -736,6 +715,7 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
             var start = Math.Min(selectionStart, selectionEnd);
             var end = Math.Max(selectionStart, selectionEnd);
             styleFields.IsEnabled = line is not null && (IsEditingVisualState ? line.Text.Length > 0 : start != end);
+            presets.IsEnabled = styleFields.IsEnabled;
             foreach (var field in bodyOnlyFields)
             {
                 field.IsEnabled = line is not null && !IsEditingVisualState && selectionStart != selectionEnd;

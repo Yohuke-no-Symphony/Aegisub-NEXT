@@ -66,6 +66,9 @@ public sealed class NativeKaraokeDetailsUiTests
         Assert.Same(resetActions, timingActions.Children[^1]);
         Assert.Same(resetActions, reset.Parent);
         Assert.Equal(MaterialIconKind.BackupRestore, Assert.IsType<MaterialIcon>(reset.Content).Kind);
+        var restore = UiTestActions.Find<Button>(host, "RestoreCachedTimingButton");
+        Assert.NotEqual(Assert.IsType<MaterialIcon>(reset.Content).Kind, Assert.IsType<MaterialIcon>(restore.Content).Kind);
+        Assert.Equal(Localization.Get("Workbench.GenerateAllTiming"), ToolTip.GetTip(reset));
         var resetSeparator = UiTestActions.Find<Separator>(host, "KaraokeResetSeparator");
         Assert.Same(resetActions, resetSeparator.Parent);
         Assert.True(resetSeparator.Bounds.Right <= reset.Bounds.Left);
@@ -98,6 +101,7 @@ public sealed class NativeKaraokeDetailsUiTests
         var translatedLanguage = language == "zh-CN" ? "en-US" : "zh-CN";
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = translatedLanguage });
         Flush(host);
+        Assert.Equal(Localization.Get("Workbench.GenerateAllTiming"), ToolTip.GetTip(reset));
         Assert.Equal(1, appearance.SelectedIndex);
         var selected = Assert.IsType<SubtitleVisualStateChoice>(appearance.SelectedItem);
         Assert.Equal(Localization.Get("Workbench.VisualState.Inactive"), selected.Name);
@@ -411,7 +415,7 @@ public sealed class NativeKaraokeDetailsUiTests
     public async Task ManualCreationTimesOnlyTheSelectedCompleteGraphemeAndHasOneUndo()
     {
         await using var context = new MainWindowTestContext();
-        var original = Prepare(context);
+        var original = PrepareWithUntimedSelection(context);
         var host = await Open(context);
         UiTestActions.Find<RichSubtitleEditor>(host, "RichSubtitleInput").SetSelection(1, 3);
         Flush(host);
@@ -426,7 +430,10 @@ public sealed class NativeKaraokeDetailsUiTests
         UiTestActions.Find<Button>(content, "ConfirmCreateTimingButton").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
         Flush(host);
         Assert.False(popup.IsOpen);
-        var clip = Assert.Single(context.Session.Editor.Snapshot.Subtitles[0].Karaoke);
+        var clips = context.Session.Editor.Snapshot.Subtitles[0].Karaoke;
+        Assert.Equal(2, clips.Length);
+        Assert.Equal(original.Subtitles[0].Karaoke[0], clips[0]);
+        var clip = clips[1];
         Assert.Equal(1, clip.Utf16Start);
         Assert.Equal(2, clip.Utf16Length);
         Assert.Equal(new MediaTime(9, 4), clip.Start);
@@ -520,7 +527,7 @@ public sealed class NativeKaraokeDetailsUiTests
     public async Task InvalidManualTimingStaysOpenAndCancelLeavesNoUndo()
     {
         await using var context = new MainWindowTestContext();
-        var original = Prepare(context);
+        var original = PrepareWithUntimedSelection(context);
         var host = await Open(context);
         UiTestActions.Find<RichSubtitleEditor>(host, "RichSubtitleInput").SetSelection(1, 3);
         UiTestActions.Click(host, "CreateSelectedTimingButton");
@@ -542,6 +549,16 @@ public sealed class NativeKaraokeDetailsUiTests
         Assert.Null(context.Session.Details.Error);
         Assert.Same(original, context.Session.Editor.Snapshot);
         Assert.False(context.Session.Editor.CanUndo);
+    }
+
+    private static ProjectDocument PrepareWithUntimedSelection(MainWindowTestContext context)
+    {
+        var document = Prepare(context);
+        var line = document.Subtitles[0] with { Karaoke = [new(0, 1, new(0), new(1), SceneColor.White)] };
+        document = document with { Subtitles = [line] };
+        context.Session.Editor.Reset(document);
+        context.Session.SelectCue(line.Id);
+        return document;
     }
 
     private static ProjectDocument Prepare(MainWindowTestContext context, bool grouped = false)

@@ -140,12 +140,12 @@ internal sealed partial class SubtitleDetailsPanelView
         FlyoutBase.SetAttachedFlyout(axis, clipPopup);
         ConfigureTimingAction(createTiming, "Workbench.CreateSelectedTiming", "Add", BeginManualTiming);
         ConfigureTimingAction(generateTiming, "Workbench.GenerateAllTiming", "Reset", () => coordinator.GenerateAllTiming());
-        ConfigureTimingAction(restoreTiming, "Workbench.RestoreCachedTiming", "Restore", () => coordinator.RestoreCachedTiming());
+        ConfigureTimingAction(restoreTiming, "Workbench.RestoreCachedTiming", "RestoreCachedTiming", () => coordinator.RestoreCachedTiming());
         ConfigureTimingAction(splitTiming, "Workbench.SplitKaraokeGroup", "Split", () => coordinator.SplitSelectedGroup());
         ConfigureTimingAction(mergeTiming, "Workbench.MergeSelectedKaraokeGroups", "Merge", () => coordinator.MergeSelectedGroups(), false);
         ToolTip.SetShowOnDisabled(mergeTiming, true);
         ConfigureTimingAction(fitTiming, "Workbench.FitKaraokeAxis", "Timeline", () => axis.FitToContent());
-        foreach (var control in new Control[] { play, loop, snap, keepTimeLabels, linkedTiming })
+        foreach (var control in new Control[] { enableKaraoke, play, loop, snap, keepTimeLabels, linkedTiming })
         {
             control.Margin = new(0, 0, 6, 6);
         }
@@ -161,7 +161,7 @@ internal sealed partial class SubtitleDetailsPanelView
         {
             Name = "KaraokeTimingActions", Children =
             {
-                play, loop, snap, keepTimeLabels, linkedTiming,
+                enableKaraoke, play, loop, snap, keepTimeLabels, linkedTiming,
                 createTiming, restoreTiming, splitTiming, mergeTiming, fitTiming, resetActions
             }
         };
@@ -295,7 +295,14 @@ internal sealed partial class SubtitleDetailsPanelView
 
     private void RefreshTimingControls(SubtitleLine? line)
     {
-        if (creationBaseline is not null && (line != creationBaseline ||
+        var enabled = coordinator.IsKaraokeEnabled;
+        enableKaraoke.IsEnabled = line is { Text.Length: > 0 };
+        enableKaraoke.IsChecked = enabled;
+        play.IsEnabled = enabled && session.Controller.MediaInfo is not null;
+        loop.IsEnabled = snap.IsEnabled = keepTimeLabels.IsEnabled = enabled;
+        linkedTiming.IsEnabled = fitTiming.IsEnabled = enabled;
+        axis.IsEnabled = enabled;
+        if (creationBaseline is not null && (!enabled || line != creationBaseline ||
             Math.Min(selectionStart, selectionEnd) != creationSelectionStart ||
             Math.Abs(selectionStart - selectionEnd) != creationSelectionLength))
         {
@@ -308,22 +315,20 @@ internal sealed partial class SubtitleDetailsPanelView
         var clip = line?.Karaoke.FirstOrDefault(item => item.Id == coordinator.SelectedClipId);
         kind.ItemsSource = Enum.GetValues<KaraokeHighlightKind>().Select(value => Localization.Get("Workbench.KaraokeKind." + value)).ToArray();
         kind.SelectedIndex = clip is null ? -1 : (int)clip.HighlightKind;
-        kind.IsEnabled = duration.IsEnabled = startTime.IsEnabled = endTime.IsEnabled = clip is not null;
-        linkedTiming.IsEnabled = line is not null;
+        kind.IsEnabled = duration.IsEnabled = startTime.IsEnabled = endTime.IsEnabled = enabled && clip is not null;
         linkedTiming.IsChecked = coordinator.LinkedTimingEnabled;
         axis.IsTimingLinked = coordinator.LinkedTimingEnabled;
-        leadingDelayTime.IsEnabled = line is { Karaoke.IsEmpty: false };
-        createTiming.IsEnabled = line is not null && CanCreateTiming(line, Math.Min(selectionStart, selectionEnd), Math.Abs(selectionEnd - selectionStart));
-        generateTiming.IsEnabled = line is { Text.Length: > 0 };
+        leadingDelayTime.IsEnabled = enabled;
+        createTiming.IsEnabled = enabled && line is not null && CanCreateTiming(line, Math.Min(selectionStart, selectionEnd), Math.Abs(selectionEnd - selectionStart));
+        generateTiming.IsEnabled = enabled;
         restoreTiming.IsVisible = line is { InactiveKaraoke.IsEmpty: false };
-        restoreTiming.IsEnabled = line is { InactiveKaraoke.IsEmpty: false };
+        restoreTiming.IsEnabled = enabled && line is { InactiveKaraoke.IsEmpty: false };
         var boundaries = clip is null ? null : new SubtitleTextBoundaries(line!.Text);
-        splitTiming.IsEnabled = clip is not null && boundaries!.IndexOf(clip.Utf16Start + clip.Utf16Length) -
+        splitTiming.IsEnabled = enabled && clip is not null && boundaries!.IndexOf(clip.Utf16Start + clip.Utf16Length) -
             boundaries.IndexOf(clip.Utf16Start) > 1;
         var mergeReason = coordinator.MergeSelectionErrorKey;
-        mergeTiming.IsEnabled = mergeReason is null;
+        mergeTiming.IsEnabled = enabled && mergeReason is null;
         ToolTip.SetTip(mergeTiming, Localization.Get(mergeReason ?? "Workbench.MergeSelectedKaraokeGroupsHint"));
-        fitTiming.IsEnabled = line is not null;
         if (clip is null && clipPopup.IsOpen)
         {
             clipPopup.ForceClose();
