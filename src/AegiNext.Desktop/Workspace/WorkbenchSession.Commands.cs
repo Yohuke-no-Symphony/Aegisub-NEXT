@@ -74,12 +74,6 @@ internal sealed partial class WorkbenchSession
             return;
         }
 
-        var pausePlayback = command == WorkbenchCommand.PLAY_PAUSE && IsTransportPlaybackRequested;
-        if (command == WorkbenchCommand.PLAY_PAUSE)
-        {
-            CancelInteractiveSeeking();
-        }
-
         MediaTime? timingPosition = null;
         if (command is WorkbenchCommand.TIMING_ENTER or WorkbenchCommand.TIMING_EXIT)
         {
@@ -137,31 +131,7 @@ internal sealed partial class WorkbenchSession
                 case WorkbenchCommand.EXPORT_ASS: await workflow.ExportSubtitlesAsync(true); break;
                 case WorkbenchCommand.EXPORT_VIDEO: await export.EncodeAsync(); break;
                 case WorkbenchCommand.PLAY_PAUSE:
-                    ViewModel.Timeline.ResumePlaybackFollow();
-                    TryCommitDrafts(false);
-                    ViewModel.CancelGestures();
-                    ClearKeyframeSelection();
-                    var playbackSnapshot = controller.Snapshot;
-                    if (playbackSnapshot.AudioAuditionActive)
-                    {
-                        await controller.ClearPlaybackRangeAsync();
-                    }
-                    else if (pausePlayback)
-                    {
-                        await controller.PauseAsync();
-                    }
-                    else
-                    {
-                        if (playbackSnapshot.State == VideoPlaybackState.ENDED)
-                        {
-                            var mediaStart = playbackSnapshot.Start ?? MediaTime.Zero;
-                            var resumePosition = playbackSnapshot.PlaybackRangeInstalled &&
-                                (playbackSnapshot.Duration is not { } mediaDuration || playbackSnapshot.Position < mediaStart + mediaDuration)
-                                ? playbackSnapshot.Position : mediaStart;
-                            await SeekFromUserAsync(resumePosition);
-                        }
-                        await controller.PlayAsync();
-                    }
+                    await playback.TogglePlaybackAsync();
                     break;
                 case WorkbenchCommand.SEEK_BACKWARD: await SeekRelativeAsync(-5); break;
                 case WorkbenchCommand.SEEK_FORWARD: await SeekRelativeAsync(5); break;

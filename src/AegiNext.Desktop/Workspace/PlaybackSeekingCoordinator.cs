@@ -118,6 +118,41 @@ internal sealed class PlaybackSeekingCoordinator(WorkbenchSession session, Video
 
     internal MediaTime? PendingPosition { get; private set; }
 
+    internal Task TogglePlaybackAsync()
+    {
+        var pausePlayback = IsPlaybackRequested;
+        var target = interaction.Target ?? queuedTarget ?? PendingPosition;
+        Invalidate();
+        session.ViewModel.Timeline.ResumePlaybackFollow();
+        session.TryCommitDrafts(false);
+        session.ViewModel.CancelGestures();
+        session.ClearKeyframeSelection();
+
+        var snapshot = controller.Snapshot;
+        if (target is { } pendingTarget)
+        {
+            completingInteraction = true;
+            return SeekCoreAsync(pendingTarget, false, !pausePlayback, true);
+        }
+        if (snapshot.AudioAuditionActive)
+        {
+            return controller.ClearPlaybackRangeAsync();
+        }
+        if (pausePlayback)
+        {
+            return controller.PauseAsync();
+        }
+        if (snapshot.State == VideoPlaybackState.ENDED)
+        {
+            var mediaStart = snapshot.Start ?? MediaTime.Zero;
+            var resumePosition = snapshot.PlaybackRangeInstalled &&
+                (snapshot.Duration is not { } mediaDuration || snapshot.Position < mediaStart + mediaDuration)
+                ? snapshot.Position : mediaStart;
+            return SeekCoreAsync(resumePosition, false, true);
+        }
+        return controller.PlayAsync();
+    }
+
     internal void Invalidate()
     {
         if (IsInteractive)
