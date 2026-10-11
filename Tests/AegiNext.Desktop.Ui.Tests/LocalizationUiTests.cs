@@ -432,11 +432,11 @@ public sealed class LocalizationUiTests
         var cueID = cue.Id;
         var styleView = context.Window.Panels[WorkbenchPanelIds.STYLES];
         var effectsView = context.Window.Panels[WorkbenchPanelIds.EFFECTS];
-        var alignment = styleView.FindControl<SubtitleAlignmentPicker>("AlignmentPicker")!;
+        var alignment = UiTestActions.Find<SubtitleAlignmentPicker>(styleView, "AlignmentPicker");
         var blend = effectsView.FindControl<ComboBox>("BlendCombo")!;
         var interpolation = effectsView.FindControl<ComboBox>("InterpolationCombo")!;
         var number = effectsView.FindControl<NumericDraftInput>("RotationInput")!;
-        var color = styleView.FindControl<ColorDraftInput>("FillPicker")!;
+        var color = UiTestActions.Find<ColorDraftInput>(styleView, "FillPicker");
         context.ViewModel.Styles.Subtitle.CommitAlignment((int)TextAlignment.MIDDLE_CENTER);
         blend.SelectedIndex = (int)BlendMode.SCREEN;
         context.Session.Editor.SetKeyframe(cueID, AnimationProperty.ROTATION, new(new(1), 0));
