@@ -28,7 +28,8 @@ internal static class WorkbenchPreferencesMigration
         var processorCommands = commands.Where(command => command <= WorkbenchCommand.APPLY_TIMING_POST_PROCESSOR);
         var mergeCommands = commands.Where(command => command <= WorkbenchCommand.MERGE_PROJECT);
         var clipBoundaryCommands = commands.Where(command => command <= WorkbenchCommand.SEEK_CLIP_END);
-        if (!present.SetEquals(clipBoundaryCommands) && !present.SetEquals(mergeCommands) && !present.SetEquals(processorCommands) && !present.SetEquals(timingCommands) && !present.SetEquals(clipCommands) && !present.SetEquals(maskCommands) && !present.SetEquals(aboutCommands) && !present.SetEquals(legacy) && !present.SetEquals(previous) && !present.SetEquals(current) && !present.SetEquals(subtitleDetails) && !present.SetEquals(focusCommands) && !present.SetEquals(projectCommands))
+        var updateCommands = commands.Where(command => command <= WorkbenchCommand.CHECK_UPDATES);
+        if (!present.SetEquals(updateCommands) && !present.SetEquals(clipBoundaryCommands) && !present.SetEquals(mergeCommands) && !present.SetEquals(processorCommands) && !present.SetEquals(timingCommands) && !present.SetEquals(clipCommands) && !present.SetEquals(maskCommands) && !present.SetEquals(aboutCommands) && !present.SetEquals(legacy) && !present.SetEquals(previous) && !present.SetEquals(current) && !present.SetEquals(subtitleDetails) && !present.SetEquals(focusCommands) && !present.SetEquals(projectCommands))
         {
             return value;
         }

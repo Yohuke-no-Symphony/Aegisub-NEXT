@@ -8,10 +8,15 @@ namespace AegiNext.Application;
 public static class ProjectImageResources
 {
     /// <summary>准备一批托管或链接图片，目标工程在 CommitAsync 前保持不变。</summary>
+    public static Task<PreparedProjectImages> PrepareAsync(IReadOnlyList<ProjectImageImport> imports,
+        string projectDirectory, CancellationToken cancellationToken = default) => PrepareAsync(imports, projectDirectory, [], cancellationToken);
+
+    /// <summary>复用工程内已知内容的存储路径，避免不同文件名或扩展名造成重复文件。</summary>
     public static async Task<PreparedProjectImages> PrepareAsync(IReadOnlyList<ProjectImageImport> imports,
-        string projectDirectory, CancellationToken cancellationToken = default)
+        string projectDirectory, IReadOnlyList<ProjectAsset> knownAssets, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(imports);
+        ArgumentNullException.ThrowIfNull(knownAssets);
         ArgumentException.ThrowIfNullOrWhiteSpace(projectDirectory);
         cancellationToken.ThrowIfCancellationRequested();
         var destination = Path.GetFullPath(projectDirectory);
@@ -21,6 +26,16 @@ public static class ProjectImageResources
         {
             var assets = ImmutableArray.CreateBuilder<ProjectAsset>(imports.Count);
             var files = new Dictionary<string, ProjectMergeResourceFile>(StringComparer.Ordinal);
+            var contentPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var existing in knownAssets)
+            {
+                if (existing.Kind == ProjectAssetKind.IMAGE && existing.Storage == ProjectAssetStorage.MANAGED &&
+                    existing.Sha256 is { } digest && existing.RelativePath.StartsWith("sources/", StringComparison.Ordinal))
+                {
+                    ProjectValidator.ValidateRelativePath(existing.RelativePath);
+                    contentPaths.TryAdd(digest, existing.RelativePath);
+                }
+            }
             foreach (var request in imports)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -42,7 +57,8 @@ public static class ProjectImageResources
                     {
                         extension = ".bin";
                     }
-                    var relative = $"sources/{imported.Sha256}{extension}";
+                    var relative = contentPaths.GetValueOrDefault(imported.Sha256!) ?? $"sources/{imported.Sha256}{extension}";
+                    contentPaths.TryAdd(imported.Sha256!, relative);
                     var target = Path.Combine(staging, relative);
                     Directory.CreateDirectory(Path.GetDirectoryName(target)!);
                     if (!File.Exists(target))

@@ -30,6 +30,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
         Timeline = new(session);
         Subtitles = new(session);
         Styles = new(session);
+        Assets = new(session);
         Effects = new(session);
         Masks = new(session);
         Export = new(session);
@@ -53,6 +54,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
     public TimelinePanelViewModel Timeline { get; }
     public SubtitlesPanelViewModel Subtitles { get; }
     public StylesPanelViewModel Styles { get; }
+    public Panels.Assets.AssetsPanelViewModel Assets { get; }
     public EffectsPanelViewModel Effects { get; }
     public MaskPanelViewModel Masks { get; }
     public ExportPanelViewModel Export { get; }

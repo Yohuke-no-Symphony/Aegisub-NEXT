@@ -1,5 +1,6 @@
 using System.Reflection;
 using AegiNext.Desktop.Panels.Effects;
+using AegiNext.Desktop.Panels.Assets;
 using AegiNext.Desktop.Panels.Log;
 using AegiNext.Desktop.Panels.Export;
 using AegiNext.Desktop.Panels.Preview;
@@ -14,11 +15,11 @@ namespace AegiNext.Desktop.Tests.Workspace;
 public sealed class WorkspaceViewModelBoundaryTests
 {
     [Fact]
-    public void SevenFunctionalPanelModelsAndSharedSceneStateDoNotHoldControlsWindowsOrDockObjects()
+    public void FunctionalPanelModelsAndSharedSceneStateDoNotHoldControlsWindowsOrDockObjects()
     {
         foreach (var type in new[]
                  {
-                     typeof(WorkbenchViewModel), typeof(PreviewPanelViewModel), typeof(TimelinePanelViewModel),
+                     typeof(AssetsPanelViewModel), typeof(WorkbenchViewModel), typeof(PreviewPanelViewModel), typeof(TimelinePanelViewModel),
                      typeof(SubtitlesPanelViewModel), typeof(StylesPanelViewModel), typeof(SubtitleStyleViewModel), typeof(ImageStyleViewModel), typeof(ShapeStyleViewModel), typeof(EffectsPanelViewModel),
                      typeof(ExportPanelViewModel), typeof(LogPanelViewModel), typeof(SceneEditingState), typeof(ScenePreviewState)
                  })

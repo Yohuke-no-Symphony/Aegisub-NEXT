@@ -49,7 +49,7 @@ public sealed class WorkbenchLayoutsUiTests
         var restored = new WorkspaceLayoutSnapshot
         {
             Main = WorkspaceLayoutPresets.Tabs(1, "timeline", "subtitles", "styles", "effects", "export", "log"),
-            HiddenPanelIds = [WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.MASKS],
+            HiddenPanelIds = [WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.ASSETS],
             Floating = [new() { Content = WorkspaceLayoutPresets.Tabs(1, "preview"), X = 90, Y = 100,
                 Width = 620, Height = 420, Scaling = 1 }],
             FocusedPanelId = "preview"

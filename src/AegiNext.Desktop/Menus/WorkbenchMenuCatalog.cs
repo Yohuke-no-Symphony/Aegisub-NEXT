@@ -11,7 +11,7 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
     internal static readonly WorkbenchMenuGroup[] Groups =
     [
         new("File", [WorkbenchCommand.NEW_PROJECT, WorkbenchCommand.OPEN_PROJECT, WorkbenchCommand.MERGE_PROJECT,
-            WorkbenchCommand.OPEN_MEDIA, null,
+            WorkbenchCommand.OPEN_MEDIA, WorkbenchCommand.IMPORT_IMAGES, null,
             WorkbenchCommand.SAVE_PROJECT, WorkbenchCommand.SAVE_PROJECT_AS, null,
             WorkbenchCommand.EXPORT_VIDEO, null,
             WorkbenchCommand.CLOSE_PROJECT, WorkbenchCommand.EXIT]),
@@ -19,7 +19,7 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
             new("SRT", [WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.EXPORT_SUBTITLES])]),
         new("Edit", [WorkbenchCommand.UNDO, WorkbenchCommand.REDO, null, WorkbenchCommand.OPEN_SETTINGS]),
         new("View", [WorkbenchCommand.VIEW_PREVIEW, WorkbenchCommand.VIEW_TIMELINE, WorkbenchCommand.VIEW_SUBTITLES,
-            WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS, WorkbenchCommand.VIEW_MASKS, WorkbenchCommand.VIEW_EXPORT, WorkbenchCommand.VIEW_LOG]),
+            WorkbenchCommand.VIEW_ASSETS, WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS, WorkbenchCommand.VIEW_MASKS, WorkbenchCommand.VIEW_EXPORT, WorkbenchCommand.VIEW_LOG]),
         new("Layouts", [WorkbenchCommand.LAYOUT_SAVE, WorkbenchCommand.LAYOUT_SAVE_AS,
             WorkbenchCommand.LAYOUT_MANAGE, WorkbenchCommand.LAYOUT_RESTORE_DEFAULT]),
         new("Playback", [WorkbenchCommand.PLAY_PAUSE, WorkbenchCommand.SEEK_BACKWARD, WorkbenchCommand.SEEK_FORWARD]),

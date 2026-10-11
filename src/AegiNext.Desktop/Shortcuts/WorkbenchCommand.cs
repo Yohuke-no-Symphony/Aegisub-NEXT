@@ -54,5 +54,7 @@ public enum WorkbenchCommand
     MERGE_PROJECT,
     SEEK_CLIP_START,
     SEEK_CLIP_END,
-    CHECK_UPDATES
+    CHECK_UPDATES,
+    VIEW_ASSETS,
+    IMPORT_IMAGES
 }

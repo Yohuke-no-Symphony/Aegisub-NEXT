@@ -14,7 +14,7 @@ internal static class ShortcutSettingsSections
             WorkbenchCommand.NEW_PROJECT, WorkbenchCommand.OPEN_PROJECT, WorkbenchCommand.MERGE_PROJECT,
             WorkbenchCommand.CLOSE_PROJECT,
             WorkbenchCommand.SAVE_PROJECT, WorkbenchCommand.SAVE_PROJECT_AS, WorkbenchCommand.OPEN_MEDIA,
-            WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.IMPORT_ASS,
+            WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.IMPORT_ASS, WorkbenchCommand.IMPORT_IMAGES,
             WorkbenchCommand.EXPORT_SUBTITLES, WorkbenchCommand.EXPORT_ASS, WorkbenchCommand.EXPORT_VIDEO
         ]);
         AddSection("Settings.ShortcutSectionEditing",
@@ -39,7 +39,7 @@ internal static class ShortcutSettingsSections
         AddSection("Settings.ShortcutSectionPanelViews",
         [
             WorkbenchCommand.VIEW_SUBTITLES, WorkbenchCommand.VIEW_TIMELINE, WorkbenchCommand.VIEW_PREVIEW,
-            WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS, WorkbenchCommand.VIEW_MASKS,
+            WorkbenchCommand.VIEW_ASSETS, WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS, WorkbenchCommand.VIEW_MASKS,
             WorkbenchCommand.VIEW_EXPORT, WorkbenchCommand.VIEW_LOG
         ]);
         AddSection("Settings.ShortcutSectionLayouts",

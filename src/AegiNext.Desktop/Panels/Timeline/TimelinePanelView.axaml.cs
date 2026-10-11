@@ -52,6 +52,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         AvaloniaXamlLoader.Load(this);
         DataContext = viewModel;
         timeline = this.FindControl<SubtitleTimelineControl>("Timeline")!;
+        InitializeAssetDrop();
         timeline.SetAudioGraphPalette(session.Preferences.AudioGraph);
         timeline.SetAudioAnalysisDisplay(session.Preferences.AudioAnalysis.Display);
         timeline.SetClipPalette(session.Preferences.TimelineClips);
@@ -188,7 +189,8 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
                 WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE => session.CanAuditionSubtitle && !timeline.HasActiveDrag,
             WorkbenchCommand.END_TEXT_INPUT => timeline.HasActiveDrag,
             WorkbenchCommand.COPY_CLIPS or WorkbenchCommand.DELETE_SUBTITLE => viewModel.CanCopyClips,
-            WorkbenchCommand.PASTE_CLIPS => viewModel.CanPasteClips && timeline.GetClipPasteTarget() is not null,
+            WorkbenchCommand.PASTE_CLIPS => !session.IsProjectBusy && timeline.GetClipPasteTarget() is not null &&
+                (viewModel.CanPasteClips || TopLevel.GetTopLevel(this)?.Clipboard is not null),
             _ => false
         };
     }
@@ -214,6 +216,13 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
                 _ = viewModel.CopySelectedClipsAsync();
                 break;
             case WorkbenchCommand.PASTE_CLIPS:
+                if (!viewModel.CanPasteClips)
+                {
+                    var placement = timeline.GetClipPasteTarget()!;
+                    _ = session.RunCommandAsync(() => session.Assets.PasteAsync(TopLevel.GetTopLevel(this)!.Clipboard!,
+                        true, time: placement.Time, trackId: placement.TrackId));
+                    break;
+                }
                 if (timeline.GetClipPasteTarget() is not { } target)
                 {
                     return false;

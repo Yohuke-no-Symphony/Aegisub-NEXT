@@ -585,6 +585,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         Localization.LanguageChanged -= OnLanguageChanged;
         Details.Changed -= OnSubtitleDetailsChanged;
         Details.Dispose();
+        ViewModel.Assets.Dispose();
         ClearInspectorPreview();
         editor.StateChanged -= OnEditorStateChanged;
         playback.Invalidate();

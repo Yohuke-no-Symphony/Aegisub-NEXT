@@ -15,6 +15,13 @@ public sealed partial class SubtitleTimelineControl
             ? ClipPasteTargetAt(point, modifiers) : null;
     }
 
+    /// <summary>将素材拖放位置投影到实际轨道与量化时间。</summary>
+    public TimelineClipContextEventArgs? GetClipPlacementTarget(Point point, KeyModifiers modifiers = KeyModifiers.None)
+    {
+        return !clipPasteDisposed && VisualRoot is not null && IsEffectivelyVisible && !HasActiveDrag
+            ? ClipPasteTargetAt(point, modifiers) : null;
+    }
+
     /// <inheritdoc />
     protected override void OnPointerEntered(PointerEventArgs e)
     {

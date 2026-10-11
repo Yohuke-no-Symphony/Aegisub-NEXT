@@ -12,7 +12,7 @@ internal static class WorkspaceLayoutPresets
         Main = Split("vertical", 1,
             Split("horizontal", 0.58,
                 Tabs(0.75, WorkbenchPanelIds.PREVIEW),
-                Tabs(0.25, WorkbenchPanelIds.STYLES, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.EXPORT)),
+                Tabs(0.25, WorkbenchPanelIds.STYLES, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.EXPORT, WorkbenchPanelIds.ASSETS)),
             Tabs(0.19, WorkbenchPanelIds.TIMELINE),
             Tabs(0.23, WorkbenchPanelIds.SUBTITLES, WorkbenchPanelIds.LOG)),
         HiddenPanelIds = [WorkbenchPanelIds.SUBTITLE_DETAILS],
@@ -27,13 +27,13 @@ internal static class WorkspaceLayoutPresets
             Main = Split("vertical", 1,
                 Split("horizontal", 0.7, Tabs(0.58, WorkbenchPanelIds.PREVIEW), Tabs(0.42, WorkbenchPanelIds.SUBTITLES)),
                 Tabs(0.3, WorkbenchPanelIds.TIMELINE, WorkbenchPanelIds.LOG)),
-            HiddenPanelIds = [WorkbenchPanelIds.STYLES, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.EXPORT, WorkbenchPanelIds.SUBTITLE_DETAILS],
+            HiddenPanelIds = [WorkbenchPanelIds.STYLES, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.EXPORT, WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.ASSETS],
             FocusedPanelId = WorkbenchPanelIds.SUBTITLES
         }),
         new(EFFECTS, EFFECTS, true, new()
         {
             Main = Split("vertical", 1,
-                Split("horizontal", 0.72, Tabs(0.66, WorkbenchPanelIds.PREVIEW), Tabs(0.34, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.STYLES)),
+                Split("horizontal", 0.72, Tabs(0.66, WorkbenchPanelIds.PREVIEW), Tabs(0.34, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.STYLES, WorkbenchPanelIds.ASSETS)),
                 Tabs(0.28, WorkbenchPanelIds.TIMELINE, WorkbenchPanelIds.LOG)),
             HiddenPanelIds = [WorkbenchPanelIds.SUBTITLES, WorkbenchPanelIds.EXPORT, WorkbenchPanelIds.SUBTITLE_DETAILS],
             FocusedPanelId = WorkbenchPanelIds.EFFECTS
@@ -41,7 +41,7 @@ internal static class WorkspaceLayoutPresets
         new(ENCODE, ENCODE, true, new()
         {
             Main = Split("horizontal", 1, Tabs(0.66, WorkbenchPanelIds.PREVIEW), Tabs(0.34, WorkbenchPanelIds.EXPORT, WorkbenchPanelIds.LOG)),
-            HiddenPanelIds = [WorkbenchPanelIds.SUBTITLES, WorkbenchPanelIds.STYLES, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.TIMELINE, WorkbenchPanelIds.SUBTITLE_DETAILS],
+            HiddenPanelIds = [WorkbenchPanelIds.SUBTITLES, WorkbenchPanelIds.STYLES, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.TIMELINE, WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.ASSETS],
             FocusedPanelId = WorkbenchPanelIds.EXPORT
         })
     ];

@@ -34,11 +34,11 @@ public sealed class WorkspaceLayoutMigrationTests
             var restored = store.Load();
             Assert.Null(store.LoadError);
             Assert.Null(store.DiagnosticPath);
-            Assert.Equal(4, restored.Version);
+            Assert.Equal(WorkspaceLayoutSnapshot.CURRENT_VERSION, restored.Version);
             Assert.Equal(file.CurrentPresetId, restored.CurrentPresetId);
             Assert.Equal(JsonSerializer.Serialize(legacy.Main), JsonSerializer.Serialize(restored.Current.Main));
             Assert.Equal(JsonSerializer.Serialize(legacy.Floating), JsonSerializer.Serialize(restored.Current.Floating));
-            Assert.Equal<string>(["export", "log", "subtitleDetails", "masks"], restored.Current.HiddenPanelIds);
+            Assert.Equal<string>(["export", "log", "subtitleDetails", "masks", "assets"], restored.Current.HiddenPanelIds);
             Assert.Equal("effects", restored.Current.FocusedPanelId);
             Assert.Equal(file.Presets.Select(preset => preset.Name), restored.Presets.Select(preset => preset.Name));
             Assert.All(restored.Presets, preset =>
@@ -69,14 +69,35 @@ public sealed class WorkspaceLayoutMigrationTests
         var file = new WorkspaceLayoutFile { Version = 3, Current = legacy, CurrentPresetId = "personal",
             Presets = [new("personal", "布局 123", false, legacy)] };
         var restored = WorkspaceLayoutMigration.Upgrade(file);
-        Assert.Equal(4, restored.Version);
+        Assert.Equal(WorkspaceLayoutSnapshot.CURRENT_VERSION, restored.Version);
         Assert.Equal(JsonSerializer.Serialize(legacy.Main), JsonSerializer.Serialize(restored.Current.Main));
         Assert.Equal(JsonSerializer.Serialize(legacy.Floating), JsonSerializer.Serialize(restored.Current.Floating));
-        Assert.Equal<string>(["log", "subtitleDetails", "masks"], restored.Current.HiddenPanelIds);
+        Assert.Equal<string>(["log", "subtitleDetails", "masks", "assets"], restored.Current.HiddenPanelIds);
         Assert.Equal("effects", restored.Current.FocusedPanelId);
         Assert.Equal("布局 123", Assert.Single(restored.Presets).Name);
         WorkspaceLayoutValidator.Validate(restored.Current);
         Assert.Contains("masks", restored.Presets[0].Layout.HiddenPanelIds);
+    }
+
+    [Fact]
+    public void VersionFourCustomLayoutKeepsItsDockingAndAddsOnlyHiddenAssets()
+    {
+        var legacy = new WorkspaceLayoutSnapshot
+        {
+            Version = 4,
+            Main = WorkspaceLayoutPresets.Tabs(1, "preview", "timeline", "styles", "subtitles", "masks"),
+            Floating = [new() { X = -300, Y = 80, Width = 700, Height = 500, Scaling = 2,
+                Content = WorkspaceLayoutPresets.Tabs(1, "effects", "export") }],
+            HiddenPanelIds = ["log", "subtitleDetails"], FocusedPanelId = "masks"
+        };
+        var restored = WorkspaceLayoutMigration.Upgrade(new() { Version = 4, Current = legacy, CurrentPresetId = "personal",
+            Presets = [new("personal", "Personal", false, legacy)] });
+        Assert.Same(legacy.Main, restored.Current.Main);
+        Assert.Same(legacy.Floating, restored.Current.Floating);
+        Assert.Equal<string>(["log", "subtitleDetails", "assets"], restored.Current.HiddenPanelIds);
+        Assert.Equal("masks", restored.Current.FocusedPanelId);
+        WorkspaceLayoutValidator.Validate(restored.Current);
+        WorkspaceLayoutValidator.Validate(restored.Presets[0].Layout);
     }
 
     [Fact]

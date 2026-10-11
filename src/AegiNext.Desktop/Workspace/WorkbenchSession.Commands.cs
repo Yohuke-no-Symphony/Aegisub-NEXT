@@ -130,6 +130,7 @@ internal sealed partial class WorkbenchSession
                         await workflow.OpenMediaAsync(path, true);
                     }
                     break;
+                case WorkbenchCommand.IMPORT_IMAGES: await Assets.PickImportAsync(false, ViewModel.Assets.SelectedFolder?.Id); break;
                 case WorkbenchCommand.IMPORT_SUBTITLES: await workflow.ImportSubtitlesAsync(); break;
                 case WorkbenchCommand.EXPORT_SUBTITLES: await workflow.ExportSubtitlesAsync(); break;
                 case WorkbenchCommand.IMPORT_ASS: await workflow.ImportSubtitlesAsync(true); break;

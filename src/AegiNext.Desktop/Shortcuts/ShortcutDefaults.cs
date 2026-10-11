@@ -61,7 +61,9 @@ public static class ShortcutDefaults
             new(WorkbenchCommand.MERGE_PROJECT, ""),
             new(WorkbenchCommand.SEEK_CLIP_START, "Shift+Q"),
             new(WorkbenchCommand.SEEK_CLIP_END, "Shift+W"),
-            new(WorkbenchCommand.CHECK_UPDATES, "")
+            new(WorkbenchCommand.CHECK_UPDATES, ""),
+            new(WorkbenchCommand.VIEW_ASSETS, ""),
+            new(WorkbenchCommand.IMPORT_IMAGES, "")
         ];
     }
 }
