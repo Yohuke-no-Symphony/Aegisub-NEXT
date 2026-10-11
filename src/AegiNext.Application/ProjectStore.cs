@@ -171,7 +171,10 @@ public static class ProjectStore
 
         var content = JsonNode.Parse(root.GetRawText(), documentOptions: documentOptions)!.AsObject();
         GraphicAssetJsonMigration.Upgrade(content);
-        SubtitleAnimationJsonMigration.RejectScopedTransformFields(content);
+        if (number < 13)
+        {
+            SubtitleAnimationJsonMigration.RejectScopedTransformFields(content);
+        }
         if (number < 12)
         {
             SubtitleAnimationJsonMigration.RejectUndeclaredFields(content);
@@ -220,7 +223,7 @@ public static class ProjectStore
                     property.IsRequired = (property.Get is not null || property.Set is not null) &&
                         !(info.Type == typeof(ProjectDocument) && property.Name == "timelineViewState") &&
                         !(info.Type == typeof(ProjectDocument) && property.Name == "colorTags") &&
-                        !(info.Type == typeof(TimelineViewState) && property.Name == "collapsedTrackIds") &&
+                        !(info.Type == typeof(TimelineViewState) && property.Name is "collapsedTrackIds" or "collapsedAnimationRows" or "expandedAnimationClips") &&
                         !(info.Type == typeof(SubtitleStyle) && property.Name is "fontVariant" or "textAlign") &&
                         !(info.Type == typeof(SubtitleFontVariant) && property.Name == "postScriptName") &&
                         !(info.Type == typeof(SubtitleInlineStyleOverride) && property.Name is "fontVariant" or "clearFontVariant") &&
@@ -237,6 +240,10 @@ public static class ProjectStore
                     if (info.Type == typeof(SubtitleLine) && property.Name == "inactiveKaraoke")
                     {
                         property.ShouldSerialize = static (instance, _) => !((SubtitleLine)instance).InactiveKaraoke.IsEmpty;
+                    }
+                    if (info.Type == typeof(TimelineViewState) && property.Name == "collapsedAnimationRows")
+                    {
+                        property.ShouldSerialize = static (_, _) => false;
                     }
                     if (info.Type == typeof(SubtitleLine) && property.Name == "animationRanges")
                     {

@@ -166,6 +166,7 @@ public sealed class FlatClipMigrationTests
             }
         };
         var root = JsonNode.Parse(ProjectStore.Serialize(document))!.AsObject();
+        LegacyProjectJsonFixture.AddAnimationRows(root, document.TimelineViewState.CollapsedAnimationRows);
         LegacyProjectJsonFixture.Downgrade(root, version);
         var layers = root["layers"]!.AsArray();
         var group = layers[0]!.DeepClone().AsObject();

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Nodes;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 
@@ -82,18 +83,25 @@ public sealed class ProjectStoreTests
     }
 
     [Fact]
-    public void CollapsedWholeLineAnimationRowRoundTripPreservesDefaultTargetFields()
+    public void LegacyCollapsedAnimationRowsRemainReadableButAreNotWrittenOrExpanded()
     {
         var editor = new ProjectEditor();
         var subtitleId = editor.AddSubtitle(new(0), new(4), "Collapsed animation");
         editor.SetKeyframe(subtitleId, AnimationProperty.OPACITY, new(new(0), 0.25));
         var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, editor.Snapshot.Tracks[0].Id, AnimationProperty.OPACITY);
-        var document = editor.Snapshot with { TimelineViewState = new() { CollapsedAnimationRows = [row] } };
+        var root = JsonNode.Parse(ProjectStore.Serialize(editor.Snapshot))!.AsObject();
+        root["timelineViewState"]!.AsObject().Remove("expandedAnimationClips");
+        LegacyProjectJsonFixture.AddAnimationRows(root, [row]);
 
-        var loaded = ProjectStore.Deserialize(ProjectStore.Serialize(document));
+        var loaded = ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString()));
 
         Assert.Equal(row, Assert.Single(loaded.TimelineViewState.CollapsedAnimationRows));
-        Assert.Equal(ProjectStore.Serialize(document), ProjectStore.Serialize(loaded));
+        Assert.Empty(loaded.TimelineViewState.ExpandedAnimationClips);
+        var saved = JsonNode.Parse(ProjectStore.Serialize(loaded))!.AsObject();
+        Assert.False(saved["timelineViewState"]!.AsObject().ContainsKey("collapsedAnimationRows"));
+        var reopened = ProjectStore.Deserialize(ProjectStore.Serialize(loaded));
+        Assert.Empty(reopened.TimelineViewState.CollapsedAnimationRows);
+        Assert.Empty(reopened.TimelineViewState.ExpandedAnimationClips);
     }
 
     [Fact]

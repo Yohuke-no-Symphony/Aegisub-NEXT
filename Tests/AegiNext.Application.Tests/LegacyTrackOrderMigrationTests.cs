@@ -224,6 +224,7 @@ public sealed class LegacyTrackOrderMigrationTests
             }
         };
         var root = JsonNode.Parse(ProjectStore.Serialize(document))!.AsObject();
+        LegacyProjectJsonFixture.AddAnimationRows(root, document.TimelineViewState.CollapsedAnimationRows);
         LegacyProjectJsonFixture.Downgrade(root, version);
         return (root, document);
     }

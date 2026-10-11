@@ -30,6 +30,16 @@ internal static class LegacyProjectJsonFixture
         }
     }
 
+    internal static void AddAnimationRows(JsonObject root, IEnumerable<TimelineAnimationRowId> rows)
+    {
+        root["timelineViewState"]!["collapsedAnimationRows"] = new JsonArray(rows.Select(row => (JsonNode)new JsonObject
+        {
+            ["scope"] = row.Scope.ToString(),
+            ["ownerId"] = row.OwnerId,
+            ["property"] = row.Property.ToString()
+        }).ToArray());
+    }
+
     private static void DowngradeAnimationTracks(JsonNode? node)
     {
         if (node is JsonObject value)

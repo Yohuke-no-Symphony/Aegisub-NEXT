@@ -13,7 +13,7 @@ public sealed class TimelineTrackCollapsePersistenceTests
         var sceneTrack = new ProjectTrack { Name = "Shape" };
         var scene = new ProjectLayer { TrackId = sceneTrack.Id, Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 40, 20) };
         var dormant = Guid.NewGuid();
-        var row = new TimelineAnimationRowId(TimelineRowScope.TRACK, sceneTrack.Id, AnimationProperty.OPACITY);
+        var effect = new TimelineEffectClipId(scene.Id, new(AnimationProperty.OPACITY));
         var document = new ProjectDocument
         {
             Tracks = [ProjectTrack.Default, sceneTrack],
@@ -21,7 +21,7 @@ public sealed class TimelineTrackCollapsePersistenceTests
             TimelineViewState = new()
             {
                 CollapsedTrackIds = [ProjectTrack.DEFAULT_TRACK_ID, sceneTrack.Id, dormant],
-                CollapsedAnimationRows = [row]
+                ExpandedAnimationClips = [effect]
             }
         };
         var path = Path.Combine(directory.Path, "overall-collapse.aeginext");
@@ -30,7 +30,7 @@ public sealed class TimelineTrackCollapsePersistenceTests
         var loaded = await ProjectStore.LoadAsync(path);
 
         Assert.Equal(document.TimelineViewState.CollapsedTrackIds.ToArray(), loaded.TimelineViewState.CollapsedTrackIds.ToArray());
-        Assert.Equal(document.TimelineViewState.CollapsedAnimationRows.ToArray(), loaded.TimelineViewState.CollapsedAnimationRows.ToArray());
+        Assert.Equal(document.TimelineViewState.ExpandedAnimationClips.ToArray(), loaded.TimelineViewState.ExpandedAnimationClips.ToArray());
         Assert.Equal(ProjectStore.Serialize(document), ProjectStore.Serialize(loaded));
     }
 
@@ -43,6 +43,7 @@ public sealed class TimelineTrackCollapsePersistenceTests
         {
             TimelineViewState = new() { CollapsedAnimationRows = [row] }
         }))!.AsObject();
+        LegacyProjectJsonFixture.AddAnimationRows(root, [row]);
         Assert.True(root["timelineViewState"]!.AsObject().Remove("collapsedTrackIds"));
 
         var loaded = ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString()));
@@ -50,6 +51,7 @@ public sealed class TimelineTrackCollapsePersistenceTests
         Assert.False(loaded.TimelineViewState.CollapsedTrackIds.IsDefault);
         Assert.Empty(loaded.TimelineViewState.CollapsedTrackIds);
         Assert.Equal(row, Assert.Single(loaded.TimelineViewState.CollapsedAnimationRows));
+        Assert.Empty(loaded.TimelineViewState.ExpandedAnimationClips);
     }
 
     [Theory]

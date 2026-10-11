@@ -5,16 +5,35 @@ namespace AegiNext.Core.Projects;
 /// <summary>随工程保存的时间轴视图状态，不参与字幕或特效内容的撤销历史。</summary>
 public sealed record TimelineViewState
 {
-    private const int MAXIMUM_COLLAPSED_ROWS = 100000;
+    private const int MAXIMUM_VIEW_IDENTITIES = 100000;
 
+    /// <summary>独立展开的特效块；默认全部收起，暂时不存在的目标允许保留。</summary>
+    public ImmutableArray<TimelineEffectClipId> ExpandedAnimationClips { get; init; } = [];
+    /// <summary>仅用于读取旧工程的属性行折叠状态。</summary>
     public ImmutableArray<TimelineAnimationRowId> CollapsedAnimationRows { get; init; } = [];
     /// <summary>整体折叠的字幕轨道、场景层及组身份；暂时不存在的身份允许保留。</summary>
     public ImmutableArray<Guid> CollapsedTrackIds { get; init; } = [];
 
-    /// <summary>验证行身份与集合预算；暂时不存在的所属实体或属性允许保留。</summary>
+    /// <summary>验证视图身份与集合预算；暂时不存在的所属实体或属性允许保留。</summary>
     public void Validate()
     {
-        if (CollapsedTrackIds.IsDefault || CollapsedTrackIds.Length > MAXIMUM_COLLAPSED_ROWS)
+        if (ExpandedAnimationClips.IsDefault || ExpandedAnimationClips.Length > MAXIMUM_VIEW_IDENTITIES)
+        {
+            throw new InvalidDataException("时间轴展开特效块集合无效或过大。");
+        }
+
+        var effectIdentities = new HashSet<TimelineEffectClipId>();
+        foreach (var clip in ExpandedAnimationClips)
+        {
+            if (clip is null || clip.LayerId == Guid.Empty || !effectIdentities.Add(clip))
+            {
+                throw new InvalidDataException("时间轴展开特效块身份无效或重复。");
+            }
+
+            SubtitleAnimationTargetValidation.ValidateIdentity(clip.Target);
+        }
+
+        if (CollapsedTrackIds.IsDefault || CollapsedTrackIds.Length > MAXIMUM_VIEW_IDENTITIES)
         {
             throw new InvalidDataException("时间轴整体折叠轨道集合无效或过大。");
         }
@@ -28,7 +47,7 @@ public sealed record TimelineViewState
             }
         }
 
-        if (CollapsedAnimationRows.IsDefault || CollapsedAnimationRows.Length > MAXIMUM_COLLAPSED_ROWS)
+        if (CollapsedAnimationRows.IsDefault || CollapsedAnimationRows.Length > MAXIMUM_VIEW_IDENTITIES)
         {
             throw new InvalidDataException("时间轴折叠行集合无效或过大。");
         }
