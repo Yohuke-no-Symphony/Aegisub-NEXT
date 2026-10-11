@@ -53,7 +53,7 @@ public sealed partial class SubtitleTimelineControl
     public Rect? GetTrackSoloToggleRectangle(Guid trackId)
     {
         return rows.FirstOrDefault(row => row.TrackId == trackId) is { } row
-            ? GetTrackSoloToggleRectangle(row, RowY(row)) : null;
+            ? GetTrackSoloToggleRectangle(row, TrackHeaderContentY(row)) : null;
     }
 
     private void InitializeTrackSolo()
@@ -79,7 +79,7 @@ public sealed partial class SubtitleTimelineControl
     private void UpdateTrackSoloHover(Point point)
     {
         var row = RowAt(point.Y);
-        var id = row?.TrackId is { } track && GetTrackSoloToggleRectangle(row, RowY(row)) is { } toggle &&
+        var id = row?.TrackId is { } track && GetTrackSoloToggleRectangle(row, TrackHeaderContentY(row)) is { } toggle &&
             toggle.Contains(point) ? track : (Guid?)null;
         var previous = hoveredSoloTrack;
         if (previous != id)
@@ -110,7 +110,7 @@ public sealed partial class SubtitleTimelineControl
     {
         var row = RowAt(point.Y);
         if (point.Y < RulerHeight || row?.TrackId is not { } track ||
-            GetTrackSoloToggleRectangle(row, RowY(row)) is not { } toggle || !toggle.Contains(point))
+            GetTrackSoloToggleRectangle(row, TrackHeaderContentY(row)) is not { } toggle || !toggle.Contains(point))
         {
             return false;
         }

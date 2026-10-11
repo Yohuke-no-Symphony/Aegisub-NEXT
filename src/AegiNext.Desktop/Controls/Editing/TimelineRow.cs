@@ -8,6 +8,7 @@ internal sealed record TimelineRow(Guid TrackId, string Name, IReadOnlyList<Proj
     string? StylePresetName = null, bool AutoApplyStyle = true)
 {
     private const double STYLE_BADGE_GAP = 2;
+    internal double HeaderContentHeight => Height - CurveHeight;
     internal double CurveHeight => Effects.Height;
     internal Rect? StyleBadgeRectangle(double rowY, double headerWidth) => StylePresetName is null
         ? null : new Rect(26, ExpanderRectangle(rowY).Bottom + STYLE_BADGE_GAP,

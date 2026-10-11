@@ -335,15 +335,16 @@ public sealed partial class SubtitleTimelineControl
                 context.DrawRectangle(row.TrackId == selectedTrack && selectedTrack.HasValue
                         ? drawingPalette.SelectedTrack : drawingPalette.Track, null,
                     new(0, y, HeaderWidth, row.Height));
-                DrawExpander(context, TimelineRow.ExpanderRectangle(y), row.IsCollapsed);
+                var headerY = TrackHeaderContentY(row);
+                DrawExpander(context, TimelineRow.ExpanderRectangle(headerY), row.IsCollapsed);
 
-                var nameRectangle = GetTrackHeaderNameRectangle(row, y);
+                var nameRectangle = GetTrackHeaderNameRectangle(row, headerY);
                 using (context.PushClip(nameRectangle))
                 {
                     DrawCenteredText(context, row.Name, nameRectangle, foreground, 11);
                 }
-                DrawTrackSoloToggle(context, row, y);
-                if (row.StyleBadgeRectangle(y, HeaderWidth) is { } badge)
+                DrawTrackSoloToggle(context, row, headerY);
+                if (row.StyleBadgeRectangle(headerY, HeaderWidth) is { } badge)
                 {
                     using (context.PushOpacity(row.AutoApplyStyle ? 1 : 0.5))
                     {

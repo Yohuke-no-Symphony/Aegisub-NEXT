@@ -1444,7 +1444,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     public Rect? GetTrackStyleBadgeRectangle(Guid trackId)
     {
         return rows.FirstOrDefault(row => row.TrackId == trackId) is { } row
-            ? row.StyleBadgeRectangle(RowY(row), HeaderWidth) : null;
+            ? row.StyleBadgeRectangle(TrackHeaderContentY(row), HeaderWidth) : null;
     }
 
     /// <summary>取得轨道的紧凑显示状态。</summary>
@@ -1610,6 +1610,13 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     }
 
     private double RowY(TimelineRow row) => RulerHeight + row.Top - viewport.VerticalOffset;
+    private double TrackHeaderContentY(TimelineRow row)
+    {
+        var top = RowY(row);
+        return Bounds.Height - RulerHeight < row.HeaderContentHeight
+            ? top : Math.Min(Math.Max(top, RulerHeight), top + row.Height - row.HeaderContentHeight);
+    }
+
     private TimelineRow? RowAt(double y) => y < RulerHeight ? null : rows.FirstOrDefault(row => y >= RowY(row) && y < RowY(row) + row.Height);
 
     private Rect ClipRectangle(ProjectLayer layer, TimelineRow row)
