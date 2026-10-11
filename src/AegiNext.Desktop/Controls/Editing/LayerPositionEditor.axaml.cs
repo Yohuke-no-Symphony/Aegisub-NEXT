@@ -12,24 +12,26 @@ using Avalonia.VisualTree;
 namespace AegiNext.Desktop.Controls;
 
 /// <summary>共享位置草稿的可复用视图；位置语义和持久化由所属面板承担。</summary>
-public sealed partial class SubtitlePositionEditor : UserControl
+public sealed partial class LayerPositionEditor : UserControl
 {
-    public static readonly StyledProperty<SubtitlePositionDraft?> DraftProperty =
-        AvaloniaProperty.Register<SubtitlePositionEditor, SubtitlePositionDraft?>(nameof(Draft));
+    public static readonly StyledProperty<LayerPositionDraft?> DraftProperty =
+        AvaloniaProperty.Register<LayerPositionEditor, LayerPositionDraft?>(nameof(Draft));
     public static readonly StyledProperty<bool> ShowMarginsProperty =
-        AvaloniaProperty.Register<SubtitlePositionEditor, bool>(nameof(ShowMargins));
+        AvaloniaProperty.Register<LayerPositionEditor, bool>(nameof(ShowMargins));
     public static readonly StyledProperty<SubtitleMargins?> MarginsProperty =
-        AvaloniaProperty.Register<SubtitlePositionEditor, SubtitleMargins?>(nameof(Margins));
+        AvaloniaProperty.Register<LayerPositionEditor, SubtitleMargins?>(nameof(Margins));
     public static readonly StyledProperty<int> AlignmentProperty =
-        AvaloniaProperty.Register<SubtitlePositionEditor, int>(nameof(Alignment), 7);
+        AvaloniaProperty.Register<LayerPositionEditor, int>(nameof(Alignment), 7);
     public static readonly StyledProperty<int> CanvasWidthProperty =
-        AvaloniaProperty.Register<SubtitlePositionEditor, int>(nameof(CanvasWidth), 1920);
+        AvaloniaProperty.Register<LayerPositionEditor, int>(nameof(CanvasWidth), 1920);
     public static readonly StyledProperty<int> CanvasHeightProperty =
-        AvaloniaProperty.Register<SubtitlePositionEditor, int>(nameof(CanvasHeight), 1080);
+        AvaloniaProperty.Register<LayerPositionEditor, int>(nameof(CanvasHeight), 1080);
     public static readonly StyledProperty<bool> ShowAutomaticPositionActionProperty =
-        AvaloniaProperty.Register<SubtitlePositionEditor, bool>(nameof(ShowAutomaticPositionAction), true);
+        AvaloniaProperty.Register<LayerPositionEditor, bool>(nameof(ShowAutomaticPositionAction), true);
+    public static readonly StyledProperty<bool> ShowPositionModeProperty =
+        AvaloniaProperty.Register<LayerPositionEditor, bool>(nameof(ShowPositionMode), true);
 
-    public SubtitlePositionDraft? Draft
+    public LayerPositionDraft? Draft
     {
         get => GetValue(DraftProperty);
         set => SetValue(DraftProperty, value);
@@ -67,7 +69,14 @@ public sealed partial class SubtitlePositionEditor : UserControl
         set => SetValue(ShowAutomaticPositionActionProperty, value);
     }
 
-    private SubtitlePositionDraft? model;
+    /// <summary>字幕可选择自动布局；图片和绘图直接使用共享位置字段。</summary>
+    public bool ShowPositionMode
+    {
+        get => GetValue(ShowPositionModeProperty);
+        set => SetValue(ShowPositionModeProperty, value);
+    }
+
+    private LayerPositionDraft? model;
     private readonly AnchorPresetPicker presets;
     private readonly StackPanel draftRoot;
     private readonly SegmentedRadioButton automaticMode;
@@ -76,7 +85,7 @@ public sealed partial class SubtitlePositionEditor : UserControl
     private bool synchronizingModes;
 
     /// <summary>创建数值编辑器，隔离内部草稿上下文并兼容旧 DataContext 输入。</summary>
-    public SubtitlePositionEditor()
+    public LayerPositionEditor()
     {
         AvaloniaXamlLoader.Load(this);
         presets = this.FindControl<AnchorPresetPicker>("AnchorPresets")!;
@@ -216,7 +225,7 @@ public sealed partial class SubtitlePositionEditor : UserControl
             {
                 model.PropertyChanged -= ModelChanged;
             }
-            model = Draft ?? DataContext as SubtitlePositionDraft;
+            model = Draft ?? DataContext as LayerPositionDraft;
             draftRoot.DataContext = model;
             if (attached && model is not null)
             {
@@ -232,8 +241,8 @@ public sealed partial class SubtitlePositionEditor : UserControl
 
     private void ModelChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(SubtitlePositionDraft.AnchorSelection) or nameof(SubtitlePositionDraft.PivotSelection) or
-            nameof(SubtitlePositionDraft.IsExplicit) or nameof(SubtitlePositionDraft.CanCustomize))
+        if (e.PropertyName is nameof(LayerPositionDraft.AnchorSelection) or nameof(LayerPositionDraft.PivotSelection) or
+            nameof(LayerPositionDraft.IsExplicit) or nameof(LayerPositionDraft.CanCustomize))
         {
             RefreshSelection();
         }

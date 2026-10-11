@@ -74,7 +74,7 @@ public sealed class SettingsMarginsEditingUiTests
             })]);
             window.SelectPage(SettingsPage.STYLES);
             var editor = UiTestActions.Find<SubtitleMarginsEditor>(window, "MarginsEditor");
-            var positionEditor = UiTestActions.Find<SubtitlePositionEditor>(window, "PositionEditor");
+            var positionEditor = UiTestActions.Find<LayerPositionEditor>(window, "PositionEditor");
             Assert.False(positionEditor.ShowAutomaticPositionAction);
             Assert.False(UiTestActions.Find<Button>(positionEditor, "AutomaticPositionButton").IsEffectivelyVisible);
             var left = UiTestActions.Find<NumericDraftInput>(editor, "MarginLeftInput");
@@ -111,8 +111,8 @@ public sealed class SettingsMarginsEditingUiTests
             Assert.Equal("41", right.RawText);
             Assert.Equal("27", vertical.RawText);
             Capture(window, width == 980 ? "margin-settings-zh-dark.png" : "margin-settings-zh-dark-min.png");
-            var diagram = UiTestActions.Find<SubtitlePositionDiagram>(positionEditor, "PositionDiagram");
-            Assert.Single(window.GetVisualDescendants().OfType<SubtitlePositionDiagram>());
+            var diagram = UiTestActions.Find<LayerPositionDiagram>(positionEditor, "PositionDiagram");
+            Assert.Single(window.GetVisualDescendants().OfType<LayerPositionDiagram>());
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<SubtitleMarginsDiagram>(), candidate =>
                 candidate.IsVisible && candidate.GetVisualAncestors().All(ancestor => ancestor.IsVisible));
             diagram.BringIntoView();

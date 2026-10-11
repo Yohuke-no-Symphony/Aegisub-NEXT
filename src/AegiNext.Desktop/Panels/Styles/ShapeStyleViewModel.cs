@@ -8,7 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Panels.Styles;
 
-internal sealed class ShapeStyleViewModel : StyleEditorViewModel
+internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
 {
     private static readonly ShapeKind[] PARAMETER_KINDS = [ShapeKind.RECTANGLE, ShapeKind.ELLIPSE, ShapeKind.LINE, ShapeKind.ARROW];
     private int shapeType;
@@ -94,7 +94,11 @@ internal sealed class ShapeStyleViewModel : StyleEditorViewModel
     public bool CanEditStrokeWidth => Session.SelectedLayer?.Tracks.Any(track => track.Property == AnimationProperty.STROKE_WIDTH && !track.Transforms.IsEmpty) != true;
     private NumericValueDraft[] CornerDrafts => [CornerTopLeft, CornerTopRight, CornerBottomRight, CornerBottomLeft];
 
-    protected override void LoadCore(ProjectDocument document, ProjectLayer layer)
+    internal override ScenePoint PositionSize(ProjectLayer layer) => new(
+        Width.Parse() is > 0 and <= 1000000 ? (double)Width.Parse()!.Value : layer.Shape!.Width,
+        Height.Parse() is > 0 and <= 1000000 ? (double)Height.Parse()!.Value : layer.Shape!.Height);
+
+    protected override void LoadGraphicCore(ProjectDocument document, ProjectLayer layer)
     {
         ResetLinkedCornerEdit();
         var shape = layer.Shape!;
@@ -120,7 +124,7 @@ internal sealed class ShapeStyleViewModel : StyleEditorViewModel
         RefreshContext();
     }
 
-    protected override ProjectDocument PrepareCore(ProjectDocument document, ProjectLayer layer, bool preview) => Session.PrepareShapeStyleDraft(document, layer, this);
+    protected override ProjectDocument PrepareGraphicCore(ProjectDocument document, ProjectLayer layer, bool preview) => Session.PrepareShapeStyleDraft(document, layer, this);
 
     internal override Action? CaptureNumericGesture(string? fieldKey)
     {
@@ -140,7 +144,7 @@ internal sealed class ShapeStyleViewModel : StyleEditorViewModel
         });
     }
 
-    public override bool RestoreField(string fieldKey)
+    protected override bool RestoreGraphicField(string fieldKey)
     {
         if (!IsActive || Session.SelectedLayer is not { Shape: { } shape } layer ||
             fieldKey is not ("LayerWidthInput" or "LayerHeightInput" or "StrokeWidthInput" or "ShapeArrowHeadInput" or "ShapeArrowShaftInput") && !IsCornerField(fieldKey))

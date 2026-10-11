@@ -473,12 +473,12 @@ public sealed partial class ProjectSceneRenderer
             ink = new(x, top, x + width, top + blockHeight);
         }
         var normalized = style.Position ?? SubtitlePosition.FromAlignment(style.Alignment, style.Margins);
-        var pivot = new SKPoint(ink.Left + (float)normalized.Pivot.X * ink.Width,
-            ink.Top + (float)normalized.Pivot.Y * ink.Height);
+        var resolvedPivot = LayerPositionGeometry.LocalPivot(normalized, new(ink.Left, ink.Top), new(ink.Width, ink.Height));
+        var resolvedBase = LayerPositionGeometry.BasePosition(normalized, new(document.Width, document.Height));
+        var pivot = new SKPoint((float)resolvedPivot.X, (float)resolvedPivot.Y);
         var basePosition = style.Position is not null
-            ? new SKPoint((float)(normalized.Anchor.X * document.Width + normalized.Offset.X),
-                (float)(normalized.Anchor.Y * document.Height + normalized.Offset.Y))
-            : new SKPoint((float)(normalized.Anchor.X * document.Width + normalized.Offset.X), pivot.Y);
+            ? new SKPoint((float)resolvedBase.X, (float)resolvedBase.Y)
+            : new SKPoint((float)resolvedBase.X, pivot.Y);
         var first = lines[0];
         var emptyCaret = new SKRect(first.Position.X, first.Position.Y - first.FontSize,
             first.Position.X + 1, first.Position.Y + first.FontSize * ((float)style.LineHeight - 1));

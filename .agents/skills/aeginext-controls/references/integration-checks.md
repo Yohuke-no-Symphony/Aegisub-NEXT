@@ -10,7 +10,7 @@ Paths are relative to the AegiNext checkout. Use them as current examples, not a
 | X/Y draft composition and local focus | `src/AegiNext.Desktop/Controls/Editing/VectorDraftInput.cs` |
 | Color input, picker, field-local Esc | `src/AegiNext.Desktop/Controls/Editing/ColorDraftInput.axaml` and `.axaml.cs` |
 | Pure color synchronization/validation | `src/AegiNext.Desktop/Editing/ColorDraft.cs` |
-| Anchor/pivot/offset, no rectangle sizing | `src/AegiNext.Desktop/Controls/Editing/SubtitlePositionEditor.axaml` and `.axaml.cs` |
+| Anchor/pivot/offset, no rectangle sizing | `src/AegiNext.Desktop/Controls/Editing/LayerPositionEditor.axaml` and `.axaml.cs` |
 | Panel-local deferred commit cancellation | `src/AegiNext.Desktop/Panels/Effects/EffectsPanelView.axaml.cs` |
 | Pure geometry and timeline interaction | `src/AegiNext.Desktop/Controls/Editing/SubtitleTimelineControl.cs` |
 | Shared body line boxes and centered drawing | `src/AegiNext.Desktop/Styling/WorkbenchTheme.axaml` and `WorkbenchTextFormatting.cs` |
@@ -30,7 +30,7 @@ Settings pages use compiled bindings to their own page ViewModels. Watch framewo
 |---|---|
 | Toolbar toggle themes, input, and panel wiring | `ToolbarToggleButtonUiTests`, `SubtitleDetailsFormattingToggleUiTests`, `TimelineDisplayOptionsUiTests`, `WorkbenchShortcutInputUiTests` |
 | Draft ranges and preservation | `NumericDraftEditingUiTests`, `InvalidAnimationDraftUiTests` |
-| Shared vector local namescope/Esc | `SubtitlePositionDiagramUiTests`, `SubtitlePositionEditingUiTests` |
+| Shared vector local namescope/Esc | `LayerPositionDiagramUiTests`, `SubtitlePositionEditingUiTests` |
 | Color input modes, invalid input, picker | `ColorDraftTests`, `ColorDraftInputUiTests`, `SettingsColorDraftTests` |
 | Page contexts and live refresh | `SettingsWindowUiTests` |
 | Shortcut full press/release | `WorkbenchShortcutInputUiTests`, `ShortcutSettingsRecordingUiTests` |

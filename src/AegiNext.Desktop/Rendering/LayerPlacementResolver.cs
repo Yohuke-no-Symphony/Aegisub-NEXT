@@ -26,7 +26,9 @@ internal sealed class LayerPlacementResolver : IDisposable
     {
         if (layer?.SubtitleId is not { } id)
         {
-            return new(new ScenePoint(), null);
+            var basePosition = layer?.Position is { } position
+                ? LayerPositionGeometry.BasePosition(position, new(document.Width, document.Height)) : new ScenePoint();
+            return new(basePosition, null);
         }
 
         if (renderer is null || directory != projectDirectory)

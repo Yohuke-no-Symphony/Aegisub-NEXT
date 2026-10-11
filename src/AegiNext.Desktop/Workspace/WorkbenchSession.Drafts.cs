@@ -492,20 +492,13 @@ internal sealed partial class WorkbenchSession
         effectScripts?.RefreshChoices();
     }
 
-    private SubtitlePositionGeometry? PreparePositionGeometry(SubtitlePositionGeometry? geometry, ProjectLayer? layer)
+    private LayerPositionDraftGeometry? PreparePositionGeometry(LayerPositionDraftGeometry? geometry, ProjectLayer? layer)
     {
         if (geometry is null || layer is null)
         {
             return geometry;
         }
-        return geometry with
-        {
-            Transform = layer.Transform with
-            {
-                Scale = InspectorVector(layer, AnimationProperty.SCALE, layer.Transform.Scale),
-                Rotation = InspectorValue(layer, AnimationProperty.ROTATION, layer.Transform.Rotation)
-            }
-        };
+        return geometry with { Transform = PositionGeometryTransform(layer) };
     }
 
     private Rendering.LayerPlacementResolution ResolvePlacement(ProjectDocument document, ProjectLayer? layer)

@@ -14,6 +14,7 @@ public sealed record ProjectLayer
     public MediaTime End { get; init; } = new(10);
     public MediaTime AnimationOffset { get; init; }
     public LayerTransform Transform { get; init; } = new();
+    public LayerPosition? Position { get; init; }
     public double Opacity { get; init; } = 1;
     public BlendMode Blend { get; init; } = BlendMode.NORMAL;
     public SceneColor Fill { get; init; } = SceneColor.White;

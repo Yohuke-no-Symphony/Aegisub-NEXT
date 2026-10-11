@@ -236,7 +236,7 @@ public static class AssSubtitleFormat
         {
             if (layer.Kind != LayerKind.SUBTITLE)
             {
-                var drawing = AssShapeWriter.Write(layer, timeOffset, diagnostics);
+                var drawing = AssShapeWriter.Write(layer, new(document.Width, document.Height), timeOffset, diagnostics);
                 if (drawing is not null)
                 {
                     if (exportedCount++ >= 100000)

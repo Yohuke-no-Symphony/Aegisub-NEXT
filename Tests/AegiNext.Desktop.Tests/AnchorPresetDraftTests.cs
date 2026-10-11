@@ -125,13 +125,13 @@ public sealed class AnchorPresetDraftTests
         Assert.Same(geometry, model.Position.Geometry);
     }
 
-    private static SubtitlePositionGeometry CreateGeometry()
+    private static LayerPositionDraftGeometry CreateGeometry()
     {
         return new(new(1920, 1080), new(417.5, 862), new(231.25, 46.5),
             new(X: 19, Y: -7, ScaleX: 1.75, ScaleY: 0.6, Rotation: 37, AnchorX: 4, AnchorY: -2));
     }
 
-    private static void AssertSameGlyphPoints(SubtitlePosition previous, SubtitlePosition next, SubtitlePositionGeometry geometry)
+    private static void AssertSameGlyphPoints(SubtitlePosition previous, SubtitlePosition next, LayerPositionDraftGeometry geometry)
     {
         foreach (var normalized in new ScenePoint[] { new(0, 0), new(1, 0), new(1, 1), new(0, 1), new(0.3, 0.7) })
         {
@@ -142,7 +142,7 @@ public sealed class AnchorPresetDraftTests
         }
     }
 
-    private static ScenePoint Map(SubtitlePosition position, ScenePoint point, SubtitlePositionGeometry geometry)
+    private static ScenePoint Map(SubtitlePosition position, ScenePoint point, LayerPositionDraftGeometry geometry)
     {
         var transform = geometry.Transform;
         var x = ((point.X - position.Pivot.X) * geometry.GlyphSize.X - transform.AnchorX) * transform.ScaleX;

@@ -15,7 +15,7 @@ using SkiaSharp;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
-public sealed class SubtitlePositionDiagramUiTests
+public sealed class LayerPositionDiagramUiTests
 {
     [AvaloniaFact]
     public void SharedVectorRowsKeepValidationFocusAndEscapeRestoresOnlyFocusedComponent()
@@ -23,7 +23,7 @@ public sealed class SubtitlePositionDiagramUiTests
         using var environment = new UiTestEnvironment();
         var draft = new SubtitlePositionDraft();
         draft.Load(new() { Position = CreatePosition() }, geometry: CreateGeometry());
-        var editor = new SubtitlePositionEditor { DataContext = draft };
+        var editor = new LayerPositionEditor { DataContext = draft };
         var window = new Window { Width = 440, Height = 760, Content = editor };
         try
         {
@@ -113,7 +113,7 @@ public sealed class SubtitlePositionDiagramUiTests
         var style = new SubtitleStyle { FontFamily = "sans-serif", Position = CreatePosition() };
         var draft = new SubtitlePositionDraft();
         draft.Load(style, geometry: geometry);
-        var editor = new SubtitlePositionEditor { DataContext = draft };
+        var editor = new LayerPositionEditor { DataContext = draft };
         var window = new Window { Width = 480, Height = 700, Content = editor };
         var changes = 0;
         draft.Changed += (_, _) => changes++;
@@ -125,7 +125,7 @@ public sealed class SubtitlePositionDiagramUiTests
             {
                 Assert.NotNull(frame);
             }
-            var diagram = editor.FindControl<SubtitlePositionDiagram>("PositionDiagram")!;
+            var diagram = editor.FindControl<LayerPositionDiagram>("PositionDiagram")!;
             var picker = editor.FindControl<AnchorPresetPicker>("AnchorPresets")!;
             Assert.Same(geometry, diagram.Geometry);
             Assert.Equal(style.Position, diagram.Position);
@@ -279,9 +279,9 @@ public sealed class SubtitlePositionDiagramUiTests
         return matches;
     }
 
-    private static SubtitlePositionDiagram CreateDiagram()
+    private static LayerPositionDiagram CreateDiagram()
     {
-        var diagram = new SubtitlePositionDiagram
+        var diagram = new LayerPositionDiagram
         {
             Geometry = CreateGeometry(), Position = CreatePosition(), Foreground = Brushes.White
         };
@@ -290,7 +290,7 @@ public sealed class SubtitlePositionDiagramUiTests
         return diagram;
     }
 
-    private static SubtitlePositionGeometry CreateGeometry()
+    private static LayerPositionDraftGeometry CreateGeometry()
     {
         return new(new(200, 100), new(20, 30), new(40, 20), new());
     }
@@ -300,7 +300,7 @@ public sealed class SubtitlePositionDiagramUiTests
         return new() { Anchor = new(0.5, 0.5), Pivot = new(0.5, 0.5), Offset = new(20, -10) };
     }
 
-    private static SKBitmap Render(SubtitlePositionDiagram diagram)
+    private static SKBitmap Render(LayerPositionDiagram diagram)
     {
         using var target = new RenderTargetBitmap(new(220, 140), new(96, 96));
         using (var drawing = target.CreateDrawingContext())

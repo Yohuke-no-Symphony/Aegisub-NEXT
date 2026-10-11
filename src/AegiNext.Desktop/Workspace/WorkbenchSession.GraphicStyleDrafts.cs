@@ -9,11 +9,28 @@ namespace AegiNext.Desktop.Workspace;
 
 internal sealed partial class WorkbenchSession
 {
+    internal LayerPositionDraftGeometry GraphicPositionGeometry(ProjectDocument document, ProjectLayer layer, ScenePoint size)
+    {
+        return new(new(document.Width, document.Height), new(), size, PositionGeometryTransform(layer));
+    }
+
+    internal LayerPosition? ReadGraphicPositionDraft(ProjectLayer layer, LayerPositionDraft position)
+    {
+        if (position.Validate() is { } field)
+        {
+            ViewModel.InvalidPanelId = "styles";
+            ViewModel.InvalidFieldKey = field;
+            throw new InvalidDataException(Localization.Get("Workbench.ExplicitPosition"));
+        }
+        var prepared = position.CreatePosition();
+        return prepared == (layer.Position ?? new LayerPosition()) ? layer.Position : prepared;
+    }
+
     internal ProjectDocument PrepareImageStyleDraft(ProjectDocument document, ProjectLayer layer, ImageStyleViewModel vm)
     {
         var image = layer.Image!;
-        var width = ReadGraphicNumber(vm.Width, image.Width, "Size", "LayerWidthInput", 0.001m, 1000000m);
-        var height = ReadGraphicNumber(vm.Height, image.Height, "Size", "LayerHeightInput", 0.001m, 1000000m);
+        var width = ReadGraphicNumber(vm.Width, image.Width, "GraphicSize", "LayerWidthInput", 0.001m, 1000000m);
+        var height = ReadGraphicNumber(vm.Height, image.Height, "GraphicSize", "LayerHeightInput", 0.001m, 1000000m);
         var crop = new NormalizedImageCrop(
             ReadGraphicPercent(vm.CropX, image.Crop.X, "ImageCropXInput"),
             ReadGraphicPercent(vm.CropY, image.Crop.Y, "ImageCropYInput"),
@@ -43,8 +60,8 @@ internal sealed partial class WorkbenchSession
 
     private LayerShape ReadShapeGeometry(LayerShape original, ShapeStyleViewModel vm)
     {
-        var width = ReadGraphicNumber(vm.Width, original.Width, "Size", "LayerWidthInput", 0.001m, 1000000m);
-        var height = ReadGraphicNumber(vm.Height, original.Height, "Size", "LayerHeightInput", 0.001m, 1000000m);
+        var width = ReadGraphicNumber(vm.Width, original.Width, "GraphicSize", "LayerWidthInput", 0.001m, 1000000m);
+        var height = ReadGraphicNumber(vm.Height, original.Height, "GraphicSize", "LayerHeightInput", 0.001m, 1000000m);
         var kind = original.Kind == ShapeKind.ROUNDED_RECTANGLE && vm.SelectedKind == ShapeKind.RECTANGLE
             ? original.Kind : vm.SelectedKind;
         var shape = ShapeGeometry.Resize(original, width, height) with { Kind = kind };

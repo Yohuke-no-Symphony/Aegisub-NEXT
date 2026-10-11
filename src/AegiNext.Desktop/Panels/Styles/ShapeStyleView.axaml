@@ -60,6 +60,8 @@
           Value="{Binding StrokeWidth.Value, Mode=TwoWay}" Minimum="0" Maximum="4096" IsEnabled="{Binding CanEditStrokeWidth}" />
       <Button Name="ShapeConvertToPathButton" Content="{Loc Key=Workbench.ConvertShapeToPath}" Command="{Binding ConvertToPathCommand}" IsVisible="{Binding IsParametric}" HorizontalAlignment="Left" />
       <Button Name="ShapeEditPathButton" Content="{Loc Key=Workbench.EditShapePath}" Command="{Binding EditPathCommand}" IsVisible="{Binding IsPath}" HorizontalAlignment="Left" />
+      <controls:LayerPositionEditor Name="PositionEditor" Draft="{Binding Position}"
+          ShowPositionMode="False" ShowAutomaticPositionAction="False" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

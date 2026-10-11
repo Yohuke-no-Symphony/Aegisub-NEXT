@@ -28,7 +28,7 @@ public sealed class SubtitleLayoutControlsUiTests
         using var environment = new UiTestEnvironment();
         var legacy = CreateDraft(0.25);
         var explicitDraft = CreateDraft(0.75);
-        var editor = new SubtitlePositionEditor
+        var editor = new LayerPositionEditor
         {
             DataContext = legacy, Draft = explicitDraft, ShowMargins = true, Margins = new(17, 39, 13),
             Alignment = 1, CanvasWidth = 640, CanvasHeight = 360
@@ -39,7 +39,7 @@ public sealed class SubtitleLayoutControlsUiTests
         try
         {
             Show(window);
-            var diagram = editor.FindControl<SubtitlePositionDiagram>("PositionDiagram")!;
+            var diagram = editor.FindControl<LayerPositionDiagram>("PositionDiagram")!;
             Assert.Same(legacy, editor.DataContext);
             Assert.Equal(explicitDraft.DiagramPosition, diagram.Position);
             Assert.Same(explicitDraft.Geometry, diagram.Geometry);
@@ -78,7 +78,7 @@ public sealed class SubtitleLayoutControlsUiTests
         var margins = new SubtitleMarginsDraft();
         margins.Load(new(17, 39, 13));
         var marginEditor = new SubtitleMarginsEditor { Draft = margins, ShowDiagram = false, Alignment = 4 };
-        var positionEditor = new SubtitlePositionEditor { Draft = position, ShowMargins = true, Margins = margins.DiagramMargins };
+        var positionEditor = new LayerPositionEditor { Draft = position, ShowMargins = true, Margins = margins.DiagramMargins };
         var window = new Window
         {
             Width = 460, Height = 780, Content = new StackPanel { Children = { marginEditor, positionEditor } }
@@ -140,7 +140,7 @@ public sealed class SubtitleLayoutControlsUiTests
         using var environment = new UiTestEnvironment();
         var original = CreateDraft(0.25);
         var replacement = CreateDraft(0.75);
-        var editor = new SubtitlePositionEditor { Draft = original };
+        var editor = new LayerPositionEditor { Draft = original };
         var window = new Window { Width = 460, Height = 620, Content = editor };
         try
         {
@@ -152,7 +152,7 @@ public sealed class SubtitleLayoutControlsUiTests
             window.Content = editor;
             Dispatcher.UIThread.RunJobs();
 
-            Assert.Equal(replacement.DiagramPosition, editor.FindControl<SubtitlePositionDiagram>("PositionDiagram")!.Position);
+            Assert.Equal(replacement.DiagramPosition, editor.FindControl<LayerPositionDiagram>("PositionDiagram")!.Position);
             Assert.Equal(1, replacement.AnchorSelection!.Value.X);
             Assert.Equal("1", editor.FindControl<VectorDraftInput>("AnchorInput")!.XText);
         }
@@ -173,7 +173,7 @@ public sealed class SubtitleLayoutControlsUiTests
         var original = CreateDraft(0.25, originalExplicit);
         var replacement = CreateDraft(0.75, replacementExplicit);
         var host = new object();
-        var editor = new SubtitlePositionEditor { DataContext = host, Draft = original };
+        var editor = new LayerPositionEditor { DataContext = host, Draft = original };
         var window = new Window { Width = 320, Height = 620, Content = editor };
         var originalChanges = 0;
         var replacementChanges = 0;
@@ -219,7 +219,7 @@ public sealed class SubtitleLayoutControlsUiTests
     {
         using var environment = new UiTestEnvironment();
         var draft = CreateDraft(0.5);
-        var editor = new SubtitlePositionEditor { Draft = draft };
+        var editor = new LayerPositionEditor { Draft = draft };
         var window = new Window { Width = 320, Height = 620, Content = editor };
         var changes = 0;
         editor.ExplicitPositionChanged += (_, _) => changes++;
@@ -258,7 +258,7 @@ public sealed class SubtitleLayoutControlsUiTests
     {
         using var environment = new UiTestEnvironment();
         var draft = CreateDraft(0.5, false);
-        var editor = new SubtitlePositionEditor { Draft = draft };
+        var editor = new LayerPositionEditor { Draft = draft };
         var window = new Window { Width = 320, Height = 620, Content = editor };
         var changes = 0;
         var draftChanges = 0;
@@ -290,7 +290,7 @@ public sealed class SubtitleLayoutControlsUiTests
     {
         using var environment = new UiTestEnvironment();
         var draft = CreateDraft(0.5, false);
-        var editor = new SubtitlePositionEditor { Draft = draft, ShowMargins = true, Margins = new(17, 39, 13) };
+        var editor = new LayerPositionEditor { Draft = draft, ShowMargins = true, Margins = new(17, 39, 13) };
         var window = new Window { Width = 320, Height = 620, Content = editor };
         var changes = 0;
         var resets = 0;
@@ -301,7 +301,7 @@ public sealed class SubtitleLayoutControlsUiTests
         try
         {
             Show(window);
-            var diagram = editor.FindControl<SubtitlePositionDiagram>("PositionDiagram")!;
+            var diagram = editor.FindControl<LayerPositionDiagram>("PositionDiagram")!;
             var presets = editor.FindControl<AnchorPresetPicker>("AnchorPresets")!;
             var diagramBounds = new Rect(diagram.TranslatePoint(default, window)!.Value, diagram.Bounds.Size);
             var presetsBounds = new Rect(presets.TranslatePoint(default, window)!.Value, presets.Bounds.Size);
@@ -344,8 +344,8 @@ public sealed class SubtitleLayoutControlsUiTests
         using var environment = new UiTestEnvironment();
         var firstDraft = CreateDraft(0.25, false);
         var secondDraft = CreateDraft(0.75, false);
-        var first = new SubtitlePositionEditor { Draft = firstDraft };
-        var second = new SubtitlePositionEditor { Draft = secondDraft };
+        var first = new LayerPositionEditor { Draft = firstDraft };
+        var second = new LayerPositionEditor { Draft = secondDraft };
         var window = new Window { Width = 320, Height = 960, Content = new StackPanel { Children = { first, second } } };
         var firstChanges = 0;
         var secondChanges = 0;
@@ -406,7 +406,7 @@ public sealed class SubtitleLayoutControlsUiTests
         var field = fields.Single(value => value.Key == fieldKey).Draft;
         var otherFields = fields.Where(value => value.Key != fieldKey)
             .Select(value => (value.Draft, value.Draft.RawText, value.Draft.Value)).ToArray();
-        var editor = new SubtitlePositionEditor { Draft = draft };
+        var editor = new LayerPositionEditor { Draft = draft };
         var window = new Window { Width = 320, Height = 680, Content = editor };
         var changes = 0;
         editor.ExplicitPositionChanged += (_, _) => changes++;
@@ -464,7 +464,7 @@ public sealed class SubtitleLayoutControlsUiTests
     public void ModeRowFitsTheNarrowLayoutWithLiveLabelsAndSquareReset(string language, bool dark, bool resetVisible)
     {
         using var environment = new UiTestEnvironment();
-        var editor = new SubtitlePositionEditor { Draft = CreateDraft(0.5, false), ShowAutomaticPositionAction = resetVisible };
+        var editor = new LayerPositionEditor { Draft = CreateDraft(0.5, false), ShowAutomaticPositionAction = resetVisible };
         var window = new Window
         {
             Width = 320, Height = 620, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light, Content = editor
@@ -523,7 +523,7 @@ public sealed class SubtitleLayoutControlsUiTests
         return draft;
     }
 
-    private static void AssertMode(SubtitlePositionEditor editor, bool explicitPosition)
+    private static void AssertMode(LayerPositionEditor editor, bool explicitPosition)
     {
         Assert.Equal(!explicitPosition, editor.FindControl<RadioButton>("AutomaticPositionMode")!.IsChecked);
         Assert.Equal(explicitPosition, editor.FindControl<RadioButton>("CustomPositionMode")!.IsChecked);

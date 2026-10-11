@@ -2,9 +2,10 @@
              xmlns:controlsCommon="using:AegiNext.Desktop.Controls.Common"
              xmlns:materialIcons="using:Material.Icons.Avalonia"
              xmlns:controls="using:AegiNext.Desktop.Controls" xmlns:editing="using:AegiNext.Desktop.Editing"
-             x:Class="AegiNext.Desktop.Controls.SubtitlePositionEditor" x:DataType="controls:SubtitlePositionEditor">
-  <StackPanel Name="DraftRoot" Spacing="8" DataContext="{x:Null}" x:DataType="editing:SubtitlePositionDraft">
-    <Grid Name="PositionModeRow" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+             x:Class="AegiNext.Desktop.Controls.LayerPositionEditor" x:DataType="controls:LayerPositionEditor">
+  <StackPanel Name="DraftRoot" Spacing="8" DataContext="{x:Null}" x:DataType="editing:LayerPositionDraft">
+    <Grid Name="PositionModeRow" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+          IsVisible="{Binding ShowPositionMode, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}">
       <TextBlock Name="PositionModeLabel" Classes="field" VerticalAlignment="Center" Text="{Loc Key=Workbench.PositionMode}" />
       <Grid Grid.Column="1" ColumnDefinitions="*,*" XYFocus.NavigationModes="Enabled">
         <controlsCommon:SegmentedRadioButton Name="AutomaticPositionMode" CornerRadius="6,0,0,6"
@@ -17,7 +18,7 @@
                                              AutomationProperties.Name="{Loc Key=Workbench.CustomPositionMode}" />
       </Grid>
       <Button Name="AutomaticPositionButton" Classes="icon-button" Grid.Column="2"
-              IsVisible="{Binding ShowAutomaticPositionAction, RelativeSource={RelativeSource AncestorType=controls:SubtitlePositionEditor}}"
+              IsVisible="{Binding ShowAutomaticPositionAction, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}"
               ToolTip.Tip="{Loc Key=Workbench.ResetAutomaticPositionHint}"
               AutomationProperties.Name="{Loc Key=Workbench.ResetAutomaticPositionHint}">
         <materialIcons:MaterialIcon Kind="Restore" Width="16" Height="16" />
@@ -26,14 +27,14 @@
     <TextBlock Classes="field" Text="{Loc Key=Workbench.AnchorPreset}" />
     <WrapPanel>
       <controls:AnchorPresetPicker Name="AnchorPresets" IsEnabled="{Binding CanSelectPreset}" Margin="0,0,12,8" />
-      <controls:SubtitlePositionDiagram Name="PositionDiagram" Width="180" Height="138" Margin="0,0,0,8"
+      <controls:LayerPositionDiagram Name="PositionDiagram" Width="180" Height="138" Margin="0,0,0,8"
                                        Geometry="{Binding Geometry, Mode=OneWay}" Position="{Binding DiagramPosition, Mode=OneWay}"
                                        IsExplicit="{Binding IsExplicit, Mode=OneWay}"
-                                       ShowMargins="{Binding ShowMargins, RelativeSource={RelativeSource AncestorType=controls:SubtitlePositionEditor}}"
-                                       Margins="{Binding Margins, RelativeSource={RelativeSource AncestorType=controls:SubtitlePositionEditor}}"
-                                       Alignment="{Binding Alignment, RelativeSource={RelativeSource AncestorType=controls:SubtitlePositionEditor}}"
-                                       CanvasWidth="{Binding CanvasWidth, RelativeSource={RelativeSource AncestorType=controls:SubtitlePositionEditor}}"
-                                       CanvasHeight="{Binding CanvasHeight, RelativeSource={RelativeSource AncestorType=controls:SubtitlePositionEditor}}" />
+                                       ShowMargins="{Binding ShowMargins, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}"
+                                       Margins="{Binding Margins, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}"
+                                       Alignment="{Binding Alignment, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}"
+                                       CanvasWidth="{Binding CanvasWidth, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}"
+                                       CanvasHeight="{Binding CanvasHeight, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}" />
     </WrapPanel>
     <StackPanel Name="PositionFields" IsVisible="{Binding IsExplicit}" Spacing="8">
       <StackPanel Spacing="4">

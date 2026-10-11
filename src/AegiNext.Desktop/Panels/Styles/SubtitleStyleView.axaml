@@ -143,7 +143,7 @@
         <controls:SubtitleMarginsEditor Name="MarginsEditor" Draft="{Binding Margins}" ShowDiagram="False"
                                        Alignment="{Binding Alignment}" IsExplicit="{Binding Position.IsExplicit}"
                                        CanvasWidth="{Binding CanvasWidth}" CanvasHeight="{Binding CanvasHeight}" />
-        <controls:SubtitlePositionEditor Name="PositionEditor" Draft="{Binding Position}" ShowMargins="True"
+        <controls:LayerPositionEditor Name="PositionEditor" Draft="{Binding Position}" ShowMargins="True"
                                         Margins="{Binding Margins.DiagramMargins}" Alignment="{Binding Alignment}"
                                         CanvasWidth="{Binding CanvasWidth}" CanvasHeight="{Binding CanvasHeight}" />
       </StackPanel>

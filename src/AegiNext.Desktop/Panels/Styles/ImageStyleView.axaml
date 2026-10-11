@@ -50,6 +50,8 @@
         <controls:NumericDraftInput Name="ImagePlaybackSpeedInput" RawText="{Binding PlaybackSpeed.RawText, Mode=TwoWay}"
             Value="{Binding PlaybackSpeed.Value, Mode=TwoWay}" Minimum="0.01" Maximum="100" Increment="0.1" />
       </StackPanel>
+      <controls:LayerPositionEditor Name="PositionEditor" Draft="{Binding Position}"
+          ShowPositionMode="False" ShowAutomaticPositionAction="False" />
     </StackPanel>
   </ScrollViewer>
 </UserControl>

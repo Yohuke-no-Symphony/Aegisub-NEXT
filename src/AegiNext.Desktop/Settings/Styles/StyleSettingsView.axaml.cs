@@ -442,7 +442,7 @@ public sealed partial class StyleSettingsView : UserControl, IDisposable
             }
             if (!this.FindControl<VectorDraftInput>("ShadowOffsetInput")!.FocusField(fieldKey) &&
                 !this.FindControl<SubtitleMarginsEditor>("MarginsEditor")!.FocusInvalidField(fieldKey) &&
-                !this.FindControl<SubtitlePositionEditor>("PositionEditor")!.FocusInvalidField(fieldKey))
+                !this.FindControl<LayerPositionEditor>("PositionEditor")!.FocusInvalidField(fieldKey))
             {
                 var input = this.FindControl<Control>(fieldKey) ?? this.FindControl<FontFamilyPicker>("FontInput")!;
                 if (input is NumericDraftInput numeric)

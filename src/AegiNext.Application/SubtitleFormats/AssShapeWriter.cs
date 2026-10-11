@@ -24,7 +24,7 @@ internal static class AssShapeWriter
         return name;
     }
 
-    internal static string? Write(ProjectLayer layer, MediaTime timeOffset,
+    internal static string? Write(ProjectLayer layer, ScenePoint canvasSize, MediaTime timeOffset,
         ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
         if (layer.Kind == LayerKind.IMAGE)
@@ -107,11 +107,15 @@ internal static class AssShapeWriter
             return null;
         }
         var (sine, cosine) = AssTransformMath.SinCos(layer.Transform.Rotation);
+        var position = layer.Position;
+        var basePosition = position is null ? new ScenePoint() : LayerPositionGeometry.BasePosition(position, canvasSize);
+        var pivot = position is null ? new ScenePoint() : LayerPositionGeometry.LocalPivot(position, new(), LayerPositionGeometry.GraphicSize(layer));
         path = Transform(path, point =>
         {
-            var x = (point.X - layer.Transform.AnchorX) * layer.Transform.ScaleX;
-            var y = (point.Y - layer.Transform.AnchorY) * layer.Transform.ScaleY;
-            return new(layer.Transform.X + cosine * x - sine * y, layer.Transform.Y + sine * x + cosine * y);
+            var x = (point.X - pivot.X - layer.Transform.AnchorX) * layer.Transform.ScaleX;
+            var y = (point.Y - pivot.Y - layer.Transform.AnchorY) * layer.Transform.ScaleY;
+            return new(basePosition.X + layer.Transform.X + cosine * x - sine * y,
+                basePosition.Y + layer.Transform.Y + sine * x + cosine * y);
         });
         var values = Points(path).SelectMany(point => new[] { point.X, point.Y }).ToArray();
         if (!double.IsFinite(border) || border > MAX_DRAWING_COORDINATE ||

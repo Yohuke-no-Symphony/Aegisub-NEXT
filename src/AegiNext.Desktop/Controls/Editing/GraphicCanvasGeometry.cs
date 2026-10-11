@@ -20,8 +20,9 @@ internal static class GraphicCanvasGeometry
             Math.Clamp(shape.Height * factors.Y, 0.001, 1e6));
         var fixedCorner = FixedCorner(gesture);
         var evaluated = gesture.EvaluatedTransform;
-        var deltaX = fixedCorner.X * (1 - resized.Width / shape.Width) * evaluated.ScaleX;
-        var deltaY = fixedCorner.Y * (1 - resized.Height / shape.Height) * evaluated.ScaleY;
+        var pivot = layer.Position?.Pivot ?? new ScenePoint();
+        var deltaX = (fixedCorner.X * (1 - resized.Width / shape.Width) + pivot.X * (resized.Width - shape.Width)) * evaluated.ScaleX;
+        var deltaY = (fixedCorner.Y * (1 - resized.Height / shape.Height) + pivot.Y * (resized.Height - shape.Height)) * evaluated.ScaleY;
         var radians = evaluated.Rotation * Math.PI / 180;
         return layer with
         {

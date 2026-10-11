@@ -7,6 +7,19 @@ namespace AegiNext.Application.Tests;
 public sealed class AssShapeExportTests
 {
     [Fact]
+    public void SharedAnchorAndNormalizedPivotUseTheSameTransformAsSceneRendering()
+    {
+        var shape = Shape() with
+        {
+            Position = new() { Anchor = new(0.5, 0.5), Pivot = new(0.5, 0.5), Offset = new(3, 4) },
+            Transform = new(10, 20, 2, 3, 90, 5, 10)
+        };
+        var result = AssSubtitleFormat.Write(new() { Width = 400, Height = 200, Layers = [shape] });
+
+        Assert.Contains("\\p1}m 288 94", Assert.Single(Dialogues(result.Text)), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ShapeOnlyExportBakesPositionPivotScaleAndRotationIntoDrawingCoordinates()
     {
         var shape = Shape() with { Transform = new(100, 200, 2, 3, 90, 5, 10) };

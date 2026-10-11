@@ -187,7 +187,7 @@
             <controls:SubtitleMarginsEditor Name="MarginsEditor" Draft="{Binding Margins}" ShowDiagram="False"
                                             Alignment="{Binding AlignmentIndex}" IsExplicit="{Binding Position.IsExplicit}"
                                             CanvasWidth="{Binding CanvasWidth}" CanvasHeight="{Binding CanvasHeight}" />
-            <controls:SubtitlePositionEditor Name="PositionEditor" Draft="{Binding Position}" ShowMargins="True"
+            <controls:LayerPositionEditor Name="PositionEditor" Draft="{Binding Position}" ShowMargins="True"
                                              ShowAutomaticPositionAction="False"
                                              Margins="{Binding Margins.DiagramMargins}" Alignment="{Binding AlignmentIndex}"
                                              CanvasWidth="{Binding CanvasWidth}" CanvasHeight="{Binding CanvasHeight}" />

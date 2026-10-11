@@ -8,7 +8,7 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Panels.Styles;
 
-internal sealed class ImageStyleViewModel : StyleEditorViewModel
+internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
 {
     private int fit;
     private int playbackMode;
@@ -104,7 +104,11 @@ internal sealed class ImageStyleViewModel : StyleEditorViewModel
         }
     }
 
-    protected override void LoadCore(ProjectDocument document, ProjectLayer layer)
+    internal override ScenePoint PositionSize(ProjectLayer layer) => new(
+        Width.Parse() is > 0 and <= 1000000 ? (double)Width.Parse()!.Value : layer.Image!.Width,
+        Height.Parse() is > 0 and <= 1000000 ? (double)Height.Parse()!.Value : layer.Image!.Height);
+
+    protected override void LoadGraphicCore(ProjectDocument document, ProjectLayer layer)
     {
         var image = layer.Image!;
         Width.Load(image.Width);
@@ -123,7 +127,7 @@ internal sealed class ImageStyleViewModel : StyleEditorViewModel
         RefreshContext();
     }
 
-    protected override ProjectDocument PrepareCore(ProjectDocument document, ProjectLayer layer, bool preview)
+    protected override ProjectDocument PrepareGraphicCore(ProjectDocument document, ProjectLayer layer, bool preview)
     {
         return Session.PrepareImageStyleDraft(document, layer, this);
     }
@@ -153,7 +157,7 @@ internal sealed class ImageStyleViewModel : StyleEditorViewModel
         });
     }
 
-    public override bool RestoreField(string fieldKey)
+    protected override bool RestoreGraphicField(string fieldKey)
     {
         if (!IsActive || Session.SelectedLayer?.Image is not { } image ||
             fieldKey is not ("LayerWidthInput" or "LayerHeightInput" or "ImageCropXInput" or "ImageCropYInput" or

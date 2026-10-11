@@ -99,8 +99,8 @@ public sealed class SubtitleStyleGroupingUiTests
             Assert.DoesNotContain(Controls(panel), control => control.Name is "StyleNameInput" or "StylePreviewSection");
             Assert.DoesNotContain(settingsGroups, group => name.GetVisualAncestors().Contains(group));
             Assert.DoesNotContain(settingsGroups, group => preview.GetVisualAncestors().Contains(group));
-            Assert.Single(panel.GetVisualDescendants().OfType<SubtitlePositionDiagram>(), diagram => diagram.IsEffectivelyVisible);
-            Assert.Single(settings.GetVisualDescendants().OfType<SubtitlePositionDiagram>(), diagram => diagram.IsEffectivelyVisible);
+            Assert.Single(panel.GetVisualDescendants().OfType<LayerPositionDiagram>(), diagram => diagram.IsEffectivelyVisible);
+            Assert.Single(settings.GetVisualDescendants().OfType<LayerPositionDiagram>(), diagram => diagram.IsEffectivelyVisible);
             Assert.False(UiTestActions.Find<SubtitleMarginsDiagram>(panel, "MarginsDiagram").IsEffectivelyVisible);
             Assert.False(UiTestActions.Find<SubtitleMarginsDiagram>(settings, "MarginsDiagram").IsEffectivelyVisible);
             Assert.Equal(language, Localization.CurrentLanguageID);
@@ -109,9 +109,9 @@ public sealed class SubtitleStyleGroupingUiTests
             Assert.False(settingsWindow.ViewModel.Styles.IsDirty);
             Capture(panelWindow, panelGroups[0], $"panel-style-inputs-{language}-{(dark ? "dark" : "light")}.png");
             Capture(settingsWindow, settingsGroups[0], $"settings-style-inputs-{language}-{(dark ? "dark" : "light")}.png");
-            Capture(panelWindow, UiTestActions.Find<SubtitlePositionDiagram>(panel, "PositionDiagram"),
+            Capture(panelWindow, UiTestActions.Find<LayerPositionDiagram>(panel, "PositionDiagram"),
                 $"panel-style-groups-{language}-{(dark ? "dark" : "light")}.png");
-            Capture(settingsWindow, UiTestActions.Find<SubtitlePositionDiagram>(settings, "PositionDiagram"),
+            Capture(settingsWindow, UiTestActions.Find<LayerPositionDiagram>(settings, "PositionDiagram"),
                 $"settings-style-groups-{language}-{(dark ? "dark" : "light")}.png");
             Capture(panelWindow, UiTestActions.Find<Grid>(panel, "PositionModeRow"),
                 $"panel-position-mode-{language}-{(dark ? "dark" : "light")}.png");
@@ -402,7 +402,7 @@ public sealed class SubtitleStyleGroupingUiTests
         AssertFieldOrder(group, ["AlignmentPicker", "MarginsEditor", "PositionEditor"]);
         var alignment = UiTestActions.Find<SubtitleAlignmentPicker>(group, "AlignmentPicker");
         var margins = UiTestActions.Find<SubtitleMarginsEditor>(group, "MarginsEditor");
-        var position = UiTestActions.Find<SubtitlePositionEditor>(group, "PositionEditor");
+        var position = UiTestActions.Find<LayerPositionEditor>(group, "PositionEditor");
         AssertStacked(group, alignment, margins, position);
         Assert.False(margins.ShowDiagram);
         Assert.True(position.ShowMargins);
@@ -441,7 +441,7 @@ public sealed class SubtitleStyleGroupingUiTests
             Assert.Equal(Localization.Get("Workbench.ResetAutomaticPositionHint"), ToolTip.GetTip(reset));
             Assert.Equal(Localization.Get("Workbench.ResetAutomaticPositionHint"), AutomationProperties.GetName(reset));
         }
-        var diagram = UiTestActions.Find<SubtitlePositionDiagram>(position, "PositionDiagram");
+        var diagram = UiTestActions.Find<LayerPositionDiagram>(position, "PositionDiagram");
         Assert.True(diagram.IsEffectivelyVisible);
         Assert.NotNull(diagram.Geometry);
         Assert.NotNull(diagram.Position);

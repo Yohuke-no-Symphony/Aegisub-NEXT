@@ -632,6 +632,14 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                 throw new InvalidDataException("未知图层类型。");
         }
 
+        if (layer.Source.Kind != LayerKind.SUBTITLE && layer.Source.Position is { } position)
+        {
+            var resolvedBase = LayerPositionGeometry.BasePosition(position, new(document.Width, document.Height));
+            var resolvedPivot = LayerPositionGeometry.LocalPivot(position, new(), LayerPositionGeometry.GraphicSize(layer.Source));
+            basePosition = new((float)resolvedBase.X, (float)resolvedBase.Y);
+            pivot = new((float)resolvedPivot.X, (float)resolvedPivot.Y);
+        }
+
         var transform = layer.Transform;
         var effectivePivot = new SKPoint(pivot.X + (float)transform.AnchorX, pivot.Y + (float)transform.AnchorY);
         var local = SKMatrix.CreateTranslation(basePosition.X + (float)transform.X, basePosition.Y + (float)transform.Y);

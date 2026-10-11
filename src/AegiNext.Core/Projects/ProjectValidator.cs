@@ -306,6 +306,11 @@ public static partial class ProjectValidator
             Enum.IsDefined(layer.Kind) && Enum.IsDefined(layer.Blend), "片段数据无效。");
         ValidateText(layer.Name);
         Require(layer.Transform is not null, "缺少图层变换。");
+        if (layer.Position is { } position)
+        {
+            Require(layer.Kind != LayerKind.SUBTITLE, "字幕位置必须存储在字幕样式中。");
+            Position(position);
+        }
         var transform = layer.Transform;
         Number(transform.X, -1e9, 1e9, "X");
         Number(transform.Y, -1e9, 1e9, "Y");
@@ -400,16 +405,21 @@ public static partial class ProjectValidator
         Number(style.ShadowBlur, 0, 512, "阴影模糊");
         if (style.Position is { } position)
         {
-            Number(position.Anchor.X, 0, 1, "字幕 Anchor X");
-            Number(position.Anchor.Y, 0, 1, "字幕 Anchor Y");
-            Number(position.Pivot.X, 0, 1, "字幕 Pivot X");
-            Number(position.Pivot.Y, 0, 1, "字幕 Pivot Y");
-            Point(position.Offset);
+            Position(position);
         }
         Point(style.ShadowOffset);
         Color(style.Fill);
         Color(style.Stroke);
         Color(style.ShadowColor);
+    }
+
+    private static void Position(LayerPosition position)
+    {
+        Number(position.Anchor.X, 0, 1, "Anchor X");
+        Number(position.Anchor.Y, 0, 1, "Anchor Y");
+        Number(position.Pivot.X, 0, 1, "Pivot X");
+        Number(position.Pivot.Y, 0, 1, "Pivot Y");
+        Point(position.Offset);
     }
 
     private static void Style(SubtitleStyle? style, Dictionary<Guid, ProjectAsset> assets)

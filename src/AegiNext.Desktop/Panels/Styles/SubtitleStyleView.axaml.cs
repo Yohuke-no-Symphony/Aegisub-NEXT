@@ -74,7 +74,7 @@ internal sealed partial class SubtitleStyleView : UserControl, IWorkbenchPanelVi
                 viewModel.CommitWrapMode(wrap.SelectedIndex);
             }
         };
-        var position = this.FindControl<SubtitlePositionEditor>("PositionEditor")!;
+        var position = this.FindControl<LayerPositionEditor>("PositionEditor")!;
         position.AutomaticPositionRequested += async (_, _) => await viewModel.RestoreAutomaticPositionAsync();
         position.ExplicitPositionChanged += (_, _) => viewModel.CommitDrafts();
         position.PresetPositionChanged += (_, _) => viewModel.CommitDrafts();
@@ -193,7 +193,7 @@ internal sealed partial class SubtitleStyleView : UserControl, IWorkbenchPanelVi
         {
             return;
         }
-        if (fieldKey is not null && this.FindControl<SubtitlePositionEditor>("PositionEditor")!.FocusInvalidField(fieldKey))
+        if (fieldKey is not null && this.FindControl<LayerPositionEditor>("PositionEditor")!.FocusInvalidField(fieldKey))
         {
             return;
         }

@@ -1,4 +1,5 @@
 using AegiNext.Desktop.Workspace;
+using AegiNext.Desktop.Controls;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -12,6 +13,7 @@ internal sealed partial class ImageStyleView : UserControl, IWorkbenchPanelView
     private readonly ComboBox fit;
     private readonly ComboBox playbackMode;
     private readonly CheckBox animation;
+    private readonly LayerPositionEditor position;
 
     internal ImageStyleView(ImageStyleViewModel viewModel, WorkbenchSession session)
     {
@@ -25,11 +27,20 @@ internal sealed partial class ImageStyleView : UserControl, IWorkbenchPanelView
         playbackMode.SelectionChanged += OnFitChanged;
         animation = this.FindControl<CheckBox>("ImageAnimationEnabledInput")!;
         animation.IsCheckedChanged += OnAnimationChanged;
+        position = this.FindControl<LayerPositionEditor>("PositionEditor")!;
+        position.PresetPositionChanged += OnPositionPresetChanged;
     }
 
     public string PanelId => "styles";
     public void CancelGestures() => input.CancelGestures();
-    public void FocusInvalidField(string? fieldKey) => input.FocusInvalidField(fieldKey);
+    public void FocusInvalidField(string? fieldKey)
+    {
+        if (fieldKey is null || !position.FocusInvalidField(fieldKey))
+        {
+            input.FocusInvalidField(fieldKey);
+        }
+    }
+    private void OnPositionPresetChanged(object? sender, EventArgs e) => viewModel.CommitDrafts();
     private void OnFitChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (viewModel.HasDrafts)
@@ -49,6 +60,7 @@ internal sealed partial class ImageStyleView : UserControl, IWorkbenchPanelView
         fit.SelectionChanged -= OnFitChanged;
         playbackMode.SelectionChanged -= OnFitChanged;
         animation.IsCheckedChanged -= OnAnimationChanged;
+        position.PresetPositionChanged -= OnPositionPresetChanged;
         input.Dispose();
     }
 }

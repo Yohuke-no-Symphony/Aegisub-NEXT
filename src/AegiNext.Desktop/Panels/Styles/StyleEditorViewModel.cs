@@ -24,6 +24,7 @@ internal abstract class StyleEditorViewModel(WorkbenchSession session) : Observa
         }
         if (HasDrafts && LayerId == layer.Id)
         {
+            RefreshGeometry(document, layer);
             return;
         }
         loading = true;
@@ -54,8 +55,11 @@ internal abstract class StyleEditorViewModel(WorkbenchSession session) : Observa
     internal virtual Action? CaptureNumericGesture(string? fieldKey) => null;
     protected abstract void LoadCore(ProjectDocument document, ProjectLayer layer);
     protected abstract ProjectDocument PrepareCore(ProjectDocument document, ProjectLayer layer, bool preview);
+    protected virtual void RefreshGeometry(ProjectDocument document, ProjectLayer layer)
+    {
+    }
 
-    protected void MarkDraftChanged()
+    protected virtual void MarkDraftChanged()
     {
         if (loading || Session.IsUpdating || !IsActive)
         {

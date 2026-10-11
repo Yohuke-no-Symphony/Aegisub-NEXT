@@ -92,7 +92,7 @@ public sealed class SubtitleMarginsEditingUiTests
             Assert.Equal(language, Localization.CurrentLanguageID);
             Assert.Equal(language, context.Session.Preferences.Language);
             AssertInputsFit(host, editor, left, right, vertical);
-            Capture(host, UiTestActions.Find<SubtitlePositionDiagram>(host, "PositionDiagram"),
+            Capture(host, UiTestActions.Find<LayerPositionDiagram>(host, "PositionDiagram"),
                 $"panel-margins-{language}-{(dark ? "dark" : "light")}.png");
         }
         finally
@@ -445,8 +445,8 @@ public sealed class SubtitleMarginsEditingUiTests
         {
             host.Show();
             var position = context.ViewModel.Styles.Subtitle.Position;
-            var diagram = UiTestActions.Find<SubtitlePositionDiagram>(host, "PositionDiagram");
-            var originalGeometry = Assert.IsType<AegiNext.Desktop.Editing.SubtitlePositionGeometry>(diagram.Geometry);
+            var diagram = UiTestActions.Find<LayerPositionDiagram>(host, "PositionDiagram");
+            var originalGeometry = Assert.IsType<AegiNext.Desktop.Editing.LayerPositionDraftGeometry>(diagram.Geometry);
             var texts = new[] { "0.50", "1.00", ".50", "1.000", "12.50", "-20.00" };
             var fields = new[] { position.AnchorX, position.AnchorY, position.PivotX, position.PivotY, position.OffsetX, position.OffsetY };
             for (var index = 0; index < fields.Length; index++)
@@ -461,7 +461,7 @@ public sealed class SubtitleMarginsEditingUiTests
             var preview = context.Session.PreviewDocument;
             using var renderer = new ProjectSceneRenderer(new DirectoryProjectAssetResolver(context.Session.ProjectDirectory));
             var measurement = renderer.MeasureSubtitlePlacement(preview, preview.Subtitles[0]);
-            var geometry = Assert.IsType<AegiNext.Desktop.Editing.SubtitlePositionGeometry>(diagram.Geometry);
+            var geometry = Assert.IsType<AegiNext.Desktop.Editing.LayerPositionDraftGeometry>(diagram.Geometry);
             Assert.True(geometry.GlyphSize.Y > originalGeometry.GlyphSize.Y);
             Assert.Equal(new ScenePoint(measurement.Bounds.Left, measurement.Bounds.Top), geometry.GlyphOrigin);
             Assert.Equal(new ScenePoint(measurement.Bounds.Width, measurement.Bounds.Height), geometry.GlyphSize);
@@ -536,7 +536,7 @@ public sealed class SubtitleMarginsEditingUiTests
         var diagram = UiTestActions.Find<SubtitleMarginsDiagram>(editor, "MarginsDiagram");
         Assert.False(editor.ShowDiagram);
         Assert.False(diagram.IsEffectivelyVisible);
-        var positionDiagram = UiTestActions.Find<SubtitlePositionDiagram>(window, "PositionDiagram");
+        var positionDiagram = UiTestActions.Find<LayerPositionDiagram>(window, "PositionDiagram");
         Assert.True(positionDiagram.IsEffectivelyVisible);
         Assert.NotNull(positionDiagram.Geometry);
         Assert.NotNull(positionDiagram.Position);

@@ -13,6 +13,49 @@ public sealed class GraphicCanvasGeometryTests
     [InlineData(1)]
     [InlineData(2)]
     [InlineData(3)]
+    public void RectangleResizeCompensatesTheMovingNormalizedPivot(int handle)
+    {
+        var layer = new ProjectLayer
+        {
+            Kind = LayerKind.SHAPE,
+            Shape = new(ShapeKind.RECTANGLE, 100, 50),
+            Position = new() { Pivot = new(0.5, 0.75) },
+            Transform = new(10, 20, 1, 1, 15, 30, 20)
+        };
+        var evaluated = layer.Transform with { X = 80, Y = 90, ScaleX = -2, ScaleY = 3, Rotation = 60 };
+        var oldPivot = new ScenePoint(80, 57.5);
+        var matrix = MatrixFor(evaluated with { Pivot = oldPivot });
+        Point[] corners = [new(0, 0), new(100, 0), new(100, 50), new(0, 50)];
+        var moving = corners[handle];
+        var fixedCorner = corners[(handle + 2) % 4];
+        var geometry = new ProjectLayerGeometry(new(0, 0, 100, 50), new((float)oldPivot.X, (float)oldPivot.Y), default, SKMatrix.Identity, SKMatrix.Identity);
+        var gesture = new CanvasTransformGesture(layer, evaluated, geometry, matrix, moving * matrix, handle);
+        var target = fixedCorner + new Vector((moving.X - fixedCorner.X) * 2, (moving.Y - fixedCorner.Y) * 1.5);
+
+        var changed = GraphicCanvasGeometry.TransformLayer(gesture, target * matrix, false);
+
+        Assert.InRange(Math.Abs(200 - changed.Shape!.Width), 0, 0.0001);
+        Assert.InRange(Math.Abs(75 - changed.Shape.Height), 0, 0.0001);
+        Assert.Same(layer.Position, changed.Position);
+        var adjusted = evaluated with
+        {
+            X = evaluated.X + changed.Transform.X - layer.Transform.X,
+            Y = evaluated.Y + changed.Transform.Y - layer.Transform.Y,
+            AnchorX = layer.Transform.AnchorX + layer.Position.Pivot.X * changed.Shape.Width,
+            AnchorY = layer.Transform.AnchorY + layer.Position.Pivot.Y * changed.Shape.Height
+        };
+        var expected = fixedCorner * matrix;
+        var actual = new Point(fixedCorner.X * changed.Shape.Width / layer.Shape.Width,
+            fixedCorner.Y * changed.Shape.Height / layer.Shape.Height) * MatrixFor(adjusted);
+        Assert.Equal(expected.X, actual.X, 6);
+        Assert.Equal(expected.Y, actual.Y, 6);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
     public void RectangleResizeKeepsTheOppositeCornerFixedWithRotationPivotAndEvaluatedAnimation(int handle)
     {
         var layer = new ProjectLayer

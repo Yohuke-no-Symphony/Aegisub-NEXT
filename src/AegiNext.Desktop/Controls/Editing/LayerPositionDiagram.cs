@@ -10,49 +10,49 @@ using ProjectTextAlignment = AegiNext.Core.Projects.TextAlignment;
 
 namespace AegiNext.Desktop.Controls;
 
-/// <summary>共用父画布投影的只读布局示意：边距、真实字形边界、anchor、pivot 和像素偏移。</summary>
-public sealed class SubtitlePositionDiagram : Control
+/// <summary>共用父画布投影的只读布局示意：边距、内容逻辑边界、anchor、pivot 和像素偏移。</summary>
+public sealed class LayerPositionDiagram : Control
 {
     private const double PADDING = 12;
     private const double LEGEND_HEIGHT = 20;
-    public static readonly StyledProperty<SubtitlePositionGeometry?> GeometryProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, SubtitlePositionGeometry?>(nameof(Geometry));
-    public static readonly StyledProperty<SubtitlePosition?> PositionProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, SubtitlePosition?>(nameof(Position));
+    public static readonly StyledProperty<LayerPositionDraftGeometry?> GeometryProperty =
+        AvaloniaProperty.Register<LayerPositionDiagram, LayerPositionDraftGeometry?>(nameof(Geometry));
+    public static readonly StyledProperty<LayerPosition?> PositionProperty =
+        AvaloniaProperty.Register<LayerPositionDiagram, LayerPosition?>(nameof(Position));
     public static readonly StyledProperty<bool> ShowMarginsProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, bool>(nameof(ShowMargins));
+        AvaloniaProperty.Register<LayerPositionDiagram, bool>(nameof(ShowMargins));
     public static readonly StyledProperty<SubtitleMargins?> MarginsProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, SubtitleMargins?>(nameof(Margins));
+        AvaloniaProperty.Register<LayerPositionDiagram, SubtitleMargins?>(nameof(Margins));
     public static readonly StyledProperty<int> AlignmentProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, int>(nameof(Alignment), 7);
+        AvaloniaProperty.Register<LayerPositionDiagram, int>(nameof(Alignment), 7);
     public static readonly StyledProperty<bool> IsExplicitProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, bool>(nameof(IsExplicit));
+        AvaloniaProperty.Register<LayerPositionDiagram, bool>(nameof(IsExplicit));
     public static readonly StyledProperty<int> CanvasWidthProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, int>(nameof(CanvasWidth), 1920);
+        AvaloniaProperty.Register<LayerPositionDiagram, int>(nameof(CanvasWidth), 1920);
     public static readonly StyledProperty<int> CanvasHeightProperty =
-        AvaloniaProperty.Register<SubtitlePositionDiagram, int>(nameof(CanvasHeight), 1080);
+        AvaloniaProperty.Register<LayerPositionDiagram, int>(nameof(CanvasHeight), 1080);
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
-        TextElement.ForegroundProperty.AddOwner<SubtitlePositionDiagram>();
+        TextElement.ForegroundProperty.AddOwner<LayerPositionDiagram>();
 
-    static SubtitlePositionDiagram()
+    static LayerPositionDiagram()
     {
-        AffectsRender<SubtitlePositionDiagram>(GeometryProperty, PositionProperty, ShowMarginsProperty, MarginsProperty,
+        AffectsRender<LayerPositionDiagram>(GeometryProperty, PositionProperty, ShowMarginsProperty, MarginsProperty,
             AlignmentProperty, IsExplicitProperty, CanvasWidthProperty, CanvasHeightProperty, ForegroundProperty);
     }
 
     /// <summary>禁用输入命中；示意不创建任何编辑事务。</summary>
-    public SubtitlePositionDiagram()
+    public LayerPositionDiagram()
     {
         IsHitTestVisible = false;
         Focusable = false;
     }
 
-    public SubtitlePositionGeometry? Geometry
+    public LayerPositionDraftGeometry? Geometry
     {
         get => GetValue(GeometryProperty);
         set => SetValue(GeometryProperty, value);
     }
-    public SubtitlePosition? Position
+    public LayerPosition? Position
     {
         get => GetValue(PositionProperty);
         set => SetValue(PositionProperty, value);
@@ -122,10 +122,12 @@ public sealed class SubtitlePositionDiagram : Control
             var measured = geometry!;
             var placement = position!;
             anchor = new(placement.Anchor.X * parentSize.X, placement.Anchor.Y * parentSize.Y);
-            offset = anchor + new Vector(placement.Offset.X, placement.Offset.Y);
+            var basePosition = LayerPositionGeometry.BasePosition(placement, parentSize);
+            offset = new(basePosition.X, basePosition.Y);
             pivot = offset + new Vector(measured.Transform.X, measured.Transform.Y);
-            var localPivot = new Point(measured.GlyphOrigin.X + placement.Pivot.X * measured.GlyphSize.X + measured.Transform.AnchorX,
-                measured.GlyphOrigin.Y + placement.Pivot.Y * measured.GlyphSize.Y + measured.Transform.AnchorY);
+            var normalizedPivot = LayerPositionGeometry.LocalPivot(placement, measured.GlyphOrigin, measured.GlyphSize);
+            var localPivot = new Point(normalizedPivot.X + measured.Transform.Pivot.X,
+                normalizedPivot.Y + measured.Transform.Pivot.Y);
             var radians = measured.Transform.Rotation * Math.PI / 180;
             var cosine = Math.Cos(radians);
             var sine = Math.Sin(radians);

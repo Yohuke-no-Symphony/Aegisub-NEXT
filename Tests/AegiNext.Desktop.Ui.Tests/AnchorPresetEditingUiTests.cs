@@ -26,6 +26,8 @@ public sealed class AnchorPresetEditingUiTests
         for (var opening = 0; opening < 2; opening++)
         {
             await using var context = new MainWindowTestContext();
+            await context.OpenMediaAsync();
+            await PrepareSubtitleAsync(context);
             var window = context.Window;
             window.Layouts.Activate(WorkbenchPanelIds.STYLES);
             await context.Session.RequestSettingsAsync(SettingsPage.STYLES);
