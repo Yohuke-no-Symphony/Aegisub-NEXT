@@ -437,13 +437,13 @@ public sealed class LocalizationUiTests
         var interpolation = effectsView.FindControl<ComboBox>("InterpolationCombo")!;
         var number = effectsView.FindControl<NumericDraftInput>("RotationInput")!;
         var color = styleView.FindControl<ColorDraftInput>("FillPicker")!;
-        context.ViewModel.Styles.CommitAlignment((int)TextAlignment.MIDDLE_CENTER);
+        context.ViewModel.Styles.Subtitle.CommitAlignment((int)TextAlignment.MIDDLE_CENTER);
         blend.SelectedIndex = (int)BlendMode.SCREEN;
         context.Session.Editor.SetKeyframe(cueID, AnimationProperty.ROTATION, new(new(1), 0));
         Assert.True(context.Session.SelectKeyframe(new(cueID, AnimationProperty.ROTATION, new(1), new(1))));
         interpolation.SelectedIndex = (int)KeyframeInterpolation.EASE_OUT;
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal((int)TextAlignment.MIDDLE_CENTER, context.ViewModel.Styles.Alignment);
+        Assert.Equal((int)TextAlignment.MIDDLE_CENTER, context.ViewModel.Styles.Subtitle.Alignment);
         Assert.Equal((int)BlendMode.SCREEN, context.ViewModel.Effects.Blend);
         Assert.Equal((int)KeyframeInterpolation.EASE_OUT, context.ViewModel.Effects.Interpolation);
         Assert.Equal(KeyframeInterpolation.EASE_OUT, Assert.Single(context.Session.SelectedLayer!.Tracks
@@ -466,7 +466,7 @@ public sealed class LocalizationUiTests
                 Dispatcher.UIThread.RunJobs();
 
                 Assert.Equal((int)TextAlignment.MIDDLE_CENTER, alignment.AlignmentIndex);
-                Assert.Equal((int)TextAlignment.MIDDLE_CENTER, context.ViewModel.Styles.Alignment);
+                Assert.Equal((int)TextAlignment.MIDDLE_CENTER, context.ViewModel.Styles.Subtitle.Alignment);
                 Assert.Equal((int)BlendMode.SCREEN, blend.SelectedIndex);
                 Assert.Equal((int)BlendMode.SCREEN, context.ViewModel.Effects.Blend);
                 Assert.Equal((int)KeyframeInterpolation.EASE_OUT, interpolation.SelectedIndex);

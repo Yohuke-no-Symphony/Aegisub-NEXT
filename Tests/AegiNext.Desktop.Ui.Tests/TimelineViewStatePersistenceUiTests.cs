@@ -47,7 +47,7 @@ public sealed class TimelineViewStatePersistenceUiTests
             window.UpdateLayout();
             var box = Assert.Single(input.GetVisualDescendants().OfType<TextBox>());
             Assert.True(box.Focus());
-            session.ViewModel.Styles.FontSizeText = "72.50";
+            session.ViewModel.Styles.Subtitle.FontSizeText = "72.50";
             Dispatcher.UIThread.RunJobs();
             var committed = session.DocumentSnapshot;
             var preview = session.PreviewDocument;
@@ -56,7 +56,7 @@ public sealed class TimelineViewStatePersistenceUiTests
             Assert.NotEqual(72.5, committed.Subtitles[0].Style.FontSize);
             if (invalid)
             {
-                session.ViewModel.Styles.FontSizeText = "7e-";
+                session.ViewModel.Styles.Subtitle.FontSizeText = "7e-";
                 Dispatcher.UIThread.RunJobs();
                 Assert.Same(preview, session.PreviewDocument);
             }
@@ -92,7 +92,7 @@ public sealed class TimelineViewStatePersistenceUiTests
         }
         finally
         {
-            session.ViewModel.Styles.FontSizeText = session.DocumentSnapshot.Subtitles[0].Style.FontSize
+            session.ViewModel.Styles.Subtitle.FontSizeText = session.DocumentSnapshot.Subtitles[0].Style.FontSize
                 .ToString(System.Globalization.CultureInfo.CurrentCulture);
             await window.DisposeAsync();
             window.Close();

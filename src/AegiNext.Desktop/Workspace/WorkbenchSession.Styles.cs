@@ -28,7 +28,7 @@ internal sealed partial class WorkbenchSession
     }
     internal Task ApplySelectedStyleAsync()
     {
-        return ViewModel.Styles.SelectedPreset is { } selected
+        return ViewModel.Styles.Subtitle.SelectedPreset is { } selected
             ? styles.ApplyAsync(styleLibrary.Snapshot.Presets.Single(value => value.Id == selected.Id))
             : Task.CompletedTask;
     }

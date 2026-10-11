@@ -78,7 +78,7 @@ public sealed class SubtitleStyleGroupingUiTests
             AssertGroupHeaders(panelGroups);
             AssertGroupHeaders(settingsGroups);
 
-            AssertTypography(panelGroups[0], "FontCombo", context.ViewModel.Styles.Bold, context.ViewModel.Styles.Italic);
+            AssertTypography(panelGroups[0], "FontCombo", context.ViewModel.Styles.Subtitle.Bold, context.ViewModel.Styles.Subtitle.Italic);
             AssertTypography(settingsGroups[0], "FontInput", settingsWindow.ViewModel.Styles.Bold,
                 settingsWindow.ViewModel.Styles.Italic);
             AssertPaint(panelGroups[1]);
@@ -168,8 +168,8 @@ public sealed class SubtitleStyleGroupingUiTests
             Assert.Equal(!italic, committedStyle.Bold);
             Assert.Equal(italic, committedStyle.Italic);
             Assert.True(panelToggle.IsChecked);
-            Assert.Equal(!italic, context.ViewModel.Styles.Bold);
-            Assert.Equal(italic, context.ViewModel.Styles.Italic);
+            Assert.Equal(!italic, context.ViewModel.Styles.Subtitle.Bold);
+            Assert.Equal(italic, context.ViewModel.Styles.Subtitle.Italic);
             Assert.True(context.Session.Editor.Undo());
             Flush(panelWindow);
             Assert.Same(original, context.Session.Editor.Snapshot);
@@ -233,15 +233,15 @@ public sealed class SubtitleStyleGroupingUiTests
         try
         {
             host.Show();
-            Assert.False(context.ViewModel.Styles.HasCue);
+            Assert.False(context.ViewModel.Styles.Subtitle.HasCue);
             var fill = UiTestActions.Find<ColorDraftInput>(panel, "FillPicker");
             var stroke = UiTestActions.Find<ColorDraftInput>(panel, "StrokePicker");
             var width = UiTestActions.Find<NumericDraftInput>(panel, "StrokeWidthInput");
             Assert.True(fill.IsEffectivelyEnabled);
             Assert.True(stroke.IsEffectivelyEnabled);
             Assert.True(width.IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<FontFamilyPicker>(panel, "FontCombo").IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<NumericDraftInput>(panel, "MarginVerticalInput").IsEffectivelyEnabled);
+            Assert.DoesNotContain(panel.GetVisualDescendants(), value => value is FontFamilyPicker);
+            Assert.DoesNotContain(panel.GetVisualDescendants().OfType<Control>(), value => value.Name == "MarginVerticalInput");
             fill.Draft!.HexText = "#FF0000";
             Flush(host);
             Assert.Same(original, context.Session.Editor.Snapshot);
@@ -253,7 +253,7 @@ public sealed class SubtitleStyleGroupingUiTests
         }
         finally
         {
-            context.ViewModel.Styles.FillDraft.Restore("HexText");
+            context.ViewModel.Styles.Shape.FillDraft.Restore("HexText");
             host.Close();
             panel.Dispose();
         }

@@ -168,7 +168,7 @@ public sealed class DesktopApplicationContextTests
         Assert.Equal("#987654", second.Preferences.AccentColor);
         Assert.Equal(0.375f, second.Preferences.Volume);
         Assert.Equal(context.Preferences, context.PreferencesStore.Load());
-        Assert.Contains(second.ViewModel.Styles.Presets, item => item.Id == preset.Id);
+        Assert.Contains(second.ViewModel.Styles.Subtitle.Presets, item => item.Id == preset.Id);
     }
 
     [Fact]

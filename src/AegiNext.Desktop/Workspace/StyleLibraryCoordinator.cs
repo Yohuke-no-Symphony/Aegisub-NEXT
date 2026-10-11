@@ -94,7 +94,7 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
             return;
         }
 
-        var vm = session.ViewModel.Styles;
+        var vm = session.ViewModel.Styles.Subtitle;
         var id = selectedId ?? vm.SelectedPreset?.Id;
         vm.Presets = session.StyleLibrary.Snapshot.Presets.Select(value => new StylePresetListItem(value.Id, value.Name)).ToArray();
         vm.SelectedPreset = vm.Presets.FirstOrDefault(value => value.Id == id) ?? vm.Presets.FirstOrDefault();

@@ -53,7 +53,7 @@ public sealed class StylesPanelLayoutUiTests
             Flush(window);
             var row = UiTestActions.Find<Grid>(view, "StylePresetActions");
             var selector = UiTestActions.Find<ComboBox>(view, "SubtitleStylePresetCombo");
-            selector.SelectedItem = context.ViewModel.Styles.Presets.Single(value => value.Id == preset.Id);
+            selector.SelectedItem = context.ViewModel.Styles.Subtitle.Presets.Single(value => value.Id == preset.Id);
             Flush(window);
             var apply = UiTestActions.Find<Button>(view, "ApplyStyleButton");
             var manage = UiTestActions.Find<Button>(view, "ManageStylesButton");

@@ -24,7 +24,7 @@ public sealed class WorkbenchSessionPersistenceTests
         var id = context.Editor.AddSubtitle(MediaTime.Zero, new(1), "中文 ABC 123");
         context.Session.SelectCue(id);
         await context.Session.WaitForProjectIdleAsync();
-        context.Session.ViewModel.Styles.FontSizeText = "not a number";
+        context.Session.ViewModel.Styles.Subtitle.FontSizeText = "not a number";
         var undo = context.Editor.UndoLabel;
         var snapshot = context.Editor.Snapshot;
 
@@ -33,7 +33,7 @@ public sealed class WorkbenchSessionPersistenceTests
 
         Assert.False(context.Editor.HasUnsavedChanges);
         Assert.Same(snapshot, context.Editor.Snapshot);
-        Assert.Equal("not a number", context.Session.ViewModel.Styles.FontSizeText);
+        Assert.Equal("not a number", context.Session.ViewModel.Styles.Subtitle.FontSizeText);
         Assert.Equal(undo, context.Editor.UndoLabel);
         var saved = await ProjectStore.LoadAsync(context.Session.ProjectPath!);
         Assert.Equal("中文 ABC 123", Assert.Single(saved.Subtitles).Text);
@@ -42,7 +42,7 @@ public sealed class WorkbenchSessionPersistenceTests
         await context.Session.Persistence.Completion;
         var backup = Assert.Single(Directory.GetFiles(Path.Combine(context.Session.ProjectDirectory, "backup"), "*.aeginext"));
         Assert.Equal("中文 ABC 123", Assert.Single((await ProjectStore.LoadAsync(backup)).Subtitles).Text);
-        Assert.Equal("not a number", context.Session.ViewModel.Styles.FontSizeText);
+        Assert.Equal("not a number", context.Session.ViewModel.Styles.Subtitle.FontSizeText);
     }
 
     [Fact]

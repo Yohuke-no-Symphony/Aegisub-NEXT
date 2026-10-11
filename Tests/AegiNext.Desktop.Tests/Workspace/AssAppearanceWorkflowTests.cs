@@ -37,7 +37,7 @@ public sealed class AssAppearanceWorkflowTests
         Assert.Equal(line.Id, context.Session.SelectedCueId);
         Assert.Equal(-1.25, line.Style.LetterSpacing);
         Assert.Equal(mode, line.Style.WrapMode);
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         Assert.Equal(-1.25m, styles.LetterSpacing);
         Assert.Equal((int)mode, styles.WrapMode);
         var details = context.Session.Details;

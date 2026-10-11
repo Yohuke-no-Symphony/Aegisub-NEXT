@@ -16,7 +16,7 @@ public sealed class StyleLineHeightDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.LineHeightText = text;
         Assert.Same(original, context.Editor.Snapshot);
 
@@ -48,7 +48,7 @@ public sealed class StyleLineHeightDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.ShadowXText = "17";
         styles.LineHeightText = text;
 
@@ -79,16 +79,16 @@ public sealed class StyleLineHeightDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Session.SelectedCue!.Style.LineHeight;
-        context.Session.ViewModel.Styles.FontSizeText = "80";
-        context.Session.ViewModel.Styles.LineHeightText = "1.2";
+        context.Session.ViewModel.Styles.Subtitle.FontSizeText = "80";
+        context.Session.ViewModel.Styles.Subtitle.LineHeightText = "1.2";
 
         Assert.True(context.Session.TryCommitDrafts(false));
 
         Assert.Equal(original, context.Session.SelectedCue!.Style.LineHeight);
         Assert.Equal(80, context.Session.SelectedCue.Style.FontSize);
         context.Session.SelectCue(document.Subtitles[1].Id);
-        Assert.Equal(2.2m, context.Session.ViewModel.Styles.LineHeight);
-        Assert.Equal("2.2", context.Session.ViewModel.Styles.LineHeightText);
+        Assert.Equal(2.2m, context.Session.ViewModel.Styles.Subtitle.LineHeight);
+        Assert.Equal("2.2", context.Session.ViewModel.Styles.Subtitle.LineHeightText);
     }
 
     [Fact]
@@ -105,10 +105,10 @@ public sealed class StyleLineHeightDraftTests
         await context.InitializeAsync();
         context.Session.SelectLayer(shape.Id, [shape.Id]);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         Assert.False(styles.HasCue);
         styles.LineHeightText = "invalid";
-        styles.FillDraft.SetValue(new(0.25, 0.5, 0.75, 1));
+        context.Session.ViewModel.Styles.Shape.FillDraft.SetValue(new(0.25, 0.5, 0.75, 1));
 
         Assert.True(context.Session.TryCommitDrafts(false));
 

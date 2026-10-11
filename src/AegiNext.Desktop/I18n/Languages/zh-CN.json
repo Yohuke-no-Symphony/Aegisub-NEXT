@@ -1088,6 +1088,11 @@
     "Workbench.AnimationRgb": "RGB 颜色",
     "Workbench.AnimationAlpha": "透明度",
     "Workbench.RelativeFontSizeOperation": "相对字号倍率",
-    "Workbench.MixedPropertyValue": "此范围包含多个基础值；编辑会应用到整个范围。"
+    "Workbench.MixedPropertyValue": "此范围包含多个基础值；编辑会应用到整个范围。",
+    "Workbench.StylePrimarySelection": "正在编辑主选片段：{0}",
+    "Workbench.ImageFit": "图片适配",
+    "Workbench.ImageFitFit": "完整显示",
+    "Workbench.ImageFitFillCrop": "覆盖裁剪",
+    "Workbench.ImageFitStretch": "拉伸"
   }
 }

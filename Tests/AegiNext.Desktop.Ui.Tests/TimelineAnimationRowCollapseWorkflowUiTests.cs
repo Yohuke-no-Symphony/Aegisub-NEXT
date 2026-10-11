@@ -161,7 +161,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             Assert.Equal(40, timeline.GetAnimationRowRectangle(row)!.Value.Height);
             Assert.True(box.IsFocused);
             Assert.Equal(rawText, box.Text);
-            Assert.Equal(rawText, session.ViewModel.Styles.FontSizeText);
+            Assert.Equal(rawText, session.ViewModel.Styles.Subtitle.FontSizeText);
             Assert.Same(original, session.DocumentSnapshot);
             Assert.Same(preview, session.PreviewDocument);
             Assert.Same(preview, session.ViewModel.Preview.Scene.Document);
@@ -175,7 +175,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
             Assert.False(timeline.IsAnimationRowCollapsed(row));
             Assert.True(box.IsFocused);
             Assert.Equal(rawText, box.Text);
-            Assert.Equal(rawText, session.ViewModel.Styles.FontSizeText);
+            Assert.Equal(rawText, session.ViewModel.Styles.Subtitle.FontSizeText);
             Assert.Same(original, session.DocumentSnapshot);
             Assert.Same(preview, session.PreviewDocument);
             Assert.True(session.HasProjectDrafts);
@@ -185,7 +185,7 @@ public sealed class TimelineAnimationRowCollapseWorkflowUiTests
         }
         finally
         {
-            session.ViewModel.Styles.FontSizeText = original.Subtitles[0].Style.FontSize.ToString(CultureInfo.CurrentCulture);
+            session.ViewModel.Styles.Subtitle.FontSizeText = original.Subtitles[0].Style.FontSize.ToString(CultureInfo.CurrentCulture);
             Dispatcher.UIThread.RunJobs();
             await CloseWindowAsync(window);
         }

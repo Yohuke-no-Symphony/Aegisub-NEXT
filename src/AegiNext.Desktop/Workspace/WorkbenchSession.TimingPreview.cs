@@ -210,7 +210,7 @@ internal sealed partial class WorkbenchSession
         var initialEnd = ResolveTimingEnd(entered.CueId, trackId, start, start);
         var preview = new TimelineTimingPreview(entered.CueId, start, initialEnd);
         var generation = projectGeneration;
-        var presetId = ViewModel.Styles.SelectedPreset?.Id;
+        var presetId = ViewModel.Styles.Subtitle.SelectedPreset?.Id;
         pendingTimingEntry = entered;
         pendingTimingEnd = null;
         StartTimingPreview(preview, trackId);

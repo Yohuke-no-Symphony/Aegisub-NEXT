@@ -1,0 +1,15 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:styles="using:AegiNext.Desktop.Panels.Styles" xmlns:controls="using:AegiNext.Desktop.Controls"
+             x:Class="AegiNext.Desktop.Panels.Styles.ImageStyleView" x:DataType="styles:ImageStyleViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="8" Spacing="8">
+      <TextBlock Classes="field" Text="{Loc Key=Workbench.Size}" />
+      <controls:VectorDraftInput Name="ImageSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput"
+          XTextBinding="{Binding Width.RawText, Mode=TwoWay}" YTextBinding="{Binding Height.RawText, Mode=TwoWay}"
+          XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="1" Maximum="32768" />
+      <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageFit}" />
+      <ComboBox Name="ImageFitInput" ItemsSource="{Binding FitChoices}" SelectedIndex="{Binding Fit, Mode=TwoWay}"
+                HorizontalAlignment="Stretch" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

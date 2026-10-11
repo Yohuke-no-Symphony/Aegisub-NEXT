@@ -640,7 +640,7 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         }
         var captured = session.Editor.Snapshot;
         var trackId = session.CurrentTrackId;
-        var presetId = session.ViewModel.Styles.SelectedPreset?.Id;
+        var presetId = session.ViewModel.Styles.Subtitle.SelectedPreset?.Id;
         var fontLoading = ass ? session.Fonts.EnsureLoadedAsync() : Task.CompletedTask;
         await session.ApplicationContext.Tasks.Submit(new ImportSubtitlesTask(session, this, path, ass,
             captured, session.TaskInputRevision, trackId, presetId, fontLoading)).Completion;

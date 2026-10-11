@@ -102,12 +102,12 @@ internal sealed partial class WorkbenchSession
         var subtitle = document.Subtitles.Single(line => line.Id == id);
         var placement = ResolvePlacement(document, layer);
         using var updateLease = BeginWorkbenchUpdate();
-        if (ViewModel.Styles.Position.IsExplicit)
+        if (ViewModel.Styles.Subtitle.Position.IsExplicit)
         {
-            ViewModel.Styles.Position.UpdateGeometry(PreparePositionGeometry(placement.Geometry, layer));
+            ViewModel.Styles.Subtitle.Position.UpdateGeometry(PreparePositionGeometry(placement.Geometry, layer));
             return;
         }
-        ViewModel.Styles.Position.Load(subtitle.Style, placement.Position, placement.BasePosition is not null,
+        ViewModel.Styles.Subtitle.Position.Load(subtitle.Style, placement.Position, placement.BasePosition is not null,
             PreparePositionGeometry(placement.Geometry, layer));
     }
 

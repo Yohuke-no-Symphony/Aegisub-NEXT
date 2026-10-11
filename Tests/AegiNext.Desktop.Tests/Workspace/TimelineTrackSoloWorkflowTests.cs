@@ -13,7 +13,7 @@ public sealed class TimelineTrackSoloWorkflowTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
-        context.Session.ViewModel.Styles.FontSizeText = "7e-";
+        context.Session.ViewModel.Styles.Subtitle.FontSizeText = "7e-";
         var selectedCue = context.Session.SelectedCueId;
         var selectedLayer = context.Session.SelectedLayerId;
         var selectedTrack = context.Session.CurrentTrackId;
@@ -31,7 +31,7 @@ public sealed class TimelineTrackSoloWorkflowTests
         Assert.Equal(selectedCue, context.Session.SelectedCueId);
         Assert.Equal(selectedLayer, context.Session.SelectedLayerId);
         Assert.Equal(selectedTrack, context.Session.CurrentTrackId);
-        Assert.Equal("7e-", context.Session.ViewModel.Styles.FontSizeText);
+        Assert.Equal("7e-", context.Session.ViewModel.Styles.Subtitle.FontSizeText);
         Assert.Same(before, context.Editor.Snapshot);
         Assert.Equal(persisted, ProjectStore.Serialize(context.Session.CreatePersistenceSnapshot(context.Editor.Snapshot)));
         Assert.Equal(dirty, context.Session.HasUnsavedChanges);
@@ -39,7 +39,7 @@ public sealed class TimelineTrackSoloWorkflowTests
         Assert.Equal(redo, context.Editor.RedoLabel);
         context.Session.ViewModel.Timeline.ToggleTrackSolo(solo);
         Assert.Null(context.Session.ViewModel.Timeline.SoloTrackId);
-        Assert.Equal("7e-", context.Session.ViewModel.Styles.FontSizeText);
+        Assert.Equal("7e-", context.Session.ViewModel.Styles.Subtitle.FontSizeText);
     }
 
     [Fact]
@@ -69,14 +69,14 @@ public sealed class TimelineTrackSoloWorkflowTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
-        context.Session.ViewModel.Styles.FontSizeText = "7e-";
+        context.Session.ViewModel.Styles.Subtitle.FontSizeText = "7e-";
         var solo = document.Tracks[1].Id;
         context.Session.ViewModel.Timeline.ToggleTrackSolo(solo);
 
         Assert.False(context.Session.SelectTrack(document.Tracks[0].Id));
 
         Assert.Equal(solo, context.Session.ViewModel.Timeline.SoloTrackId);
-        Assert.Equal("7e-", context.Session.ViewModel.Styles.FontSizeText);
+        Assert.Equal("7e-", context.Session.ViewModel.Styles.Subtitle.FontSizeText);
         Assert.Same(document, context.Editor.Snapshot);
     }
 

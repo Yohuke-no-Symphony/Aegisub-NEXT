@@ -102,7 +102,7 @@ public sealed class SubtitleEffectsWorkflowUiTests
         var after = context.Session.DocumentSnapshot;
         Assert.Same(before.Subtitles[0], after.Subtitles[0]);
         Assert.Same(position, after.Subtitles[0].Style.Position);
-        Assert.True(context.ViewModel.Styles.Position.IsExplicit);
+        Assert.True(context.ViewModel.Styles.Subtitle.Position.IsExplicit);
         Assert.Equal(178m, context.ViewModel.Effects.PositionX);
         Assert.Equal(246m, context.ViewModel.Effects.PositionY);
         Assert.Equal(default, after.Layers[0].Transform.Position);

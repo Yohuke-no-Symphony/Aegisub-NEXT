@@ -153,7 +153,7 @@ public sealed class AnchorPresetEditingUiTests
         context.Session.SelectLayer(layer.Id, [layer.Id]);
         window.Layouts.Activate(WorkbenchPanelIds.STYLES);
         Dispatcher.UIThread.RunJobs();
-        Assert.True(window.ViewModel.Styles.Position.CanSelectPreset);
+        Assert.True(window.ViewModel.Styles.Subtitle.Position.CanSelectPreset);
         Assert.Equal(layer.Id, context.Session.SelectedLayer!.Id);
         return layer;
     }

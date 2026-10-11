@@ -22,7 +22,7 @@ public sealed class SubtitleAppearanceWorkflowTests
         await context.InitializeAsync();
         context.Session.SelectCue(line.Id);
         Assert.True(context.Session.SelectKeyframe(new(layer.Id, property, new(2), new(2))));
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         Assert.Equal("8", Read(styles, property));
         var original = context.Editor.Snapshot;
         Write(styles, property, "7e-");
@@ -72,14 +72,14 @@ public sealed class SubtitleAppearanceWorkflowTests
         _ => "StrokeBlur"
     };
 
-    private static string Read(StylesPanelViewModel model, AnimationProperty property) => property switch
+    private static string Read(SubtitleStyleViewModel model, AnimationProperty property) => property switch
     {
         AnimationProperty.LETTER_SPACING => model.LetterSpacingText,
         AnimationProperty.FILL_BLUR => model.FillBlurText,
         _ => model.StrokeBlurText
     };
 
-    private static void Write(StylesPanelViewModel model, AnimationProperty property, string value)
+    private static void Write(SubtitleStyleViewModel model, AnimationProperty property, string value)
     {
         switch (property)
         {

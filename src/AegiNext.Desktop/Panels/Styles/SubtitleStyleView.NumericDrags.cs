@@ -5,7 +5,7 @@ using Avalonia.VisualTree;
 
 namespace AegiNext.Desktop.Panels.Styles;
 
-internal sealed partial class StylesPanelView
+internal sealed partial class SubtitleStyleView
 {
     private NumericDragEditSnapshot? numericDragSnapshot;
 

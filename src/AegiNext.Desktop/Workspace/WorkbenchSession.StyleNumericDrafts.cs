@@ -28,7 +28,7 @@ internal sealed partial class WorkbenchSession
         {
             return false;
         }
-        var vm = ViewModel.Styles;
+        var vm = ViewModel.Styles.Subtitle;
         using var updateLease = BeginWorkbenchUpdate();
         try
         {

@@ -110,7 +110,7 @@ public sealed class StyleLineHeightEditingUiTests
             Assert.Same(original, context.Session.Editor.Snapshot);
             Assert.False(context.Session.Editor.CanUndo);
             Assert.Equal((decimal)original.Subtitles[0].Style.LineHeight, input.Value);
-            Assert.Equal(context.ViewModel.Styles.LineHeightText, input.RawText);
+            Assert.Equal(context.ViewModel.Styles.Subtitle.LineHeightText, input.RawText);
             Assert.True(context.Session.Editor.Redo());
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("1.8", input.RawText);
@@ -119,7 +119,7 @@ public sealed class StyleLineHeightEditingUiTests
         }
         finally
         {
-            context.ViewModel.Styles.RestoreNumberField("LineHeightInput");
+            context.ViewModel.Styles.Subtitle.RestoreNumberField("LineHeightInput");
             host.Close();
             view.Dispose();
         }
@@ -161,7 +161,7 @@ public sealed class StyleLineHeightEditingUiTests
         }
         finally
         {
-            context.ViewModel.Styles.RestoreNumberField("LineHeightInput");
+            context.ViewModel.Styles.Subtitle.RestoreNumberField("LineHeightInput");
             host.Close();
             view.Dispose();
         }
@@ -183,12 +183,12 @@ public sealed class StyleLineHeightEditingUiTests
         {
             host.Show();
             var input = UiTestActions.Find<NumericDraftInput>(host, "LineHeightInput");
-            context.ViewModel.Styles.LineHeightText = "10.01";
+            context.ViewModel.Styles.Subtitle.LineHeightText = "10.01";
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("10.01", input.RawText);
             Assert.False(context.Session.TryCommitDrafts(false));
             Assert.Same(original, context.Session.Editor.Snapshot);
-            Assert.True(context.ViewModel.Styles.RestoreNumberField("LineHeightInput"));
+            Assert.True(context.ViewModel.Styles.Subtitle.RestoreNumberField("LineHeightInput"));
             context.Session.SelectCue(second);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("2.2", input.RawText);
@@ -198,14 +198,14 @@ public sealed class StyleLineHeightEditingUiTests
         }
         finally
         {
-            context.ViewModel.Styles.RestoreNumberField("LineHeightInput");
+            context.ViewModel.Styles.Subtitle.RestoreNumberField("LineHeightInput");
             host.Close();
             view.Dispose();
         }
     }
 
     [AvaloniaFact]
-    public async Task OrdinaryShapesDisableTheSubtitleLineHeightInput()
+    public async Task OrdinaryShapesHideTheSubtitleLineHeightInput()
     {
         await using var context = new MainWindowTestContext();
         var shape = new ProjectLayer
@@ -219,7 +219,7 @@ public sealed class StyleLineHeightEditingUiTests
         try
         {
             host.Show();
-            Assert.False(UiTestActions.Find<NumericDraftInput>(host, "LineHeightInput").IsEffectivelyEnabled);
+            Assert.DoesNotContain(host.GetVisualDescendants().OfType<Control>(), control => control.Name == "LineHeightInput");
         }
         finally
         {

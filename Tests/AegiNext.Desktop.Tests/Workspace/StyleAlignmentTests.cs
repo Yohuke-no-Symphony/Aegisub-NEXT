@@ -24,7 +24,7 @@ public sealed class StyleAlignmentTests
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
 
-        context.Session.ViewModel.Styles.CommitAlignment((int)alignment);
+        context.Session.ViewModel.Styles.Subtitle.CommitAlignment((int)alignment);
 
         var changed = context.Editor.Snapshot.Subtitles[0];
         Assert.Equal(original.Subtitles[0] with { Style = original.Subtitles[0].Style with
@@ -36,7 +36,7 @@ public sealed class StyleAlignmentTests
         Assert.Same(original, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
         Assert.True(context.Editor.Redo());
-        Assert.Equal((int)alignment, context.Session.ViewModel.Styles.Alignment);
+        Assert.Equal((int)alignment, context.Session.ViewModel.Styles.Subtitle.Alignment);
         Assert.Null(context.Session.SelectedCue!.Style.TextAlign);
     }
 
@@ -48,10 +48,10 @@ public sealed class StyleAlignmentTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        Assert.Equal((int)TextAlignment.BOTTOM_CENTER, context.Session.ViewModel.Styles.Alignment);
+        Assert.Equal((int)TextAlignment.BOTTOM_CENTER, context.Session.ViewModel.Styles.Subtitle.Alignment);
         Assert.Same(original, context.Editor.Snapshot);
 
-        context.Session.ViewModel.Styles.FontSizeText = "80";
+        context.Session.ViewModel.Styles.Subtitle.FontSizeText = "80";
         Assert.True(context.Session.TryCommitDrafts());
         Assert.Equal(SubtitleTextAlignment.LEFT, context.Session.SelectedCue!.Style.TextAlign);
         Assert.Equal(80, context.Session.SelectedCue.Style.FontSize);
@@ -68,9 +68,9 @@ public sealed class StyleAlignmentTests
         Assert.True(details.SetStyleSelection(0, 1));
         details.EditText(1, 1, "Z");
         details.StyleDraft.FontSizeText = "88";
-        context.Session.ViewModel.Styles.FontSizeText = "76";
+        context.Session.ViewModel.Styles.Subtitle.FontSizeText = "76";
 
-        context.Session.ViewModel.Styles.CommitAlignment((int)TextAlignment.TOP_RIGHT);
+        context.Session.ViewModel.Styles.Subtitle.CommitAlignment((int)TextAlignment.TOP_RIGHT);
 
         var changed = context.Editor.Snapshot.Subtitles[0];
         Assert.Equal("AZCD\nEF", changed.Text);
@@ -105,10 +105,10 @@ public sealed class StyleAlignmentTests
         }
         else
         {
-            context.Session.ViewModel.Styles.FontSizeText = "invalid";
+            context.Session.ViewModel.Styles.Subtitle.FontSizeText = "invalid";
         }
 
-        context.Session.ViewModel.Styles.CommitAlignment((int)TextAlignment.TOP_LEFT);
+        context.Session.ViewModel.Styles.Subtitle.CommitAlignment((int)TextAlignment.TOP_LEFT);
         Assert.Same(original, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
         Assert.Equal(SubtitleTextAlignment.LEFT, context.Session.SelectedCue!.Style.TextAlign);
@@ -120,8 +120,8 @@ public sealed class StyleAlignmentTests
         }
         else
         {
-            Assert.Equal("invalid", context.Session.ViewModel.Styles.FontSizeText);
-            context.Session.ViewModel.Styles.FontSizeText = "80";
+            Assert.Equal("invalid", context.Session.ViewModel.Styles.Subtitle.FontSizeText);
+            context.Session.ViewModel.Styles.Subtitle.FontSizeText = "80";
         }
         Assert.True(context.Session.TryCommitDrafts());
         Assert.Equal(TextAlignment.TOP_LEFT, context.Session.SelectedCue.Style.Alignment);
@@ -138,7 +138,7 @@ public sealed class StyleAlignmentTests
         await context.InitializeAsync();
         context.Session.SelectCue(context.Editor.Snapshot.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
 
         styles.CommitAlignment((int)TextAlignment.BOTTOM_CENTER);
         Assert.Same(original, context.Editor.Snapshot);

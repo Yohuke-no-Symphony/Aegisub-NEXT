@@ -99,7 +99,7 @@ public sealed class TimelineStyleInteractionBoundaryUiTests
         }
         finally
         {
-            context.ViewModel.Styles.LineHeightText = committed.Subtitles.Single(line => line.Id == first).Style.LineHeight
+            context.ViewModel.Styles.Subtitle.LineHeightText = committed.Subtitles.Single(line => line.Id == first).Style.LineHeight
                 .ToString(CultureInfo.CurrentCulture);
             floating.Close();
             Dispatcher.UIThread.RunJobs();
@@ -112,7 +112,7 @@ public sealed class TimelineStyleInteractionBoundaryUiTests
     {
         Assert.True(text.IsFocused);
         Assert.Equal(rawText, text.Text);
-        Assert.Equal(rawText, context.ViewModel.Styles.LineHeightText);
+        Assert.Equal(rawText, context.ViewModel.Styles.Subtitle.LineHeightText);
         Assert.Same(committed, context.Session.DocumentSnapshot);
         Assert.Same(preview, context.Session.PreviewDocument);
         Assert.Equal(selected, context.Session.SelectedLayerId);

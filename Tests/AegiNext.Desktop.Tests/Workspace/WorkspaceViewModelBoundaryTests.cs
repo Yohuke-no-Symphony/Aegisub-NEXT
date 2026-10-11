@@ -19,7 +19,7 @@ public sealed class WorkspaceViewModelBoundaryTests
         foreach (var type in new[]
                  {
                      typeof(WorkbenchViewModel), typeof(PreviewPanelViewModel), typeof(TimelinePanelViewModel),
-                     typeof(SubtitlesPanelViewModel), typeof(StylesPanelViewModel), typeof(EffectsPanelViewModel),
+                     typeof(SubtitlesPanelViewModel), typeof(StylesPanelViewModel), typeof(SubtitleStyleViewModel), typeof(ImageStyleViewModel), typeof(ShapeStyleViewModel), typeof(EffectsPanelViewModel),
                      typeof(ExportPanelViewModel), typeof(LogPanelViewModel), typeof(SceneEditingState), typeof(ScenePreviewState)
                  })
         {

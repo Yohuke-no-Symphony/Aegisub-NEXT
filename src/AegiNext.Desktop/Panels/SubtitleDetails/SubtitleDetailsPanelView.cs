@@ -506,7 +506,7 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
         loadedVisualState = coordinator.VisualState;
         var options = new List<StylePresetListItem> { new(Guid.Empty, Localization.Get(
             coordinator.VisualState == KaraokeVisualState.INACTIVE ? "Workbench.InheritBodyVisual" : "Workbench.DefaultKaraokeStyle")) };
-        options.AddRange(session.ViewModel.Styles.Presets);
+        options.AddRange(session.ViewModel.Styles.Subtitle.Presets);
         var start = Math.Min(selectionStart, selectionEnd);
         var end = Math.Max(selectionStart, selectionEnd);
         if (start == end)
@@ -750,8 +750,8 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
             }
             else
             {
-                presets.ItemsSource = session.ViewModel.Styles.Presets;
-                presets.SelectedItem = session.ViewModel.Styles.Presets.FirstOrDefault(value => value.Id == bodyPresetId) ?? session.ViewModel.Styles.SelectedPreset;
+                presets.ItemsSource = session.ViewModel.Styles.Subtitle.Presets;
+                presets.SelectedItem = session.ViewModel.Styles.Subtitle.Presets.FirstOrDefault(value => value.Id == bodyPresetId) ?? session.ViewModel.Styles.Subtitle.SelectedPreset;
             }
             var style = coordinator.SelectionStyle();
             if (!coordinator.StyleDraft.IsFieldDirty(nameof(SubtitleDetailsStyleDraft.FontFamily)))

@@ -58,8 +58,6 @@ internal sealed partial class WorkbenchSession
             {
                 case "LayerStart": vm.LayerStart = TimelineTimeText.Format(layer.Start); break;
                 case "LayerEnd": vm.LayerEnd = TimelineTimeText.Format(layer.End); break;
-                case "LayerWidth": vm.LayerWidth = (decimal)(layer.Shape?.Width ?? layer.Image?.Width ?? 300); break;
-                case "LayerHeight": vm.LayerHeight = (decimal)(layer.Shape?.Height ?? layer.Image?.Height ?? 180); break;
                 case "PositionX": vm.PositionX = position is { } x ? (decimal)x.X : null; break;
                 case "PositionY": vm.PositionY = position is { } y ? (decimal)y.Y : null; break;
                 case "ScaleX": vm.ScaleX = (decimal)InspectorVector(layer, AnimationProperty.SCALE, layer.Transform.Scale).X; break;
@@ -91,8 +89,6 @@ internal sealed partial class WorkbenchSession
             }
             switch (propertyName)
             {
-                case "LayerWidth": vm.LayerWidthText = vm.LayerWidth?.ToString(InterfaceCulture) ?? string.Empty; break;
-                case "LayerHeight": vm.LayerHeightText = vm.LayerHeight?.ToString(InterfaceCulture) ?? string.Empty; break;
                 case "PositionX": vm.PositionXText = vm.PositionX?.ToString(InterfaceCulture) ?? string.Empty; break;
                 case "PositionY": vm.PositionYText = vm.PositionY?.ToString(InterfaceCulture) ?? string.Empty; break;
                 case "ScaleX": vm.ScaleXText = vm.ScaleX?.ToString(InterfaceCulture) ?? string.Empty; break;

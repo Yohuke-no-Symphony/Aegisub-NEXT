@@ -1,0 +1,153 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controlsCommon="using:AegiNext.Desktop.Controls.Common"
+             xmlns:materialIcons="using:Material.Icons.Avalonia"
+             xmlns:controls="using:AegiNext.Desktop.Controls" xmlns:editing="using:AegiNext.Desktop.Editing"
+             xmlns:vm="using:AegiNext.Desktop.Panels.Styles" x:DataType="vm:SubtitleStyleViewModel"
+             x:Class="AegiNext.Desktop.Panels.Styles.SubtitleStyleView" Classes="business-surface">
+  <ScrollViewer>
+    <StackPanel Name="StylePanel" Margin="4" Spacing="12">
+      <TextBlock Classes="field" Text="{Loc Key=Workbench.StylePreset}" />
+      <Grid Name="StylePresetActions" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <ComboBox Name="SubtitleStylePresetCombo" HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                  ItemsSource="{Binding Presets, Mode=OneWay}" SelectedItem="{Binding SelectedPreset, Mode=TwoWay}">
+          <ComboBox.SelectionBoxItemTemplate>
+            <DataTemplate x:DataType="editing:StylePresetListItem">
+              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+            </DataTemplate>
+          </ComboBox.SelectionBoxItemTemplate>
+        </ComboBox>
+        <Button Name="ApplyStyleButton" Grid.Column="1" Command="{Binding ApplyStyleCommand}"
+                IsEnabled="{Binding CanApplyPreset}">
+          <controlsCommon:IconText IconKey="ApplyStyle" Text="{Loc Key=Workbench.ApplyStyle}" />
+        </Button>
+        <Button Name="ManageStylesButton" Grid.Column="2" Command="{Binding ManageStylesCommand}">
+          <controlsCommon:IconText IconKey="ManageStyles" Text="{Loc Key=Workbench.ManageStyles}" />
+        </Button>
+      </Grid>
+      <StackPanel Name="StyleTypographyGroup" IsEnabled="{Binding HasCue}" Spacing="8">
+        <Border BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,0,1" Padding="0,6,0,8">
+          <TextBlock Name="StyleTypographyHeader" Classes="field" FontWeight="SemiBold"
+                     Foreground="{DynamicResource PreviewMuted}" Text="{Loc Key=Workbench.StyleTypographyGroup}" />
+        </Border>
+        <Grid Name="StyleFontRow" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="4">
+          <controls:FontFamilyPicker Name="FontCombo" HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Center" MinWidth="0" Text="{Binding FontDraft, Mode=TwoWay}" />
+          <controlsCommon:ToolbarToggleButton Name="BoldCheck" Grid.Column="1" VerticalAlignment="Center"
+                                              IsChecked="{Binding Bold, Mode=TwoWay}" ToolTip.Tip="{Loc Key=Workbench.Bold}"
+                                              AutomationProperties.Name="{Loc Key=Workbench.Bold}">
+            <materialIcons:MaterialIcon Kind="FormatBold" Width="16" Height="16" />
+          </controlsCommon:ToolbarToggleButton>
+          <controlsCommon:ToolbarToggleButton Name="ItalicCheck" Grid.Column="2" VerticalAlignment="Center"
+                                              IsChecked="{Binding Italic, Mode=TwoWay}" ToolTip.Tip="{Loc Key=Workbench.Italic}"
+                                              AutomationProperties.Name="{Loc Key=Workbench.Italic}">
+            <materialIcons:MaterialIcon Kind="FormatItalic" Width="16" Height="16" />
+          </controlsCommon:ToolbarToggleButton>
+        </Grid>
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+          <StackPanel Spacing="4">
+            <controls:NumericDragLabel Input="{Binding #FontSizeInput}" Classes="field" Text="{Loc Key=Workbench.Size}" />
+            <controls:NumericDraftInput Name="FontSizeInput" ShowButtonSpinner="False"
+                                       RawText="{Binding FontSizeText, Mode=TwoWay}" Value="{Binding FontSize, Mode=TwoWay}"
+                                       Minimum="0.01" Maximum="4096" Increment="1" />
+          </StackPanel>
+          <StackPanel Name="StyleLineHeightField" Grid.Column="1" Spacing="4">
+            <controls:NumericDragLabel Input="{Binding #LineHeightInput}" Classes="field" Text="{Loc Key=Workbench.LineHeight}" />
+            <controls:NumericDraftInput Name="LineHeightInput" ShowButtonSpinner="False"
+                                       RawText="{Binding LineHeightText, Mode=TwoWay}" Value="{Binding LineHeight, Mode=TwoWay}"
+                                       Minimum="0.1" Maximum="10" Increment="0.1" />
+          </StackPanel>
+        </Grid>
+      </StackPanel>
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsEnabled="{Binding HasCue}">
+        <StackPanel Spacing="4" ToolTip.Tip="{Binding LetterSpacingEditingHint}">
+          <controls:NumericDragLabel Input="{Binding #LetterSpacingInput}" Classes="field" Text="{Loc Key=Workbench.LetterSpacing}" />
+          <controls:NumericDraftInput Name="LetterSpacingInput" RawText="{Binding LetterSpacingText, Mode=TwoWay}"
+                                     Value="{Binding LetterSpacing, Mode=TwoWay}" IsEnabled="{Binding CanEditLetterSpacing}"
+                                     Minimum="-4096" Maximum="4096" Increment="0.5" ShowButtonSpinner="False" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="4">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.WrapMode}" />
+          <ComboBox Name="WrapModeInput" SelectedIndex="{Binding WrapMode, Mode=TwoWay}" HorizontalAlignment="Stretch">
+            <ComboBoxItem Content="{Loc Key=Workbench.WrapGrapheme}" />
+            <ComboBoxItem Content="{Loc Key=Workbench.WrapNatural}" />
+            <ComboBoxItem Content="{Loc Key=Workbench.WrapNone}" />
+          </ComboBox>
+        </StackPanel>
+      </Grid>
+      <StackPanel Name="StylePaintGroup" Spacing="8">
+        <Border BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,0,1" Padding="0,6,0,8">
+          <TextBlock Name="StylePaintHeader" Classes="field" FontWeight="SemiBold"
+                     Foreground="{DynamicResource PreviewMuted}" Text="{Loc Key=Workbench.StylePaintGroup}" />
+        </Border>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.Fill}" />
+          <controls:ColorDraftInput Name="FillPicker" Draft="{Binding FillDraft}" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.Stroke}" />
+          <controls:ColorDraftInput Name="StrokePicker" Draft="{Binding StrokeDraft}" />
+        </StackPanel>
+        <StackPanel Spacing="4" ToolTip.Tip="{Binding StrokeWidthEditingHint}">
+          <controls:NumericDragLabel Input="{Binding #StrokeWidthInput}" Classes="field" Text="{Loc Key=Workbench.StrokeWidth}" />
+          <controls:NumericDraftInput Name="StrokeWidthInput" ShowButtonSpinner="False"
+                                     RawText="{Binding StrokeWidthText, Mode=TwoWay}" Value="{Binding StrokeWidth, Mode=TwoWay}"
+                                     Minimum="{x:Static vm:SubtitleStyleViewModel.StrokeWidthMinimum}" Maximum="{x:Static vm:SubtitleStyleViewModel.StrokeWidthMaximum}" Increment="0.5" IsEnabled="{Binding CanEditStrokeWidth}" />
+        </StackPanel>
+      </StackPanel>
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="8" IsEnabled="{Binding HasCue}">
+        <StackPanel Grid.Column="0" Spacing="4" ToolTip.Tip="{Binding FillBlurEditingHint}">
+          <controls:NumericDragLabel Input="{Binding #FillBlurInput}" Classes="field" Text="{Loc Key=Workbench.FillBlur}" />
+          <controls:NumericDraftInput Name="FillBlurInput" RawText="{Binding FillBlurText, Mode=TwoWay}"
+                                     Value="{Binding FillBlur, Mode=TwoWay}" IsEnabled="{Binding CanEditFillBlur}"
+                                     Minimum="0" Maximum="512" Increment="0.5" ShowButtonSpinner="False" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="4" ToolTip.Tip="{Binding StrokeBlurEditingHint}">
+          <controls:NumericDragLabel Input="{Binding #StrokeBlurInput}" Classes="field" Text="{Loc Key=Workbench.StrokeBlur}" />
+          <controls:NumericDraftInput Name="StrokeBlurInput" RawText="{Binding StrokeBlurText, Mode=TwoWay}"
+                                     Value="{Binding StrokeBlur, Mode=TwoWay}" IsEnabled="{Binding CanEditStrokeBlur}"
+                                     Minimum="0" Maximum="512" Increment="0.5" ShowButtonSpinner="False" />
+        </StackPanel>
+      </Grid>
+      <StackPanel Name="StyleShadowFields" IsEnabled="{Binding HasCue}" Spacing="8">
+        <Border BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,0,1" Padding="0,6,0,8">
+          <TextBlock Name="StyleShadowHeader" Classes="field" FontWeight="SemiBold"
+                     Foreground="{DynamicResource PreviewMuted}" Text="{Loc Key=Workbench.StyleShadowGroup}" />
+        </Border>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.Shadow}" />
+          <controls:ColorDraftInput Name="ShadowPicker" Draft="{Binding ShadowDraft}" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.ShadowOffset}" />
+          <controls:VectorDraftInput Name="ShadowOffsetInput"
+                                     XBinding="{Binding ShadowX, Mode=TwoWay}" YBinding="{Binding ShadowY, Mode=TwoWay}"
+                                     XTextBinding="{Binding ShadowXText, Mode=TwoWay}" YTextBinding="{Binding ShadowYText, Mode=TwoWay}"
+                                     XFieldKey="ShadowXInput" YFieldKey="ShadowYInput" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+          <controls:NumericDragLabel Input="{Binding #ShadowBlurInput}" Classes="field" Text="{Loc Key=Workbench.ShadowBlur}" />
+          <controls:NumericDraftInput Name="ShadowBlurInput" ShowButtonSpinner="False"
+                                      RawText="{Binding ShadowBlurText, Mode=TwoWay}" Value="{Binding ShadowBlur, Mode=TwoWay}"
+                                      Minimum="0" Maximum="512" Increment="0.5" />
+        </StackPanel>
+      </StackPanel>
+      <StackPanel Name="StyleLayoutGroup" IsEnabled="{Binding HasCue}" Spacing="8">
+        <Border BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,0,1" Padding="0,6,0,8">
+          <TextBlock Name="StyleLayoutHeader" Classes="field" FontWeight="SemiBold"
+                     Foreground="{DynamicResource PreviewMuted}" Text="{Loc Key=Workbench.StyleLayoutGroup}" />
+        </Border>
+        <StackPanel Spacing="4">
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.Alignment}" />
+          <controls:SubtitleAlignmentPicker Name="AlignmentPicker" AlignmentIndex="{Binding Alignment, Mode=TwoWay}" />
+        </StackPanel>
+        <controls:SubtitleMarginsEditor Name="MarginsEditor" Draft="{Binding Margins}" ShowDiagram="False"
+                                       Alignment="{Binding Alignment}" IsExplicit="{Binding Position.IsExplicit}"
+                                       CanvasWidth="{Binding CanvasWidth}" CanvasHeight="{Binding CanvasHeight}" />
+        <controls:SubtitlePositionEditor Name="PositionEditor" Draft="{Binding Position}" ShowMargins="True"
+                                        Margins="{Binding Margins.DiagramMargins}" Alignment="{Binding Alignment}"
+                                        CanvasWidth="{Binding CanvasWidth}" CanvasHeight="{Binding CanvasHeight}" />
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

@@ -247,7 +247,7 @@ public sealed class TrackDeletionWorkflowTests
         await context.InitializeAsync();
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Selected", new() { FontSize = 77, Bold = true });
         await context.Session.Styles.UpsertAsync(preset);
-        Assert.Equal(preset.Id, context.Session.ViewModel.Styles.SelectedPreset?.Id);
+        Assert.Equal(preset.Id, context.Session.ViewModel.Styles.Subtitle.SelectedPreset?.Id);
         context.Session.SetProjectLocation(null, context.DirectoryPath);
         context.Dialogs.OpenPath = Path.Combine(context.DirectoryPath, "styled.srt");
         await File.WriteAllTextAsync(context.Dialogs.OpenPath, "1\n00:00:00,000 --> 00:00:02,000\nStyled\n");

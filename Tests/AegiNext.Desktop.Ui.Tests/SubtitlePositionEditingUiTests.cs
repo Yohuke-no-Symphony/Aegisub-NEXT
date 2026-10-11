@@ -85,8 +85,8 @@ public sealed class SubtitlePositionEditingUiTests
         Assert.Equal(new ScenePoint(2, 3), resetLayer.Transform.Scale);
         Assert.Equal(25, resetLayer.Transform.Rotation);
         Assert.Equal(0.75, resetLayer.Opacity);
-        Assert.Equal(0, window.ViewModel.Styles.Position.OffsetX.Parse());
-        Assert.False(window.ViewModel.Styles.Position.IsExplicit);
+        Assert.Equal(0, window.ViewModel.Styles.Subtitle.Position.OffsetX.Parse());
+        Assert.False(window.ViewModel.Styles.Subtitle.Position.IsExplicit);
         Assert.True(automatic.IsChecked);
         Assert.False(custom.IsChecked);
         Assert.False(fields.IsEffectivelyVisible);
@@ -133,23 +133,23 @@ public sealed class SubtitlePositionEditingUiTests
         Assert.Same(loaded, window.DocumentSnapshot);
         Assert.Contains("missing.ttf", Assert.IsType<string>(window.ViewModel.Error), StringComparison.Ordinal);
         Assert.Equal(Assert.Single(loaded.Layers).Id, context.Session.SelectedLayer!.Id);
-        Assert.False(window.ViewModel.Styles.Position.CanCustomize);
+        Assert.False(window.ViewModel.Styles.Subtitle.Position.CanCustomize);
         Assert.False(window.ViewModel.Effects.CanEditPosition);
         Assert.Null(window.ViewModel.Effects.PositionX);
         Assert.Null(window.ViewModel.Effects.PositionY);
-        Assert.Equal(string.Empty, window.ViewModel.Styles.Position.OffsetY.RawText);
+        Assert.Equal(string.Empty, window.ViewModel.Styles.Subtitle.Position.OffsetY.RawText);
         Assert.Equal(font.Id, window.DocumentSnapshot.Subtitles[0].Style.FontAssetId);
         window.ViewModel.Effects.RotationText = "15";
         Assert.True(window.ViewModel.TryCommitDrafts());
         Assert.Equal(15, window.DocumentSnapshot.Layers[0].Transform.Rotation);
         Assert.Null(window.ViewModel.Effects.PositionX);
-        window.ViewModel.Styles.CommitFont("sans-serif");
+        window.ViewModel.Styles.Subtitle.CommitFont("sans-serif");
         await context.Session.RunCommandAsync(() => context.Controller.SeekAsync(MediaTime.Zero));
         Dispatcher.UIThread.RunJobs();
 
         Assert.Equal("ABC", window.DocumentSnapshot.Subtitles[0].Text);
         Assert.Null(window.DocumentSnapshot.Subtitles[0].Style.FontAssetId);
-        Assert.True(window.ViewModel.Styles.Position.CanCustomize);
+        Assert.True(window.ViewModel.Styles.Subtitle.Position.CanCustomize);
         Assert.True(window.ViewModel.Effects.CanEditPosition);
         Assert.NotNull(window.ViewModel.Effects.PositionX);
         Assert.NotNull(window.ViewModel.Effects.PositionY);
@@ -164,7 +164,7 @@ public sealed class SubtitlePositionEditingUiTests
         var window = context.Window;
         await PrepareActualSubtitleAsync(context);
         var original = window.DocumentSnapshot;
-        var model = window.ViewModel.Styles.Position;
+        var model = window.ViewModel.Styles.Subtitle.Position;
         var originalX = window.ViewModel.Effects.PositionX!.Value;
         var originalY = window.ViewModel.Effects.PositionY!.Value;
         Assert.True(originalY > 0);
@@ -211,7 +211,7 @@ public sealed class SubtitlePositionEditingUiTests
         await context.OpenMediaAsync();
         var window = context.Window;
         await PrepareActualSubtitleAsync(context);
-        window.ViewModel.Styles.Position.IsExplicit = true;
+        window.ViewModel.Styles.Subtitle.Position.IsExplicit = true;
         Assert.True(window.ViewModel.TryCommitDrafts());
         var text = FocusVisibleNumericInput(window, WorkbenchPanelIds.STYLES, "AnchorXInput");
         var input = UiTestActions.Find<NumericDraftInput>(window, "AnchorXInput");
@@ -260,7 +260,7 @@ public sealed class SubtitlePositionEditingUiTests
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
         Assert.Equal(layer.Id, context.Session.SelectedLayer!.Id);
-        Assert.True(window.ViewModel.Styles.HasCue);
+        Assert.True(window.ViewModel.Styles.Subtitle.HasCue);
     }
 
     private static TextBox FocusVisibleNumericInput(MainWindow window, string panelId, string name)

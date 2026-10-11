@@ -136,13 +136,13 @@ public sealed class ColorAnimationWorkflowUiTests
         var id = await UiTestActions.CreateSubtitleAsync(context);
         var hdr = new SceneColor(2.5, -0.1, 0.123456789, 0.7);
         context.Session.Editor.UpdateSubtitle(id, cue => cue with { Style = cue.Style with { Fill = hdr } });
-        Assert.Equal(hdr, context.ViewModel.Styles.FillDraft.Value);
+        Assert.Equal(hdr, context.ViewModel.Styles.Subtitle.FillDraft.Value);
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = "en-US" });
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = "zh-CN" });
         context.ViewModel.Effects.RotationText = "12";
         Assert.True(context.Session.TryCommitDrafts());
         Assert.Equal(hdr, context.Session.SelectedCue!.Style.Fill);
-        Assert.Equal(hdr, context.ViewModel.Styles.FillDraft.Value);
+        Assert.Equal(hdr, context.ViewModel.Styles.Subtitle.FillDraft.Value);
         UiTestActions.SelectAnimationProperty(context.Window, AnimationProperty.FILL);
         Assert.Equal(hdr, context.ViewModel.Effects.KeyframeColorDraft.Value);
         Assert.DoesNotContain(context.ViewModel.Effects.Properties, choice => choice.Property == AnimationProperty.FILL_RED);
@@ -160,8 +160,8 @@ public sealed class ColorAnimationWorkflowUiTests
         Assert.True(context.Session.SelectKeyframe(new(id, AnimationProperty.FILL, new(1), new(1))));
         var before = context.Session.DocumentSnapshot;
         var expected = new SceneColor(0.1, 0.2, 2.4, 0.6);
-        context.ViewModel.Styles.FillDraft.SetValue(expected);
-        Assert.True(context.ViewModel.Styles.FillDraft.TryCommit());
+        context.ViewModel.Styles.Subtitle.FillDraft.SetValue(expected);
+        Assert.True(context.ViewModel.Styles.Subtitle.FillDraft.TryCommit());
         var frame = Assert.Single(Assert.Single(context.Session.SelectedLayer!.Tracks).Keyframes);
         Assert.Equal(expected, frame.Value.Color);
         Assert.Equal(first.ComponentCurves, frame.ComponentCurves);

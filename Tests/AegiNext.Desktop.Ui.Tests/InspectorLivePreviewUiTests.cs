@@ -66,7 +66,7 @@ public sealed class InspectorLivePreviewUiTests
         {
             Enter(context, box, text);
             Assert.Equal(text, box.Text);
-            Assert.Equal(text, context.ViewModel.Styles.Position.AnchorX.RawText);
+            Assert.Equal(text, context.ViewModel.Styles.Subtitle.Position.AnchorX.RawText);
             Assert.True(box.IsFocused);
             Assert.Same(before, context.Session.DocumentSnapshot);
             Assert.Equal(double.Parse(text, CultureInfo.InvariantCulture), context.Session.PreviewDocument.Subtitles[0].Style.Position!.Anchor.X);
@@ -169,14 +169,14 @@ public sealed class InspectorLivePreviewUiTests
         await PrepareAsync(context);
         var before = context.Session.DocumentSnapshot;
         context.ViewModel.Export.CrfText = "invalid";
-        context.ViewModel.Styles.FontDraft = "Unconfirmed search query";
+        context.ViewModel.Styles.Subtitle.FontDraft = "Unconfirmed search query";
         var box = FocusInput(context, "FontSizeInput");
         Enter(context, box, "72.5");
         Assert.Equal(72.5, context.Session.PreviewDocument.Subtitles[0].Style.FontSize);
         Assert.Equal(before.Subtitles[0].Style.FontFamily, context.Session.PreviewDocument.Subtitles[0].Style.FontFamily);
         Assert.Same(before, context.Session.DocumentSnapshot);
         Assert.True(box.IsFocused);
-        context.ViewModel.Styles.FontDraft = before.Subtitles[0].Style.FontFamily;
+        context.ViewModel.Styles.Subtitle.FontDraft = before.Subtitles[0].Style.FontFamily;
         Assert.False(context.Session.TryCommitDrafts(false));
         Assert.Same(before, context.Session.DocumentSnapshot);
         context.ViewModel.Export.CrfText = "20";

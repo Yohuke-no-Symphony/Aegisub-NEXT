@@ -15,7 +15,7 @@ public sealed class SubtitleMarginsDraftWorkflowTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.Margins.Left.RawText = "17";
         styles.Margins.Right.RawText = "39";
         styles.Margins.Vertical.RawText = "13";
@@ -53,7 +53,7 @@ public sealed class SubtitleMarginsDraftWorkflowTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.FontSizeText = "80";
         styles.Margins.Left.RawText = "17";
         styles.Margins.Right.RawText = "39";
@@ -96,7 +96,7 @@ public sealed class SubtitleMarginsDraftWorkflowTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.Margins.Left.RawText = "7e-";
         styles.Margins.Right.RawText = "21";
         styles.Margins.Vertical.RawText = "4e-";
@@ -124,7 +124,7 @@ public sealed class SubtitleMarginsDraftWorkflowTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.FontSizeText = "80";
         styles.Margins.Left.RawText = "17.2000000000000030";
 
@@ -157,7 +157,7 @@ public sealed class SubtitleMarginsDraftWorkflowTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.Margins.Left.RawText = "51";
         styles.Margins.Right.RawText = "9";
         styles.Margins.Vertical.RawText = "73";
@@ -184,7 +184,7 @@ public sealed class SubtitleMarginsDraftWorkflowTests
         await context.InitializeAsync();
         context.Session.SelectLayer(shape.Id, [shape.Id]);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         Assert.False(styles.HasCue);
         styles.Margins.Left.RawText = "invalid";
         styles.Margins.Vertical.RawText = "-1";

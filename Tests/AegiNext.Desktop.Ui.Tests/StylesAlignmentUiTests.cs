@@ -117,7 +117,7 @@ public sealed class StylesAlignmentUiTests
                 Assert.Same(original, context.Session.Editor.Snapshot);
                 Assert.Equal("invalid", text.Text);
                 Assert.False(context.Session.Editor.CanUndo);
-                context.ViewModel.Styles.FontSizeText = original.Subtitles[0].Style.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                context.ViewModel.Styles.Subtitle.FontSizeText = original.Subtitles[0].Style.FontSize.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 Assert.True(context.Session.TryCommitDrafts());
                 return;
             }

@@ -20,7 +20,7 @@ internal sealed partial class WorkbenchSession
             return;
         }
         var start = ProjectPosition < MediaTime.Zero ? MediaTime.Zero : ProjectPosition;
-        var presetId = ViewModel.Styles.SelectedPreset?.Id;
+        var presetId = ViewModel.Styles.Subtitle.SelectedPreset?.Id;
         var cue = new SubtitleLine { Start = start, End = start + new MediaTime(2), Text = string.Empty };
         await CreateSubtitleClipsAsync([cue], trackId, presetId);
 

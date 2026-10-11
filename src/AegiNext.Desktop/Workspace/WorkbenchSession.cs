@@ -61,7 +61,21 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
     private AegiTaskScopeCloseLease? scopeCloseLease;
     private bool lastEditRestriction;
     private bool closing;
-    private bool stylesDirty;
+    private bool stylesDirty
+    {
+        get => ViewModel.Styles.HasDrafts;
+        set
+        {
+            if (value)
+            {
+                ViewModel.Styles.SetDraftState(true);
+            }
+            else
+            {
+                ViewModel.Styles.Accept();
+            }
+        }
+    }
     private bool effectsDirty;
     private Task? disposeTask;
     private Task documentChangeTask = Task.CompletedTask;
@@ -130,7 +144,8 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         this.applicationContext.BusyChanged += OnApplicationLibrariesBusyChanged;
         this.applicationContext.ErrorChanged += OnApplicationErrorChanged;
         this.editor.StateChanged += OnEditorStateChanged;
-        ViewModel.Styles.PropertyChanged += OnStylePropertyChanged;
+        ViewModel.Styles.Subtitle.PropertyChanged += OnStylePropertyChanged;
+        ViewModel.Styles.DraftChanged += OnStyleDraftChanged;
         ViewModel.Effects.PropertyChanged += OnEffectPropertyChanged;
         ViewModel.Preview.PropertyChanged += OnPreviewPropertyChanged;
         ViewModel.Export.PropertyChanged += OnExportPropertyChanged;
@@ -642,7 +657,9 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         {
             ViewModel.Preview.EmptyLabel = Localization.Get("Preview.Empty");
             ViewModel.Preview.RefreshQualities(preferences.PreviewQuality);
-            ViewModel.Styles.RefreshAppearanceEditing();
+            ViewModel.Styles.Subtitle.RefreshAppearanceEditing();
+            ViewModel.Styles.Image.RefreshLanguage();
+            ViewModel.Styles.RefreshSelectionLabel(SelectedLayer, TimelineClipIds().Length);
             foreach (var row in ViewModel.Subtitles.Rows)
             {
                 row.RefreshLanguage();
@@ -823,7 +840,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         SelectedLayerId = null;
         SelectedKeyTime = null;
         ClearTimingPreview();
-        stylesDirty = false;
+        ViewModel.Styles.Reset();
         effectsDirty = false;
         SceneEditing.DraftTarget = null;
         SceneEditing.GestureTarget = null;

@@ -43,7 +43,6 @@
         <StackPanel>
           <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto"><TextBlock Name="LayerStartLabel" Text="{Loc Key=Workbench.Start}" /><TextBox Grid.Column="1" Grid.ColumnSpan="2" Name="LayerStartInput" Text="{Binding LayerStart, Mode=TwoWay}" /></Grid>
           <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto"><TextBlock Name="LayerEndLabel" Text="{Loc Key=Workbench.End}" /><TextBox Grid.Column="1" Grid.ColumnSpan="2" Name="LayerEndInput" Text="{Binding LayerEnd, Mode=TwoWay}" /></Grid>
-          <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" IsVisible="{Binding CanResizeLayer}"><TextBlock Text="{Loc Key=Workbench.Size}" /><controls:VectorDraftInput Grid.Column="1" Grid.ColumnSpan="2" Name="LayerSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput" XTextBinding="{Binding LayerWidthText, Mode=TwoWay}" YTextBinding="{Binding LayerHeightText, Mode=TwoWay}" XBinding="{Binding LayerWidth, Mode=TwoWay}" YBinding="{Binding LayerHeight, Mode=TwoWay}" Minimum="1" Maximum="200000" /></Grid>
         </StackPanel>
       </controlsCommon:PropertySection>
       <controlsCommon:PropertySection Name="TransformCategory" Classes="effect-category" Header="{Loc Key=Workbench.EffectCategoryTransform}" IsExpanded="{Binding TransformExpanded, Mode=TwoWay}" IsEnabled="{Binding CanEditTargetTransform}">

@@ -205,7 +205,7 @@ internal sealed partial class EffectsPanelViewModel
                 case "MaskPivot" or "MaskPivotX" or "MaskPivotY":
                     MaskExpanded = true;
                     break;
-                case "LayerStartInput" or "LayerEndInput" or "LayerWidthInput" or "LayerHeightInput":
+                case "LayerStartInput" or "LayerEndInput":
                     ClipExpanded = true;
                     break;
                 case "PositionXInput" or "PositionYInput" or "ScaleXInput" or "ScaleYInput" or "RotationInput":

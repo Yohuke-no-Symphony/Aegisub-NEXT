@@ -13,7 +13,7 @@ public sealed class StyleShadowDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         Assert.Equal(original.Subtitles[0].Style.ShadowColor, styles.ShadowDraft.Value);
         styles.ShadowXText = "17";
         styles.ShadowYText = "-9";
@@ -55,7 +55,7 @@ public sealed class StyleShadowDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.FontSizeText = "80";
         switch (field)
         {
@@ -92,7 +92,7 @@ public sealed class StyleShadowDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.ShadowYText = "-12";
         styles.ShadowDraft.HexText = "#broken";
 
@@ -121,7 +121,7 @@ public sealed class StyleShadowDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         styles.ShadowXText = "7e-";
         styles.ShadowYText = "17";
         styles.ShadowDraft.Red.RawText = "2";
@@ -152,7 +152,7 @@ public sealed class StyleShadowDraftTests
         await context.InitializeAsync();
         context.Session.SelectCue(document.Subtitles[0].Id);
         var original = context.Editor.Snapshot;
-        context.Session.ViewModel.Styles.FontSizeText = "80";
+        context.Session.ViewModel.Styles.Subtitle.FontSizeText = "80";
 
         Assert.True(context.Session.TryCommitDrafts(false));
 
@@ -176,11 +176,11 @@ public sealed class StyleShadowDraftTests
         await context.InitializeAsync();
         context.Session.SelectLayer(shape.Id, [shape.Id]);
         var original = context.Editor.Snapshot;
-        var styles = context.Session.ViewModel.Styles;
+        var styles = context.Session.ViewModel.Styles.Subtitle;
         Assert.False(styles.HasCue);
         styles.ShadowXText = "invalid";
         styles.ShadowDraft.HexText = "#broken";
-        styles.FillDraft.SetValue(new(0.25, 0.5, 0.75, 1));
+        context.Session.ViewModel.Styles.Shape.FillDraft.SetValue(new(0.25, 0.5, 0.75, 1));
 
         Assert.True(context.Session.TryCommitDrafts(false));
 

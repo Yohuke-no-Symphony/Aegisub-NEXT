@@ -26,7 +26,7 @@ public sealed class TimingPostProcessorWorkflowTests
         Assert.Null(context.Editor.Snapshot.Tracks.Single(track => track.Id == trackId).DefaultStyle);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Dialogue 中文 ABC 123", new() { FontSize = 41 });
         await session.Styles.UpsertAsync(preset);
-        session.ViewModel.Styles.SelectedPreset = session.ViewModel.Styles.Presets.Single(value => value.Id == preset.Id);
+        session.ViewModel.Styles.Subtitle.SelectedPreset = session.ViewModel.Styles.Subtitle.Presets.Single(value => value.Id == preset.Id);
         if (timingStart)
         {
             await session.SetCueStartAsync();

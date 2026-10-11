@@ -139,19 +139,19 @@ public sealed class StyleShadowEditingUiTests
             Type(host, text, "7e-");
             var yInput = UiTestActions.Find<NumericDraftInput>(host, "ShadowYInput");
             Type(host, Assert.Single(yInput.GetVisualDescendants().OfType<TextBox>()), "11");
-            Assert.Equal("11", context.ViewModel.Styles.ShadowYText);
-            Assert.Equal("7e-", context.ViewModel.Styles.ShadowXText);
+            Assert.Equal("11", context.ViewModel.Styles.Subtitle.ShadowYText);
+            Assert.Equal("7e-", context.ViewModel.Styles.Subtitle.ShadowXText);
             Assert.True(text.Focus());
             Dispatcher.UIThread.RunJobs();
             Assert.False(context.Session.TryCommitDrafts(false));
-            Assert.Equal("11", context.ViewModel.Styles.ShadowYText);
+            Assert.Equal("11", context.ViewModel.Styles.Subtitle.ShadowYText);
 
             UiTestActions.Press(host, Key.Escape);
             Dispatcher.UIThread.RunJobs();
 
             Assert.Same(original, context.Session.Editor.Snapshot);
             Assert.False(context.Session.Editor.CanUndo);
-            Assert.Equal("11", context.ViewModel.Styles.ShadowYText);
+            Assert.Equal("11", context.ViewModel.Styles.Subtitle.ShadowYText);
             Assert.Equal((decimal)original.Subtitles[0].Style.ShadowOffset.X, input.Value);
             Assert.Equal(11, context.Session.PreviewDocument.Subtitles[0].Style.ShadowOffset.Y);
             Assert.True(context.Session.TryCommitDrafts(false));
@@ -180,7 +180,7 @@ public sealed class StyleShadowEditingUiTests
             var y = UiTestActions.Find<NumericDraftInput>(host, "ShadowYInput");
             var x = UiTestActions.Find<NumericDraftInput>(host, "ShadowXInput");
             var blur = UiTestActions.Find<NumericDraftInput>(host, "ShadowBlurInput");
-            var styles = context.ViewModel.Styles;
+            var styles = context.ViewModel.Styles.Subtitle;
             styles.ShadowYText = "11";
             styles.ShadowXText = "17";
             styles.ShadowBlurText = "4";
@@ -279,7 +279,7 @@ public sealed class StyleShadowEditingUiTests
     }
 
     [AvaloniaFact]
-    public async Task ShadowFieldsDisableForOrdinaryShapes()
+    public async Task ShadowFieldsAreHiddenForOrdinaryShapes()
     {
         await using var context = new MainWindowTestContext();
         var shape = new ProjectLayer
@@ -293,10 +293,8 @@ public sealed class StyleShadowEditingUiTests
         try
         {
             host.Show();
-            Assert.False(UiTestActions.Find<StackPanel>(host, "StyleShadowFields").IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<ColorDraftInput>(host, "ShadowPicker").IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<VectorDraftInput>(host, "ShadowOffsetInput").IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<NumericDraftInput>(host, "ShadowBlurInput").IsEffectivelyEnabled);
+            Assert.DoesNotContain(host.GetVisualDescendants().OfType<Control>(),
+                control => control.Name is "StyleShadowFields" or "ShadowPicker" or "ShadowOffsetInput" or "ShadowBlurInput");
         }
         finally
         {

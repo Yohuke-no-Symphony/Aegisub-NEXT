@@ -86,9 +86,9 @@ public sealed class SubtitleMarginsEditingUiTests
             Assert.Equal("17", left.RawText);
             Assert.Equal("39", right.RawText);
             Assert.Equal("13", vertical.RawText);
-            Assert.Equal(context.ViewModel.Styles.Margins.Left.RawText, left.RawText);
-            Assert.Equal(context.ViewModel.Styles.Margins.Right.RawText, right.RawText);
-            Assert.Equal(context.ViewModel.Styles.Margins.Vertical.RawText, vertical.RawText);
+            Assert.Equal(context.ViewModel.Styles.Subtitle.Margins.Left.RawText, left.RawText);
+            Assert.Equal(context.ViewModel.Styles.Subtitle.Margins.Right.RawText, right.RawText);
+            Assert.Equal(context.ViewModel.Styles.Subtitle.Margins.Vertical.RawText, vertical.RawText);
             Assert.Equal(language, Localization.CurrentLanguageID);
             Assert.Equal(language, context.Session.Preferences.Language);
             AssertInputsFit(host, editor, left, right, vertical);
@@ -250,7 +250,7 @@ public sealed class SubtitleMarginsEditingUiTests
     }
 
     [AvaloniaFact]
-    public async Task ShapeSelectionDisablesAllSubtitleMarginInputs()
+    public async Task ShapeSelectionHidesAllSubtitleMarginInputs()
     {
         await using var context = new MainWindowTestContext();
         var shape = new ProjectLayer
@@ -264,10 +264,8 @@ public sealed class SubtitleMarginsEditingUiTests
         try
         {
             host.Show();
-            var editor = UiTestActions.Find<SubtitleMarginsEditor>(host, "MarginsEditor");
-            Assert.False(UiTestActions.Find<NumericDraftInput>(editor, "MarginLeftInput").IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<NumericDraftInput>(editor, "MarginRightInput").IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<NumericDraftInput>(editor, "MarginVerticalInput").IsEffectivelyEnabled);
+            Assert.DoesNotContain(host.GetVisualDescendants().OfType<Control>(),
+                control => control.Name is "MarginsEditor" or "MarginLeftInput" or "MarginRightInput" or "MarginVerticalInput");
         }
         finally
         {
@@ -377,7 +375,7 @@ public sealed class SubtitleMarginsEditingUiTests
         context.Session.SelectCue(cue.Id);
         var original = context.Session.Editor.Snapshot;
         context.Session.Editor.Reset(original);
-        var styles = context.ViewModel.Styles;
+        var styles = context.ViewModel.Styles.Subtitle;
         styles.Margins.Left.RawText = "17";
         styles.Margins.Right.RawText = "39";
         styles.Margins.Vertical.RawText = "13";
@@ -446,7 +444,7 @@ public sealed class SubtitleMarginsEditingUiTests
         try
         {
             host.Show();
-            var position = context.ViewModel.Styles.Position;
+            var position = context.ViewModel.Styles.Subtitle.Position;
             var diagram = UiTestActions.Find<SubtitlePositionDiagram>(host, "PositionDiagram");
             var originalGeometry = Assert.IsType<AegiNext.Desktop.Editing.SubtitlePositionGeometry>(diagram.Geometry);
             var texts = new[] { "0.50", "1.00", ".50", "1.000", "12.50", "-20.00" };
@@ -455,8 +453,8 @@ public sealed class SubtitleMarginsEditingUiTests
             {
                 fields[index].RawText = texts[index];
             }
-            context.ViewModel.Styles.Margins.Left.RawText = "100";
-            context.ViewModel.Styles.Margins.Right.RawText = "100";
+            context.ViewModel.Styles.Subtitle.Margins.Left.RawText = "100";
+            context.ViewModel.Styles.Subtitle.Margins.Right.RawText = "100";
 
             Flush(host);
 
@@ -480,7 +478,7 @@ public sealed class SubtitleMarginsEditingUiTests
         {
             foreach (var key in new[] { "AnchorXInput", "AnchorYInput", "PivotXInput", "PivotYInput", "OffsetXInput", "OffsetYInput" })
             {
-                context.ViewModel.Styles.Position.RestoreField(key);
+                context.ViewModel.Styles.Subtitle.Position.RestoreField(key);
             }
             RestoreMargins(context);
             host.Close();
@@ -566,7 +564,7 @@ public sealed class SubtitleMarginsEditingUiTests
     {
         foreach (var field in new[] { "MarginLeftInput", "MarginRightInput", "MarginVerticalInput" })
         {
-            context.ViewModel.Styles.RestoreNumberField(field);
+            context.ViewModel.Styles.Subtitle.RestoreNumberField(field);
         }
     }
 

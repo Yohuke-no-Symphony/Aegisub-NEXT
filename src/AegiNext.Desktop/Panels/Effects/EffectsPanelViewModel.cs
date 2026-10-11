@@ -14,8 +14,6 @@ namespace AegiNext.Desktop.Panels.Effects;
 
 internal sealed partial class EffectsPanelViewModel : ObservableObject
 {
-    private string layerWidthText = "300";
-    private string layerHeightText = "180";
     private string positionXText = "0";
     private string positionYText = "0";
     private string scaleXText = "1";
@@ -32,9 +30,6 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     private MediaTime position = MediaTime.Zero;
     private string layerStart = string.Empty;
     private string layerEnd = string.Empty;
-    private decimal? layerWidth = 300;
-    private decimal? layerHeight = 180;
-    private bool canResizeLayer;
     private bool canEditPosition;
     private decimal? positionX = 0;
     private decimal? positionY = 0;
@@ -181,24 +176,6 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     {
         get => layerEnd;
         set => SetProperty(ref layerEnd, value);
-    }
-
-    public decimal? LayerWidth
-    {
-        get => layerWidth;
-        set => SetProperty(ref layerWidth, value);
-    }
-
-    public decimal? LayerHeight
-    {
-        get => layerHeight;
-        set => SetProperty(ref layerHeight, value);
-    }
-
-    public bool CanResizeLayer
-    {
-        get => canResizeLayer;
-        set => SetProperty(ref canResizeLayer, value);
     }
 
     public decimal? PositionX
@@ -485,16 +462,6 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     public void RestoreField(string fieldKey) => session.RestoreEffectDraftField(fieldKey);
     /// <summary>向工作台报告画布资源或工程渲染失败。</summary>
     public void ReportRenderingError(Exception error) => session.ShowError(error);
-    public string LayerWidthText
-    {
-        get => layerWidthText;
-        set => SetProperty(ref layerWidthText, value);
-    }
-    public string LayerHeightText
-    {
-        get => layerHeightText;
-        set => SetProperty(ref layerHeightText, value);
-    }
     public string PositionXText
     {
         get => positionXText;

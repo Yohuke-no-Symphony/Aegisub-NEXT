@@ -514,7 +514,7 @@ public sealed class SubtitleListKeyboardUiTests
         {
             await preparationGate.Started.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             Assert.False(context.Session.IsProjectBusy);
-            Assert.Equal(preset.Id, context.ViewModel.Styles.SelectedPreset!.Id);
+            Assert.Equal(preset.Id, context.ViewModel.Styles.Subtitle.SelectedPreset!.Id);
             UiTestActions.Press(window, Key.Enter);
             Assert.Contains(tasks.GetSnapshots(), task => task.Name == "Tasks.CreateSubtitleClips" &&
                 task.ScopeId == context.Session.TaskScope && task.State == AegiTaskState.Queued);

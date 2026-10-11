@@ -18,7 +18,7 @@ internal sealed partial class WorkbenchSession
     ];
     private static readonly HashSet<string> effectDraftProperties =
     [
-        "LayerStart", "LayerEnd", "LayerWidth", "LayerWidthText", "LayerHeight", "LayerHeightText", "PositionX", "PositionXText", "PositionY", "PositionYText", "ScaleX", "ScaleXText", "ScaleY", "ScaleYText",
+        "LayerStart", "LayerEnd", "PositionX", "PositionXText", "PositionY", "PositionYText", "ScaleX", "ScaleXText", "ScaleY", "ScaleYText",
         "Rotation", "RotationText", "Opacity", "OpacityText", "Blur", "BlurText", "Blend", "OrientPath", "KeyframeValue", "KeyframeValueText", "KeyframeValueY", "KeyframeValueYText", "KeyframeColorDraft", "Interpolation", "PowerExponent"
     ];
 
@@ -179,8 +179,8 @@ internal sealed partial class WorkbenchSession
                 RefreshInspector();
                 if (refreshStyles)
                 {
-                    OnStylePropertyChanged(this, new(nameof(ViewModel.Styles.FontSize)));
-                    OnStylePropertyChanged(this, new(nameof(ViewModel.Styles.StrokeWidth)));
+                    OnStylePropertyChanged(this, new(nameof(ViewModel.Styles.Subtitle.FontSize)));
+                    OnStylePropertyChanged(this, new(nameof(ViewModel.Styles.Subtitle.StrokeWidth)));
                 }
                 if (refreshEffects)
                 {
@@ -300,23 +300,16 @@ internal sealed partial class WorkbenchSession
         switch (e.PropertyName)
         {
             case "FontSize":
-                ViewModel.Styles.FontSizeText = SynchronizeNumericText(ViewModel.Styles.FontSizeText, ViewModel.Styles.FontSize);
+                ViewModel.Styles.Subtitle.FontSizeText = SynchronizeNumericText(ViewModel.Styles.Subtitle.FontSizeText, ViewModel.Styles.Subtitle.FontSize);
                 break;
             case "StrokeWidth":
-                ViewModel.Styles.StrokeWidthText = SynchronizeNumericText(ViewModel.Styles.StrokeWidthText, ViewModel.Styles.StrokeWidth);
+                ViewModel.Styles.Subtitle.StrokeWidthText = SynchronizeNumericText(ViewModel.Styles.Subtitle.StrokeWidthText, ViewModel.Styles.Subtitle.StrokeWidth);
                 break;
         }
 
-        if (!IsUpdating && e.PropertyName is { } name && styleDraftProperties.Contains(name))
+        if (!IsUpdating && ViewModel.Styles.Subtitle.IsActive && e.PropertyName is { } name && styleDraftProperties.Contains(name))
         {
-            stylesDirty = true;
-            draftRevision++;
-            NotifyTaskInputChanged();
-            FreezeDraftTarget();
-            if (name != "FontDraft")
-            {
-                QueueInspectorPreview();
-            }
+            ViewModel.Styles.Subtitle.NotifyDraftChanged();
         }
     }
 
@@ -324,12 +317,6 @@ internal sealed partial class WorkbenchSession
     {
         switch (e.PropertyName)
         {
-            case "LayerWidth":
-                ViewModel.Effects.LayerWidthText = SynchronizeNumericText(ViewModel.Effects.LayerWidthText, ViewModel.Effects.LayerWidth);
-                break;
-            case "LayerHeight":
-                ViewModel.Effects.LayerHeightText = SynchronizeNumericText(ViewModel.Effects.LayerHeightText, ViewModel.Effects.LayerHeight);
-                break;
             case "PositionX":
                 ViewModel.Effects.PositionXText = SynchronizeNumericText(ViewModel.Effects.PositionXText, ViewModel.Effects.PositionX);
                 break;
@@ -455,7 +442,7 @@ internal sealed partial class WorkbenchSession
             ViewModel.Effects.RefreshPropertyGrid();
             MaskEditing.Refresh(!preserveDrafts);
             RefreshInspector();
-            ViewModel.Styles.CanApplyPreset = SelectedCue is not null && !IsProjectBusy && !closing && ViewModel.Styles.SelectedPreset is not null;
+            ViewModel.Styles.Subtitle.CanApplyPreset = SelectedCue is not null && !IsProjectBusy && !closing && ViewModel.Styles.Subtitle.SelectedPreset is not null;
             Tick();
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -468,34 +455,8 @@ internal sealed partial class WorkbenchSession
     private void RefreshInspector()
     {
         var layer = SelectedLayer;
-        var cue = layer?.SubtitleId is { } id ? editor.Snapshot.Subtitles.First(value => value.Id == id) : null;
-        var style = cue?.Style ?? new();
         var placement = ResolvePlacement(editor.Snapshot, layer);
-        var vm = ViewModel.Styles;
-        vm.LoadCanvasSize(editor.Snapshot.Width, editor.Snapshot.Height);
-        vm.HasCue = cue is not null;
-        vm.RefreshAppearanceEditing();
-        if (!stylesDirty)
-        {
-            vm.LoadFont(style);
-            vm.FontSize = (decimal)style.FontSize;
-            vm.StrokeWidth = (decimal)(layer is null ? 0 : InspectorValue(layer, AnimationProperty.STROKE_WIDTH, cue is null ? layer.StrokeWidth : style.StrokeWidth));
-            vm.FillDraft.Load(layer is null ? SceneColor.White : InspectorColor(layer, cue is null ? layer.Fill : style.Fill, false));
-            vm.StrokeDraft.Load(layer is null ? SceneColor.Black : InspectorColor(layer, cue is null ? layer.Stroke : style.Stroke, true));
-            vm.LoadStyleNumbers(layer is null ? style : style with
-            {
-                LetterSpacing = InspectorValue(layer, AnimationProperty.LETTER_SPACING, style.LetterSpacing),
-                FillBlur = InspectorValue(layer, AnimationProperty.FILL_BLUR, style.FillBlur),
-                StrokeBlur = InspectorValue(layer, AnimationProperty.STROKE_BLUR, style.StrokeBlur)
-            }, InterfaceCulture);
-            vm.WrapMode = (int)style.WrapMode;
-            vm.ShadowDraft.Load(style.ShadowColor);
-            vm.Bold = style.Bold;
-            vm.Italic = style.Italic;
-            vm.LoadAlignment(style.Alignment);
-            vm.Position.Load(style, placement.Position, placement.BasePosition is not null,
-                PreparePositionGeometry(placement.Geometry, layer));
-        }
+        ViewModel.Styles.Load(editor.Snapshot, layer, TimelineClipIds().Length);
 
         var effects = ViewModel.Effects;
         if (!effectsDirty)
@@ -519,9 +480,6 @@ internal sealed partial class WorkbenchSession
             effects.Rotation = (decimal)transform.Rotation;
             effects.Opacity = (decimal)(layer is null ? 1 : InspectorValue(layer, AnimationProperty.OPACITY, layer.Opacity));
             effects.Blur = (decimal)(layer is null ? 0 : InspectorValue(layer, AnimationProperty.BLUR, layer.Blur));
-            effects.LayerWidth = (decimal)(layer?.Shape?.Width ?? layer?.Image?.Width ?? 300);
-            effects.LayerHeight = (decimal)(layer?.Shape?.Height ?? layer?.Image?.Height ?? 180);
-            effects.CanResizeLayer = layer?.Shape is not null || layer?.Image is not null;
             effects.LayerStart = layer is null ? string.Empty : TimelineTimeText.Format(layer.Start);
             effects.LayerEnd = layer is null ? string.Empty : TimelineTimeText.Format(layer.End);
             effects.Blend = (int)(layer?.Blend ?? BlendMode.NORMAL);

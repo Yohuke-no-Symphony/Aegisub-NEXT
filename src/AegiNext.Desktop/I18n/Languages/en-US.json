@@ -1088,6 +1088,11 @@
     "Workbench.AnimationRgb": "RGB color",
     "Workbench.AnimationAlpha": "Alpha",
     "Workbench.RelativeFontSizeOperation": "Relative font size multiplier",
-    "Workbench.MixedPropertyValue": "This range contains multiple base values; editing applies to the entire range."
+    "Workbench.MixedPropertyValue": "This range contains multiple base values; editing applies to the entire range.",
+    "Workbench.StylePrimarySelection": "Editing primary clip: {0}",
+    "Workbench.ImageFit": "Image fit",
+    "Workbench.ImageFitFit": "Fit",
+    "Workbench.ImageFitFillCrop": "Fill and crop",
+    "Workbench.ImageFitStretch": "Stretch"
   }
 }

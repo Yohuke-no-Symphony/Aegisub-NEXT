@@ -177,7 +177,7 @@ public sealed class TimingRefreshBudgetTests
         session.SelectCue(original.Subtitles[0].Id);
         var row = Assert.Single(session.ViewModel.Subtitles.Rows);
         row.StartText = "10.000000";
-        session.ViewModel.Styles.FontSizeText = original.Subtitles[0].Style.FontSize.ToString("0.000", WorkbenchSession.InterfaceCulture);
+        session.ViewModel.Styles.Subtitle.FontSizeText = original.Subtitles[0].Style.FontSize.ToString("0.000", WorkbenchSession.InterfaceCulture);
         var refreshes = 0;
         session.SelectionChanged += (_, _) => refreshes++;
 
@@ -187,7 +187,7 @@ public sealed class TimingRefreshBudgetTests
         Assert.Same(original, context.Editor.Snapshot);
         Assert.Equal(TimelineTimeText.Format(row.Original.Start), row.StartText);
         Assert.False(row.IsDirty);
-        Assert.Equal(session.ViewModel.Styles.FontSize?.ToString(WorkbenchSession.InterfaceCulture), session.ViewModel.Styles.FontSizeText);
+        Assert.Equal(session.ViewModel.Styles.Subtitle.FontSize?.ToString(WorkbenchSession.InterfaceCulture), session.ViewModel.Styles.Subtitle.FontSizeText);
         Assert.False(context.Editor.CanUndo);
     }
 
