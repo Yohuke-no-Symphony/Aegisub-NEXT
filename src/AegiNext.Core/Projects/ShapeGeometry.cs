@@ -41,8 +41,7 @@ public static class ShapeGeometry
         return shape.Kind switch
         {
             ShapeKind.PATH => shape.Path!,
-            ShapeKind.RECTANGLE => Polygon([new(0, 0), new(width, 0), new(width, height), new(0, height)]),
-            ShapeKind.ROUNDED_RECTANGLE => RoundedRectangle(width, height, Math.Min(shape.CornerRadius, Math.Min(width, height) / 2)),
+            ShapeKind.RECTANGLE or ShapeKind.ROUNDED_RECTANGLE => RoundedRectangle(width, height, shape.EffectiveCornerRadii),
             ShapeKind.ELLIPSE => Ellipse(width, height),
             ShapeKind.LINE => Polygon([new(0, height / 2), new(width, height / 2)], false),
             ShapeKind.ARROW => Arrow(shape),
@@ -70,26 +69,38 @@ public static class ShapeGeometry
             new(start.X + (end.X - start.X) * 2 / 3, start.Y + (end.Y - start.Y) * 2 / 3), end);
     }
 
-    private static PathGeometry RoundedRectangle(double width, double height, double radius)
+    private static PathGeometry RoundedRectangle(double width, double height, ShapeCornerRadii radii)
     {
-        if (radius == 0)
+        if (radii is { IsUniform: true, TopLeft: 0 })
         {
             return Polygon([new(0, 0), new(width, 0), new(width, height), new(0, height)]);
         }
-        var control = radius * QUARTER_CIRCLE_CONTROL;
-        var start = new ScenePoint(radius, 0);
+        var factor = Math.Min(1, Math.Min(
+            Math.Min(CornerScale(width, radii.TopLeft + radii.TopRight), CornerScale(width, radii.BottomLeft + radii.BottomRight)),
+            Math.Min(CornerScale(height, radii.TopLeft + radii.BottomLeft), CornerScale(height, radii.TopRight + radii.BottomRight))));
+        var topLeft = radii.TopLeft * factor;
+        var topRight = radii.TopRight * factor;
+        var bottomRight = radii.BottomRight * factor;
+        var bottomLeft = radii.BottomLeft * factor;
+        var start = new ScenePoint(topLeft, 0);
         return new(start,
         [
-            Line(start, new(width - radius, 0)),
-            new(new(width - radius + control, 0), new(width, radius - control), new(width, radius)),
-            Line(new(width, radius), new(width, height - radius)),
-            new(new(width, height - radius + control), new(width - radius + control, height), new(width - radius, height)),
-            Line(new(width - radius, height), new(radius, height)),
-            new(new(radius - control, height), new(0, height - radius + control), new(0, height - radius)),
-            Line(new(0, height - radius), new(0, radius)),
-            new(new(0, radius - control), new(radius - control, 0), start)
+            Line(start, new(width - topRight, 0)),
+            new(new(width - topRight + topRight * QUARTER_CIRCLE_CONTROL, 0),
+                new(width, topRight - topRight * QUARTER_CIRCLE_CONTROL), new(width, topRight)),
+            Line(new(width, topRight), new(width, height - bottomRight)),
+            new(new(width, height - bottomRight + bottomRight * QUARTER_CIRCLE_CONTROL),
+                new(width - bottomRight + bottomRight * QUARTER_CIRCLE_CONTROL, height), new(width - bottomRight, height)),
+            Line(new(width - bottomRight, height), new(bottomLeft, height)),
+            new(new(bottomLeft - bottomLeft * QUARTER_CIRCLE_CONTROL, height),
+                new(0, height - bottomLeft + bottomLeft * QUARTER_CIRCLE_CONTROL), new(0, height - bottomLeft)),
+            Line(new(0, height - bottomLeft), new(0, topLeft)),
+            new(new(0, topLeft - topLeft * QUARTER_CIRCLE_CONTROL),
+                new(topLeft - topLeft * QUARTER_CIRCLE_CONTROL, 0), start)
         ], true);
     }
+
+    private static double CornerScale(double length, double radii) => radii == 0 ? 1 : length / radii;
 
     private static PathGeometry Ellipse(double width, double height)
     {

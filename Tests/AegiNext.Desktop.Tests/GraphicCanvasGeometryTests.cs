@@ -9,6 +9,69 @@ namespace AegiNext.Desktop.Tests;
 public sealed class GraphicCanvasGeometryTests
 {
     [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void RectangleResizeKeepsTheOppositeCornerFixedWithRotationPivotAndEvaluatedAnimation(int handle)
+    {
+        var layer = new ProjectLayer
+        {
+            Kind = LayerKind.SHAPE,
+            Shape = new(ShapeKind.RECTANGLE, 100, 50) { CornerRadii = new(4, 8, 12, 16) },
+            Transform = new(10, 20, 1, 1, 15, 30, 20)
+        };
+        var evaluated = layer.Transform with { X = 80, Y = 90, ScaleX = -2, ScaleY = 3, Rotation = 60 };
+        var matrix = MatrixFor(evaluated);
+        Point[] corners = [new(0, 0), new(100, 0), new(100, 50), new(0, 50)];
+        var moving = corners[handle];
+        var fixedCorner = corners[(handle + 2) % 4];
+        var geometry = new ProjectLayerGeometry(new(0, 0, 100, 50), new(30, 20), default, SKMatrix.Identity, SKMatrix.Identity);
+        var gesture = new CanvasTransformGesture(layer, evaluated, geometry, matrix, moving * matrix, handle);
+        var target = fixedCorner + new Vector((moving.X - fixedCorner.X) * 2, (moving.Y - fixedCorner.Y) * 1.5);
+
+        var changed = GraphicCanvasGeometry.TransformLayer(gesture, target * matrix, false);
+
+        Assert.InRange(Math.Abs(200 - changed.Shape!.Width), 0, 0.0001);
+        Assert.InRange(Math.Abs(75 - changed.Shape.Height), 0, 0.0001);
+        Assert.Same(layer.Shape.CornerRadii, changed.Shape.CornerRadii);
+        Assert.Equal(layer.Transform.Scale, changed.Transform.Scale);
+        Assert.Equal(layer.Transform.Rotation, changed.Transform.Rotation);
+        Assert.Equal(layer.Transform.Pivot, changed.Transform.Pivot);
+        var adjusted = evaluated with
+        {
+            X = evaluated.X + changed.Transform.X - layer.Transform.X,
+            Y = evaluated.Y + changed.Transform.Y - layer.Transform.Y
+        };
+        var expected = fixedCorner * matrix;
+        var actual = new Point(fixedCorner.X * changed.Shape.Width / layer.Shape.Width,
+            fixedCorner.Y * changed.Shape.Height / layer.Shape.Height) * MatrixFor(adjusted);
+        Assert.Equal(expected.X, actual.X, 6);
+        Assert.Equal(expected.Y, actual.Y, 6);
+    }
+
+    [Fact]
+    public void LegacyRoundedRectangleResizeKeepsCircularRadiiAndShiftLocksItsDimensions()
+    {
+        var shape = new LayerShape(ShapeKind.ROUNDED_RECTANGLE, 100, 50) { CornerRadius = 10 };
+        var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = shape };
+        var geometry = new ProjectLayerGeometry(new(0, 0, 100, 50), default, default, SKMatrix.Identity, SKMatrix.Identity);
+        var gesture = new CanvasTransformGesture(layer, layer.Transform, geometry, Matrix.Identity, new(100, 50), 2);
+
+        var changed = GraphicCanvasGeometry.TransformLayer(gesture, new(200, 50), false);
+        var locked = GraphicCanvasGeometry.TransformLayer(gesture, new(200, 50), true);
+
+        Assert.Equal(200, changed.Shape!.Width);
+        Assert.Equal(50, changed.Shape.Height);
+        Assert.Equal(layer.Transform, changed.Transform);
+        var path = ShapeGeometry.CreatePath(changed.Shape);
+        Assert.Equal(new ScenePoint(190, 0), path.Segments[0].End);
+        Assert.Equal(new ScenePoint(200, 10), path.Segments[1].End);
+        Assert.Equal(locked.Shape!.Width / shape.Width, locked.Shape.Height / shape.Height, 8);
+        Assert.Equal(layer.Transform, locked.Transform);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void ImageResizeKeepsOppositeCornerFixedAndShiftUnlocksAspect(bool shift)
@@ -77,5 +140,15 @@ public sealed class GraphicCanvasGeometryTests
         Assert.True(closed.Closed);
         Assert.Equal(4, closed.Segments.Length);
         Assert.Equal(closed.Start, closed.Segments[^1].End);
+    }
+
+    private static Matrix MatrixFor(LayerTransform transform)
+    {
+        var radians = transform.Rotation * Math.PI / 180;
+        var cosine = Math.Cos(radians);
+        var sine = Math.Sin(radians);
+        return new(transform.ScaleX * cosine, transform.ScaleX * sine, -transform.ScaleY * sine, transform.ScaleY * cosine,
+            transform.X - transform.AnchorX * transform.ScaleX * cosine + transform.AnchorY * transform.ScaleY * sine,
+            transform.Y - transform.AnchorX * transform.ScaleX * sine - transform.AnchorY * transform.ScaleY * cosine);
     }
 }

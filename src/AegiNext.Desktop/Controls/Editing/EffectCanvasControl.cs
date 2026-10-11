@@ -476,7 +476,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         CancelDrag(false);
         if (commit && result is not null)
         {
-            LayerEdited?.Invoke(this, new(result.Id, result.Transform, result.MotionPath));
+            LayerEdited?.Invoke(this, new(result.Id, result.Transform, result.MotionPath, result.Shape));
         }
 
         InvalidateVisual();

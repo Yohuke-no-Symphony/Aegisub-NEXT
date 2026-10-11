@@ -223,6 +223,7 @@ public static class ProjectStore
                     property.IsRequired = (property.Get is not null || property.Set is not null) &&
                         !(info.Type == typeof(ProjectDocument) && property.Name == "timelineViewState") &&
                         !(info.Type == typeof(ProjectDocument) && property.Name == "colorTags") &&
+                        !(info.Type == typeof(LayerShape) && property.Name == "cornerRadii") &&
                         !(info.Type == typeof(TimelineViewState) && property.Name is "collapsedTrackIds" or "collapsedAnimationRows" or "expandedAnimationClips") &&
                         !(info.Type == typeof(SubtitleStyle) && property.Name is "fontVariant" or "textAlign") &&
                         !(info.Type == typeof(SubtitleFontVariant) && property.Name == "postScriptName") &&

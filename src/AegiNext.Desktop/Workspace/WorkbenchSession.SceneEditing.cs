@@ -74,7 +74,11 @@ internal sealed partial class WorkbenchSession
             return;
         }
         var document = editor.Snapshot;
-        var prepared = WorkspaceDraftOperations.UpdateLayer(document, layer.Id, item => item with { MotionPath = value.Path });
+        var prepared = WorkspaceDraftOperations.UpdateLayer(document, layer.Id, item => item with
+        {
+            MotionPath = value.Path,
+            Shape = item.Shape is not null && value.Shape is { } shape ? shape : item.Shape
+        });
         var transform = layer.Transform;
         foreach (var (property, changed, original) in new[]
         {

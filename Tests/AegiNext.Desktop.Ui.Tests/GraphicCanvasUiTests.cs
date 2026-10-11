@@ -51,10 +51,17 @@ public sealed class GraphicCanvasUiTests
         }
     }
 
-    [AvaloniaFact]
-    public void CornerScalingPublishesOneCompleteTransform()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RectangleResizePublishesDimensionsOnlyOnReleaseAndEscapeCancels(bool cancel)
     {
-        var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 80, 60), Transform = new(20, 20) };
+        var layer = new ProjectLayer
+        {
+            Kind = LayerKind.SHAPE,
+            Shape = new(ShapeKind.RECTANGLE, 80, 60) { CornerRadii = new(4, 8, 12, 16) },
+            Transform = new(20, 20)
+        };
         var document = new ProjectDocument { Width = 200, Height = 200, Layers = [layer] };
         using var canvas = new EffectCanvasControl();
         canvas.SetScene(document, layer, MediaTime.Zero);
@@ -68,11 +75,23 @@ public sealed class GraphicCanvasUiTests
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(end, RawInputModifiers.LeftMouseButton);
             Assert.Empty(edits);
+            if (cancel)
+            {
+                UiTestActions.Press(window, Key.Escape);
+            }
             window.MouseUp(end, MouseButton.Left);
-            var transform = Assert.Single(edits).Transform;
-            Assert.Equal(1.5, transform.ScaleX, 5);
-            Assert.Equal(4d / 3, transform.ScaleY, 5);
-            Assert.Equal(layer.Transform.Position, transform.Position);
+            if (cancel)
+            {
+                Assert.Empty(edits);
+            }
+            else
+            {
+                var result = Assert.Single(edits);
+                Assert.Equal(layer.Transform, result.Transform);
+                Assert.Equal(120, result.Shape!.Width, 5);
+                Assert.Equal(80, result.Shape.Height, 5);
+                Assert.Equal(layer.Shape.CornerRadii, result.Shape.CornerRadii);
+            }
         }
         finally
         {

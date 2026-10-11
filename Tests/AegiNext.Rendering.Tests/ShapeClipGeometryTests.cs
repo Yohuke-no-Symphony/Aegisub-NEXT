@@ -6,6 +6,29 @@ namespace AegiNext.Rendering.Tests;
 
 public sealed class ShapeClipGeometryTests
 {
+    [Fact]
+    public void RectangleIndependentCornersMatchTheirRenderedAndSelectableContours()
+    {
+        var layer = new ProjectLayer
+        {
+            Kind = LayerKind.SHAPE,
+            Shape = new(ShapeKind.RECTANGLE, 24, 24) { CornerRadii = new(12, 0, 12, 0) },
+            Fill = SceneColor.White
+        };
+        var document = new ProjectDocument { Width = 24, Height = 24, Layers = [layer] };
+        using var renderer = Renderer();
+        var geometry = renderer.GetLayerGeometry(document, MediaTime.Zero, layer.Id)!;
+        using var surface = renderer.Render(document, MediaTime.Zero);
+        var pixels = new float[24 * 24 * 4];
+        surface.CopyPixels(pixels);
+
+        foreach (var (x, y, expected) in new[] { (1, 1, false), (22, 1, true), (22, 22, false), (1, 22, true) })
+        {
+            Assert.Equal(expected, geometry.ContainsWorldPoint(new(x, y)));
+            Assert.Equal(expected ? 1 : 0, pixels[(y * 24 + x) * 4 + 3]);
+        }
+    }
+
     [Theory]
     [InlineData(ShapeKind.ELLIPSE)]
     [InlineData(ShapeKind.ROUNDED_RECTANGLE)]

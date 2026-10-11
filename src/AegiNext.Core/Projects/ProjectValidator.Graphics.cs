@@ -10,6 +10,13 @@ public static partial class ProjectValidator
         Number(shape.Width, 0.001, 1e6, "形状宽度");
         Number(shape.Height, 0.001, 1e6, "形状高度");
         Number(shape.CornerRadius, 0, 1e6, "圆角半径");
+        if (shape.CornerRadii is { } radii)
+        {
+            Number(radii.TopLeft, 0, 1e6, "左上圆角半径");
+            Number(radii.TopRight, 0, 1e6, "右上圆角半径");
+            Number(radii.BottomRight, 0, 1e6, "右下圆角半径");
+            Number(radii.BottomLeft, 0, 1e6, "左下圆角半径");
+        }
         Require(double.IsFinite(shape.ArrowHeadRatio) && shape.ArrowHeadRatio is > 0 and < 1 &&
             double.IsFinite(shape.ArrowShaftRatio) && shape.ArrowShaftRatio is > 0 and <= 1, "箭头比例无效。");
         Require((shape.Kind == ShapeKind.PATH) == (shape.Path is not null), "路径形状缺少路径或其他形状含多余路径。");

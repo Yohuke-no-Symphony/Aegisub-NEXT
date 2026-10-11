@@ -6,6 +6,34 @@ namespace AegiNext.Desktop.Controls;
 
 internal static class GraphicCanvasGeometry
 {
+    internal static ProjectLayer TransformLayer(CanvasTransformGesture gesture, Point point, bool shift)
+    {
+        var layer = gesture.Layer;
+        if (gesture.HandleIndex == 4 || layer.Shape is not { Kind: ShapeKind.RECTANGLE or ShapeKind.ROUNDED_RECTANGLE } shape ||
+            !gesture.LocalToScreen.TryInvert(out var inverse))
+        {
+            return layer with { Transform = Transform(gesture, point, shift) };
+        }
+
+        var factors = ResizeFactors(gesture, point * inverse, shift);
+        var resized = ShapeGeometry.Resize(shape, Math.Clamp(shape.Width * factors.X, 0.001, 1e6),
+            Math.Clamp(shape.Height * factors.Y, 0.001, 1e6));
+        var fixedCorner = FixedCorner(gesture);
+        var evaluated = gesture.EvaluatedTransform;
+        var deltaX = fixedCorner.X * (1 - resized.Width / shape.Width) * evaluated.ScaleX;
+        var deltaY = fixedCorner.Y * (1 - resized.Height / shape.Height) * evaluated.ScaleY;
+        var radians = evaluated.Rotation * Math.PI / 180;
+        return layer with
+        {
+            Shape = resized,
+            Transform = layer.Transform with
+            {
+                X = layer.Transform.X + deltaX * Math.Cos(radians) - deltaY * Math.Sin(radians),
+                Y = layer.Transform.Y + deltaX * Math.Sin(radians) + deltaY * Math.Cos(radians)
+            }
+        };
+    }
+
     internal static LayerTransform Transform(CanvasTransformGesture gesture, Point point, bool shift)
     {
         var original = gesture.Layer.Transform;
@@ -29,24 +57,9 @@ internal static class GraphicCanvasGeometry
         {
             return original;
         }
-        var bounds = geometry.LocalBounds;
-        Point[] corners = [new(bounds.Left, bounds.Top), new(bounds.Right, bounds.Top),
-            new(bounds.Right, bounds.Bottom), new(bounds.Left, bounds.Bottom)];
-        var fixedCorner = corners[(gesture.HandleIndex + 2) % 4];
-        var moving = corners[gesture.HandleIndex];
-        var local = point * inverse;
-        var x = Math.Abs(moving.X - fixedCorner.X) < 1e-9 ? 1 : (local.X - fixedCorner.X) / (moving.X - fixedCorner.X);
-        var y = Math.Abs(moving.Y - fixedCorner.Y) < 1e-9 ? 1 : (local.Y - fixedCorner.Y) / (moving.Y - fixedCorner.Y);
-        if ((gesture.Layer.Image is not null) != shift)
-        {
-            var initial = moving - fixedCorner;
-            var changed = local - fixedCorner;
-            var ratio = (initial.X * changed.X + initial.Y * changed.Y) / Math.Max(1e-9, initial.X * initial.X + initial.Y * initial.Y);
-            x = y = ratio;
-        }
-        x = Math.Clamp(x, 0.01, 100);
-        y = Math.Clamp(y, 0.01, 100);
-        var newScale = new ScenePoint(Math.Clamp(evaluated.ScaleX * x, -10000, 10000), Math.Clamp(evaluated.ScaleY * y, -10000, 10000));
+        var fixedCorner = FixedCorner(gesture);
+        var factors = ResizeFactors(gesture, point * inverse, shift);
+        var newScale = new ScenePoint(Math.Clamp(evaluated.ScaleX * factors.X, -10000, 10000), Math.Clamp(evaluated.ScaleY * factors.Y, -10000, 10000));
         var radians = evaluated.Rotation * Math.PI / 180;
         var displacement = fixedCorner - pivot;
         var deltaX = displacement.X * (evaluated.ScaleX - newScale.X);
@@ -57,6 +70,35 @@ internal static class GraphicCanvasGeometry
             ScaleY = original.ScaleY + newScale.Y - evaluated.ScaleY,
             X = original.X + deltaX * Math.Cos(radians) - deltaY * Math.Sin(radians),
             Y = original.Y + deltaX * Math.Sin(radians) + deltaY * Math.Cos(radians)
+        };
+    }
+
+    private static ScenePoint ResizeFactors(CanvasTransformGesture gesture, Point local, bool shift)
+    {
+        var fixedCorner = FixedCorner(gesture);
+        var bounds = gesture.Geometry.LocalBounds;
+        var moving = new Point(bounds.Left + bounds.Right - fixedCorner.X, bounds.Top + bounds.Bottom - fixedCorner.Y);
+        var x = Math.Abs(moving.X - fixedCorner.X) < 1e-9 ? 1 : (local.X - fixedCorner.X) / (moving.X - fixedCorner.X);
+        var y = Math.Abs(moving.Y - fixedCorner.Y) < 1e-9 ? 1 : (local.Y - fixedCorner.Y) / (moving.Y - fixedCorner.Y);
+        if ((gesture.Layer.Image is not null) != shift)
+        {
+            var initial = moving - fixedCorner;
+            var changed = local - fixedCorner;
+            var ratio = (initial.X * changed.X + initial.Y * changed.Y) / Math.Max(1e-9, initial.X * initial.X + initial.Y * initial.Y);
+            x = y = ratio;
+        }
+        return new(Math.Clamp(x, 0.01, 100), Math.Clamp(y, 0.01, 100));
+    }
+
+    private static Point FixedCorner(CanvasTransformGesture gesture)
+    {
+        var bounds = gesture.Geometry.LocalBounds;
+        return ((gesture.HandleIndex + 2) % 4) switch
+        {
+            0 => new(bounds.Left, bounds.Top),
+            1 => new(bounds.Right, bounds.Top),
+            2 => new(bounds.Right, bounds.Bottom),
+            _ => new(bounds.Left, bounds.Bottom)
         };
     }
 

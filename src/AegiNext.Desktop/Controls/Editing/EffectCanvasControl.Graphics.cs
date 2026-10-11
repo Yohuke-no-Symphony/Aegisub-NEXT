@@ -211,7 +211,7 @@ public sealed partial class EffectCanvasControl
         }
         if (transformGesture is { } transform)
         {
-            draft = transform.Layer with { Transform = GraphicCanvasGeometry.Transform(transform, point, e.KeyModifiers.HasFlag(KeyModifiers.Shift)) };
+            draft = GraphicCanvasGeometry.TransformLayer(transform, point, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
             sceneRevision++;
             InvalidateVisual();
             e.Handled = true;

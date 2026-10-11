@@ -107,6 +107,20 @@ public sealed class AssShapeExportTests
     }
 
     [Fact]
+    public void IndependentRectangleCornersExportTheSameEightSegmentContour()
+    {
+        var geometry = new LayerShape(ShapeKind.RECTANGLE, 100, 60) { CornerRadii = new(4, 8, 12, 16) };
+        var result = AssSubtitleFormat.Write(new() { Layers = [Shape() with { Shape = geometry }] });
+        var dialogue = Assert.Single(Dialogues(result.Text));
+
+        Assert.Contains("\\p1}m 4 0", dialogue, StringComparison.Ordinal);
+        Assert.Equal(8, dialogue.Split(" b ", StringSplitOptions.None).Length - 1);
+        Assert.Contains(" 100 8 b ", dialogue, StringComparison.Ordinal);
+        Assert.Contains(" 88 60 b ", dialogue, StringComparison.Ordinal);
+        Assert.Contains(" 0 44 b ", dialogue, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ClosedFreePathKeepsCubicControlsAndOpenPathLossDoesNotInventAClosingEdge()
     {
         var path = new PathGeometry(new(1, 2), [new(new(3, 4), new(5, 6), new(7, 8))], true);
