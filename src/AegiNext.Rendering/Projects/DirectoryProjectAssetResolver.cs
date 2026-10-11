@@ -19,7 +19,16 @@ public sealed class DirectoryProjectAssetResolver : IProjectAssetResolver
     public Stream Open(ProjectAsset asset)
     {
         ArgumentNullException.ThrowIfNull(asset);
-        var path = ProjectAssetLocation.Resolve(asset, projectDirectory);
+        string? path = null;
+        if (asset.Kind == ProjectAssetKind.IMAGE && asset.Sha256 is { } version)
+        {
+            var cached = ImageContentSnapshotLocation.Resolve(version);
+            if (File.Exists(cached))
+            {
+                path = cached;
+            }
+        }
+        path ??= ProjectAssetLocation.Resolve(asset, projectDirectory);
         var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         try
         {

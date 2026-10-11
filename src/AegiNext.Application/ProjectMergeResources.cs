@@ -16,6 +16,7 @@ public static class ProjectMergeResources
         var destination = Path.GetFullPath(destinationDirectory);
         RejectSymbolicLink(destination);
         RejectSymbolicLink(Path.Combine(destination, "assets"));
+        RejectSymbolicLink(Path.Combine(destination, "sources"));
         var capturedSources = sources.ToArray();
         var dependencies = new List<HashSet<Guid>>(capturedSources.Length);
         foreach (var source in capturedSources)
@@ -47,9 +48,25 @@ public static class ProjectMergeResources
                         continue;
                     }
 
+                    if (asset.Kind == ProjectAssetKind.IMAGE && asset.Storage == ProjectAssetStorage.LINKED)
+                    {
+                        assets[assetIndex] = ProjectResources.RebaseMedia(asset, source.Directory, destination);
+                        continue;
+                    }
                     var path = ProjectAssetLocation.Resolve(asset, source.Directory);
                     RejectSourceSymbolicLinks(asset, source.Directory);
                     var imported = await ProjectResources.ImportAsync(path, asset.Kind, staging, cancellationToken).ConfigureAwait(false);
+                    if (asset.Kind == ProjectAssetKind.IMAGE && asset.RelativePath.StartsWith("sources/", StringComparison.Ordinal))
+                    {
+                        var relative = "sources/" + Path.GetFileName(imported.RelativePath);
+                        var target = Path.Combine(staging, relative);
+                        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                        if (!File.Exists(target))
+                        {
+                            File.Copy(ProjectAssetLocation.Resolve(imported, staging), target);
+                        }
+                        imported = imported with { RelativePath = relative };
+                    }
                     if (asset.Sha256 is { } expected &&
                         !string.Equals(expected, imported.Sha256, StringComparison.OrdinalIgnoreCase))
                     {

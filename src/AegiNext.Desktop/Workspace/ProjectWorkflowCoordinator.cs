@@ -581,15 +581,28 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         var sameDirectory = WorkbenchSession.PathsEqual(directory, sourceDirectory);
         using var relocationLease = sameDirectory ? null : context.AcquireEditLease();
         var expectedCurrent = session.Editor.Snapshot;
+        await using var savedResources = sameDirectory ? null
+            : await ProjectResources.PrepareRebaseAsync(persistenceSnapshot, sourceDirectory, directory, context.CancellationToken);
         var prepared = sameDirectory
             ? ProjectResources.NormalizeMediaReferences(persistenceSnapshot, directory)
-            : await ProjectResources.RebaseAsync(persistenceSnapshot, sourceDirectory, directory, context.CancellationToken);
-        var relocatedCurrent = sameDirectory || ReferenceEquals(snapshot, expectedCurrent)
-            ? prepared : await ProjectResources.RebaseAsync(session.CreatePersistenceSnapshot(expectedCurrent),
+            : savedResources!.Snapshot;
+        await using var currentResources = sameDirectory || ReferenceEquals(snapshot, expectedCurrent) ? null
+            : await ProjectResources.PrepareRebaseAsync(session.CreatePersistenceSnapshot(expectedCurrent),
                 sourceDirectory, directory, context.CancellationToken);
+        var relocatedCurrent = currentResources?.Snapshot ?? prepared;
+        if (savedResources is not null)
+        {
+            await savedResources.CommitAsync(context.CancellationToken);
+        }
+        if (currentResources is not null)
+        {
+            await currentResources.CommitAsync(context.CancellationToken);
+        }
         await ProjectStore.SaveAsync(prepared, destination, () => context.EnterCommit(() =>
             (finalization || !session.IsClosing) && session.ProjectDirectory == sourceDirectory &&
             (sameDirectory || ReferenceEquals(expectedCurrent, session.Editor.Snapshot))), context.CancellationToken);
+        savedResources?.Accept();
+        currentResources?.Accept();
         session.SetProjectLocation(destination, directory);
         session.Analysis.ProjectDirectoryChanged(directory);
         if (sameDirectory)
