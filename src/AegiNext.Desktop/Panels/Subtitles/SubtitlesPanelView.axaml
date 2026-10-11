@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:icons="using:Material.Icons.Avalonia"
+             xmlns:common="using:AegiNext.Desktop.Controls.Common"
              xmlns:editing="using:AegiNext.Desktop.Editing"
              xmlns:styling="using:AegiNext.Desktop.Styling"
              xmlns:projects="using:AegiNext.Core.Projects"
@@ -89,28 +90,57 @@
             <icons:MaterialIcon Kind="TextBoxEditOutline" Width="16" Height="16" />
           </Button>
         </StackPanel>
+        <StackPanel Name="SubtitleDisplayOptions" Orientation="Horizontal" Spacing="8" Margin="8,0,0,4">
+          <Border Name="SubtitleDisplayOptionsSeparator" Width="1" Height="20" VerticalAlignment="Center"
+                  Background="{DynamicResource PreviewBorder}" />
+          <common:ToolbarToggleButton Name="ShowSubtitleTimesToggle" IsChecked="{Binding !HideTimes, Mode=TwoWay}"
+                                      ToolTip.Tip="{Loc Key=Workbench.ShowSubtitleTimes}"
+                                      AutomationProperties.Name="{Loc Key=Workbench.ShowSubtitleTimes}">
+            <icons:MaterialIcon Kind="ClockStart" Width="16" Height="16" />
+          </common:ToolbarToggleButton>
+          <common:ToolbarToggleButton Name="ShowSubtitleDurationToggle" IsChecked="{Binding !HideDuration, Mode=TwoWay}"
+                                      ToolTip.Tip="{Loc Key=Workbench.ShowSubtitleDuration}"
+                                      AutomationProperties.Name="{Loc Key=Workbench.ShowSubtitleDuration}">
+            <icons:MaterialIcon Kind="TimerOutline" Width="16" Height="16" />
+          </common:ToolbarToggleButton>
+        </StackPanel>
       </WrapPanel>
       <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="12,0">
-        <Grid ColumnDefinitions="76,112,112,70,*" Margin="0,0,0,4" ColumnSpacing="8">
-          <TextBlock Text="{Loc Key=Workbench.SubtitleType}" Classes="field" HorizontalAlignment="Center" />
-          <TextBlock Grid.Column="1" Classes="field" HorizontalAlignment="Center" Text="{Loc Key=Workbench.Start}" />
-          <TextBlock Grid.Column="2" Classes="field" HorizontalAlignment="Center" Text="{Loc Key=Workbench.End}" />
-          <TextBlock Grid.Column="3" Classes="field" HorizontalAlignment="Center" Text="{Loc Key=Workbench.Duration}" />
-          <TextBlock Grid.Column="4" Classes="field" Text="{Loc Key=Workbench.Text}" />
+        <Grid ColumnDefinitions="44,*" Margin="0,0,0,4" ColumnSpacing="8">
+          <TextBlock Name="SubtitleNumberHeader" Text="{Loc Key=Workbench.SubtitleNumber}" Classes="field"
+                     HorizontalAlignment="Center" />
+          <Grid Grid.Column="1" Name="SubtitleFieldsHeader" ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+            <TextBlock Width="76" Margin="0,0,8,0" Text="{Loc Key=Workbench.SubtitleType}" Classes="field" TextAlignment="Center" />
+            <TextBlock Grid.Column="1" Width="112" Margin="0,0,8,0" Classes="field" TextAlignment="Center"
+                       IsVisible="{Binding !HideTimes}" Text="{Loc Key=Workbench.Start}" />
+            <TextBlock Grid.Column="2" Width="112" Margin="0,0,8,0" Classes="field" TextAlignment="Center"
+                       IsVisible="{Binding !HideTimes}" Text="{Loc Key=Workbench.End}" />
+            <TextBlock Grid.Column="3" Width="70" Margin="0,0,8,0" Classes="field" TextAlignment="Center"
+                       IsVisible="{Binding !HideDuration}" Text="{Loc Key=Workbench.Duration}" />
+            <TextBlock Grid.Column="4" Classes="field" Text="{Loc Key=Workbench.Text}" />
+          </Grid>
         </Grid>
         <ListBox Name="SubtitleList" Grid.Row="1" SelectionMode="Multiple" Background="Transparent"
                  Padding="0" BorderThickness="0"
                  ItemsSource="{Binding VisibleRows, Mode=OneWay}">
           <ListBox.ItemTemplate>
             <DataTemplate x:DataType="editing:SubtitleRow">
-              <Grid Name="SubtitleRowSurface" ColumnDefinitions="76,112,112,70,*" ColumnSpacing="8">
-                <TextBlock Text="{Binding ContentType}" VerticalAlignment="Center" HorizontalAlignment="Center" FontSize="11" />
-                <TextBox Grid.Column="1" Text="{Binding StartText,Mode=TwoWay}" TextAlignment="Center" />
-                <TextBox Grid.Column="2" Text="{Binding EndText,Mode=TwoWay}" TextAlignment="Center" />
-                <TextBlock Grid.Column="3" Text="{Binding Duration}" VerticalAlignment="Center"
+              <Grid Name="SubtitleRowSurface" ColumnDefinitions="44,*" ColumnSpacing="8">
+                <TextBlock Name="SubtitleRowNumber" Text="{Binding DisplayNumber}" VerticalAlignment="Center"
                            HorizontalAlignment="Center" FontSize="11" />
-                <TextBox Grid.Column="4" Text="{Binding Text,Mode=TwoWay}" AcceptsReturn="True" MaxHeight="70"
-                         TextWrapping="Wrap" />
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto,Auto,Auto,*">
+                  <TextBlock Width="76" Margin="0,0,8,0" Text="{Binding ContentType}" VerticalAlignment="Center"
+                             TextAlignment="Center" FontSize="11" />
+                  <TextBox Grid.Column="1" Width="112" Margin="0,0,8,0" Text="{Binding StartText,Mode=TwoWay}" TextAlignment="Center"
+                           IsVisible="{Binding !$parent[vm:SubtitlesPanelView].((vm:SubtitlesPanelViewModel)DataContext).HideTimes}" />
+                  <TextBox Grid.Column="2" Width="112" Margin="0,0,8,0" Text="{Binding EndText,Mode=TwoWay}" TextAlignment="Center"
+                           IsVisible="{Binding !$parent[vm:SubtitlesPanelView].((vm:SubtitlesPanelViewModel)DataContext).HideTimes}" />
+                  <TextBlock Grid.Column="3" Width="70" Margin="0,0,8,0" Text="{Binding Duration}" VerticalAlignment="Center"
+                             TextAlignment="Center" FontSize="11"
+                             IsVisible="{Binding !$parent[vm:SubtitlesPanelView].((vm:SubtitlesPanelViewModel)DataContext).HideDuration}" />
+                  <TextBox Grid.Column="4" Text="{Binding Text,Mode=TwoWay}" AcceptsReturn="True" MaxHeight="70"
+                           TextWrapping="Wrap" />
+                </Grid>
               </Grid>
             </DataTemplate>
           </ListBox.ItemTemplate>

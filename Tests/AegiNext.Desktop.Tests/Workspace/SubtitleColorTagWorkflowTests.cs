@@ -9,6 +9,47 @@ namespace AegiNext.Desktop.Tests.Workspace;
 public sealed class SubtitleColorTagWorkflowTests
 {
     [Fact]
+    public async Task DisplayNumbersFollowVisibleTimeOrderAfterFilteringEditingAndUndo()
+    {
+        var source = CreateDocument();
+        var document = source with { Subtitles = [source.Subtitles[2], source.Subtitles[0], source.Subtitles[1]] };
+        await using var context = new WorkspaceSessionTestContext(document);
+        await context.InitializeAsync();
+        var session = context.Session;
+        var subtitles = session.ViewModel.Subtitles;
+        Assert.Equal(source.Subtitles.Select(line => line.Id), subtitles.VisibleRows.Select(row => row.Id));
+        Assert.Equal([1, 2, 3], subtitles.VisibleRows.Select(row => row.DisplayNumber));
+        var last = subtitles.VisibleRows[^1];
+        var notifications = 0;
+        last.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SubtitleRow.DisplayNumber))
+            {
+                notifications++;
+            }
+        };
+
+        Assert.True(session.TrySelectSubtitleColorTagFilter(new(false, source.ColorTags[0].Id)));
+        Assert.Equal([source.Subtitles[0].Id, source.Subtitles[2].Id], subtitles.VisibleRows.Select(row => row.Id));
+        Assert.Equal([1, 2], subtitles.VisibleRows.Select(row => row.DisplayNumber));
+        Assert.Same(last, subtitles.VisibleRows[^1]);
+        Assert.Equal(1, notifications);
+        Assert.Same(document, session.DocumentSnapshot);
+        Assert.False(context.Editor.CanUndo);
+
+        Assert.True(session.TrySelectSubtitleColorTagFilter(SubtitleColorTagFilter.All));
+        last.StartText = "00:00:02.000";
+        last.EndText = "00:00:03.000";
+        Assert.True(session.TryCommitDrafts(), subtitles.ValidationError ?? session.LastError?.ToString());
+        Assert.Equal([source.Subtitles[0].Id, last.Id, source.Subtitles[1].Id], subtitles.VisibleRows.Select(row => row.Id));
+        Assert.Equal([1, 2, 3], subtitles.VisibleRows.Select(row => row.DisplayNumber));
+        Assert.True(context.Editor.Undo());
+        Assert.Equal(source.Subtitles.Select(line => line.Id), subtitles.VisibleRows.Select(row => row.Id));
+        Assert.Equal([1, 2, 3], subtitles.VisibleRows.Select(row => row.DisplayNumber));
+        Assert.Same(document, session.DocumentSnapshot);
+    }
+
+    [Fact]
     public async Task FilteringPrunesHiddenSelectionWithoutChangingTheProject()
     {
         var document = CreateDocument();

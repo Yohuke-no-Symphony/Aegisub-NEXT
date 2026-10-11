@@ -24,6 +24,8 @@ internal sealed class SubtitlesPanelViewModel : ObservableObject
     private SubtitleColorTagFilter colorTagFilter = SubtitleColorTagFilter.All;
     private SubtitleColorTagFilterChoice[] colorTagFilters = [];
     private Guid filterProjectId;
+    private bool hideTimes;
+    private bool hideDuration;
 
     internal SubtitlesPanelViewModel(WorkbenchSession session)
     {
@@ -53,6 +55,18 @@ internal sealed class SubtitlesPanelViewModel : ObservableObject
     }
 
     public IReadOnlyList<Guid> SelectedIds => session.SelectedSubtitleIds;
+
+    public bool HideTimes
+    {
+        get => hideTimes;
+        set => SetProperty(ref hideTimes, value);
+    }
+
+    public bool HideDuration
+    {
+        get => hideDuration;
+        set => SetProperty(ref hideDuration, value);
+    }
 
     public AsyncRelayCommand MoveCommand { get; }
 
@@ -148,6 +162,10 @@ internal sealed class SubtitlesPanelViewModel : ObservableObject
         var values = SelectedTrack is { } track
             ? session.ClipIndex.GetTrackSubtitles(track.Id).Where(colorTagFilter.Matches)
                 .Where(line => indexed.ContainsKey(line.Id)).Select(line => indexed[line.Id]).ToArray() : [];
+        for (var index = 0; index < values.Length; index++)
+        {
+            values[index].DisplayNumber = index + 1;
+        }
         if (!visibleRows.SequenceEqual(values))
         {
             visibleRows = values;

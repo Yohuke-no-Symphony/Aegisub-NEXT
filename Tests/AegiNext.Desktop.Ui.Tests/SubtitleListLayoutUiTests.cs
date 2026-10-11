@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using AegiNext.Core.Projects;
+using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Panels.Subtitles;
@@ -18,6 +19,125 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class SubtitleListLayoutUiTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DisplayTogglesCollapseColumnsIndependentlyAndPreserveTheDocument(bool dark)
+    {
+        await using var context = new MainWindowTestContext();
+        var document = CreateDocument(40);
+        context.Session.Editor.Reset(document);
+        using var view = new SubtitlesPanelView(context.ViewModel.Subtitles, context.Session);
+        var window = new Window
+        {
+            Width = 640,
+            Height = 340,
+            Content = view,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
+        };
+        try
+        {
+            window.Show();
+            Flush(window);
+            var times = view.FindControl<ToolbarToggleButton>("ShowSubtitleTimesToggle");
+            var duration = view.FindControl<ToolbarToggleButton>("ShowSubtitleDurationToggle");
+            Assert.NotNull(times);
+            Assert.NotNull(duration);
+            Assert.True(times.IsChecked);
+            Assert.True(duration.IsChecked);
+            var list = view.FindControl<ListBox>("SubtitleList")!;
+            var row = list.GetVisualDescendants().OfType<Grid>().Single(grid =>
+                grid.DataContext is SubtitleRow value && value.Id == document.Subtitles[0].Id &&
+                grid.Children.OfType<TextBox>().Count() == 3);
+            var start = row.Children.OfType<TextBox>().Single(box => Grid.GetColumn(box) == 1);
+            var end = row.Children.OfType<TextBox>().Single(box => Grid.GetColumn(box) == 2);
+            var length = row.Children.OfType<TextBlock>().Single(block => Grid.GetColumn(block) == 3);
+            var text = row.Children.OfType<TextBox>().Single(box => box.AcceptsReturn);
+            var originalWidth = text.Bounds.Width;
+            var header = view.FindControl<Grid>("SubtitleFieldsHeader")!;
+            UiTestCapture.CaptureExportPanel(window, $"subtitle-columns-visible-{(dark ? "dark" : "light")}");
+            UiTestActions.Click(window, "ShowSubtitleTimesToggle");
+            Flush(window);
+            Assert.False(times.IsChecked);
+            Assert.True(duration.IsChecked);
+            Assert.False(start.IsVisible);
+            Assert.False(end.IsVisible);
+            Assert.True(length.IsVisible);
+            Assert.False(header.Children[1].IsVisible);
+            Assert.False(header.Children[2].IsVisible);
+            Assert.True(header.Children[3].IsVisible);
+            Assert.Equal(originalWidth + 240, text.Bounds.Width, 1);
+            UiTestActions.Click(window, "ShowSubtitleDurationToggle");
+            Flush(window);
+            Assert.False(duration.IsChecked);
+            Assert.False(length.IsVisible);
+            Assert.False(header.Children[3].IsVisible);
+            Assert.Equal(originalWidth + 318, text.Bounds.Width, 1);
+            AssertRowAlignment(window, header, list, document.Subtitles[0].Id);
+            UiTestCapture.CaptureExportPanel(window, $"subtitle-columns-hidden-{(dark ? "dark" : "light")}");
+            UiTestActions.Click(window, "ShowSubtitleTimesToggle");
+            Flush(window);
+            Assert.True(times.IsChecked);
+            Assert.False(duration.IsChecked);
+            Assert.True(start.IsVisible);
+            Assert.True(end.IsVisible);
+            Assert.False(length.IsVisible);
+            Assert.Equal(originalWidth + 78, text.Bounds.Width, 1);
+            list.ScrollIntoView(context.ViewModel.Subtitles.VisibleRows[^1]);
+            Flush(window);
+            var number = list.GetVisualDescendants().OfType<TextBlock>().Single(block =>
+                block.Name == "SubtitleRowNumber" && block.DataContext is SubtitleRow value &&
+                value.Id == document.Subtitles[^1].Id);
+            Assert.Equal("40", number.Text);
+            UiTestActions.Click(window, "ShowSubtitleDurationToggle");
+            Flush(window);
+            Assert.True(duration.IsChecked);
+            Assert.Same(document, context.Session.DocumentSnapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+            Assert.False(context.Session.Editor.HasUnsavedChanges);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task InvalidTimeDraftCanBeRevealedAndFocusedAfterHidingColumns()
+    {
+        await using var context = new MainWindowTestContext();
+        var document = CreateDocument(2);
+        context.Session.Editor.Reset(document);
+        using var view = new SubtitlesPanelView(context.ViewModel.Subtitles, context.Session);
+        var window = new Window { Width = 640, Height = 340, Content = view };
+        var row = context.ViewModel.Subtitles.VisibleRows[0];
+        try
+        {
+            window.Show();
+            Flush(window);
+            row.StartText = "invalid";
+            context.ViewModel.Subtitles.HideTimes = true;
+            Flush(window);
+            Assert.Equal("invalid", row.StartText);
+            context.Session.CommitRow(row);
+            view.FocusInvalidField("StartText");
+            Flush(window);
+
+            Assert.False(context.ViewModel.Subtitles.HideTimes);
+            var focused = Assert.IsType<TextBox>(window.FocusManager!.GetFocusedElement());
+            Assert.Same(row, focused.DataContext);
+            Assert.Equal("invalid", focused.Text);
+            Assert.True(focused.IsEffectivelyVisible);
+            Assert.Same(document, context.Session.DocumentSnapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+        }
+        finally
+        {
+            row.Accept(document.Subtitles[0]);
+            window.Close();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(424, "zh-CN", true)]
     [InlineData(640, "zh-CN", true)]
@@ -214,7 +334,7 @@ public sealed class SubtitleListLayoutUiTests
     {
         var row = list.GetVisualDescendants().OfType<Grid>().Single(grid =>
             grid.DataContext is SubtitleRow row && row.Id == id && grid.Children.OfType<TextBox>().Count() == 3);
-        foreach (var label in header.Children.OfType<TextBlock>())
+        foreach (var label in header.Children.OfType<TextBlock>().Where(label => label.IsVisible))
         {
             var column = Grid.GetColumn(label);
             var field = row.Children.Single(control => Grid.GetColumn(control) == column);

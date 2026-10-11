@@ -14,6 +14,7 @@ internal sealed class SubtitleRow : INotifyPropertyChanged
     private SubtitleLine original;
     private string originalStartText;
     private string originalEndText;
+    private int displayNumber;
 
     internal SubtitleRow(SubtitleLine line, int number)
     {
@@ -30,6 +31,21 @@ internal sealed class SubtitleRow : INotifyPropertyChanged
     public Guid Id { get; }
 
     public int Number { get; }
+
+    public int DisplayNumber
+    {
+        get => displayNumber;
+        internal set
+        {
+            if (displayNumber == value)
+            {
+                return;
+            }
+
+            displayNumber = value;
+            PropertyChanged?.Invoke(this, new(nameof(DisplayNumber)));
+        }
+    }
 
     public Guid? ColorTagId => original.ColorTagId;
 

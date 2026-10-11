@@ -226,6 +226,10 @@ internal sealed partial class SubtitlesPanelView : UserControl, IWorkbenchPanelV
             }
 
             list.ScrollIntoView(row);
+            if (fieldKey is "StartText" or "EndText")
+            {
+                viewModel.HideTimes = false;
+            }
             root.UpdateLayout();
             var column = fieldKey switch { "StartText" => 1, "EndText" => 2, _ => 4 };
             this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault(box => ReferenceEquals(box.DataContext, row) &&

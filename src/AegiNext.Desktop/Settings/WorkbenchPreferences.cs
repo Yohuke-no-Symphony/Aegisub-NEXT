@@ -37,6 +37,8 @@ public sealed record WorkbenchPreferences
     public bool TimelineStepEnabled { get; init; }
     public bool TimelineSpectrumVisible { get; init; } = true;
     public bool TimelineWaveformVisible { get; init; } = true;
+    public bool SubtitleListHideTimes { get; init; }
+    public bool SubtitleListHideDuration { get; init; }
     public ImmutableArray<string> CollapsedEffectCategories { get; init; } = ["clip", "fill", "stroke", "shadow", "composite", "path", "animation"];
     public ProjectPreferences Projects { get; init; } = new();
     public AssetBrowserPreferences AssetBrowser { get; init; } = new();
@@ -112,6 +114,7 @@ public sealed record WorkbenchPreferences
                AutoCheckUpdates == other.AutoCheckUpdates && UpdateChannel == other.UpdateChannel &&
                TimelineSnapEnabled == other.TimelineSnapEnabled && TimelineStepEnabled == other.TimelineStepEnabled &&
                TimelineSpectrumVisible == other.TimelineSpectrumVisible && TimelineWaveformVisible == other.TimelineWaveformVisible &&
+               SubtitleListHideTimes == other.SubtitleListHideTimes && SubtitleListHideDuration == other.SubtitleListHideDuration &&
                CollapsedEffectCategories.AsSpan().SequenceEqual(other.CollapsedEffectCategories.AsSpan()) &&
                Projects == other.Projects && AssetBrowser == other.AssetBrowser && TimingPostProcessor == other.TimingPostProcessor &&
                AudioCalibrations.AsSpan().SequenceEqual(other.AudioCalibrations.AsSpan()) &&
@@ -142,6 +145,8 @@ public sealed record WorkbenchPreferences
         hash.Add(TimelineStepEnabled);
         hash.Add(TimelineSpectrumVisible);
         hash.Add(TimelineWaveformVisible);
+        hash.Add(SubtitleListHideTimes);
+        hash.Add(SubtitleListHideDuration);
         foreach (var category in CollapsedEffectCategories)
         {
             hash.Add(category);
