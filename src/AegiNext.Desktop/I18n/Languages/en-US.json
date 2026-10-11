@@ -1170,10 +1170,6 @@
     "Workbench.AssetFolders": "Folders",
     "Workbench.DrawingTools": "Drawing tools",
     "Settings.VIEW_DRAWING_TOOLS": "Drawing tools",
-    "Layout.drawingTools": "Drawing",
-    "DrawingTools.Tools": "Tools",
-    "DrawingTools.Shapes": "Shapes",
-    "DrawingTools.Path": "Path",
-    "DrawingTools.Actions": "Actions"
+    "Layout.drawingTools": "Drawing"
   }
 }

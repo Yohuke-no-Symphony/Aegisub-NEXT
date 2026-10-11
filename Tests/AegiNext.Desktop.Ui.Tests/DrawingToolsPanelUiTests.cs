@@ -5,6 +5,7 @@ using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Settings;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -160,7 +161,8 @@ public sealed class DrawingToolsPanelUiTests
         var end = CanvasPoint(context.Window, canvas, new(60, 80));
         context.Window.MouseDown(start, MouseButton.Left);
         context.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
-        Assert.True(canvas.HasActiveDrag);
+        Assert.True(canvas.HasActiveDrag,
+            $"Mode={canvas.EditMode}; Start={start}; End={end}; Project={canvas.ProjectRectangle}; Hit={context.Window.InputHitTest(start)?.GetType().Name}");
 
         context.Window.Layouts.Hide(WorkbenchPanelIds.PREVIEW);
         context.Window.MouseUp(end, MouseButton.Left);
@@ -222,17 +224,21 @@ public sealed class DrawingToolsPanelUiTests
     [AvaloniaTheory]
     [InlineData("en-US", false)]
     [InlineData("zh-CN", true)]
-    public async Task NarrowToolboxKeepsIconsVisibleAndLanguageChangesPreserveSelection(string language, bool dark)
+    public async Task SingleRowToolbarKeepsToolsAccessibleAndLanguageChangesPreserveSelection(string language, bool dark)
     {
         await using var context = new MainWindowTestContext();
         await context.Session.ApplicationContext.Initialization;
         context.Session.UpdatePreferences(context.Session.Preferences with { Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT });
         Localization.SetLanguage(language);
-        var source = context.Session.DocumentSnapshot;
+        var layer = PathLayer();
+        var source = new ProjectDocument { Layers = [layer] };
+        context.Session.Editor.Reset(source);
+        context.Session.SelectLayer(layer.Id, [layer.Id]);
         UiTestActions.Click(context.Window, "ArrowToolButton");
         var panel = context.Window.Panels[WorkbenchPanelIds.DRAWING_TOOLS];
         var toggles = panel.GetVisualDescendants().OfType<ToolbarToggleButton>().ToArray();
         Assert.Equal(9, toggles.Length);
+        AssertSingleButtonRow(panel, 10);
         foreach (var button in toggles)
         {
             Assert.True(button.IsEffectivelyVisible);
@@ -245,6 +251,9 @@ public sealed class DrawingToolsPanelUiTests
         Localization.SetLanguage(language == "en-US" ? "zh-CN" : "en-US");
         Flush(context.Window);
         Assert.True(UiTestActions.Find<ToolbarToggleButton>(panel, "ArrowToolButton").IsChecked);
+        var arrow = UiTestActions.Find<ToolbarToggleButton>(panel, "ArrowToolButton");
+        Assert.Equal(Localization.Get("Preview.CreateArrow"), ToolTip.GetTip(arrow));
+        Assert.Equal(Localization.Get("Preview.CreateArrow"), AutomationProperties.GetName(arrow));
         Assert.Equal(ShapeKind.ARROW, context.ViewModel.DrawingTools.ActiveShapeKind);
         Assert.Same(source, context.Session.DocumentSnapshot);
         Assert.False(context.Session.Editor.CanUndo);
@@ -258,6 +267,47 @@ public sealed class DrawingToolsPanelUiTests
             Assert.NotNull(frame);
             frame.Save(Path.Combine(directory, $"drawing-tools-{language}-{(dark ? "dark" : "light")}.png"), PngBitmapEncoderOptions.Default);
         }
+
+        UiTestActions.Click(context.Window, "PathToolButton");
+        Flush(context.Window);
+        AssertSingleButtonRow(panel, 11);
+        Assert.Equal(Localization.Get("Preview.FinishPath"), ToolTip.GetTip(UiTestActions.Find<Button>(panel, "FinishShapePathButton")));
+        UiTestActions.Click(context.Window, "EditShapePathToolButton");
+        Flush(context.Window);
+        AssertSingleButtonRow(panel, 13);
+
+        context.Window.Layouts.Float(WorkbenchPanelIds.DRAWING_TOOLS);
+        var floating = Assert.Single(context.Window.Layouts.FloatingWindows);
+        floating.Width = 260;
+        Flush(floating);
+        AssertSingleButtonRow(panel, 13);
+        var scroller = UiTestActions.Find<ScrollViewer>(panel, "DrawingToolsScrollViewer");
+        Assert.True(scroller.Extent.Width > scroller.Viewport.Width);
+        UiTestActions.Click(floating, "ArrowToolButton");
+        Flush(floating);
+        Assert.True(scroller.Offset.X > 0);
+        Assert.Equal(0, scroller.Offset.Y);
+        Assert.True(arrow.IsChecked);
+        var visiblePosition = arrow.TranslatePoint(default, scroller)!.Value;
+        Assert.InRange(visiblePosition.X, -1, scroller.Viewport.Width - arrow.Bounds.Width + 1);
+        AssertSingleButtonRow(panel, 10);
+        Assert.Same(source, context.Session.DocumentSnapshot);
+        Assert.False(context.Session.Editor.CanUndo);
+    }
+
+    private static void AssertSingleButtonRow(Control panel, int count)
+    {
+        var buttons = panel.GetVisualDescendants().OfType<Button>().Where(button => button.IsEffectivelyVisible &&
+            (button is ToolbarToggleButton || button.Classes.Contains("icon-button"))).ToArray();
+        Assert.Equal(count, buttons.Length);
+        var rowY = buttons[0].TranslatePoint(default, panel)!.Value.Y;
+        foreach (var button in buttons)
+        {
+            Assert.InRange(Math.Abs(rowY - button.TranslatePoint(default, panel)!.Value.Y), 0, 1);
+            Assert.Equal(32, button.Bounds.Width);
+            Assert.Equal(32, button.Bounds.Height);
+        }
+        Assert.DoesNotContain(panel.GetVisualDescendants().OfType<TextBlock>(), text => text.IsEffectivelyVisible);
     }
 
     private static ProjectLayer PathLayer()

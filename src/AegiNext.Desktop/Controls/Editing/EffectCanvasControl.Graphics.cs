@@ -305,7 +305,7 @@ public sealed partial class EffectCanvasControl
         {
             index = 4;
         }
-        if (normalized.X is < 0 or > 1 || normalized.Y is < 0 or > 1)
+        if (index < 0 && (normalized.X is < 0 or > 1 || normalized.Y is < 0 or > 1))
         {
             return;
         }

@@ -15,7 +15,7 @@ public sealed class DrawingToolsLayoutMigrationTests
         var upgraded = WorkspaceLayoutMigration.Upgrade(new() { Version = 5, Current = previous, CurrentPresetId = presetId });
         var expected = WorkspaceLayoutPresets.BuiltIn.Single(preset => preset.Id == presetId).Layout;
 
-        Assert.Equal(6, upgraded.Version);
+        Assert.Equal(WorkspaceLayoutSnapshot.CURRENT_VERSION, upgraded.Version);
         Assert.Same(expected, upgraded.Current);
         Assert.Equal(!drawingVisible, upgraded.Current.HiddenPanelIds.Contains(WorkbenchPanelIds.DRAWING_TOOLS));
         WorkspaceLayoutValidator.Validate(upgraded.Current);
@@ -23,12 +23,63 @@ public sealed class DrawingToolsLayoutMigrationTests
         if (drawingVisible)
         {
             var top = upgraded.Current.Main.Children[0];
-            Assert.Equal(3, top.Children.Count);
-            Assert.Equal(WorkbenchPanelIds.DRAWING_TOOLS, Assert.Single(top.Children[0].Children).PanelId);
-            Assert.Equal(WorkbenchPanelIds.PREVIEW, Assert.Single(top.Children[1].Children).PanelId);
-            Assert.Equal(0.1, top.Children[0].Proportion);
-            Assert.Equal(presetId == "standard" ? 0.65 : 0.56, top.Children[1].Proportion);
-            Assert.Equal(presetId == "standard" ? 0.25 : 0.34, top.Children[2].Proportion);
+            Assert.Equal(2, top.Children.Count);
+            var drawingAndPreview = top.Children[0];
+            Assert.Equal("vertical", drawingAndPreview.Orientation);
+            Assert.Equal(WorkbenchPanelIds.DRAWING_TOOLS, Assert.Single(drawingAndPreview.Children[0].Children).PanelId);
+            Assert.Equal(WorkbenchPanelIds.PREVIEW, Assert.Single(drawingAndPreview.Children[1].Children).PanelId);
+            Assert.Equal(0.16, drawingAndPreview.Children[0].Proportion);
+            Assert.Equal(0.84, drawingAndPreview.Children[1].Proportion);
+            Assert.Equal(presetId == "standard" ? 0.75 : 0.66, drawingAndPreview.Proportion);
+            Assert.Equal(presetId == "standard" ? 0.25 : 0.34, top.Children[1].Proportion);
+        }
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void EarlierUnmodifiedBuiltInsStillUpgradeToTheCurrentPreset(int version)
+    {
+        var excludedIds = new List<string>();
+        if (version < 5)
+        {
+            excludedIds.Add("assets");
+        }
+        if (version < 4)
+        {
+            excludedIds.Add("masks");
+        }
+        if (version < 3)
+        {
+            excludedIds.Add("subtitleDetails");
+        }
+        if (version < 2)
+        {
+            excludedIds.Add("log");
+        }
+        LayoutNodeSnapshot RemoveLaterPanels(LayoutNodeSnapshot node) => node with
+        {
+            Children = node.Children.Where(child => child.PanelId is null || !excludedIds.Contains(child.PanelId))
+                .Select(RemoveLaterPanels).ToArray()
+        };
+        foreach (var preset in WorkspaceLayoutPresets.BuiltIn)
+        {
+            var previous = VersionFive(preset.Id);
+            previous = previous with
+            {
+                Version = version,
+                Main = RemoveLaterPanels(previous.Main),
+                HiddenPanelIds = previous.HiddenPanelIds.Except(excludedIds).ToArray()
+            };
+            var upgraded = WorkspaceLayoutMigration.Upgrade(new()
+            {
+                Version = version, Current = previous, CurrentPresetId = preset.Id
+            });
+
+            Assert.Same(preset.Layout, upgraded.Current);
+            WorkspaceLayoutValidator.Validate(upgraded.Current);
         }
     }
 

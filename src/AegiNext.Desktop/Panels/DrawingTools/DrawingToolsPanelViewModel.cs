@@ -1,7 +1,6 @@
 using System.Windows.Input;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
-using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Workspace;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -38,23 +37,6 @@ internal sealed class DrawingToolsPanelViewModel : ObservableObject, IDisposable
     public bool IsShapePathEditing => ActiveMode == CanvasEditMode.SHAPE_PATH;
     public bool IsShapePathCreation => ActiveMode == CanvasEditMode.CREATE_PATH;
     public bool CanCreateSubtitleBackground => !session.IsClosing && !session.IsProjectBusy && session.SelectedLayer?.SubtitleId is not null;
-    public string ActiveToolLabel => Localization.Get(ActiveMode switch
-    {
-        CanvasEditMode.CREATE_PATH => "Preview.CreatePath",
-        CanvasEditMode.CROP => "Preview.CropImage",
-        CanvasEditMode.SHAPE_PATH => "Preview.EditShapePath",
-        CanvasEditMode.PATH => "Workbench.Path",
-        CanvasEditMode.MASK_RECTANGLE or CanvasEditMode.MASK_VECTOR or CanvasEditMode.MASK_DRAW_VECTOR => "Workbench.MaskEdit",
-        CanvasEditMode.CREATE_SHAPE => ActiveShapeKind switch
-        {
-            ShapeKind.ROUNDED_RECTANGLE => "Preview.CreateRoundedRectangle",
-            ShapeKind.ELLIPSE => "Preview.CreateEllipse",
-            ShapeKind.LINE => "Preview.CreateLine",
-            ShapeKind.ARROW => "Preview.CreateArrow",
-            _ => "Preview.CreateRectangle"
-        },
-        _ => "Preview.SelectGraphic"
-    });
     public ICommand CreateSubtitleBackgroundCommand => createSubtitleBackgroundCommand;
     public ICommand StraightSegmentCommand { get; }
     public ICommand CurveSegmentCommand { get; }
@@ -77,12 +59,6 @@ internal sealed class DrawingToolsPanelViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(IsShapePathEditing));
         OnPropertyChanged(nameof(IsShapePathCreation));
         OnPropertyChanged(nameof(CanCreateSubtitleBackground));
-        RefreshLanguage();
-    }
-
-    internal void RefreshLanguage()
-    {
-        OnPropertyChanged(nameof(ActiveToolLabel));
         RefreshCommands();
     }
 

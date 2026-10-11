@@ -38,6 +38,7 @@ internal sealed partial class DrawingToolsPanelView : UserControl, IWorkbenchPan
         this.FindControl<Button>("StraightSegmentButton")!.Content = WorkbenchIcon.Create("StraightSegment");
         this.FindControl<Button>("CurveSegmentButton")!.Content = WorkbenchIcon.Create("CurveSegment");
         this.FindControl<Button>("CloseShapePathButton")!.Content = WorkbenchIcon.Create("ClosedPath");
+        this.FindControl<Button>("FinishShapePathButton")!.Content = WorkbenchIcon.Create("FinishPath");
         viewModel.PropertyChanged += OnViewModelChanged;
         SynchronizeTools();
     }

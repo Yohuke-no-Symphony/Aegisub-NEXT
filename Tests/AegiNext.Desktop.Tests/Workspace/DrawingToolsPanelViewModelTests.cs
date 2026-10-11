@@ -1,6 +1,5 @@
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
-using AegiNext.Desktop.I18n;
 
 namespace AegiNext.Desktop.Tests.Workspace;
 
@@ -69,7 +68,6 @@ public sealed class DrawingToolsPanelViewModelTests
         Assert.True(tools.IsShapePathEditing);
         Assert.Null(tools.ActiveShapeKind);
         Assert.False(tools.CanCreateSubtitleBackground);
-        Assert.Equal(Localization.Get("Preview.EditShapePath"), tools.ActiveToolLabel);
     }
 
     [Fact]
