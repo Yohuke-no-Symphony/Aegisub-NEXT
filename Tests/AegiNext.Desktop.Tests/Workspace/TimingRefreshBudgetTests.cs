@@ -208,7 +208,7 @@ public sealed class TimingRefreshBudgetTests
         }
         else
         {
-            session.ViewModel.Export.CrfText = "invalid quality";
+            session.ViewModel.Export.QualityText = "invalid quality";
         }
 
         await session.ExecuteCommandAsync(WorkbenchCommand.TIMING_ENTER);
@@ -220,7 +220,7 @@ public sealed class TimingRefreshBudgetTests
         Assert.Equal(invalidRow ? "invalid start" : TimelineTimeText.Format(row.Original.Start), row.StartText);
         if (!invalidRow)
         {
-            Assert.Equal("invalid quality", session.ViewModel.Export.CrfText);
+            Assert.Equal("invalid quality", session.ViewModel.Export.QualityText);
         }
     }
 

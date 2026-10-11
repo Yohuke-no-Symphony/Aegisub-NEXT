@@ -298,7 +298,7 @@ internal sealed class WorkspaceProbe
         report.ExportCodecChoiceCount = export.FindControl<ComboBox>("CodecCombo")!.ItemCount;
         report.ExportSpeedChoiceCount = export.FindControl<ComboBox>("SpeedCombo")!.ItemCount;
         report.ExportAudioModeChoiceCount = export.FindControl<ComboBox>("AudioModeCombo")!.ItemCount;
-        Verify(report.ExportCodecChoiceCount == 3 && report.ExportSpeedChoiceCount == 3 && report.ExportAudioModeChoiceCount == 3,
+        Verify(report.ExportCodecChoiceCount == 6 && report.ExportSpeedChoiceCount == 9 && report.ExportAudioModeChoiceCount == 4,
             $"Export choices were populated: codec={report.ExportCodecChoiceCount}, speed={report.ExportSpeedChoiceCount}, audio={report.ExportAudioModeChoiceCount}");
     }
 

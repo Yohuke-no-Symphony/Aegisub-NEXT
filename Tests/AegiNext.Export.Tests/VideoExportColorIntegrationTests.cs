@@ -28,7 +28,7 @@ public sealed class VideoExportColorIntegrationTests
         var request = new VideoExportRequest(project, directory, output)
         {
             DecodeMode = mode, Codec = VideoCodec.H264, AudioMode = AudioExportMode.None,
-            Crf = 0, Preset = "ultrafast", FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"),
+            Quality = 0, Preset = "ultrafast", FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"),
             WorkerPath = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_WORKER_PATH")
         };
         if (mode == VideoDecodeMode.Hardware)
@@ -62,7 +62,7 @@ public sealed class VideoExportColorIntegrationTests
         var request = new VideoExportRequest(project, fixture.DirectoryPath, output)
         {
             DecodeMode = VideoDecodeMode.Software, Codec = VideoCodec.H264, AudioMode = AudioExportMode.None,
-            Crf = 0, Preset = "ultrafast", FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"),
+            Quality = 0, Preset = "ultrafast", FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"),
             WorkerPath = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_WORKER_PATH")
         };
         if (changesColor)
@@ -230,7 +230,7 @@ public sealed class VideoExportColorIntegrationTests
         {
             Codec = VideoCodec.H264,
             DecodeMode = mode,
-            Crf = 0,
+            Quality = 0,
             Preset = "ultrafast",
             AudioMode = AudioExportMode.Copy,
             FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"),

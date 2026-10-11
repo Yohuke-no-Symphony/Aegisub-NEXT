@@ -29,6 +29,10 @@ internal static partial class NativeExportMethods
     internal static unsafe partial int GetResultInfo(nint context, ref NativeExportResultInfo info,
         byte* error, uint capacity);
 
+    [LibraryImport(LIBRARY, EntryPoint = "an_export_mux")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static unsafe partial int Mux(nint context, ref NativeExportMuxRequest request, byte* error, uint capacity);
+
     [LibraryImport(LIBRARY, EntryPoint = "an_export_create")]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     internal static unsafe partial int Create(out nint context, byte* error, uint capacity);

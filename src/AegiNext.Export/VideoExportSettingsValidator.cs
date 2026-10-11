@@ -7,16 +7,17 @@ public static class VideoExportSettingsValidator
     public static void Validate(VideoExportSettings settings)
     {
         var rateControlMode = ValidateCommon(settings);
-        if (rateControlMode == VideoRateControlMode.CRF)
+        if (rateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ)
         {
-            ValidateCrf(settings);
+            ValidateQuality(settings);
         }
-        else
+
+        if (rateControlMode != VideoRateControlMode.CRF)
         {
             ValidateVideoBitrate(settings);
         }
 
-        if (settings.AudioMode == AudioExportMode.Aac)
+        if (settings.AudioMode is AudioExportMode.Aac or AudioExportMode.Opus)
         {
             ValidateAudioBitrate(settings);
         }
@@ -31,7 +32,7 @@ public static class VideoExportSettingsValidator
             throw new ArgumentException("压制预设必须保存明确的 RateControlMode，不能使用 AUTOMATIC。", nameof(settings));
         }
 
-        ValidateCrf(settings);
+        ValidateQuality(settings);
         ValidateVideoBitrate(settings);
         ValidateAudioBitrate(settings);
     }
@@ -63,7 +64,7 @@ public static class VideoExportSettingsValidator
         }
 
         return settings.EncodingMode == VideoEncodingMode.SOFTWARE
-            ? VideoRateControlMode.CRF
+            ? VideoExportCapabilities.Get(settings.Codec).QualityMode
             : VideoRateControlMode.VBR;
     }
 
@@ -81,19 +82,27 @@ public static class VideoExportSettingsValidator
             throw new ArgumentException("不支持的编码速度 Preset。", nameof(settings));
         }
 
-        if (settings.EncodingMode == VideoEncodingMode.HARDWARE && rateControlMode == VideoRateControlMode.CRF)
+        var capability = VideoExportCapabilities.Get(settings.Codec);
+        if (settings.EncodingMode == VideoEncodingMode.HARDWARE &&
+            (!capability.SupportsHardware || rateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ))
         {
-            throw new ArgumentException("硬件编码不支持 CRF；请选择 VBR 或 CBR。", nameof(settings));
+            throw new ArgumentException("该格式或质量模式不支持硬件编码；请选择可用后端的 VBR 或 CBR。", nameof(settings));
+        }
+
+        if (rateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ && rateControlMode != capability.QualityMode)
+        {
+            throw new ArgumentException("质量模式与编码器不匹配。", nameof(settings));
         }
 
         return rateControlMode;
     }
 
-    private static void ValidateCrf(VideoExportSettings settings)
+    private static void ValidateQuality(VideoExportSettings settings)
     {
-        if (settings.Crf is < 0 or > 51)
+        var capability = VideoExportCapabilities.Get(settings.Codec);
+        if (settings.Quality < capability.QualityMinimum || settings.Quality > capability.QualityMaximum)
         {
-            throw new ArgumentException("Crf 必须为 0 至 51。", nameof(settings));
+            throw new ArgumentException($"Quality 必须为 {capability.QualityMinimum} 至 {capability.QualityMaximum}。", nameof(settings));
         }
     }
 

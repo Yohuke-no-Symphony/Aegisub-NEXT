@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 
@@ -99,7 +100,8 @@ public static class VideoExportPresetStore
             _ = strictUtf8.GetCharCount(json);
             using var document = JsonDocument.Parse(json.ToArray(), new() { MaxDepth = 8 });
             RejectDuplicateKeys(document.RootElement);
-            var collection = document.RootElement.Deserialize<VideoExportPresetCollection>(options) ??
+            var normalized = Migrate(document.RootElement);
+            var collection = normalized.Deserialize<VideoExportPresetCollection>(options) ??
                              throw new JsonException("压制预设库不能为 null。");
             VideoExportPresetValidator.Validate(collection);
             return collection;
@@ -109,6 +111,48 @@ public static class VideoExportPresetStore
             throw new InvalidDataException("压制预设必须使用有效的 UTF-8 JSON。", error);
         }
     }
+
+    private static JsonElement Migrate(JsonElement root)
+    {
+        if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("version", out var version) ||
+            version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 1)
+        {
+            return root;
+        }
+
+        if (!root.TryGetProperty("presets", out var presets) || presets.ValueKind != JsonValueKind.Array)
+        {
+            throw new JsonException("旧版压制预设集合无效。");
+        }
+
+        foreach (var preset in presets.EnumerateArray())
+        {
+            if (preset.ValueKind != JsonValueKind.Object || !preset.TryGetProperty("settings", out var settings) ||
+                settings.ValueKind != JsonValueKind.Object || !settings.TryGetProperty("crf", out var crf) ||
+                crf.ValueKind != JsonValueKind.Number || !crf.TryGetInt32(out _) || settings.TryGetProperty("quality", out _) ||
+                !LegacyChoice(settings, "codec", "Auto", "H264", "Hevc") ||
+                !LegacyChoice(settings, "audioMode", "Copy", "Aac", "None") ||
+                !LegacyChoice(settings, "rateControlMode", "CRF", "VBR", "CBR"))
+            {
+                throw new JsonException("旧版压制预设参数不符合 v1 合同。");
+            }
+        }
+
+        var migrated = JsonNode.Parse(root.GetRawText())!.AsObject();
+        migrated["version"] = VideoExportPresetCollection.CURRENT_VERSION;
+        foreach (var preset in migrated["presets"]!.AsArray())
+        {
+            var settings = preset!["settings"]!.AsObject();
+            settings["quality"] = settings["crf"]!.DeepClone();
+            settings.Remove("crf");
+        }
+
+        return JsonSerializer.SerializeToElement(migrated);
+    }
+
+    private static bool LegacyChoice(JsonElement settings, string name, params string[] choices) =>
+        settings.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String &&
+        choices.Contains(value.GetString(), StringComparer.OrdinalIgnoreCase);
 
     private static JsonSerializerOptions CreateOptions()
     {

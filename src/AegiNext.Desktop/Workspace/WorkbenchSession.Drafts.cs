@@ -273,7 +273,7 @@ internal sealed partial class WorkbenchSession
                 (decimal)AnimationPropertyMetadata.GetMaximum(AnimationProperty.ROTATION)),
             "OpacityInput" => (0m, 1m),
             "BlurInput" => (0m, 128m),
-            "CrfInput" => (0m, 51m),
+            "QualityInput" => (ViewModel.Export.QualityMinimum, ViewModel.Export.QualityMaximum),
             "AudioBitrateInput" => (32m, 512m),
             "VideoBitrateInput" => (0.1m, 200m),
             _ => (decimal.MinValue, decimal.MaxValue)

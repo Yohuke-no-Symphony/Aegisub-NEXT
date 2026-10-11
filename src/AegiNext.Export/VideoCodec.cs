@@ -5,5 +5,8 @@ public enum VideoCodec
 {
     Auto,
     H264,
-    Hevc
+    Hevc,
+    Vp8,
+    Vp9,
+    Av1
 }

@@ -74,8 +74,11 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
             var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             IsChoosingOutput = true;
             session.ViewModel.RefreshCommands();
-            var path = await dialogs.SaveFileAsync("Export", "Videos", ["*.mp4", "*.mkv"], ".mp4",
-                $"{name}-{timestamp}.mp4", outputDirectory);
+            var capability = VideoExportCapabilities.Get(request.Codec);
+            var extension = request.Codec is VideoCodec.Vp8 or VideoCodec.Vp9 or VideoCodec.Av1 ? ".mkv" : ".mp4";
+            var patterns = capability.Extensions.Select(value => "*" + value).ToArray();
+            var path = await dialogs.SaveFileAsync("Export", "Videos", patterns, extension,
+                $"{name}-{timestamp}{extension}", outputDirectory);
             if (path is null || session.IsClosing)
             {
                 return;

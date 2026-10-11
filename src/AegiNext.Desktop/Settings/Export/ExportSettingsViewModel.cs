@@ -75,7 +75,7 @@ public sealed class ExportSettingsViewModel : VideoExportSettingsViewModel
             {
                 return false;
             }
-            if (newDraft || Name != draft.Name || CrfText != draft.Settings.Crf.ToString(CultureInfo.CurrentCulture) ||
+            if (newDraft || Name != draft.Name || QualityText != draft.Settings.Quality.ToString(CultureInfo.CurrentCulture) ||
                 VideoBitrateText != (draft.Settings.VideoBitrate / 1000000m).ToString(CultureInfo.CurrentCulture) ||
                 AudioBitrateText != (draft.Settings.AudioBitrate / 1000m).ToString(CultureInfo.CurrentCulture))
             {
@@ -473,7 +473,7 @@ public sealed class ExportSettingsViewModel : VideoExportSettingsViewModel
     private void OnParameterChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (!loading && e.PropertyName is nameof(Codec) or nameof(Speed) or nameof(UseHardwareEncoder) or
-            nameof(QualityMode) or nameof(BitrateMode) or nameof(AudioMode) or nameof(CrfText) or
+            nameof(QualityMode) or nameof(BitrateMode) or nameof(AudioMode) or nameof(QualityText) or
             nameof(VideoBitrateText) or nameof(AudioBitrateText))
         {
             RefreshActions();

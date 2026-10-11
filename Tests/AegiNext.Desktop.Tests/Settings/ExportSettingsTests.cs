@@ -112,7 +112,7 @@ public sealed class ExportSettingsTests
         var model = new ExportSettingsViewModel();
         model.UpdatePresets([first, second]);
         model.Name = "Edited first";
-        model.CrfText = "27";
+        model.QualityText = "27";
         model.ConfirmLeaveAsync = () => Task.FromResult(decision);
         var saves = 0;
         VideoExportPreset? committed = null;
@@ -134,11 +134,11 @@ public sealed class ExportSettingsTests
             Assert.NotNull(committed);
             Assert.Equal(first.Id, committed.Id);
             Assert.Equal("Edited first", committed.Name);
-            Assert.Equal(27, committed.Settings.Crf);
+            Assert.Equal(27, committed.Settings.Quality);
         }
         if (!expected)
         {
-            Assert.Equal("27", model.CrfText);
+            Assert.Equal("27", model.QualityText);
             Assert.True(model.IsDirty);
         }
     }
@@ -251,18 +251,18 @@ public sealed class ExportSettingsTests
         var model = new ExportSettingsViewModel();
         model.UpdatePresets([editing, remaining]);
         model.Name = "Still editing";
-        model.CrfText = valid ? "26" : "7e-";
+        model.QualityText = valid ? "26" : "7e-";
 
         model.UpdatePresets([remaining]);
 
         Assert.Equal(editing.Id, model.Draft?.Id);
         Assert.Equal("Still editing", model.Name);
-        Assert.Equal(valid ? "26" : "7e-", model.CrfText);
+        Assert.Equal(valid ? "26" : "7e-", model.QualityText);
         Assert.True(model.IsDirty);
         Assert.Null(model.SelectedPreset);
         Assert.Empty(model.SelectedIds);
         Assert.Equal(remaining, Assert.Single(model.ExportPresets));
-        model.CrfText = "26";
+        model.QualityText = "26";
         VideoExportPreset? restored = null;
         model.SaveDraftAsync = preset =>
         {
@@ -275,7 +275,7 @@ public sealed class ExportSettingsTests
         Assert.NotNull(restored);
         Assert.Equal(editing.Id, restored.Id);
         Assert.Equal("Still editing", restored.Name);
-        Assert.Equal(26, restored.Settings.Crf);
+        Assert.Equal(26, restored.Settings.Quality);
         Assert.Equal(editing.Id, model.SelectedPreset?.Id);
         Assert.False(model.IsDirty);
     }
@@ -345,7 +345,7 @@ public sealed class ExportSettingsTests
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.CBR,
             Preset = "slower",
-            Crf = 17,
+            Quality = 17,
             VideoBitrate = 12345678,
             AudioMode = AudioExportMode.Aac,
             AudioBitrate = 256000

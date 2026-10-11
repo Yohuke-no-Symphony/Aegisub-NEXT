@@ -18,7 +18,7 @@ public sealed class ExportPresetUiTests
         await context.InitializeAsync();
         context.Layouts.Activate(WorkbenchPanelIds.EXPORT);
         context.Flush();
-        var first = new VideoExportPreset(Guid.NewGuid(), "CPU quality", new() { Crf = 26 });
+        var first = new VideoExportPreset(Guid.NewGuid(), "CPU quality", new() { Quality = 26 });
         var second = new VideoExportPreset(Guid.NewGuid(), "CPU CBR", new()
         {
             Codec = VideoCodec.Hevc,
@@ -63,16 +63,16 @@ public sealed class ExportPresetUiTests
         var view = context.Panels[WorkbenchPanelIds.EXPORT];
         var vm = context.Session.ViewModel.Export;
         view.FindControl<ComboBox>("ExportPresetCombo")!.SelectedItem = vm.Presets[0];
-        view.FindControl<NumericDraftInput>("CrfInput")!.RawText = "unfinished";
+        view.FindControl<NumericDraftInput>("QualityInput")!.RawText = "unfinished";
 
         Localization.SetLanguage("zh-CN");
-        await PublishAsync(context, preset with { Name = "Renamed selection", Settings = new() { Crf = 30 } });
+        await PublishAsync(context, preset with { Name = "Renamed selection", Settings = new() { Quality = 30 } });
         context.Flush();
 
         Assert.Equal(preset.Id, vm.SelectedPreset!.Id);
         Assert.Equal("Renamed selection", vm.SelectedPreset.Name);
         Assert.Equal(vm.SelectedPreset, view.FindControl<ComboBox>("ExportPresetCombo")!.SelectedItem);
-        Assert.Equal("unfinished", vm.CrfText);
+        Assert.Equal("unfinished", vm.QualityText);
         Assert.False(context.Editor.CanUndo);
     }
 
@@ -84,13 +84,13 @@ public sealed class ExportPresetUiTests
         await context.InitializeAsync();
         context.Layouts.Activate(WorkbenchPanelIds.EXPORT);
         context.Flush();
-        var selected = new VideoExportPreset(Guid.NewGuid(), "Selected", new() { Crf = 26 });
-        var remaining = new VideoExportPreset(Guid.NewGuid(), "Remaining", new() { Crf = 35 });
+        var selected = new VideoExportPreset(Guid.NewGuid(), "Selected", new() { Quality = 26 });
+        var remaining = new VideoExportPreset(Guid.NewGuid(), "Remaining", new() { Quality = 35 });
         await PublishAsync(context, selected, remaining);
         var view = context.Panels[WorkbenchPanelIds.EXPORT];
         var vm = context.Session.ViewModel.Export;
         view.FindControl<ComboBox>("ExportPresetCombo")!.SelectedItem = vm.Presets.Single(value => value.Id == selected.Id);
-        vm.CrfText = "unfinished";
+        vm.QualityText = "unfinished";
         var application = context.Session.ApplicationContext;
 
         await application.RunExportPresetOperationAsync(() => application.ExportPresetLibrary.RemoveAsync(selected.Id));
@@ -99,7 +99,7 @@ public sealed class ExportPresetUiTests
         Assert.Null(vm.SelectedPreset);
         Assert.Null(view.FindControl<ComboBox>("ExportPresetCombo")!.SelectedItem);
         Assert.Equal(remaining.Id, Assert.Single(vm.Presets).Id);
-        Assert.Equal("unfinished", vm.CrfText);
+        Assert.Equal("unfinished", vm.QualityText);
         Assert.False(context.Editor.CanUndo);
     }
 

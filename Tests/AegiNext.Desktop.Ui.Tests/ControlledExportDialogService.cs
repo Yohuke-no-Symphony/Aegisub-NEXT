@@ -9,6 +9,8 @@ internal sealed class ControlledExportDialogService : IWorkbenchDialogService
     internal int ConfirmationRequests { get; private set; }
     internal string? SuggestedFileName { get; private set; }
     internal string? SuggestedDirectory { get; private set; }
+    internal string[] Patterns { get; private set; } = [];
+    internal string? DefaultExtension { get; private set; }
     internal List<string> ErrorMessages { get; } = [];
     internal Exception? PickerError { get; set; }
     internal TaskCompletionSource? PendingErrorAcknowledgement { get; set; }
@@ -35,6 +37,8 @@ internal sealed class ControlledExportDialogService : IWorkbenchDialogService
         SaveRequests++;
         SuggestedFileName = suggestedName;
         SuggestedDirectory = suggestedDirectory;
+        Patterns = patterns;
+        DefaultExtension = extension;
         if (PickerError is { } error)
         {
             return Task.FromException<string?>(error);

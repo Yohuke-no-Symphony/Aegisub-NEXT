@@ -4,9 +4,9 @@ namespace AegiNext.Export;
 
 internal static class NativeExportAbi
 {
-    internal const uint VERSION = 5;
+    internal const uint VERSION = 6;
     internal const uint REQUEST_SIZE = 88;
-    internal const uint RESULT_SIZE = 344;
+    internal const uint RESULT_SIZE = 488;
     internal const uint OVERLAY_SIZE = 24;
     private const uint CORE_VERSION = 1;
     private const uint CORE_CAPABILITIES = 15;

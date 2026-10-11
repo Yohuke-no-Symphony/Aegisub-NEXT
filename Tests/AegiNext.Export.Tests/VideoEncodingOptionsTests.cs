@@ -10,13 +10,13 @@ namespace AegiNext.Export.Tests;
 public sealed class VideoEncodingOptionsTests
 {
     [Fact]
-    public void DefaultsKeepSoftwareCrfAndNativeAbiIsExplicitlyVersioned()
+    public void DefaultsKeepSoftwareQualityAndNativeAbiIsExplicitlyVersioned()
     {
         var request = CreateRequest();
         Assert.Equal(VideoEncodingMode.SOFTWARE, request.EncodingMode);
         Assert.Equal(VideoRateControlMode.AUTOMATIC, request.RateControlMode);
         Assert.Equal(VideoDecodeMode.Auto, request.DecodeMode);
-        Assert.Equal(20, request.Crf);
+        Assert.Equal(20, request.Quality);
         Assert.Equal(8000000, request.VideoBitrate);
         Assert.Equal(88, Marshal.SizeOf<NativeExportRequest>());
         Assert.Equal(64, Marshal.OffsetOf<NativeExportRequest>(nameof(NativeExportRequest.EncodingMode)).ToInt32());
@@ -35,12 +35,12 @@ public sealed class VideoEncodingOptionsTests
     [Fact]
     public void InactiveQualityFieldsDoNotBlockTheSelectedEncodingMode()
     {
-        VideoExporter.Validate(CreateRequest() with { EncodingMode = VideoEncodingMode.HARDWARE, Crf = -1 });
+        VideoExporter.Validate(CreateRequest() with { EncodingMode = VideoEncodingMode.HARDWARE, Quality = -1 });
         VideoExporter.Validate(CreateRequest() with { VideoBitrate = -1 });
         Assert.Throws<ArgumentException>(() => VideoExporter.Validate(CreateRequest() with { EncodingMode = (VideoEncodingMode)9 }));
         Assert.Throws<ArgumentException>(() => VideoExporter.Validate(CreateRequest() with { DecodeMode = (VideoDecodeMode)9 }));
         Assert.Throws<ArgumentException>(() => VideoExporter.Validate(CreateRequest() with { RateControlMode = (VideoRateControlMode)9 }));
-        VideoExporter.Validate(CreateRequest() with { RateControlMode = VideoRateControlMode.VBR, Crf = -1 });
+        VideoExporter.Validate(CreateRequest() with { RateControlMode = VideoRateControlMode.VBR, Quality = -1 });
         VideoExporter.Validate(CreateRequest() with { RateControlMode = VideoRateControlMode.CBR, AudioBitrate = -1 });
         Assert.Throws<ArgumentException>(() => VideoExporter.Validate(CreateRequest() with { AudioMode = AudioExportMode.Aac, AudioBitrate = -1 }));
     }
@@ -58,7 +58,7 @@ public sealed class VideoEncodingOptionsTests
         Assert.Equal(12000000, restored.VideoBitrate);
         Assert.Equal(VideoDecodeMode.Software, restored.DecodeMode);
         Assert.Equal(VideoRateControlMode.CBR, restored.RateControlMode);
-        Assert.Equal(2, restored.ProtocolVersion);
+        Assert.Equal(3, restored.ProtocolVersion);
         Assert.Contains("\"rate_mode\":\"CBR\"", serialized, StringComparison.Ordinal);
         ExportWire.ValidateJob(restored);
         var message = new ExportWorkerMessage("complete", 42, Encoder: "hevc_videotoolbox",
@@ -146,7 +146,7 @@ public sealed class VideoEncodingOptionsTests
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.CBR,
             Preset = "slow",
-            Crf = 30,
+            Quality = 30,
             VideoBitrate = 12500000,
             AudioMode = AudioExportMode.Aac,
             AudioBitrate = 256000
@@ -176,26 +176,26 @@ public sealed class VideoEncodingOptionsTests
     public void NativeArgumentsOnlyCarryEffectiveRateControlFields(VideoEncodingMode encodingMode,
         VideoRateControlMode mode, VideoRateControlMode effectiveMode)
     {
-        var request = CreateRequest() with { EncodingMode = encodingMode, RateControlMode = mode, Crf = 25, VideoBitrate = 12500000 };
+        var request = CreateRequest() with { EncodingMode = encodingMode, RateControlMode = mode, Quality = 25, VideoBitrate = 12500000 };
 
         var arguments = NativeVideoExport.CreateRequestArguments(request);
 
         Assert.Equal((int)effectiveMode, arguments.RateControlMode);
-        Assert.Equal(effectiveMode == VideoRateControlMode.CRF ? 25 : 0, arguments.Crf);
+        Assert.Equal(effectiveMode == VideoRateControlMode.CRF ? 25 : 0, arguments.Quality);
         Assert.Equal(effectiveMode == VideoRateControlMode.CRF ? 0 : 12500000, arguments.VideoBitrate);
         Assert.Equal(0U, arguments.RateControlReserved);
         Assert.Equal(88U, arguments.StructSize);
-        Assert.Equal(5U, arguments.AbiVersion);
+        Assert.Equal(6U, arguments.AbiVersion);
     }
 
     /// <summary>回执读取原生结果字段并拒绝未知保留位，不能由 managed 请求生成替代回执。</summary>
     [Fact]
     public void RateControlReceiptReadsNativeResultFields()
     {
-        var info = new NativeExportResultInfo { RateControlMode = (int)VideoRateControlMode.CBR, VideoBitrate = 12345678, Crf = 0 };
+        var info = new NativeExportResultInfo { RateControlMode = (int)VideoRateControlMode.CBR, VideoBitrate = 12345678, Quality = 0, Verification = 1, BitratePrecision = 1000 };
 
         Assert.Equal(new(VideoRateControlMode.CBR, 12345678, 0), NativeVideoExport.ReadRateControl(info));
-        info.RateControlReserved = 1;
+        info.Verification = 0;
         Assert.Throws<InvalidDataException>(() => NativeVideoExport.ReadRateControl(info));
     }
 
@@ -203,9 +203,9 @@ public sealed class VideoEncodingOptionsTests
     [Theory]
     [InlineData(0, VideoRateControlMode.CRF)]
     [InlineData(1, VideoRateControlMode.CRF)]
-    [InlineData(3, VideoRateControlMode.CRF)]
-    [InlineData(2, VideoRateControlMode.AUTOMATIC)]
-    [InlineData(2, (VideoRateControlMode)9)]
+    [InlineData(2, VideoRateControlMode.CRF)]
+    [InlineData(3, VideoRateControlMode.AUTOMATIC)]
+    [InlineData(3, (VideoRateControlMode)9)]
     public void WorkerRejectsMismatchedProtocolAndUnresolvedModes(int version, VideoRateControlMode mode)
     {
         var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options),
@@ -223,7 +223,7 @@ public sealed class VideoEncodingOptionsTests
             Path.GetTempPath(), Path.GetTempPath(), ".mp4", VideoCodec.H264, "medium", 20, AudioExportMode.None,
             192000, "ffmpeg", RateControlMode: VideoRateControlMode.CRF, ProtocolVersion: ExportWire.VERSION);
         var json = JsonSerializer.Serialize(job, ExportWire.Options).Replace(
-            ",\"protocolVersion\":2", string.Empty, StringComparison.Ordinal);
+            ",\"protocolVersion\":3", string.Empty, StringComparison.Ordinal);
         var legacy = JsonSerializer.Deserialize<ExportWorkerJob>(json, ExportWire.Options)!;
 
         Assert.Equal(0, legacy.ProtocolVersion);
@@ -263,7 +263,7 @@ public sealed class VideoEncodingOptionsTests
     {
         var request = CreateRequest() with { EncodingMode = encodingMode, RateControlMode = requestedMode };
         var receipt = new VideoRateControlInfo(actualMode, actualMode == VideoRateControlMode.CRF ? 0 : request.VideoBitrate,
-            actualMode == VideoRateControlMode.CRF ? request.Crf : 0);
+            actualMode == VideoRateControlMode.CRF ? request.Quality : 0);
 
         VideoExporter.ValidateCompletedRateControl(request, receipt);
     }

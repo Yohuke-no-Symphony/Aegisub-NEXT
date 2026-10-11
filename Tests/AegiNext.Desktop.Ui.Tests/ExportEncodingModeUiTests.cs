@@ -20,7 +20,7 @@ public sealed class ExportEncodingModeUiTests
         var view = context.Panels[WorkbenchPanelIds.EXPORT];
         var vm = context.Session.ViewModel.Export;
         var toggle = view.FindControl<CheckBox>("HardwareEncoderToggle")!;
-        var crf = view.FindControl<NumericDraftInput>("CrfInput")!;
+        var crf = view.FindControl<NumericDraftInput>("QualityInput")!;
         var bitrate = view.FindControl<NumericDraftInput>("VideoBitrateInput")!;
         Assert.False(vm.UseHardwareEncoder);
         Assert.True(crf.IsEffectivelyVisible);
@@ -39,14 +39,14 @@ public sealed class ExportEncodingModeUiTests
         context.Flush();
         Assert.True(vm.UseHardwareEncoder);
         Assert.Equal("12.5", vm.VideoBitrateText);
-        Assert.Equal("pending CPU quality", vm.CrfText);
+        Assert.Equal("pending CPU quality", vm.QualityText);
         context.Dialogs.ResolveOutput(context.OutputPath);
         var operation = context.Session.ViewModel.ExecuteCommandAsync(WorkbenchCommand.EXPORT_VIDEO);
         var request = await context.ExportService.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(VideoEncodingMode.HARDWARE, request.EncodingMode);
         Assert.Equal(VideoRateControlMode.VBR, request.RateControlMode);
         Assert.Equal(12500000, request.VideoBitrate);
-        Assert.Equal(20, request.Crf);
+        Assert.Equal(20, request.Quality);
         context.ExportService.Report(new(3, new(1), 0.5, "encoding", "h264_videotoolbox"));
         context.Flush();
         Assert.Contains("h264_videotoolbox", vm.Status, StringComparison.Ordinal);
@@ -102,7 +102,7 @@ public sealed class ExportEncodingModeUiTests
         Assert.True(quality.IsEnabled);
         Assert.True(bitrate.IsEffectivelyVisible);
         Assert.True(rateControl.IsEffectivelyVisible);
-        Assert.False(view.FindControl<NumericDraftInput>("CrfInput")!.IsEffectivelyVisible);
+        Assert.False(view.FindControl<NumericDraftInput>("QualityInput")!.IsEffectivelyVisible);
         UiTestCapture.CaptureExportPanel(context.Owner, "cpu-" + expected.ToString().ToLowerInvariant());
         context.Dialogs.ResolveOutput(context.OutputPath);
 
@@ -129,7 +129,7 @@ public sealed class ExportEncodingModeUiTests
         var view = context.Panels[WorkbenchPanelIds.EXPORT];
         var quality = view.FindControl<ComboBox>("QualityModeCombo")!;
         var toggle = view.FindControl<CheckBox>("HardwareEncoderToggle")!;
-        var crf = view.FindControl<NumericDraftInput>("CrfInput")!;
+        var crf = view.FindControl<NumericDraftInput>("QualityInput")!;
         var bitrate = view.FindControl<NumericDraftInput>("VideoBitrateInput")!;
         crf.RawText = "unfinished quality";
         bitrate.RawText = "unfinished bitrate";
@@ -197,7 +197,7 @@ public sealed class ExportEncodingModeUiTests
         view.FindControl<ComboBox>("QualityModeCombo")!.SelectedIndex = 1;
         view.FindControl<ComboBox>("BitrateModeCombo")!.SelectedIndex = 1;
         view.FindControl<ComboBox>("SpeedCombo")!.SelectedIndex = 0;
-        view.FindControl<NumericDraftInput>("CrfInput")!.RawText = "unfinished quality";
+        view.FindControl<NumericDraftInput>("QualityInput")!.RawText = "unfinished quality";
         view.FindControl<NumericDraftInput>("VideoBitrateInput")!.RawText = "unfinished bitrate";
         view.FindControl<NumericDraftInput>("AudioBitrateInput")!.RawText = "unfinished audio";
 
@@ -208,7 +208,7 @@ public sealed class ExportEncodingModeUiTests
         Assert.Equal(1, vm.BitrateMode);
         Assert.Equal(0, vm.Speed);
         Assert.Equal("veryslow", vm.EncodingPreset);
-        Assert.Equal("unfinished quality", vm.CrfText);
+        Assert.Equal("unfinished quality", vm.QualityText);
         Assert.Equal("unfinished bitrate", vm.VideoBitrateText);
         Assert.Equal("unfinished audio", vm.AudioBitrateText);
         Assert.Equal(1, view.FindControl<ComboBox>("QualityModeCombo")!.SelectedIndex);

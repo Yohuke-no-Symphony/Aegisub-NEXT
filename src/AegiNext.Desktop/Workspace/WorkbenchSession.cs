@@ -25,7 +25,6 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
 {
     private static readonly string[] blendKeys = ["Normal", "Multiply", "Screen", "AddBlend", "Overlay", "Darken", "Lighten", "Difference"];
     private static readonly string[] interpolationKeys = ["Hold", "Linear", "EaseIn", "EaseOut", "Smooth", "Power"];
-    private static readonly string[] speedKeys = ["Fast", "Medium", "Slow"];
     private readonly ProjectEditor editor;
     private readonly VideoPreviewController controller;
     private readonly IWorkbenchDialogService dialogs;
@@ -675,9 +674,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
                 MaskPropertyChoices(),
                 interpolationKeys.Select(key => Localization.Get("Workbench." + key)).ToArray());
             ViewModel.Masks.Refresh();
-            ViewModel.Export.RefreshChoices([Localization.Get("Workbench.Automatic"), "H.264", "HEVC / H.265"],
-                speedKeys.Select(key => Localization.Get("Workbench." + key)).ToArray(),
-                [Localization.Get("Workbench.Copy"), "AAC", Localization.Get("Workbench.NoAudio")]);
+            ViewModel.Export.RefreshLanguage();
             effectScripts.RefreshChoices();
             analysis.RefreshLanguage();
             export.RefreshLanguage();

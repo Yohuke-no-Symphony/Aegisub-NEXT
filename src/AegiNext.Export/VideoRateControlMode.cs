@@ -13,5 +13,8 @@ public enum VideoRateControlMode
     VBR = 2,
 
     /// <summary>使用恒定目标码率。</summary>
-    CBR = 3
+    CBR = 3,
+
+    /// <summary>VP8 软件编码在目标码率约束下保持质量。</summary>
+    CQ = 4
 }

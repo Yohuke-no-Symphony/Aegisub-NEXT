@@ -261,7 +261,7 @@ public sealed class ClipMaskExportTests
     private static VideoExportRequest Request(ProjectDocument document, string directory, string output) => new(document, directory, output)
     {
         Codec = VideoCodec.H264, EncodingMode = VideoEncodingMode.SOFTWARE, DecodeMode = VideoDecodeMode.Software,
-        AudioMode = AudioExportMode.None, Crf = 0, Preset = "ultrafast",
+        AudioMode = AudioExportMode.None, Quality = 0, Preset = "ultrafast",
         WorkerPath = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_WORKER_PATH"),
         FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH")
     };

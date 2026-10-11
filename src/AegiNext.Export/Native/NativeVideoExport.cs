@@ -10,7 +10,7 @@ namespace AegiNext.Export;
 
 internal static class NativeVideoExport
 {
-    internal static unsafe NativeVideoExportResult Run(VideoExportRequest request, string videoOutput, IProgress<VideoExportProgress>? progress, CancellationToken cancellationToken)
+    internal static unsafe NativeVideoExportSession Run(VideoExportRequest request, string videoOutput, IProgress<VideoExportProgress>? progress, CancellationToken cancellationToken)
     {
         VideoExporter.Validate(request);
         NativeExportAbi.Validate(NativeExportMethods.AbiVersion(), NativeMediaLibrary.GetPath("aeginext_export"));
@@ -40,21 +40,9 @@ internal static class NativeVideoExport
             }
 
             Check(result, error, cancellationToken);
-            var info = new NativeExportResultInfo
-            {
-                StructSize = (uint)sizeof(NativeExportResultInfo),
-                AbiVersion = NativeExportAbi.VERSION
-            };
-            Check(NativeExportMethods.GetResultInfo(native, ref info, error, 1024), error, cancellationToken);
-            var reason = new ReadOnlySpan<byte>(info.FallbackReason, 256);
-            var reasonEnd = reason.IndexOf((byte)0);
-            var decoder = new VideoDecodeSessionInfo((VideoDecodeMode)info.RequestedDecodeMode,
-                (VideoDecoderBackend)info.ActiveDecodeBackend, info.HardwareConfirmed != 0,
-                System.Text.Encoding.UTF8.GetString(reason[..(reasonEnd < 0 ? reason.Length : reasonEnd)]),
-                info.Generation, info.DeliveredFrames);
-            return new(frames, Marshal.PtrToStringUTF8(NativeExportMethods.EncoderName(native)) ?? string.Empty,
-                decoder, new(info.ColorRange, info.ColorMatrix, info.ColorPrimaries, info.ColorTransfer,
-                    info.ChromaLocation, info.AlphaMode, info.InferredFields), ReadRateControl(info));
+            var session = new NativeVideoExportSession(native, frames);
+            native = 0;
+            return session;
         }
         finally
         {
@@ -80,7 +68,7 @@ internal static class NativeVideoExport
             AbiVersion = NativeExportAbi.VERSION,
             VideoStreamIndex = request.Project.Media!.VideoStreamIndex,
             Codec = (int)request.Codec,
-            Crf = mode == VideoRateControlMode.CRF ? settings.Crf : 0,
+            Quality = mode is VideoRateControlMode.CRF or VideoRateControlMode.CQ ? settings.Quality : 0,
             Width = (uint)request.Project.Width,
             Height = (uint)request.Project.Height,
             ReferenceWhiteNits = (float)request.Project.ReferenceWhiteNits,
@@ -93,12 +81,13 @@ internal static class NativeVideoExport
 
     internal static VideoRateControlInfo ReadRateControl(NativeExportResultInfo info)
     {
-        if (info.RateControlReserved != 0)
+        if (!Enum.IsDefined((VideoRateControlVerification)info.Verification) || info.BitratePrecision is 0 or > 1000000)
         {
-            throw new InvalidDataException("原生导出码控结果保留字段无效。");
+            throw new InvalidDataException("原生导出码控证据或码率精度无效。");
         }
 
-        return new((VideoRateControlMode)info.RateControlMode, info.VideoBitrate, info.Crf);
+        return new((VideoRateControlMode)info.RateControlMode, info.VideoBitrate, info.Quality,
+            (VideoRateControlVerification)info.Verification, checked((int)info.BitratePrecision));
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -116,7 +105,7 @@ internal static class NativeVideoExport
         }
     }
 
-    private static unsafe void Check(int result, byte* error, CancellationToken cancellationToken)
+    internal static unsafe void Check(int result, byte* error, CancellationToken cancellationToken)
     {
         if (result == 0)
         {

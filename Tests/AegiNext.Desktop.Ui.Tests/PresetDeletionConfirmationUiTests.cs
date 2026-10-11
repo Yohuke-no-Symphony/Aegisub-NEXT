@@ -422,7 +422,7 @@ public sealed class PresetDeletionConfirmationUiTests
     {
         SettingsPage.STYLES => window.ViewModel.Styles.FontSizeText,
         SettingsPage.EFFECTS => window.ViewModel.Effects.Source,
-        _ => window.ViewModel.ExportPresets.CrfText
+        _ => window.ViewModel.ExportPresets.QualityText
     };
 
     private static bool IsDirty(SettingsWindow window, SettingsPage page) => page switch
@@ -459,7 +459,7 @@ public sealed class PresetDeletionConfirmationUiTests
         }
         else
         {
-            UiTestActions.Find<NumericDraftInput>(window, "CrfInput").RawText = "7e-";
+            UiTestActions.Find<NumericDraftInput>(window, "QualityInput").RawText = "7e-";
         }
         Dispatcher.UIThread.RunJobs();
     }

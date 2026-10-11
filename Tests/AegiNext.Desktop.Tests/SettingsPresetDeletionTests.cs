@@ -160,7 +160,7 @@ public sealed class SettingsPresetDeletionTests
         model.AddCommand.Execute(null);
         await model.SelectionCompletion;
         model.Name = "Unsaved";
-        model.CrfText = "7e-";
+        model.QualityText = "7e-";
         var draft = model.Draft;
         SettingsExportPresetDeleteEventArgs? requested = null;
         model.DeleteRequested += (_, args) => requested = args;
@@ -172,7 +172,7 @@ public sealed class SettingsPresetDeletionTests
         Assert.True(requested.IsDraftOnly);
         Assert.Equal(draft!.Id, requested.DraftId);
         Assert.Equal(draft, model.Draft);
-        Assert.Equal("7e-", model.CrfText);
+        Assert.Equal("7e-", model.QualityText);
         Assert.True(model.IsDirty);
         model.DiscardDraft();
         Assert.Null(model.Draft);

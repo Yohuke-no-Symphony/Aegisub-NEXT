@@ -12,7 +12,7 @@ public sealed record VideoExportRequest(ProjectDocument Project, string ProjectD
     public VideoDecodeMode DecodeMode { get; init; } = VideoDecodeMode.Auto;
     public int VideoBitrate { get; init; } = 8000000;
     public string Preset { get; init; } = "medium";
-    public int Crf { get; init; } = 20;
+    public int Quality { get; init; } = 20;
     public AudioExportMode AudioMode { get; init; } = AudioExportMode.Copy;
     public int AudioBitrate { get; init; } = 192000;
     public string? FfmpegPath { get; init; }
@@ -27,7 +27,7 @@ public sealed record VideoExportRequest(ProjectDocument Project, string ProjectD
             EncodingMode = EncodingMode,
             RateControlMode = RateControlMode,
             Preset = Preset,
-            Crf = Crf,
+            Quality = Quality,
             VideoBitrate = VideoBitrate,
             AudioMode = AudioMode,
             AudioBitrate = AudioBitrate
@@ -44,7 +44,7 @@ public sealed record VideoExportRequest(ProjectDocument Project, string ProjectD
             EncodingMode = settings.EncodingMode,
             RateControlMode = settings.RateControlMode,
             Preset = settings.Preset,
-            Crf = settings.Crf,
+            Quality = settings.Quality,
             VideoBitrate = settings.VideoBitrate,
             AudioMode = settings.AudioMode,
             AudioBitrate = settings.AudioBitrate

@@ -50,7 +50,7 @@ public sealed class VideoCompatibilityExportTests
                 var request = new VideoExportRequest(project, directory, output)
                 {
                     Codec = outputCodec, DecodeMode = mode, EncodingMode = VideoEncodingMode.SOFTWARE,
-                    AudioMode = AudioExportMode.None, Crf = 0, Preset = "ultrafast",
+                    AudioMode = AudioExportMode.None, Quality = 0, Preset = "ultrafast",
                     FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"),
                     WorkerPath = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_WORKER_PATH")
                 };

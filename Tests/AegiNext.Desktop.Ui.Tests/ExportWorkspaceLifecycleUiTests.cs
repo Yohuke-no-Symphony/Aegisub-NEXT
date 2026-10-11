@@ -13,7 +13,7 @@ public sealed class ExportWorkspaceLifecycleUiTests
         await using var context = new ExportWorkspaceTestContext();
         await context.InitializeAsync();
         var session = context.Session;
-        session.ViewModel.Export.CrfText = "25";
+        session.ViewModel.Export.QualityText = "25";
         session.ViewModel.Export.AudioBitrateText = "256";
         context.Dialogs.ResolveOutput(context.OutputPath);
         var snapshot = context.Editor.Snapshot;
@@ -26,7 +26,7 @@ public sealed class ExportWorkspaceLifecycleUiTests
         var request = await context.ExportService.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var completion = session.Export.Completion;
         Assert.Same(snapshot, request.Project);
-        Assert.Equal(25, request.Crf);
+        Assert.Equal(25, request.Quality);
         Assert.Equal(256000, request.AudioBitrate);
         Assert.True(exportModel.IsRunning);
         Assert.False(session.ViewModel.GetCommand(WorkbenchCommand.EXPORT_VIDEO).CanExecute(null));
@@ -47,7 +47,7 @@ public sealed class ExportWorkspaceLifecycleUiTests
         Assert.Same(controller, session.Controller);
         Assert.False(context.Editor.CanUndo);
         Assert.Equal(position, session.Controller.Snapshot.Position);
-        Assert.Equal("25", exportModel.CrfText);
+        Assert.Equal("25", exportModel.QualityText);
         Assert.Equal("256", exportModel.AudioBitrateText);
         Assert.Equal(0.4, exportModel.Progress);
         Assert.Equal(1, context.ExportService.RequestCount);

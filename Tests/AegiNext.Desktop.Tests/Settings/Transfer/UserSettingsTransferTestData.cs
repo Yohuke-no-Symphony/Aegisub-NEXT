@@ -47,7 +47,7 @@ internal static class UserSettingsTransferTestData
                 Presets = [new(Guid.NewGuid(), "字幕压制", new()
                 {
                     Codec = VideoCodec.Hevc, EncodingMode = VideoEncodingMode.HARDWARE, RateControlMode = VideoRateControlMode.CBR,
-                    Preset = "veryslow", Crf = 17, VideoBitrate = 12345678, AudioMode = AudioExportMode.Aac, AudioBitrate = 256000
+                    Preset = "veryslow", Quality = 17, VideoBitrate = 12345678, AudioMode = AudioExportMode.Aac, AudioBitrate = 256000
                 })]
             },
             ColorTags = new SubtitleColorTagLibraryDocument

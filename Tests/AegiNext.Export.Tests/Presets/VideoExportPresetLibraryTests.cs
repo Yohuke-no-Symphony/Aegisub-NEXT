@@ -170,7 +170,7 @@ public sealed class VideoExportPresetLibraryTests
         await library.ImportAsync(Array.Empty<string>());
         await Assert.ThrowsAsync<InvalidDataException>(() => library.UpsertAsync(Preset("EXISTING")));
         await Assert.ThrowsAsync<InvalidDataException>(() =>
-            library.UpsertAsync(existing with { Settings = existing.Settings with { Crf = 52 } }));
+            library.UpsertAsync(existing with { Settings = existing.Settings with { Quality = 52 } }));
         await Assert.ThrowsAsync<InvalidDataException>(() => library.RemoveAsync(Guid.NewGuid()));
 
         Assert.Same(snapshot, library.Snapshot);
@@ -187,7 +187,7 @@ public sealed class VideoExportPresetLibraryTests
         using var library = new VideoExportPresetLibrary(path);
         var captured = Preset("Captured");
         await library.UpsertAsync(captured);
-        var changed = captured with { Name = "Changed", Settings = captured.Settings with { Crf = 30 } };
+        var changed = captured with { Name = "Changed", Settings = captured.Settings with { Quality = 30 } };
         await library.UpsertAsync(changed);
         var snapshot = library.Snapshot;
         var bytes = await File.ReadAllBytesAsync(path);
@@ -212,7 +212,7 @@ public sealed class VideoExportPresetLibraryTests
         await library.UpsertAsync(first);
         await library.UpsertAsync(second);
         var captured = new List<VideoExportPreset> { first, second };
-        await library.UpsertAsync(first with { Name = "Updated first", Settings = first.Settings with { Crf = 30 } });
+        await library.UpsertAsync(first with { Name = "Updated first", Settings = first.Settings with { Quality = 30 } });
         await library.RemoveAsync(second.Id);
         var snapshot = library.Snapshot;
         await File.WriteAllTextAsync(path, "Unavailable current library");
@@ -247,7 +247,7 @@ public sealed class VideoExportPresetLibraryTests
         {
             0 => first with { Name = "Other name" },
             1 => Preset("CAPTURED"),
-            _ => Preset("Invalid settings") with { Settings = new() { Crf = 52 } }
+            _ => Preset("Invalid settings") with { Settings = new() { Quality = 52 } }
         };
         var destination = Path.Combine(directory.Path, "retained.aegiexports");
         await File.WriteAllTextAsync(destination, "Retained target");

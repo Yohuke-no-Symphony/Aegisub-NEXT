@@ -234,15 +234,35 @@ public sealed class VideoExporterTests
     [ExportTheory]
     [InlineData("smpte2084")]
     [InlineData("arib-std-b67")]
-    public async Task HardwareHdrIsExplicitlyRejectedWithoutChangingSoftwareHdrContract(string transfer)
+    public async Task HardwareHdrReportsPlatformPolicyWithoutCpuFallback(string transfer)
     {
         using var fixture = await DecoderFixture.CreateAsync(transfer);
         var directory = Path.GetDirectoryName(fixture.MediaPath)!;
         var output = Path.Combine(directory, "gpu-hdr.mkv");
         var request = Request(CreateProject(fixture.MediaPath, fixture.VideoStreamIndex, 64, 48), directory, output)
             with { EncodingMode = VideoEncodingMode.HARDWARE };
+        if (!OperatingSystem.IsMacOS())
+        {
+            try
+            {
+                var result = await new VideoExporter().ExportAsync(request);
+                Assert.StartsWith("hevc_", result.Encoder);
+                Assert.Equal(10, result.OutputColor!.BitDepth);
+                Assert.Equal(transfer == "smpte2084" ? 16 : 18, result.OutputColor.Transfer);
+            }
+            catch (InvalidOperationException unavailable)
+            {
+                Assert.Contains("GPU encoder unavailable", unavailable.Message, StringComparison.Ordinal);
+                Assert.False(File.Exists(output));
+            }
+
+            Assert.Empty(Directory.GetDirectories(directory, ".aeginext-export-*"));
+            return;
+        }
+
         var error = await Assert.ThrowsAsync<InvalidOperationException>(() => new VideoExporter().ExportAsync(request));
-        Assert.Contains("select CPU software encoding for HDR export", error.Message, StringComparison.Ordinal);
+        Assert.Contains("VideoToolbox HDR", error.Message, StringComparison.Ordinal);
+        Assert.Contains("no CPU fallback", error.Message, StringComparison.Ordinal);
         Assert.False(File.Exists(output));
         Assert.Empty(Directory.GetDirectories(directory, ".aeginext-export-*"));
     }
@@ -289,8 +309,7 @@ public sealed class VideoExporterTests
             {
                 Assert.NotNull(original.Info.MasteringDisplay);
                 Assert.Equal(original.Info.MasteringDisplay, frame.Info.MasteringDisplay);
-                Assert.Null(frame.Info.ContentLight?.MaxContentLightLevel);
-                Assert.Null(frame.Info.ContentLight?.MaxFrameAverageLightLevel);
+                Assert.Equal(original.Info.ContentLight, frame.Info.ContentLight);
             }
 
             var originalY = original.CopyPlane(0);
@@ -462,7 +481,7 @@ public sealed class VideoExporterTests
     {
         return new(project, directory, output)
         {
-            Crf = 0, Preset = "ultrafast", WorkerPath = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_WORKER_PATH"),
+            Quality = 0, Preset = "ultrafast", WorkerPath = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_WORKER_PATH"),
             FfmpegPath = Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH")
         };
     }

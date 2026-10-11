@@ -15,15 +15,15 @@ public sealed record VideoExportSettings
     /// <summary>视频编码速度档位。</summary>
     public string Preset { get; init; } = "medium";
 
-    /// <summary>CRF 模式的质量值，范围为 0 至 51。</summary>
-    public int Crf { get; init; } = 20;
+    /// <summary>CRF 或 CQ 模式的质量值，取值范围由编码器能力合同规定。</summary>
+    public int Quality { get; init; } = 20;
 
-    /// <summary>VBR 或 CBR 模式的视频目标码率，单位为比特每秒。</summary>
+    /// <summary>CQ、VBR 或 CBR 模式的视频目标码率，单位为比特每秒。</summary>
     public int VideoBitrate { get; init; } = 8000000;
 
     /// <summary>输出音频的处理方式。</summary>
     public AudioExportMode AudioMode { get; init; } = AudioExportMode.Copy;
 
-    /// <summary>AAC 编码的音频目标码率，单位为比特每秒。</summary>
+    /// <summary>AAC 或 Opus 编码的音频目标码率，单位为比特每秒。</summary>
     public int AudioBitrate { get; init; } = 192000;
 }

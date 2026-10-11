@@ -24,6 +24,12 @@ internal unsafe struct NativeExportResultInfo
     internal fixed byte FallbackReason[256];
     internal int RateControlMode;
     internal int VideoBitrate;
-    internal int Crf;
-    internal uint RateControlReserved;
+    internal int Quality;
+    internal uint Verification;
+    internal int Codec;
+    internal int BitDepth;
+    internal fixed byte PixelFormat[32];
+    internal NativeExportHdrMetadata Hdr;
+    internal uint OutputVerification;
+    internal uint BitratePrecision;
 }

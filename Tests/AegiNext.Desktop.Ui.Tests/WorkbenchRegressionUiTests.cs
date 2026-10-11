@@ -35,35 +35,35 @@ public sealed class WorkbenchRegressionUiTests
         var codec = UiTestActions.Find<ComboBox>(context.Window, "CodecCombo");
         var speed = UiTestActions.Find<ComboBox>(context.Window, "SpeedCombo");
         var audio = UiTestActions.Find<ComboBox>(context.Window, "AudioModeCombo");
-        Assert.Equal(3, codec.ItemCount);
+        Assert.Equal(6, codec.ItemCount);
         Assert.Equal(9, speed.ItemCount);
         Assert.Equal("medium", model.EncodingPreset);
-        Assert.Equal(3, audio.ItemCount);
+        Assert.Equal(4, audio.ItemCount);
         codec.SelectedIndex = 2;
         speed.SelectedIndex = 0;
         audio.SelectedIndex = 1;
-        UiTestActions.Find<NumericDraftInput>(context.Window, "CrfInput").RawText = "pending";
+        UiTestActions.Find<NumericDraftInput>(context.Window, "QualityInput").RawText = "pending";
         try
         {
         foreach (var language in new[] { "en-US", "zh-CN", "en-US" })
         {
             context.Session.UpdatePreferences(context.Session.Preferences with { Language = language });
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(3, codec.ItemCount);
+            Assert.Equal(6, codec.ItemCount);
             Assert.Equal(9, speed.ItemCount);
-            Assert.Equal(3, audio.ItemCount);
+            Assert.Equal(4, audio.ItemCount);
             Assert.Equal(2, codec.SelectedIndex);
             Assert.Equal(0, speed.SelectedIndex);
             Assert.Equal("veryslow", model.EncodingPreset);
             Assert.Equal(1, audio.SelectedIndex);
-            Assert.Equal("pending", model.CrfText);
+            Assert.Equal("pending", model.QualityText);
             Assert.False(model.IsRunning);
         }
         }
         finally
         {
-            UiTestActions.Find<NumericDraftInput>(context.Window, "CrfInput").RawText = "20";
-            model.CrfText = "20";
+            UiTestActions.Find<NumericDraftInput>(context.Window, "QualityInput").RawText = "20";
+            model.QualityText = "20";
             model.Codec = 2;
             model.Speed = 0;
             model.AudioMode = 1;

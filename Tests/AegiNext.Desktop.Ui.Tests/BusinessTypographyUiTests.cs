@@ -76,7 +76,7 @@ public sealed class BusinessTypographyUiTests
         {
             AssertInput(UiTestActions.Find<TextBox>(context.Window, name));
         }
-        foreach (var name in new[] { "RotationInput", "OpacityInput", "BlurInput", "CrfInput", "AudioBitrateInput" })
+        foreach (var name in new[] { "RotationInput", "OpacityInput", "BlurInput", "QualityInput", "AudioBitrateInput" })
         {
             if (name == "AudioBitrateInput")
             {

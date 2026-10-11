@@ -9,7 +9,7 @@ internal struct NativeExportRequest
     internal uint AbiVersion;
     internal int VideoStreamIndex;
     internal int Codec;
-    internal int Crf;
+    internal int Quality;
     internal uint Width;
     internal uint Height;
     internal uint Flags;

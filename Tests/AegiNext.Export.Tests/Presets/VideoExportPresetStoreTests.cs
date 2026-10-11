@@ -11,6 +11,32 @@ public sealed class VideoExportPresetStoreTests
 {
     private static readonly string[] rootFields = ["version", "presets"];
 
+    [Fact]
+    public void LegacyV1MigratesQualityWithoutChangingIdentityOrInactiveValues()
+    {
+        var preset = new VideoExportPreset(Guid.NewGuid(), "Legacy", new() { Quality = 27, VideoBitrate = 12345000 });
+        var json = Utf8Encoding.UTF8.GetString(VideoExportPresetStore.Serialize(new() { Presets = [preset] }))
+            .Replace("\"version\": 2", "\"version\": 1", StringComparison.Ordinal)
+            .Replace("\"quality\": 27", "\"crf\": 27", StringComparison.Ordinal);
+        var migrated = VideoExportPresetStore.Deserialize(Utf8Encoding.UTF8.GetBytes(json));
+        Assert.Equal(2, migrated.Version);
+        Assert.Equal(preset, Assert.Single(migrated.Presets));
+        var saved = Utf8Encoding.UTF8.GetString(VideoExportPresetStore.Serialize(migrated));
+        Assert.Contains("\"quality\": 27", saved, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"crf\"", saved, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(VideoCodec.Vp8)]
+    [InlineData(VideoCodec.Vp9)]
+    [InlineData(VideoCodec.Av1)]
+    public void NewCodecAndOpusRoundTripWithExplicitBackendSettings(VideoCodec codec)
+    {
+        var preset = new VideoExportPreset(Guid.NewGuid(), "Modern", VideoExportCapabilities.CreateDefaultSettings(codec) with { AudioMode = AudioExportMode.Opus });
+        var serialized = VideoExportPresetStore.Serialize(new() { Presets = [preset] });
+        Assert.Equal(preset, Assert.Single(VideoExportPresetStore.Deserialize(serialized).Presets));
+    }
+
     /// <summary>便携文档完整保留显式模式及非活动参数，不包含工程或机器路径。</summary>
     [Theory]
     [InlineData(VideoEncodingMode.SOFTWARE, VideoRateControlMode.CRF)]
@@ -28,7 +54,7 @@ public sealed class VideoExportPresetStoreTests
             EncodingMode = encodingMode,
             RateControlMode = rateControlMode,
             Preset = "slow",
-            Crf = 25,
+            Quality = 25,
             VideoBitrate = 12500000,
             AudioMode = AudioExportMode.Aac,
             AudioBitrate = 256000
@@ -51,17 +77,17 @@ public sealed class VideoExportPresetStoreTests
 
     /// <summary>版本和集合等全部字段必需，重复、未知、整数枚举及非法参数整体拒绝。</summary>
     [Theory]
-    [InlineData("\"version\": 1", "\"version\": 99")]
-    [InlineData("\"version\": 1,", "")]
-    [InlineData("\"version\": 1,", "\"version\": 1, \"version\": 1,")]
-    [InlineData("\"version\": 1,", "\"version\": 1, \"unknown\": true,")]
+    [InlineData("\"version\": 2", "\"version\": 99")]
+    [InlineData("\"version\": 2,", "")]
+    [InlineData("\"version\": 2,", "\"version\": 2, \"version\": 2,")]
+    [InlineData("\"version\": 2,", "\"version\": 2, \"unknown\": true,")]
     [InlineData("\"presets\": [", "\"items\": [")]
     [InlineData("\"name\": \"Valid\",", "")]
     [InlineData("\"settings\": {", "\"settings\": { \"unknown\": true,")]
     [InlineData("\"codec\": \"Auto\",", "")]
-    [InlineData("\"crf\": 20,", "")]
-    [InlineData("\"crf\": 20,", "\"crf\": 20, \"crf\": 30,")]
-    [InlineData("\"crf\": 20,", "\"crf\": 52,")]
+    [InlineData("\"quality\": 20,", "")]
+    [InlineData("\"quality\": 20,", "\"quality\": 20, \"quality\": 30,")]
+    [InlineData("\"quality\": 20,", "\"quality\": 52,")]
     [InlineData("\"rateControlMode\": \"CRF\"", "\"rateControlMode\": 1")]
     [InlineData("\"rateControlMode\": \"CRF\"", "\"rateControlMode\": \"Unknown\"")]
     [InlineData("\"rateControlMode\": \"CRF\"", "\"rateControlMode\": \"AUTOMATIC\"")]

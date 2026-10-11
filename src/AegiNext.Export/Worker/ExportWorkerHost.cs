@@ -32,7 +32,7 @@ public static class ExportWorkerHost
             {
                 Codec = job.Codec,
                 Preset = job.Preset,
-                Crf = job.Crf,
+                Quality = job.Quality,
                 AudioMode = job.AudioMode,
                 AudioBitrate = job.AudioBitrate,
                 FfmpegPath = job.FfmpegPath,
@@ -43,9 +43,13 @@ public static class ExportWorkerHost
             };
             var progress = new ExportWorkerProgress(writer);
             var videoPath = Path.Combine(job.TemporaryDirectory, "video.nut");
-            var encoded = NativeVideoExport.Run(request, videoPath, progress, cancellationToken);
+            var audio = await ExportMuxer.PreflightAsync(request, cancellationToken).ConfigureAwait(false);
+            using var session = NativeVideoExport.Run(request, videoPath, progress, cancellationToken);
+            var encoded = session.ReadResult(cancellationToken);
             VideoExporter.ValidateCompletedRateControl(request, encoded.RateControl);
-            await ExportMuxer.RunAsync(request, videoPath, encoded.OutputColor, cancellationToken).ConfigureAwait(false);
+            await ExportMuxer.RunAsync(request, session, audio, cancellationToken).ConfigureAwait(false);
+            encoded = session.ReadResult(cancellationToken);
+            VideoExporter.ValidateCompletedOutput(request, encoded.OutputColor);
             writer.Send(new("complete", encoded.Frames, Encoder: encoded.Encoder, Decoder: encoded.Decoder,
                 OutputColor: encoded.OutputColor, RateControl: encoded.RateControl));
             return 0;

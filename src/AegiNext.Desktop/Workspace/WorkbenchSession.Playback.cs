@@ -79,9 +79,9 @@ internal sealed partial class WorkbenchSession
     }
     private void OnExportPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == "Crf")
+        if (e.PropertyName == "Quality")
         {
-            ViewModel.Export.CrfText = ViewModel.Export.Crf?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
+            ViewModel.Export.QualityText = ViewModel.Export.Quality?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
         }
         else if (e.PropertyName == "AudioBitrate")
         {

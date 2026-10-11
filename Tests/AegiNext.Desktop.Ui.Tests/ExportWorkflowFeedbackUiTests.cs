@@ -47,16 +47,16 @@ public sealed class ExportWorkflowFeedbackUiTests
         await using var context = new ExportWorkspaceTestContext();
         await context.InitializeAsync();
         var session = context.Session;
-        session.ViewModel.Export.CrfText = "invalid";
+        session.ViewModel.Export.QualityText = "invalid";
 
         await session.ViewModel.ExecuteCommandAsync(WorkbenchCommand.EXPORT_VIDEO);
 
         Assert.Single(context.Dialogs.ErrorMessages);
         Assert.Equal(0, context.Dialogs.SaveRequests);
         Assert.Equal(0, context.ExportService.RequestCount);
-        Assert.Equal("CrfInput", session.ViewModel.InvalidFieldKey);
+        Assert.Equal("QualityInput", session.ViewModel.InvalidFieldKey);
         Assert.False(session.ViewModel.Export.ProgressVisible);
-        session.ViewModel.Export.CrfText = "20";
+        session.ViewModel.Export.QualityText = "20";
         context.Dialogs.ResolveOutput(context.OutputPath);
         var operation = session.ViewModel.ExecuteCommandAsync(WorkbenchCommand.EXPORT_VIDEO);
         await context.ExportService.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));

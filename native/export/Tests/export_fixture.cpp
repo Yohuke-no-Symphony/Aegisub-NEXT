@@ -30,7 +30,7 @@ int main(int argc, char **argv)
     auto result = an_export_create(&context, error.data(), error.size());
     if (result) { std::fprintf(stderr,"%s\n",error.data()); return result; }
     const auto encodingMode = argc > 3 ? std::atoi(argv[3]) : 0;
-    an_export_request request{sizeof(request),5,0,argc > 10 ? std::atoi(argv[10]) : 0,
+    an_export_request request{sizeof(request),6,0,argc > 10 ? std::atoi(argv[10]) : 0,
         argc > 9 ? std::atoi(argv[9]) : 0,
         argc > 5 ? static_cast<uint32_t>(std::atoi(argv[5])) : 64,
         argc > 6 ? static_cast<uint32_t>(std::atoi(argv[6])) : 48,0,argv[1],argv[2],argc > 11 ? argv[11] : "ultrafast",203,0,
@@ -41,21 +41,28 @@ int main(int argc, char **argv)
     auto updated = false;
     result = an_export_run(context, &request, Render, &updated, &frames, error.data(), error.size());
     std::printf("result=%d frames=%llu encoder=%s error=%s\n",result,(unsigned long long)frames,an_export_encoder_name(context),error.data());
+    if (!result && argc > 12)
+    {
+        an_export_mux_request mux{sizeof(mux), 6, argv[12], argc > 13 ? argv[13] : nullptr,
+            argc > 14 ? std::atoi(argv[14]) : -1, 0};
+        result = an_export_mux(context, &mux, error.data(), error.size());
+        std::printf("mux=%d error=%s\n", result, error.data());
+    }
     if (!result)
     {
         an_export_result_info info{};
         info.struct_size = sizeof(info);
-        info.abi_version = 5;
+        info.abi_version = 6;
         result = an_export_get_result_info(context, &info, error.data(), error.size());
         std::printf("core=%u capabilities=%u requested=%u decoder=%u hardware=%u generation=%llu delivered=%llu "
             "range=%d matrix=%d primaries=%d transfer=%d inferred=%u rate_control=%d video_bitrate=%d crf=%d fallback=%s error=%s\n",
             info.core_version,info.capabilities,info.requested_decode_mode,info.active_decode_backend,
             info.hardware_confirmed,(unsigned long long)info.generation,(unsigned long long)info.delivered_frames,
             info.color_range,info.color_matrix,info.color_primaries,info.color_transfer,info.inferred_fields,
-            info.rate_control_mode,info.video_bitrate,info.crf,info.fallback_reason,error.data());
-        if (!result && (info.rate_control_mode != request.rate_control_mode || info.rate_control_reserved ||
+            info.rate_control_mode,info.video_bitrate,info.quality,info.fallback_reason,error.data());
+        if (!result && (info.rate_control_mode != request.rate_control_mode || info.verification != 1 ||
             info.video_bitrate != (request.rate_control_mode == 1 ? 0 : request.video_bitrate / 1000 * 1000) ||
-            info.crf != (request.rate_control_mode == 1 ? request.crf : 0)))
+            info.quality != ((request.rate_control_mode == 1 || request.rate_control_mode == 4) ? request.quality : 0)))
         {
             std::fprintf(stderr, "Initialized rate-control receipt does not match the active normalized configuration\n");
             result = 1;

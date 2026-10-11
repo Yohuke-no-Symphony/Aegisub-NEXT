@@ -7,7 +7,7 @@ public sealed class VideoExportSettingsTests
 {
     /// <summary>默认参数保持日常软件 CRF 压制与既有音频设置。</summary>
     [Fact]
-    public void DefaultsPreserveSoftwareCrfAndExistingEncodingParameters()
+    public void DefaultsPreserveSoftwareQualityAndExistingEncodingParameters()
     {
         var settings = new VideoExportSettings();
 
@@ -15,7 +15,7 @@ public sealed class VideoExportSettingsTests
         Assert.Equal(VideoEncodingMode.SOFTWARE, settings.EncodingMode);
         Assert.Equal(VideoRateControlMode.CRF, settings.RateControlMode);
         Assert.Equal("medium", settings.Preset);
-        Assert.Equal(20, settings.Crf);
+        Assert.Equal(20, settings.Quality);
         Assert.Equal(8000000, settings.VideoBitrate);
         Assert.Equal(AudioExportMode.Copy, settings.AudioMode);
         Assert.Equal(192000, settings.AudioBitrate);
@@ -74,7 +74,7 @@ public sealed class VideoExportSettingsTests
 
     /// <summary>硬件 CRF 不会被静默替换为目标码率模式。</summary>
     [Fact]
-    public void HardwareCrfIsRejectedForRequestsAndPresets()
+    public void HardwareQualityIsRejectedForRequestsAndPresets()
     {
         var settings = new VideoExportSettings { EncodingMode = VideoEncodingMode.HARDWARE };
 
@@ -86,9 +86,9 @@ public sealed class VideoExportSettingsTests
     [Theory]
     [InlineData(0)]
     [InlineData(51)]
-    public void CrfBoundsAreInclusive(int crf)
+    public void QualityBoundsAreInclusive(int crf)
     {
-        var settings = new VideoExportSettings { Crf = crf };
+        var settings = new VideoExportSettings { Quality = crf };
 
         VideoExportSettingsValidator.Validate(settings);
         VideoExportSettingsValidator.ValidatePreset(settings);
@@ -100,9 +100,9 @@ public sealed class VideoExportSettingsTests
     [InlineData(52)]
     [InlineData(int.MinValue)]
     [InlineData(int.MaxValue)]
-    public void InvalidActiveCrfIsRejected(int crf)
+    public void InvalidActiveQualityIsRejected(int crf)
     {
-        var settings = new VideoExportSettings { Crf = crf };
+        var settings = new VideoExportSettings { Quality = crf };
 
         Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Validate(settings));
         Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.ValidatePreset(settings));
@@ -179,7 +179,7 @@ public sealed class VideoExportSettingsTests
         {
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.VBR,
-            Crf = -1,
+            Quality = -1,
             AudioMode = AudioExportMode.None,
             AudioBitrate = -1
         };
@@ -188,14 +188,14 @@ public sealed class VideoExportSettingsTests
         VideoExportSettingsValidator.Validate(bitrate);
         Assert.Equal(-1, quality.VideoBitrate);
         Assert.Equal(-1, quality.AudioBitrate);
-        Assert.Equal(-1, bitrate.Crf);
+        Assert.Equal(-1, bitrate.Quality);
         Assert.Equal(-1, bitrate.AudioBitrate);
     }
 
     /// <summary>预设连未活动的质量、视频码率和音频码率也必须可用。</summary>
     [Theory]
-    [InlineData(nameof(VideoExportSettings.Crf), -1)]
-    [InlineData(nameof(VideoExportSettings.Crf), 52)]
+    [InlineData(nameof(VideoExportSettings.Quality), -1)]
+    [InlineData(nameof(VideoExportSettings.Quality), 52)]
     [InlineData(nameof(VideoExportSettings.VideoBitrate), 99999)]
     [InlineData(nameof(VideoExportSettings.VideoBitrate), 200000001)]
     [InlineData(nameof(VideoExportSettings.AudioBitrate), 31999)]
@@ -204,8 +204,8 @@ public sealed class VideoExportSettingsTests
     {
         var settings = field switch
         {
-            nameof(VideoExportSettings.Crf) => new VideoExportSettings
-                { RateControlMode = VideoRateControlMode.VBR, Crf = value },
+            nameof(VideoExportSettings.Quality) => new VideoExportSettings
+                { RateControlMode = VideoRateControlMode.VBR, Quality = value },
             nameof(VideoExportSettings.VideoBitrate) => new VideoExportSettings { VideoBitrate = value },
             _ => new VideoExportSettings { AudioBitrate = value }
         };
@@ -222,21 +222,21 @@ public sealed class VideoExportSettingsTests
         var software = new VideoExportSettings
         {
             RateControlMode = VideoRateControlMode.AUTOMATIC,
-            Crf = -1,
+            Quality = -1,
             VideoBitrate = 8000000
         };
         var hardware = new VideoExportSettings
         {
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.AUTOMATIC,
-            Crf = 20,
+            Quality = 20,
             VideoBitrate = -1
         };
 
         Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Validate(software));
         Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Validate(hardware));
-        VideoExportSettingsValidator.Validate(software with { Crf = 20, VideoBitrate = -1 });
-        VideoExportSettingsValidator.Validate(hardware with { Crf = -1, VideoBitrate = 8000000 });
+        VideoExportSettingsValidator.Validate(software with { Quality = 20, VideoBitrate = -1 });
+        VideoExportSettingsValidator.Validate(hardware with { Quality = -1, VideoBitrate = 8000000 });
     }
 
     /// <summary>已有九种编码速度均可用于可复用参数。</summary>
@@ -320,7 +320,7 @@ public sealed class VideoExportSettingsTests
 
         Assert.Equal(8000000, normalized.VideoBitrate);
         Assert.Equal(8000999, original.VideoBitrate);
-        Assert.Equal(original.Crf, normalized.Crf);
+        Assert.Equal(original.Quality, normalized.Quality);
         Assert.Equal(original.AudioBitrate, normalized.AudioBitrate);
         Assert.Equal(normalized, VideoExportSettingsValidator.Normalize(normalized));
     }
@@ -334,7 +334,7 @@ public sealed class VideoExportSettingsTests
         {
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.AUTOMATIC,
-            Crf = -1,
+            Quality = -1,
             VideoBitrate = 8000999,
             AudioBitrate = -1
         };
@@ -347,9 +347,9 @@ public sealed class VideoExportSettingsTests
         Assert.Equal(-1, normalizedQuality.AudioBitrate);
         Assert.Equal(VideoRateControlMode.VBR, normalizedBitrate.RateControlMode);
         Assert.Equal(8000000, normalizedBitrate.VideoBitrate);
-        Assert.Equal(-1, normalizedBitrate.Crf);
+        Assert.Equal(-1, normalizedBitrate.Quality);
         Assert.Equal(-1, normalizedBitrate.AudioBitrate);
-        Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Normalize(quality with { Crf = -1 }));
+        Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Normalize(quality with { Quality = -1 }));
         Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Normalize(bitrate with { VideoBitrate = -1 }));
     }
 }

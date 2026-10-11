@@ -5,5 +5,6 @@ public enum AudioExportMode
 {
     Copy,
     Aac,
-    None
+    None,
+    Opus
 }

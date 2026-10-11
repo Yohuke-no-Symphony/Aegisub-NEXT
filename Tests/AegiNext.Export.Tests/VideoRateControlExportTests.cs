@@ -21,20 +21,29 @@ public sealed class VideoRateControlExportTests
     [InlineData(VideoCodec.Hevc, VideoRateControlMode.CRF)]
     [InlineData(VideoCodec.Hevc, VideoRateControlMode.VBR)]
     [InlineData(VideoCodec.Hevc, VideoRateControlMode.CBR)]
+    [InlineData(VideoCodec.Vp8, VideoRateControlMode.CQ)]
+    [InlineData(VideoCodec.Vp8, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Vp8, VideoRateControlMode.CBR)]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.CRF)]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.CBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.CRF)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.CBR)]
     public async Task WorkerConfirmsSoftwareRateControlAndDecodableTimeline(VideoCodec codec, VideoRateControlMode mode)
     {
         using var fixture = await RateControlExportFixture.CreateAsync();
-        var request = Request(fixture, codec, mode, "confirmed.mp4") with { VideoBitrate = 600999 };
+        var request = Request(fixture, codec, mode, "confirmed.mkv") with { VideoBitrate = 600999 };
 
         var result = await new VideoExporter().ExportAsync(request);
 
         Assert.Equal((ulong)RateControlExportFixture.FRAME_COUNT, result.Frames);
-        Assert.Equal(codec == VideoCodec.H264 ? "libx264" : "libx265", result.Encoder);
+        Assert.Equal(VideoExportCapabilities.Get(codec).SoftwareEncoder, result.Encoder);
         Assert.Equal(new VideoRateControlInfo(mode, mode == VideoRateControlMode.CRF ? 0 : 600000,
-            mode == VideoRateControlMode.CRF ? 20 : 0), result.RateControl);
+            mode is VideoRateControlMode.CRF or VideoRateControlMode.CQ ? request.Quality : 0), result.RateControl);
         var probe = new FfprobeMediaProbe(new(Environment.GetEnvironmentVariable("AEGINEXT_FFPROBE_PATH")!));
         var report = await probe.ProbeAsync(result.OutputPath);
-        Assert.Equal(codec == VideoCodec.H264 ? "h264" : "hevc", report.Asset.Streams.Single(stream => stream.CodecType == "video").CodecName);
+        Assert.Equal(codec.ToString().ToLowerInvariant(), report.Asset.Streams.Single(stream => stream.CodecType == "video").CodecName);
         var duration = Assert.IsType<MediaTime>(report.Asset.ReportedDuration);
         var seconds = duration.ToTimeSpan(MediaTimeRounding.FLOOR).TotalSeconds;
         Assert.InRange(seconds, 3.95, 4.05);
@@ -58,11 +67,14 @@ public sealed class VideoRateControlExportTests
     [ExportTheory]
     [InlineData(VideoCodec.H264)]
     [InlineData(VideoCodec.Hevc)]
+    [InlineData(VideoCodec.Vp8)]
+    [InlineData(VideoCodec.Vp9)]
+    [InlineData(VideoCodec.Av1)]
     public async Task ChangingVbrTargetChangesEncodedVideoSize(VideoCodec codec)
     {
         using var fixture = await RateControlExportFixture.CreateAsync();
-        var low = Request(fixture, codec, VideoRateControlMode.VBR, "low.mp4") with { VideoBitrate = 100000 };
-        var high = low with { OutputPath = Path.Combine(fixture.DirectoryPath, "high.mp4"), VideoBitrate = 1200000 };
+        var low = Request(fixture, codec, VideoRateControlMode.VBR, "low.mkv") with { VideoBitrate = 100000 };
+        var high = low with { OutputPath = Path.Combine(fixture.DirectoryPath, "high.mkv"), VideoBitrate = 1200000 };
         var exporter = new VideoExporter();
 
         var lowResult = await exporter.ExportAsync(low);
@@ -101,7 +113,7 @@ public sealed class VideoRateControlExportTests
         {
             Codec = codec,
             RateControlMode = mode,
-            Crf = 20,
+            Quality = VideoExportCapabilities.Get(codec).DefaultQuality,
             Preset = "fast",
             DecodeMode = VideoDecodeMode.Software,
             AudioMode = AudioExportMode.None,

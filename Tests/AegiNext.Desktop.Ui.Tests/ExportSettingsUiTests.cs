@@ -23,7 +23,7 @@ public sealed class ExportSettingsUiTests
         await WithSettingsAsync(async (context, coordinator, window, _, directory) =>
         {
             UiTestActions.SetText(UiTestActions.Find<TextBox>(window, "ExportPresetNameInput"), "Renamed 字幕");
-            UiTestActions.Find<NumericDraftInput>(window, "CrfInput").RawText = "17";
+            UiTestActions.Find<NumericDraftInput>(window, "QualityInput").RawText = "17";
             UiTestActions.Find<ComboBox>(window, "CodecCombo").SelectedIndex = 2;
             UiTestActions.Find<ComboBox>(window, "SpeedCombo").SelectedIndex = 0;
             UiTestActions.Find<CheckBox>(window, "HardwareEncoderToggle").IsChecked = true;
@@ -62,7 +62,7 @@ public sealed class ExportSettingsUiTests
             var first = new VideoExportPreset(Guid.NewGuid(), "Hardware", CreateSettings());
             var second = new VideoExportPreset(Guid.NewGuid(), "Software", new()
             {
-                Codec = VideoCodec.H264, Crf = 0, VideoBitrate = 199999999,
+                Codec = VideoCodec.H264, Quality = 0, VideoBitrate = 199999999,
                 Preset = "ultrafast", AudioMode = AudioExportMode.None, AudioBitrate = 512000
             });
             var firstPath = Path.Combine(directory, "first.aegiexports");
@@ -183,7 +183,7 @@ public sealed class ExportSettingsUiTests
         await WithSettingsAsync(async (context, coordinator, window, _, _) =>
         {
             window.ViewModel.ExportPresets.Name = "Unsaved deletion draft";
-            UiTestActions.Find<NumericDraftInput>(window, "CrfInput").RawText = "7e-";
+            UiTestActions.Find<NumericDraftInput>(window, "QualityInput").RawText = "7e-";
 
             UiTestActions.Click(window, "DeleteExportPresetButton");
             await coordinator.ExportCompletion.WaitAsync(TimeSpan.FromSeconds(5));
@@ -263,7 +263,7 @@ public sealed class ExportSettingsUiTests
         {
             dialogs.Inner.PresetChoice = decision;
             UiTestActions.SetText(UiTestActions.Find<TextBox>(window, "ExportPresetNameInput"), "Edited name");
-            UiTestActions.Find<NumericDraftInput>(window, "CrfInput").RawText = "29";
+            UiTestActions.Find<NumericDraftInput>(window, "QualityInput").RawText = "29";
 
             UiTestActions.SelectSettingsPage(window, SettingsPage.APPEARANCE);
             await window.ViewModel.NavigationCompletion.WaitAsync(TimeSpan.FromSeconds(5));
@@ -274,7 +274,7 @@ public sealed class ExportSettingsUiTests
             var persisted = Assert.Single(context.ExportPresetLibrary.Snapshot.Presets);
             Assert.Equal(saved.Id, persisted.Id);
             Assert.Equal(saves ? "Edited name" : "Saved", persisted.Name);
-            Assert.Equal(saves ? 29 : 20, persisted.Settings.Crf);
+            Assert.Equal(saves ? 29 : 20, persisted.Settings.Quality);
             Assert.Equal(!leaves, window.ViewModel.ExportPresets.IsDirty);
             Assert.True(window.ViewModel.IsNavigationAvailable);
         }, saved);
@@ -423,7 +423,7 @@ public sealed class ExportSettingsUiTests
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.CBR,
             Preset = "slower",
-            Crf = 17,
+            Quality = 17,
             VideoBitrate = 12345678,
             AudioMode = AudioExportMode.Aac,
             AudioBitrate = 256000

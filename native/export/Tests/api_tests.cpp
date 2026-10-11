@@ -22,11 +22,11 @@ int main()
         static_assert(sizeof(an_export_request) == 88 && offsetof(an_export_request, input_path) == 32 &&
             offsetof(an_export_request, reference_white_nits) == 56 && offsetof(an_export_request, encoding_mode) == 64 &&
             offsetof(an_export_request, rate_control_mode) == 80 && offsetof(an_export_request, rate_control_reserved) == 84);
-        static_assert(sizeof(an_export_result_info) == 344 && offsetof(an_export_result_info, fallback_reason) == 72 &&
+        static_assert(sizeof(an_export_result_info) == 488 && offsetof(an_export_result_info, fallback_reason) == 72 &&
             offsetof(an_export_result_info, rate_control_mode) == 328 && offsetof(an_export_result_info, video_bitrate) == 332 &&
-            offsetof(an_export_result_info, crf) == 336 && offsetof(an_export_result_info, rate_control_reserved) == 340);
+            offsetof(an_export_result_info, quality) == 336 && offsetof(an_export_result_info, verification) == 340);
         static_assert(sizeof(an_export_overlay_info) == 24 && offsetof(an_export_overlay_info, revision) == 16);
-        Require(an_export_abi_version() == 5, "ABI version mismatch");
+        Require(an_export_abi_version() == 6, "ABI version mismatch");
         Require(an_export_core_version() == 1 && (an_export_capabilities() & 7) == 7,
             "Shared media core version or capabilities are missing");
         std::array<char, 256> error{};
@@ -37,10 +37,10 @@ int main()
             void *context = nullptr;
             Require(an_export_create(&context, error.data(), error.size()) == 0 && context, "Context creation failed");
             uint64_t frames = 123;
-            an_export_request request{sizeof(request),5,0,0,20,64,48,0,"unused","unused","ultrafast",203,0,0,8000000,0,0,1,0};
+            an_export_request request{sizeof(request),6,0,0,20,64,48,0,"unused","unused","ultrafast",203,0,0,8000000,0,0,1,0};
             an_export_result_info info{};
             info.struct_size = sizeof(info);
-            info.abi_version = 5;
+            info.abi_version = 6;
             Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
                 "Result information reported before completion");
             Require(an_export_get_result_info(context, nullptr, error.data(), error.size()) == 1,
@@ -52,16 +52,12 @@ int main()
             info.abi_version = 4;
             Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
                 "Legacy result information ABI accepted");
-            info.abi_version = 5;
-            info.rate_control_reserved = 1;
-            Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
-                "Rate-control result reserved field accepted");
-            info.rate_control_reserved = 0;
+            info.abi_version = 6;
             Require(std::strlen(an_export_encoder_name(context)) == 0, "Encoder reported before initialization");
             request.abi_version = 4;
             Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 1,
                 "Invalid ABI was accepted");
-            request.abi_version = 5;
+            request.abi_version = 6;
             request.struct_size = 80;
             Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 1,
                 "Legacy request size accepted");
@@ -109,7 +105,7 @@ int main()
             {
                 request.rate_control_mode = mode;
                 request.encoding_mode = 0;
-                request.crf = mode == 1 ? 20 : -100;
+                request.quality = mode == 1 ? 20 : -100;
                 request.video_bitrate = mode == 1 ? -100 : 8000000;
                 Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 4,
                     "Inactive quality parameter blocked a valid rate-control mode");
@@ -117,13 +113,13 @@ int main()
                 {
                     for (const auto quality : {0, 51})
                     {
-                        request.crf = quality;
+                        request.quality = quality;
                         Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 4,
                             "Valid CRF boundary rejected");
                     }
                     for (const auto quality : {-1, 52})
                     {
-                        request.crf = quality;
+                        request.quality = quality;
                         Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 1,
                             "Invalid active CRF accepted");
                     }
@@ -148,9 +144,35 @@ int main()
                     }
                 }
             }
+            for (const int codec : {3, 4, 5})
+            {
+                request.codec = codec; request.encoding_mode = 0;
+                request.rate_control_mode = codec == 3 ? 4 : 1;
+                request.video_bitrate = 8000000;
+                for (const int quality : {codec == 5 ? 1 : 0, 63})
+                {
+                    request.quality = quality;
+                    Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 4,
+                        "New codec quality boundary rejected");
+                }
+                request.quality = 64;
+                Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 1,
+                    "New codec invalid quality accepted");
+                if (codec == 5)
+                {
+                    request.quality = 0;
+                    Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 1,
+                        "SVT CRF sentinel zero accepted");
+                }
+            }
+            request.codec = 0;
+            an_export_mux_request mux{sizeof(mux), 6, "unused.mkv", nullptr, -1, 0};
+            Require(an_export_mux(context, &mux, error.data(), error.size()) == 1, "Mux allowed before encoded completion");
+            mux.reserved = 1;
+            Require(an_export_mux(context, &mux, error.data(), error.size()) == 1, "Mux reserved field accepted");
             request.encoding_mode = 0;
             request.rate_control_mode = 1;
-            request.crf = 20;
+            request.quality = 20;
             request.video_bitrate = -100;
             an_export_destroy(context);
             an_export_destroy(context);
@@ -159,7 +181,7 @@ int main()
             Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
                 "Destroyed result information handle accepted");
         }
-        std::cout << "PASS ABI 5, overlay POD24, explicit CRF/VBR/CBR, active quality boundaries, inactive fields, pinned runtime, cancellation, ownership\n";
+        std::cout << "PASS ABI 6, overlay POD24, explicit CRF/VBR/CBR, active quality boundaries, inactive fields, pinned runtime, cancellation, ownership\n";
         return 0;
     }
     catch (const std::exception &error)

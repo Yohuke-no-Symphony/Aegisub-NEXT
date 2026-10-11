@@ -6,6 +6,10 @@
 #include "decode_prefetcher.h"
 #include "media_core.h"
 #include "color_resolution.h"
+#include "encoder_backend.h"
+#include "export_metadata.h"
+#include "export_muxer.h"
+#include "export_error.h"
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -40,31 +44,10 @@ using aeginext::encode::ExportDecodedFrame;
 using aeginext::media::DecoderSession;
 using aeginext::media::DecodeMode;
 using aeginext::media::DecodeWorkload;
-constexpr uint32_t EXPORT_ABI_VERSION = 5;
-constexpr int32_t RATE_CONTROL_CRF = 1;
-constexpr int32_t RATE_CONTROL_VBR = 2;
-constexpr int32_t RATE_CONTROL_CBR = 3;
-constexpr int64_t BITRATE_PRECISION = 1000;
-constexpr int64_t VBR_PEAK_MULTIPLIER = 2;
-constexpr int64_t VBV_DURATION_SECONDS = 2;
-struct Failure : std::runtime_error
-{
-    int code;
-    Failure(int c, const std::string &message) : std::runtime_error(message), code(c) {}
-};
-void Check(int result, const char *operation)
-{
-    if (result < 0)
-    {
-        char text[AV_ERROR_MAX_STRING_SIZE]{};
-        av_strerror(result, text, sizeof(text));
-        throw Failure(3, std::string(operation) + ": " + text);
-    }
-}
-void Need(bool valid, const char *message)
-{
-    if (!valid) throw Failure(2, message);
-}
+constexpr uint32_t EXPORT_ABI_VERSION = 6;
+using Failure = aeginext::encode::ExportFailure;
+void Check(int result, const char *operation) { aeginext::encode::CheckAv(result, operation); }
+void Need(bool valid, const char *message) { aeginext::encode::Require(valid, message); }
 struct FrameDeleter { void operator()(AVFrame *p) const { av_frame_free(&p); } };
 using Frame = std::unique_ptr<AVFrame, FrameDeleter>;
 Frame Allocate(AVPixelFormat format, int width, int height)
@@ -81,6 +64,10 @@ struct Context
     bool started = false;
     AVFormatContext *output = nullptr;
     AVCodecContext *encoder = nullptr;
+    std::unique_ptr<aeginext::encode::EncoderBackend> backend;
+    aeginext::encode::ExportMetadata metadata;
+    std::string sourcePath, videoPath;
+    bool muxStarted = false;
     AVPacket *encoded = nullptr;
     std::unique_ptr<DecoderSession> decoderSession;
     std::mutex decoderMutex;
@@ -93,7 +80,8 @@ struct Context
     ~Context()
     {
         av_packet_free(&encoded);
-        avcodec_free_context(&encoder);
+        backend.reset();
+        encoder = nullptr;
         if (output)
         {
             if (output->pb) avio_closep(&output->pb);
@@ -171,255 +159,12 @@ void WritePackets(Context &c, AVStream *stream)
         Check(c.performance.Measure(ExportStage::Mux, [&]() { return av_interleaved_write_frame(c.output, c.encoded); }), "mux encoded packet");
     }
 }
-std::string MasteringOption(const AVFrame *f)
-{
-    const auto *side = av_frame_get_side_data(f, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA);
-    if (!side) return {};
-    Need(side->size >= sizeof(AVMasteringDisplayMetadata), "Truncated mastering metadata");
-    const auto *m = reinterpret_cast<const AVMasteringDisplayMetadata *>(side->data);
-    Need(m->has_primaries && m->has_luminance, "Partial mastering display metadata cannot be faithfully emitted by this encoder");
-    auto q = [](AVRational value, int scale)
-    {
-        Need(value.den > 0 && value.num >= 0, "Invalid mastering rational");
-        return std::llround(av_q2d(value) * scale);
-    };
-    Need(av_q2d(m->max_luminance) > av_q2d(m->min_luminance) && av_q2d(m->max_luminance) <= 10000,
-        "Invalid mastering display luminance");
-    for (int p = 0; p < 3; ++p)
-        for (int axis = 0; axis < 2; ++axis)
-            Need(m->display_primaries[p][axis].den > 0 && m->display_primaries[p][axis].num >= 0 &&
-                av_q2d(m->display_primaries[p][axis]) <= 1, "Invalid mastering primary coordinate");
-    for (int axis = 0; axis < 2; ++axis)
-        Need(m->white_point[axis].den > 0 && m->white_point[axis].num >= 0 && av_q2d(m->white_point[axis]) <= 1,
-            "Invalid mastering white coordinate");
-    std::ostringstream s;
-    for (const int p : {1, 2, 0}) s << "GBR"[p == 1 ? 0 : p == 2 ? 1 : 2] << '(' << q(m->display_primaries[p][0], 50000) << ',' << q(m->display_primaries[p][1], 50000) << ')';
-    s << "WP(" << q(m->white_point[0], 50000) << ',' << q(m->white_point[1], 50000) << ")L(" << q(m->max_luminance, 10000) << ',' << q(m->min_luminance, 10000) << ')';
-    return s.str();
-}
-struct EncoderDeleter
-{
-    void operator()(AVCodecContext *value) const { avcodec_free_context(&value); }
-};
-using EncoderContext = std::unique_ptr<AVCodecContext, EncoderDeleter>;
-int64_t TargetBitrate(const an_export_request &request)
-{
-    return request.video_bitrate / BITRATE_PRECISION * BITRATE_PRECISION;
-}
-int64_t PeakBitrate(const an_export_request &request)
-{
-    const auto target = TargetBitrate(request);
-    return request.rate_control_mode == RATE_CONTROL_CBR ? target : target * VBR_PEAK_MULTIPLIER;
-}
-void ConfigureRateControl(AVCodecContext &encoder, const an_export_request &request)
-{
-    if (request.rate_control_mode == RATE_CONTROL_CRF)
-    {
-        encoder.bit_rate = 0;
-        encoder.rc_min_rate = 0;
-        encoder.rc_max_rate = 0;
-        encoder.rc_buffer_size = 0;
-        return;
-    }
-
-    encoder.bit_rate = TargetBitrate(request);
-    encoder.rc_min_rate = request.rate_control_mode == RATE_CONTROL_CBR ? encoder.bit_rate : 0;
-    encoder.rc_max_rate = PeakBitrate(request);
-    encoder.rc_buffer_size = static_cast<int>(encoder.rc_max_rate * VBV_DURATION_SECONDS);
-    encoder.global_quality = 0;
-    encoder.flags &= ~AV_CODEC_FLAG_QSCALE;
-}
-bool MatchesIntegerOption(AVCodecContext &encoder, const char *name, int expected)
-{
-    int64_t actual = 0;
-    return av_opt_get_int(encoder.priv_data, name, 0, &actual) >= 0 && actual == expected;
-}
-bool MatchesNamedOption(AVCodecContext &encoder, const char *name, const char *expected)
-{
-    const auto *option = av_opt_find(encoder.priv_data, name, nullptr, 0, 0);
-    int expectedValue = 0;
-    return option && av_opt_eval_int(encoder.priv_data, option, expected, &expectedValue) >= 0 &&
-        MatchesIntegerOption(encoder, name, expectedValue);
-}
-void ConfirmRateControl(Context &context, const an_export_request &request, AVCodecContext &encoder)
-{
-    const auto *name = encoder.codec->name;
-    if (request.rate_control_mode == RATE_CONTROL_CRF)
-    {
-        double quality = -1;
-        Need(request.encoding_mode == 0 && av_opt_get_double(encoder.priv_data, "crf", 0, &quality) >= 0 &&
-            quality == request.crf, "Software encoder did not confirm the selected CRF quality");
-        context.resultInfo.rate_control_mode = RATE_CONTROL_CRF;
-        context.resultInfo.video_bitrate = 0;
-        context.resultInfo.crf = static_cast<int32_t>(quality);
-        return;
-    }
-
-    const auto target = TargetBitrate(request);
-    const auto peak = PeakBitrate(request);
-    Need(encoder.bit_rate == target && encoder.rc_max_rate == peak &&
-        encoder.rc_min_rate == (request.rate_control_mode == RATE_CONTROL_CBR ? target : 0) &&
-        encoder.rc_buffer_size == peak * VBV_DURATION_SECONDS,
-        "Encoder did not preserve the selected target bitrate or VBV configuration");
-    if (request.encoding_mode == 0)
-    {
-        double quality = 0;
-        Need(av_opt_get_double(encoder.priv_data, "crf", 0, &quality) >= 0 && quality < 0,
-            "Software encoder retained CRF instead of the selected bitrate mode");
-    }
-    else if (std::strstr(name, "videotoolbox"))
-    {
-        Need(MatchesIntegerOption(encoder, "constant_bit_rate", request.rate_control_mode == RATE_CONTROL_CBR ? 1 : 0) &&
-            MatchesIntegerOption(encoder, "allow_sw", 0) && MatchesIntegerOption(encoder, "require_sw", 0),
-            "VideoToolbox did not confirm the selected hardware rate-control configuration");
-    }
-    else if (std::strstr(name, "nvenc"))
-    {
-        Need(MatchesNamedOption(encoder, "rc", request.rate_control_mode == RATE_CONTROL_CBR ? "cbr" : "vbr"),
-            "NVENC did not confirm the selected rate-control configuration");
-    }
-    else if (std::strstr(name, "amf"))
-    {
-        Need(MatchesNamedOption(encoder, "rc", request.rate_control_mode == RATE_CONTROL_CBR ? "cbr" : "vbr_peak"),
-            "AMF did not confirm the selected rate-control configuration");
-    }
-
-    context.resultInfo.rate_control_mode = request.rate_control_mode;
-    context.resultInfo.video_bitrate = static_cast<int32_t>(encoder.bit_rate);
-    context.resultInfo.crf = 0;
-}
-EncoderContext ConfigureEncoder(const AVCodec *encoder, const an_export_request &r, AVStream *source,
-    const AVFrame *frame, const AVFormatContext *output, AVPixelFormat format)
-{
-    EncoderContext value(avcodec_alloc_context3(encoder));
-    if (!value) throw std::bad_alloc();
-    value->width = r.width; value->height = r.height; value->pix_fmt = format;
-    value->time_base = source->time_base; value->sample_aspect_ratio = frame->sample_aspect_ratio;
-    value->color_range = frame->color_range; value->colorspace = frame->colorspace;
-    value->color_primaries = frame->color_primaries; value->color_trc = frame->color_trc;
-    value->chroma_sample_location = AVCHROMA_LOC_LEFT;
-    value->thread_count = 4; value->flags |= AV_CODEC_FLAG_FRAME_DURATION;
-    ConfigureRateControl(*value, r);
-    if (output->oformat->flags & AVFMT_GLOBALHEADER) value->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-    return value;
-}
-const char *HardwareSpeed(const char *preset)
-{
-    if (!std::strcmp(preset, "slow") || !std::strcmp(preset, "slower") || !std::strcmp(preset, "veryslow")) return "slow";
-    if (!std::strcmp(preset, "medium")) return "medium";
-    return "fast";
-}
-bool SupportsPixelFormat(const AVCodec *encoder, AVPixelFormat format)
-{
-    const void *values = nullptr;
-    int count = 0;
-    if (avcodec_get_supported_config(nullptr, encoder, AV_CODEC_CONFIG_PIX_FORMAT, 0, &values, &count) < 0) return false;
-    if (!values) return false;
-    const auto *formats = static_cast<const AVPixelFormat *>(values);
-    return std::find(formats, formats + count, format) != formats + count;
-}
-AVCodecContext *OpenHardwareEncoder(Context &c, const an_export_request &r, AVStream *source,
-    const AVFrame *frame, int codec)
-{
-    const bool hdr = frame->color_trc == AVCOL_TRC_SMPTE2084 || frame->color_trc == AVCOL_TRC_ARIB_STD_B67;
-    Need(!hdr && !av_frame_get_side_data(frame, AV_FRAME_DATA_MASTERING_DISPLAY_METADATA) &&
-        !av_frame_get_side_data(frame, AV_FRAME_DATA_CONTENT_LIGHT_LEVEL),
-        "GPU encoding cannot yet preserve the verified HDR metadata contract; select CPU software encoding for HDR export");
-    const auto format = codec == 1 ? AV_PIX_FMT_NV12 : AV_PIX_FMT_P010LE;
-    std::vector<const char *> candidates;
-#if defined(__APPLE__)
-    candidates = codec == 1 ? std::vector<const char *>{"h264_videotoolbox"} : std::vector<const char *>{"hevc_videotoolbox"};
-#elif defined(_WIN32)
-    candidates = codec == 1 ? std::vector<const char *>{"h264_nvenc", "h264_qsv", "h264_amf"} :
-        std::vector<const char *>{"hevc_nvenc", "hevc_qsv", "hevc_amf"};
-#endif
-    std::ostringstream failures;
-    for (const auto *name : candidates)
-    {
-        c.CheckCancel();
-        const auto *encoder = avcodec_find_encoder_by_name(name);
-        if (!encoder)
-        {
-            failures << name << ": not compiled into this FFmpeg runtime; ";
-            continue;
-        }
-        if (!SupportsPixelFormat(encoder, format))
-        {
-            failures << name << ": required " << av_get_pix_fmt_name(format) << " format unsupported; ";
-            continue;
-        }
-        auto value = ConfigureEncoder(encoder, r, source, frame, c.output, format);
-        value->framerate = source->avg_frame_rate.num > 0 ? source->avg_frame_rate : source->r_frame_rate;
-        AVDictionary *options = nullptr;
-        const auto speed = std::string(HardwareSpeed(r.preset));
-        if (std::strstr(name, "videotoolbox"))
-        {
-            av_dict_set(&options, "allow_sw", "0", 0);
-            av_dict_set(&options, "require_sw", "0", 0);
-            av_dict_set(&options, "constant_bit_rate", r.rate_control_mode == RATE_CONTROL_CBR ? "1" : "0", 0);
-            av_dict_set(&options, "prio_speed", speed == "fast" ? "1" : "0", 0);
-            if (codec == 2) av_dict_set(&options, "profile", "main10", 0);
-        }
-        else if (std::strstr(name, "nvenc"))
-        {
-            av_dict_set(&options, "preset", speed == "fast" ? "p3" : speed == "slow" ? "p5" : "p4", 0);
-            av_dict_set(&options, "rc", r.rate_control_mode == RATE_CONTROL_CBR ? "cbr" : "vbr", 0);
-            if (codec == 2) av_dict_set(&options, "profile", "main10", 0);
-        }
-        else if (std::strstr(name, "qsv"))
-        {
-            AVDictionary *deviceOptions = nullptr;
-            av_dict_set(&deviceOptions, "child_device_type", "d3d11va", 0);
-            const auto device = av_hwdevice_ctx_create(&value->hw_device_ctx, AV_HWDEVICE_TYPE_QSV,
-                "hw_any", deviceOptions, 0);
-            av_dict_free(&deviceOptions);
-            if (device < 0)
-            {
-                char reason[AV_ERROR_MAX_STRING_SIZE]{};
-                av_strerror(device, reason, sizeof(reason));
-                failures << name << ": hardware device initialization failed (" << reason << "); ";
-                av_dict_free(&options);
-                continue;
-            }
-            av_dict_set(&options, "preset", speed.c_str(), 0);
-            av_dict_set(&options, "look_ahead", "0", 0);
-            av_dict_set(&options, "vcm", "0", 0);
-        }
-        else if (std::strstr(name, "amf"))
-        {
-            av_dict_set(&options, "quality", speed == "fast" ? "speed" : speed == "slow" ? "quality" : "balanced", 0);
-            av_dict_set(&options, "rc", r.rate_control_mode == RATE_CONTROL_CBR ? "cbr" : "vbr_peak", 0);
-        }
-        const auto opened = avcodec_open2(value.get(), encoder, &options);
-        const bool unusedOptions = av_dict_count(options) != 0;
-        av_dict_free(&options);
-        if (opened < 0 || unusedOptions)
-        {
-            char reason[AV_ERROR_MAX_STRING_SIZE]{};
-            av_strerror(opened, reason, sizeof(reason));
-            failures << name << ": initialization failed (" << (unusedOptions ? "unsupported encoder options" : reason) << "); ";
-            continue;
-        }
-        try
-        {
-            ConfirmRateControl(c, r, *value);
-        }
-        catch (const Failure &error)
-        {
-            failures << name << ": " << error.what() << "; ";
-            continue;
-        }
-        c.encoderName = name;
-        return value.release();
-    }
-    throw Failure(2, "GPU hardware video encoder unavailable; no CPU fallback. " +
-        (candidates.empty() ? std::string("No supported hardware backend on this platform") : failures.str()));
-}
 void Execute(Context &c, const an_export_request &r, an_export_render_callback render, void *user, uint64_t &frames)
 {
     Versions(); c.CheckCancel();
     if (c.started) throw Failure(1, "Export context may run only once");
     c.started = true;
+    c.sourcePath = r.input_path; c.videoPath = r.output_path;
     Need(!std::filesystem::exists(std::filesystem::path(reinterpret_cast<const char8_t *>(r.output_path))), "Temporary export output already exists");
     Need(std::filesystem::is_regular_file(std::filesystem::path(reinterpret_cast<const char8_t *>(r.input_path))), "Export input must be a local regular file");
     {
@@ -455,7 +200,6 @@ void Execute(Context &c, const an_export_request &r, an_export_render_callback r
     auto streamTimeBase = sourceStream->time_base;
     aeginext::media::DisplayTiming displayTiming;
     int64_t lastPts = AV_NOPTS_VALUE;
-    std::string mastering;
     int sourceFormat = -1, sourceWidth = 0, sourceHeight = 0, matrix = -1, primaries = -1, transfer = -1, range = -1, chroma = -1;
     auto process = [&]()
     {
@@ -473,58 +217,14 @@ void Execute(Context &c, const an_export_request &r, an_export_render_callback r
         {
             const bool hdr = decoded->color_trc == AVCOL_TRC_SMPTE2084 || decoded->color_trc == AVCOL_TRC_ARIB_STD_B67;
             const auto codec = r.codec == 0 ? (hdr ? 2 : 1) : r.codec;
-            Need(!(hdr && codec == 1), "HDR requires HEVC 10-bit output");
+            c.metadata = aeginext::encode::ExportMetadata(decoded.get());
             Check(avformat_alloc_output_context2(&c.output, nullptr, "nut", r.output_path), "create export container");
             c.output->avoid_negative_ts = AVFMT_AVOID_NEG_TS_DISABLED;
             c.output->interrupt_callback = {Interrupt, &c};
-            if (r.encoding_mode == 1)
-            {
-                c.encoder = OpenHardwareEncoder(c, r, sourceStream, decoded.get(), codec);
-            }
-            else
-            {
-                const auto *encoder = avcodec_find_encoder_by_name(codec == 1 ? "libx264" : "libx265");
-                Need(encoder != nullptr, "Requested software encoder is unavailable");
-                auto value = ConfigureEncoder(encoder, r, sourceStream, decoded.get(), c.output,
-                    codec == 1 ? AV_PIX_FMT_YUV420P : AV_PIX_FMT_YUV420P10LE);
-                value->framerate = sourceStream->avg_frame_rate.num > 0 ? sourceStream->avg_frame_rate : sourceStream->r_frame_rate;
-                AVDictionary *options = nullptr;
-                av_dict_set(&options, "preset", r.preset, 0);
-                if (r.rate_control_mode == RATE_CONTROL_CRF)
-                {
-                    av_dict_set(&options, "crf", std::to_string(r.crf).c_str(), 0);
-                }
-                else if (codec == 1 && r.rate_control_mode == RATE_CONTROL_CBR)
-                {
-                    av_dict_set(&options, "x264-params", "filler=1", 0);
-                }
-                if (codec == 2)
-                {
-                    std::string params = "pools=none:frame-threads=4:log-level=error:colorprim=" + std::to_string(decoded->color_primaries) + ":transfer=" + std::to_string(decoded->color_trc) + ":colormatrix=" + std::to_string(decoded->colorspace);
-                    if (r.rate_control_mode == RATE_CONTROL_CRF && r.crf == 0)
-                    {
-                        params += ":lossless=1";
-                    }
-                    else if (r.rate_control_mode == RATE_CONTROL_CBR)
-                    {
-                        params += ":strict-cbr=1";
-                    }
-                    if (decoded->color_trc == AVCOL_TRC_SMPTE2084)
-                    {
-                        mastering = MasteringOption(decoded.get());
-                        if (!mastering.empty()) params += ":master-display=" + mastering;
-                    }
-                    av_dict_set(&options, "x265-params", params.c_str(), 0);
-                }
-                const auto opened = avcodec_open2(value.get(), encoder, &options);
-                const auto unusedOptions = av_dict_count(options) != 0;
-                av_dict_free(&options);
-                Check(opened, "open video encoder");
-                Need(!unusedOptions, "Software encoder did not consume the selected encoding options");
-                ConfirmRateControl(c, r, *value);
-                c.encoderName = encoder->name;
-                c.encoder = value.release();
-            }
+            c.backend = aeginext::encode::EncoderBackend::Open(r, codec, sourceStream, decoded.get(), c.output,
+                c.metadata, c.resultInfo, c.cancelled);
+            c.encoder = c.backend->context;
+            c.encoderName = c.encoder->codec->name;
             targetStream = avformat_new_stream(c.output, nullptr);
             if (!targetStream) throw std::bad_alloc();
             targetStream->time_base = sourceStream->time_base;
@@ -542,8 +242,8 @@ void Execute(Context &c, const an_export_request &r, an_export_render_callback r
         Need(sourceFormat == decoded->format && sourceWidth == decoded->width && sourceHeight == decoded->height &&
             matrix == decoded->colorspace && primaries == decoded->color_primaries && transfer == decoded->color_trc && range == decoded->color_range && chroma == decoded->chroma_location,
             "Midstream video format/color changes require a new export segment");
-        if (decoded->color_trc == AVCOL_TRC_SMPTE2084)
-            Need(MasteringOption(decoded.get()) == mastering, "Midstream mastering metadata changes require an explicit export policy");
+        Need(c.metadata.SameHdr(aeginext::encode::ExportMetadata(decoded.get())),
+            "Midstream static HDR metadata changes require an explicit export policy");
         an_export_overlay_info overlayInfo{sizeof(overlayInfo), EXPORT_ABI_VERSION, 0, 0, 0};
         try
         {
@@ -589,6 +289,7 @@ void Execute(Context &c, const an_export_request &r, an_export_render_callback r
         outputFrame->color_range = decoded->color_range; outputFrame->colorspace = decoded->colorspace;
         outputFrame->color_primaries = decoded->color_primaries; outputFrame->color_trc = decoded->color_trc;
         outputFrame->chroma_location = AVCHROMA_LOC_LEFT; outputFrame->sample_aspect_ratio = decoded->sample_aspect_ratio;
+        c.metadata.Apply(outputFrame.get());
         Check(c.performance.Measure(ExportStage::SendFrame, [&]() { return avcodec_send_frame(c.encoder, outputFrame.get()); }), "send composited frame");
         WritePackets(c, targetStream); ++frames;
     };
@@ -662,6 +363,9 @@ void Execute(Context &c, const an_export_request &r, an_export_render_callback r
     Check(c.performance.Measure(ExportStage::SendFrame, [&]() { return avcodec_send_frame(c.encoder, nullptr); }), "drain encoder"); WritePackets(c, targetStream);
     Check(av_write_trailer(c.output), "write output trailer");
     Check(avio_closep(&c.output->pb), "close output file");
+    const auto encodedFormat = c.metadata.Verify(r.output_path, c.encoder->codec_id, c.resultInfo.bit_depth, false, c.cancelled);
+    CopyError(c.resultInfo.pixel_format, sizeof(c.resultInfo.pixel_format), av_get_pix_fmt_name(encodedFormat));
+    c.resultInfo.output_verification |= 1;
     const auto &session = c.decoderSession->Info();
     c.resultInfo.struct_size = sizeof(an_export_result_info);
     c.resultInfo.abi_version = EXPORT_ABI_VERSION;
@@ -693,7 +397,7 @@ int32_t AN_EXPORT_CALL an_export_get_result_info(void *context, an_export_result
 {
     try
     {
-        if (!info || info->struct_size != sizeof(*info) || info->abi_version != EXPORT_ABI_VERSION || info->rate_control_reserved)
+        if (!info || info->struct_size != sizeof(*info) || info->abi_version != EXPORT_ABI_VERSION)
             throw Failure(1, "Invalid export result information ABI");
         const auto *value = Get(context);
         if (!value->completed) throw Failure(1, "Export result is available only after successful completion");
@@ -751,6 +455,26 @@ void AN_EXPORT_CALL an_export_destroy(void *context)
     }
     catch (...) {}
 }
+int32_t AN_EXPORT_CALL an_export_mux(void *context, const an_export_mux_request *request,
+    char *error, uint32_t capacity)
+{
+    try
+    {
+        if (!request || request->struct_size != sizeof(*request) || request->abi_version != EXPORT_ABI_VERSION ||
+            !request->output_path || request->reserved || (request->audio_path ? request->audio_stream_index < 0 : request->audio_stream_index != -1))
+            throw Failure(1, "Invalid export mux request ABI or audio stream selection");
+        auto *value = Get(context);
+        if (!value->completed || value->muxStarted) throw Failure(1, "Mux requires a completed export and may run only once");
+        value->CheckCancel(); value->muxStarted = true;
+        aeginext::encode::MuxExport(value->sourcePath.c_str(), value->videoPath.c_str(), *request,
+            value->metadata, value->encoder->codec_id, value->resultInfo.bit_depth, value->cancelled);
+        value->resultInfo.output_verification |= 2;
+        CopyError(error, capacity, ""); return 0;
+    }
+    catch (const Failure &e) { CopyError(error, capacity, e.what()); return e.code; }
+    catch (const std::exception &e) { CopyError(error, capacity, e.what()); return 3; }
+    catch (...) { CopyError(error, capacity, "Unknown native mux failure"); return 3; }
+}
 int32_t AN_EXPORT_CALL an_export_run(void *context, const an_export_request *request,
     an_export_render_callback render, void *user, uint64_t *frames, char *error, uint32_t capacity)
 {
@@ -759,19 +483,11 @@ int32_t AN_EXPORT_CALL an_export_run(void *context, const an_export_request *req
         if (!request || request->struct_size != sizeof(*request) || request->abi_version != EXPORT_ABI_VERSION || !render || !frames ||
             !request->input_path || !request->output_path || !request->preset || request->flags || request->reserved || request->decode_reserved || request->decode_mode > 2 ||
             request->width == 0 || request->height == 0 || (request->width % 2) || (request->height % 2) ||
-            static_cast<uint64_t>(request->width)*request->height > 33177600 || request->codec < 0 || request->codec > 2 ||
+            static_cast<uint64_t>(request->width)*request->height > 33177600 || request->codec < 0 || request->codec > 5 ||
             !std::isfinite(request->reference_white_nits) || request->reference_white_nits <= 0)
             throw Failure(1, "Invalid export request ABI, dimensions, codec or reference white");
-        if (request->encoding_mode < 0 || request->encoding_mode > 1 || request->rate_control_reserved ||
-            (request->rate_control_mode != RATE_CONTROL_CRF && request->rate_control_mode != RATE_CONTROL_VBR &&
-                request->rate_control_mode != RATE_CONTROL_CBR) ||
-            (request->rate_control_mode == RATE_CONTROL_CRF &&
-                (request->encoding_mode != 0 || request->crf < 0 || request->crf > 51)) ||
-            (request->rate_control_mode != RATE_CONTROL_CRF &&
-                (request->video_bitrate < 100000 || request->video_bitrate > 200000000)))
-        {
+        if (!aeginext::encode::ValidRateControl(*request))
             throw Failure(1, "Invalid video encoding mode, rate-control mode or active quality parameter");
-        }
         *frames = 0; auto *value = Get(context); Execute(*value, *request, render, user, *frames);
         CopyError(error, capacity, ""); return 0;
     }

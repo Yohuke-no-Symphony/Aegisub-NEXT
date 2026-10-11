@@ -168,7 +168,7 @@ public sealed class InspectorLivePreviewUiTests
         await using var context = new MainWindowTestContext();
         await PrepareAsync(context);
         var before = context.Session.DocumentSnapshot;
-        context.ViewModel.Export.CrfText = "invalid";
+        context.ViewModel.Export.QualityText = "invalid";
         context.ViewModel.Styles.Subtitle.FontDraft = "Unconfirmed search query";
         var box = FocusInput(context, "FontSizeInput");
         Enter(context, box, "72.5");
@@ -179,7 +179,7 @@ public sealed class InspectorLivePreviewUiTests
         context.ViewModel.Styles.Subtitle.FontDraft = before.Subtitles[0].Style.FontFamily;
         Assert.False(context.Session.TryCommitDrafts(false));
         Assert.Same(before, context.Session.DocumentSnapshot);
-        context.ViewModel.Export.CrfText = "20";
+        context.ViewModel.Export.QualityText = "20";
         Assert.True(context.Session.TryCommitDrafts(false));
     }
 

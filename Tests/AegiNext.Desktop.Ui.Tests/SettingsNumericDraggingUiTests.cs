@@ -214,7 +214,7 @@ public sealed class SettingsNumericDraggingUiTests
     public void UpdatingTheSavedExportPresetCancelsTheGestureBeforeDetectingPendingDraftChanges()
     {
         using var environment = new UiTestEnvironment();
-        var original = new VideoExportPreset(Guid.NewGuid(), "Preset", new() { Crf = 20 });
+        var original = new VideoExportPreset(Guid.NewGuid(), "Preset", new() { Quality = 20 });
         var model = new ExportSettingsViewModel();
         model.UpdatePresets([original], original.Id);
         var view = new ExportSettingsView { DataContext = model };
@@ -222,14 +222,14 @@ public sealed class SettingsNumericDraggingUiTests
         try
         {
             host.Show();
-            var end = BeginDrag(host, "CrfInputTitle");
-            var updated = original with { Settings = original.Settings with { Crf = 30 } };
+            var end = BeginDrag(host, "QualityInputTitle");
+            var updated = original with { Settings = original.Settings with { Quality = 30 } };
             model.UpdatePresets([updated], updated.Id);
             Dispatcher.UIThread.RunJobs();
             host.MouseUp(end, MouseButton.Left);
             Dispatcher.UIThread.RunJobs();
 
-            var input = UiTestActions.Find<NumericDraftInput>(host, "CrfInput");
+            var input = UiTestActions.Find<NumericDraftInput>(host, "QualityInput");
             Assert.False(input.IsTitleDragging);
             Assert.Equal("30", input.RawText);
             Assert.Equal(30m, input.Value);

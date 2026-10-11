@@ -34,7 +34,7 @@ public sealed class MainWorkspaceIntegrationUiTests
         var undoLabel = main.Session.Editor.UndoLabel;
         main.ViewModel.Timeline.PixelsPerSecond = 72;
         main.ViewModel.Timeline.ViewStart = 3;
-        main.ViewModel.Export.Crf = 27;
+        main.ViewModel.Export.Quality = 27;
 
         Assert.True(await main.Layouts.ApplyPresetAsync(WorkspaceLayoutPresets.TIMING));
         Flush(main);
@@ -58,7 +58,7 @@ public sealed class MainWorkspaceIntegrationUiTests
         Assert.Equal(new MediaTime(5), controller.Snapshot.Position);
         Assert.Equal(72, main.ViewModel.Timeline.PixelsPerSecond);
         Assert.Equal(3, main.ViewModel.Timeline.ViewStart);
-        Assert.Equal(27, main.ViewModel.Export.Crf);
+        Assert.Equal(27, main.ViewModel.Export.Quality);
     }
 
     [AvaloniaFact]

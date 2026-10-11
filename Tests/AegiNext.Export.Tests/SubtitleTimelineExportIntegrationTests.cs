@@ -70,7 +70,7 @@ public sealed class SubtitleTimelineExportIntegrationTests
             var outputPath = Path.Combine(directory, "output" + extension);
             var result = await new VideoExporter().ExportAsync(new(project, directory, outputPath)
             {
-                Codec = VideoCodec.Hevc, Crf = 0, Preset = "ultrafast", AudioMode = audioMode,
+                Codec = VideoCodec.Hevc, Quality = 0, Preset = "ultrafast", AudioMode = audioMode,
                 WorkerPath = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_WORKER_PATH"), FfmpegPath = ffmpeg,
                 DecodeMode = VideoDecodeMode.Software
             });

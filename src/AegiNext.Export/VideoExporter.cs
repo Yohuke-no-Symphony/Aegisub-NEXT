@@ -61,7 +61,7 @@ public sealed class VideoExporter
             var settings = VideoExportSettingsValidator.Normalize(request.ToSettings());
             var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(request.Project, ExportWire.Options),
                 Path.GetFullPath(request.ProjectDirectory), temporary, Path.GetExtension(output).ToLowerInvariant(),
-                settings.Codec, settings.Preset, settings.Crf, settings.AudioMode, settings.AudioBitrate, ffmpeg,
+                settings.Codec, settings.Preset, settings.Quality, settings.AudioMode, settings.AudioBitrate, ffmpeg,
                 settings.EncodingMode, settings.VideoBitrate, request.DecodeMode,
                 settings.RateControlMode, ExportWire.VERSION);
             var serializedJob = JsonSerializer.Serialize(job, ExportWire.Options);
@@ -122,6 +122,7 @@ public sealed class VideoExporter
                 ValidateCompletedEncoder(request, completed.Encoder);
                 ValidateCompletedDecoder(request, completed);
                 ValidateCompletedRateControl(request, completed.RateControl);
+                ValidateCompletedOutput(request, completed.OutputColor);
 
                 var encoded = Path.Combine(temporary, "output" + job.Extension);
                 if (!File.Exists(encoded) || new FileInfo(encoded).Length == 0)
@@ -170,10 +171,12 @@ public sealed class VideoExporter
             throw new ArgumentException("压制需要媒体绑定及偶数视频画布尺寸。", nameof(request));
         }
 
-        if (Path.GetExtension(request.OutputPath).ToLowerInvariant() is not ".mp4" and not ".mkv")
+        if (!VideoExportCapabilities.Get(request.Codec).Extensions.Contains(Path.GetExtension(request.OutputPath).ToLowerInvariant()))
         {
-            throw new ArgumentException("首版压制支持 MP4 或 MKV。", nameof(request));
+            throw new ArgumentException("输出容器与所选视频编码格式不兼容。", nameof(request));
         }
+
+        ExportMuxer.ValidateAudioCompatibility(Path.GetExtension(request.OutputPath).ToLowerInvariant(), request.AudioMode, null);
 
         VideoExportSettingsValidator.Validate(request.ToSettings());
         if (!Enum.IsDefined(request.DecodeMode))
@@ -184,15 +187,17 @@ public sealed class VideoExporter
 
     internal static void ValidateCompletedEncoder(VideoExportRequest request, string? encoder)
     {
+        var capability = VideoExportCapabilities.Get(request.Codec);
         if (request.EncodingMode != VideoEncodingMode.HARDWARE)
         {
+            if (request.Codec is VideoCodec.Vp8 or VideoCodec.Vp9 or VideoCodec.Av1 && encoder != capability.SoftwareEncoder)
+            {
+                throw new InvalidDataException("导出 worker 未确认匹配的软件编码器；未提交成片。");
+            }
+
             return;
         }
-
-        var prefix = request.Codec == VideoCodec.Hevc ? "hevc_" : request.Codec == VideoCodec.H264 ? "h264_" : null;
-        var hardware = encoder is "h264_videotoolbox" or "hevc_videotoolbox" or "h264_nvenc" or "hevc_nvenc" or
-            "h264_qsv" or "hevc_qsv" or "h264_amf" or "hevc_amf";
-        if (!hardware || (prefix is not null && !encoder!.StartsWith(prefix, StringComparison.Ordinal)))
+        if (!capability.HardwareEncoders.Contains(encoder))
         {
             throw new InvalidDataException("GPU 导出 worker 未确认匹配的硬件编码器，可能部署了旧 worker；未提交成片，也不会回退 CPU。");
         }
@@ -218,12 +223,39 @@ public sealed class VideoExporter
     {
         var settings = VideoExportSettingsValidator.Normalize(request.ToSettings());
         var mode = settings.RateControlMode;
-        if (rateControl is null || rateControl.Mode != mode ||
-            (mode == VideoRateControlMode.CRF && (rateControl.VideoBitrate != 0 || rateControl.Crf != settings.Crf)) ||
-            (mode != VideoRateControlMode.CRF && (rateControl.Crf != 0 || rateControl.VideoBitrate != settings.VideoBitrate)))
+        var hasQuality = mode is VideoRateControlMode.CRF or VideoRateControlMode.CQ;
+        var hasBitrate = mode != VideoRateControlMode.CRF;
+        if (rateControl is null || rateControl.Mode != mode || !Enum.IsDefined(rateControl.Verification) ||
+            rateControl.BitratePrecision is < 1 or > 1000000 ||
+            rateControl.Quality != (hasQuality ? settings.Quality : 0) ||
+            !BitrateMatches(rateControl, hasBitrate ? settings.VideoBitrate : 0))
         {
             throw new InvalidDataException("导出 worker 未确认匹配的实际码控模式和参数，可能部署了旧 worker；未提交成片。");
         }
+    }
+
+    internal static void ValidateCompletedOutput(VideoExportRequest request, VideoExportColor? color)
+    {
+        if (color is null || color.OutputVerification != 3 || color.Codec is VideoCodec.Auto ||
+            !Enum.IsDefined(color.Codec) || request.Codec != VideoCodec.Auto && request.Codec != color.Codec ||
+            !VideoExportCapabilities.Get(color.Codec).Extensions.Contains(Path.GetExtension(request.OutputPath).ToLowerInvariant()) ||
+            color.PixelFormat is not ("yuv420p" or "yuv420p10le") ||
+            color.BitDepth != (color.PixelFormat == "yuv420p10le" ? 10 : 8) ||
+            color.ToMetadata() is { } metadata && (metadata.IsPq || metadata.IsHlg) && color.BitDepth < 10)
+        {
+            throw new InvalidDataException("导出 worker 未验证实际编码及最终容器的格式、位深和 HDR；未提交成片。");
+        }
+    }
+
+    private static bool BitrateMatches(VideoRateControlInfo actual, int expected)
+    {
+        if (actual.VideoBitrate == expected)
+        {
+            return true;
+        }
+
+        return expected > 0 && actual.VideoBitrate > 0 && actual.Verification == VideoRateControlVerification.RuntimeQueried &&
+            Math.Abs((long)actual.VideoBitrate - expected) < actual.BitratePrecision;
     }
 
     internal static void Kill(Process process)

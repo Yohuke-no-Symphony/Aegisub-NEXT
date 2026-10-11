@@ -15,7 +15,7 @@ public sealed class NumericDraftEditingUiTests
     [InlineData("styles", "FontSizeInput")]
     [InlineData("effects", "PositionXInput")]
     [InlineData("effects", "KeyframeValueInput")]
-    [InlineData("export", "CrfInput")]
+    [InlineData("export", "QualityInput")]
     public async Task InvalidRawNumericInputPreventsPresetSwitchAndPreservesInput(string panelId, string fieldName)
     {
         await using var context = new MainWindowTestContext();
@@ -51,7 +51,7 @@ public sealed class NumericDraftEditingUiTests
         Assert.Equal("7e-", box.Text);
         Assert.Equal(panelId, window.ViewModel.InvalidPanelId);
         Assert.Equal(fieldName, window.ViewModel.InvalidFieldKey);
-        input.RawText = fieldName is "FontSizeInput" ? "64" : fieldName is "CrfInput" ? "20" : "0";
+        input.RawText = fieldName is "FontSizeInput" ? "64" : fieldName is "QualityInput" ? "20" : "0";
         Dispatcher.UIThread.RunJobs();
         Assert.True(window.ViewModel.TryCommitDrafts());
     }

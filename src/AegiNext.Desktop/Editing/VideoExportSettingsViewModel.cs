@@ -10,13 +10,13 @@ public class VideoExportSettingsViewModel : ObservableObject
 {
     private static readonly string[] encodingPresets =
         ["veryslow", "slower", "slow", "medium", "fast", "faster", "veryfast", "superfast", "ultrafast"];
-    private string crfText = "20";
+    private string qualityText = "20";
     private string audioBitrateText = "192";
     private string videoBitrateText = "8";
     private decimal? videoBitrate = 8;
     private bool useHardwareEncoder;
-    private int codec;
-    private string[] codecs = [];
+    private VideoCodec selectedCodec;
+    private readonly VideoCodecChoice[] codecs = VideoExportCapabilities.All.Select(value => new VideoCodecChoice(value.Codec)).ToArray();
     private int speed = 3;
     private string[] speeds = [];
     private int qualityMode;
@@ -24,7 +24,7 @@ public class VideoExportSettingsViewModel : ObservableObject
     private int bitrateMode;
     private string[] qualityModes = [];
     private string[] bitrateModes = [];
-    private decimal? crf = 20;
+    private decimal? quality = 20;
     private int audioMode;
     private string[] audioModes = [];
     private decimal? audioBitrate = 192;
@@ -49,22 +49,81 @@ public class VideoExportSettingsViewModel : ObservableObject
 
     public int Codec
     {
-        get => codec;
+        get => Array.FindIndex(codecs, value => value.Codec == selectedCodec);
         set
         {
-            if (!refreshingChoices)
+            if (!refreshingChoices && value >= 0 && value < codecs.Length)
             {
-                SetProperty(ref codec, value);
+                SelectedCodec = codecs[value].Codec;
             }
         }
     }
+
+    public VideoCodec SelectedCodec
+    {
+        get => selectedCodec;
+        set
+        {
+            if (refreshingChoices || selectedCodec == value)
+            {
+                return;
+            }
+
+            var previous = Capabilities;
+            var next = VideoExportCapabilities.Get(value);
+            var raw = QualityText;
+            var resetQuality = decimal.TryParse(raw, NumberStyles.Float, CultureInfo.CurrentCulture, out var number) &&
+                IsValidNumber(number, previous.QualityMinimum, previous.QualityMaximum, 1) &&
+                (number == previous.DefaultQuality || !IsValidNumber(number, next.QualityMinimum, next.QualityMaximum, 1));
+            selectedCodec = value;
+            if (!next.SupportsHardware && UseHardwareEncoder)
+            {
+                UseHardwareEncoder = false;
+            }
+
+            refreshingChoices = true;
+            try
+            {
+                ChoicesRefreshing?.Invoke(this, EventArgs.Empty);
+                if (resetQuality)
+                {
+                    Quality = next.DefaultQuality;
+                    raw = next.DefaultQuality.ToString(CultureInfo.CurrentCulture);
+                }
+                RefreshCodecProperties();
+                QualityText = raw;
+            }
+            finally
+            {
+                CompleteChoicesRefresh();
+            }
+        }
+    }
+
+    public VideoCodecChoice? SelectedCodecChoice
+    {
+        get => codecs.FirstOrDefault(value => value.Codec == SelectedCodec);
+        set
+        {
+            if (value is not null)
+            {
+                SelectedCodec = value.Codec;
+            }
+        }
+    }
+
+    private VideoCodecCapabilities Capabilities => VideoExportCapabilities.Get(SelectedCodec);
+    public decimal QualityMinimum => Capabilities.QualityMinimum;
+    public decimal QualityMaximum => Capabilities.QualityMaximum;
+    public bool CanUseHardwareEncoder => Capabilities.SupportsHardware;
+    public bool SupportsWebM => Capabilities.Extensions.Contains(".webm");
 
     public bool UseHardwareEncoder
     {
         get => useHardwareEncoder;
         set
         {
-            if (!SetProperty(ref useHardwareEncoder, value))
+            if (value && !CanUseHardwareEncoder || !SetProperty(ref useHardwareEncoder, value))
             {
                 return;
             }
@@ -77,9 +136,10 @@ public class VideoExportSettingsViewModel : ObservableObject
 
     public bool IsSoftwareEncoding => !UseHardwareEncoder;
     public bool CanSelectQualityMode => !UseHardwareEncoder;
-    public bool IsCrfMode => QualityMode == 0;
+    public bool IsQualityMode => QualityMode == 0;
     public bool IsBitrateMode => QualityMode == 1;
-    public bool IsAacAudio => AudioMode == 1;
+    public bool IsVideoBitrateActive => IsBitrateMode || Capabilities.QualityMode == VideoRateControlMode.CQ;
+    public bool IsEncodedAudio => AudioMode is (int)AudioExportMode.Aac or (int)AudioExportMode.Opus;
 
     public int QualityMode
     {
@@ -95,8 +155,9 @@ public class VideoExportSettingsViewModel : ObservableObject
             {
                 softwareQualityMode = value;
             }
-            OnPropertyChanged(nameof(IsCrfMode));
+            OnPropertyChanged(nameof(IsQualityMode));
             OnPropertyChanged(nameof(IsBitrateMode));
+            OnPropertyChanged(nameof(IsVideoBitrateActive));
         }
     }
 
@@ -136,11 +197,7 @@ public class VideoExportSettingsViewModel : ObservableObject
         set => SetProperty(ref videoBitrateText, value);
     }
 
-    public string[] Codecs
-    {
-        get => codecs;
-        set => SetProperty(ref codecs, value);
-    }
+    public IReadOnlyList<VideoCodecChoice> Codecs => codecs;
 
     public int Speed
     {
@@ -162,10 +219,10 @@ public class VideoExportSettingsViewModel : ObservableObject
         set => SetProperty(ref speeds, value);
     }
 
-    public decimal? Crf
+    public decimal? Quality
     {
-        get => crf;
-        set => SetProperty(ref crf, value);
+        get => quality;
+        set => SetProperty(ref quality, value);
     }
 
     public int AudioMode
@@ -175,7 +232,7 @@ public class VideoExportSettingsViewModel : ObservableObject
         {
             if (!refreshingChoices && SetProperty(ref audioMode, value))
             {
-                OnPropertyChanged(nameof(IsAacAudio));
+                OnPropertyChanged(nameof(IsEncodedAudio));
             }
         }
     }
@@ -192,10 +249,10 @@ public class VideoExportSettingsViewModel : ObservableObject
         set => SetProperty(ref audioBitrate, value);
     }
 
-    public string CrfText
+    public string QualityText
     {
-        get => crfText;
-        set => SetProperty(ref crfText, value);
+        get => qualityText;
+        set => SetProperty(ref qualityText, value);
     }
 
     public string AudioBitrateText
@@ -210,13 +267,25 @@ public class VideoExportSettingsViewModel : ObservableObject
         try
         {
             ChoicesRefreshing?.Invoke(this, EventArgs.Empty);
-            Codecs = codecOptions;
+            foreach (var choice in codecs)
+            {
+                choice.UpdateLabel(choice.Codec switch
+                {
+                    VideoCodec.Auto => codecOptions[0],
+                    VideoCodec.H264 => codecOptions[1],
+                    VideoCodec.Hevc => codecOptions[2],
+                    VideoCodec.Vp8 => "VP8",
+                    VideoCodec.Vp9 => "VP9",
+                    VideoCodec.Av1 => "AV1",
+                    _ => throw new InvalidOperationException()
+                });
+            }
             Speeds = [Localization.Get("Workbench.SpeedVeryslow"), Localization.Get("Workbench.SpeedSlower"),
                 speedOptions[2], speedOptions[1], speedOptions[0], Localization.Get("Workbench.SpeedFaster"),
                 Localization.Get("Workbench.SpeedVeryfast"), Localization.Get("Workbench.SpeedSuperfast"),
                 Localization.Get("Workbench.SpeedUltrafast")];
-            AudioModes = audioOptions;
-            QualityModes = ["CRF", "Mbps"];
+            AudioModes = [audioOptions[0], audioOptions[1], audioOptions[2], "Opus"];
+            RefreshQualityModes();
             BitrateModes = [Localization.Get("Workbench.VariableBitrate"), Localization.Get("Workbench.ConstantBitrate")];
             OnPropertyChanged(nameof(Codec));
             OnPropertyChanged(nameof(Speed));
@@ -239,27 +308,28 @@ public class VideoExportSettingsViewModel : ObservableObject
 
     internal VideoExportSettings CaptureSettings(bool forPreset = false)
     {
-        RequireIndex(Codec, 3, "CodecCombo");
+        RequireIndex(Codec, codecs.Length, "CodecCombo");
         RequireIndex(Speed, encodingPresets.Length, "SpeedCombo");
-        RequireIndex(AudioMode, 3, "AudioModeCombo");
+        RequireIndex(AudioMode, AudioModes.Length, "AudioModeCombo");
         RequireIndex(QualityMode, 2, "QualityModeCombo");
         if (IsBitrateMode)
         {
             RequireIndex(BitrateMode, 2, "BitrateModeCombo");
         }
 
-        var quality = CaptureNumber(CrfText, Crf, 20, 0, 51, 1, IsCrfMode, "CrfInput", "Workbench.Quality");
-        var video = CaptureNumber(VideoBitrateText, VideoBitrate, 8, 0.1m, 200, 1000000, IsBitrateMode,
+        var capturedQuality = CaptureNumber(QualityText, Quality, Capabilities.DefaultQuality, QualityMinimum, QualityMaximum,
+            1, IsQualityMode, "QualityInput", "Workbench.Quality");
+        var video = CaptureNumber(VideoBitrateText, VideoBitrate, 8, 0.1m, 200, 1000000, IsVideoBitrateActive,
             "VideoBitrateInput", "Workbench.VideoBitrate");
-        var audio = CaptureNumber(AudioBitrateText, AudioBitrate, 192, 32, 512, 1000, IsAacAudio,
+        var audio = CaptureNumber(AudioBitrateText, AudioBitrate, 192, 32, 512, 1000, IsEncodedAudio,
             "AudioBitrateInput", "Workbench.AudioBitrate");
         var settings = new VideoExportSettings
         {
-            Codec = (VideoCodec)Codec,
+            Codec = SelectedCodec,
             EncodingMode = UseHardwareEncoder ? VideoEncodingMode.HARDWARE : VideoEncodingMode.SOFTWARE,
-            RateControlMode = IsCrfMode ? VideoRateControlMode.CRF : BitrateMode == 0 ? VideoRateControlMode.VBR : VideoRateControlMode.CBR,
+            RateControlMode = IsQualityMode ? Capabilities.QualityMode : BitrateMode == 0 ? VideoRateControlMode.VBR : VideoRateControlMode.CBR,
             Preset = EncodingPreset,
-            Crf = quality,
+            Quality = capturedQuality,
             VideoBitrate = video,
             AudioMode = (AudioExportMode)AudioMode,
             AudioBitrate = audio
@@ -277,15 +347,15 @@ public class VideoExportSettingsViewModel : ObservableObject
 
     internal void AcceptSettings(VideoExportSettings settings)
     {
-        if (settings.RateControlMode == VideoRateControlMode.CRF)
+        if (settings.RateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ)
         {
-            Crf = settings.Crf;
+            Quality = settings.Quality;
         }
-        else
+        if (settings.RateControlMode != VideoRateControlMode.CRF)
         {
             VideoBitrate = settings.VideoBitrate / 1000000m;
         }
-        if (settings.AudioMode == AudioExportMode.Aac)
+        if (settings.AudioMode is AudioExportMode.Aac or AudioExportMode.Opus)
         {
             AudioBitrate = settings.AudioBitrate / 1000m;
         }
@@ -298,17 +368,19 @@ public class VideoExportSettingsViewModel : ObservableObject
         refreshingChoices = true;
         try
         {
-            codec = (int)settings.Codec;
+            ChoicesRefreshing?.Invoke(this, EventArgs.Empty);
+            selectedCodec = settings.Codec;
             speed = presetIndex;
             useHardwareEncoder = settings.EncodingMode == VideoEncodingMode.HARDWARE;
-            qualityMode = settings.RateControlMode == VideoRateControlMode.CRF ? 0 : 1;
+            qualityMode = settings.RateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ ? 0 : 1;
             softwareQualityMode = useHardwareEncoder ? softwareQualityMode : qualityMode;
             bitrateMode = settings.RateControlMode == VideoRateControlMode.CBR ? 1 : 0;
             audioMode = (int)settings.AudioMode;
-            CrfText = settings.Crf.ToString(CultureInfo.CurrentCulture);
+            RefreshCodecProperties();
+            QualityText = settings.Quality.ToString(CultureInfo.CurrentCulture);
             VideoBitrateText = (settings.VideoBitrate / 1000000m).ToString(CultureInfo.CurrentCulture);
             AudioBitrateText = (settings.AudioBitrate / 1000m).ToString(CultureInfo.CurrentCulture);
-            Crf = settings.Crf;
+            Quality = settings.Quality;
             VideoBitrate = settings.VideoBitrate / 1000000m;
             AudioBitrate = settings.AudioBitrate / 1000m;
             OnPropertyChanged(nameof(Codec));
@@ -320,14 +392,45 @@ public class VideoExportSettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(QualityMode));
             OnPropertyChanged(nameof(BitrateMode));
             OnPropertyChanged(nameof(AudioMode));
-            OnPropertyChanged(nameof(IsCrfMode));
+            OnPropertyChanged(nameof(IsQualityMode));
             OnPropertyChanged(nameof(IsBitrateMode));
-            OnPropertyChanged(nameof(IsAacAudio));
+            OnPropertyChanged(nameof(IsEncodedAudio));
+        }
+        finally
+        {
+            CompleteChoicesRefresh();
+        }
+    }
+
+    private void CompleteChoicesRefresh()
+    {
+        try
+        {
+            ChoicesRefreshed?.Invoke(this, EventArgs.Empty);
         }
         finally
         {
             refreshingChoices = false;
         }
+    }
+
+    private void RefreshCodecProperties()
+    {
+        RefreshQualityModes();
+        OnPropertyChanged(nameof(SelectedCodec));
+        OnPropertyChanged(nameof(SelectedCodecChoice));
+        OnPropertyChanged(nameof(Codec));
+        OnPropertyChanged(nameof(QualityMinimum));
+        OnPropertyChanged(nameof(QualityMaximum));
+        OnPropertyChanged(nameof(CanUseHardwareEncoder));
+        OnPropertyChanged(nameof(SupportsWebM));
+        OnPropertyChanged(nameof(IsVideoBitrateActive));
+    }
+
+    private void RefreshQualityModes()
+    {
+        QualityModes = [Localization.Get(Capabilities.QualityMode == VideoRateControlMode.CQ
+            ? "Workbench.ConstrainedQuality" : "Workbench.ConstantQuality"), Localization.Get("Workbench.BitrateQuality")];
     }
 
     private static void RequireIndex(int value, int count, string fieldKey)
