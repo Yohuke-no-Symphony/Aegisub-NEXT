@@ -1173,6 +1173,11 @@
     "Workbench.AssetFolders": "文件夹",
     "Workbench.DrawingTools": "绘图工具",
     "Settings.VIEW_DRAWING_TOOLS": "绘图工具",
-    "Layout.drawingTools": "绘图工具"
+    "Layout.drawingTools": "绘图工具",
+    "Workbench.ShapeCornersLinked": "联动四角",
+    "Workbench.ShapeCornerTopLeft": "左上",
+    "Workbench.ShapeCornerTopRight": "右上",
+    "Workbench.ShapeCornerBottomRight": "右下",
+    "Workbench.ShapeCornerBottomLeft": "左下"
   }
 }

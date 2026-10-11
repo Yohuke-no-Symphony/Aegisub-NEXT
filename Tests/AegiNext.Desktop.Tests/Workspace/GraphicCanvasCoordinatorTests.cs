@@ -96,7 +96,8 @@ public sealed class GraphicCanvasCoordinatorTests
         Assert.Null(context.Session.LastError);
         var document = context.Editor.Snapshot;
         var shape = Assert.Single(document.Layers, layer => layer.Kind == LayerKind.SHAPE);
-        Assert.Equal(ShapeKind.ROUNDED_RECTANGLE, shape.Shape!.Kind);
+        Assert.Equal(ShapeKind.RECTANGLE, shape.Shape!.Kind);
+        Assert.Equal(ShapeCornerRadii.Uniform(8), shape.Shape.CornerRadii);
         Assert.Equal(cue.Start, shape.Start);
         Assert.Equal(cue.End, shape.End);
         Assert.Equal(subtitle.TrackId, document.Tracks[0].Id);

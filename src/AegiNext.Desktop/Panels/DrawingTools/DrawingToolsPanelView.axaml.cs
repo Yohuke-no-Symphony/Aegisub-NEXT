@@ -30,7 +30,6 @@ internal sealed partial class DrawingToolsPanelView : UserControl, IWorkbenchPan
         AddTool("CropImageToolButton", "CropImage", CanvasEditMode.CROP);
         AddTool("EditShapePathToolButton", "EditShapePath", CanvasEditMode.SHAPE_PATH);
         AddTool("RectangleToolButton", "Rectangle", CanvasEditMode.CREATE_SHAPE, ShapeKind.RECTANGLE);
-        AddTool("RoundedRectangleToolButton", "RoundedRectangle", CanvasEditMode.CREATE_SHAPE, ShapeKind.ROUNDED_RECTANGLE);
         AddTool("EllipseToolButton", "Ellipse", CanvasEditMode.CREATE_SHAPE, ShapeKind.ELLIPSE);
         AddTool("LineToolButton", "StraightSegment", CanvasEditMode.CREATE_SHAPE, ShapeKind.LINE);
         AddTool("ArrowToolButton", "DrawArrow", CanvasEditMode.CREATE_SHAPE, ShapeKind.ARROW);

@@ -31,7 +31,8 @@ internal sealed class DrawingToolsPanelViewModel : ObservableObject, IDisposable
     public ShapeKind? ActiveShapeKind => ActiveMode switch
     {
         CanvasEditMode.CREATE_PATH => ShapeKind.PATH,
-        CanvasEditMode.CREATE_SHAPE => session.SceneEditing.CreationShapeKind,
+        CanvasEditMode.CREATE_SHAPE => session.SceneEditing.CreationShapeKind == ShapeKind.ROUNDED_RECTANGLE
+            ? ShapeKind.RECTANGLE : session.SceneEditing.CreationShapeKind,
         _ => null
     };
     public bool IsShapePathEditing => ActiveMode == CanvasEditMode.SHAPE_PATH;

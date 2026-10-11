@@ -134,10 +134,7 @@ internal sealed class GraphicCanvasCoordinator
             {
                 return;
             }
-            var shape = new LayerShape(kind, value.Width, value.Height, value.Path)
-            {
-                CornerRadius = kind == ShapeKind.ROUNDED_RECTANGLE ? Math.Min(value.Width, value.Height) * 0.15 : 0
-            };
+            var shape = new LayerShape(kind, value.Width, value.Height, value.Path);
             var layer = new ProjectLayer
             {
                 Kind = LayerKind.SHAPE, Name = Localization.Get("Workbench.Shape" + kind),
@@ -187,7 +184,7 @@ internal sealed class GraphicCanvasCoordinator
         {
             Kind = LayerKind.SHAPE, Name = Localization.Get("Preview.CreateSubtitleBackground"),
             Start = subtitle.Start, End = subtitle.End,
-            Shape = new(ShapeKind.ROUNDED_RECTANGLE, width, height) { CornerRadius = 8 },
+            Shape = new(ShapeKind.RECTANGLE, width, height) { CornerRadii = ShapeCornerRadii.Uniform(8) },
             Transform = new(X: left, Y: top), Fill = new(0, 0, 0, 0.65)
         };
         var result = ProjectEditingOperations.CreateGraphicClip(source, layer, subtitle.TrackId);

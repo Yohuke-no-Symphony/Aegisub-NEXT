@@ -45,11 +45,25 @@ internal sealed partial class WorkbenchSession
     {
         var width = ReadGraphicNumber(vm.Width, original.Width, "Size", "LayerWidthInput", 0.001m, 1000000m);
         var height = ReadGraphicNumber(vm.Height, original.Height, "Size", "LayerHeightInput", 0.001m, 1000000m);
-        var shape = ShapeGeometry.Resize(original, width, height) with { Kind = vm.SelectedKind };
-        if (vm.IsRoundedRectangle)
+        var kind = original.Kind == ShapeKind.ROUNDED_RECTANGLE && vm.SelectedKind == ShapeKind.RECTANGLE
+            ? original.Kind : vm.SelectedKind;
+        var shape = ShapeGeometry.Resize(original, width, height) with { Kind = kind };
+        if (original.Kind == ShapeKind.ROUNDED_RECTANGLE && kind != original.Kind && original.CornerRadii is null)
         {
-            shape = shape with { CornerRadius = ReadGraphicNumber(vm.CornerRadius, original.CornerRadius,
-                "ShapeCornerRadius", "ShapeCornerRadiusInput", 0m, 1000000m) };
+            shape = shape with { CornerRadii = original.EffectiveCornerRadii };
+        }
+        if (vm.IsRectangle)
+        {
+            var corners = original.EffectiveCornerRadii;
+            var edited = new ShapeCornerRadii(
+                ReadGraphicNumber(vm.CornerTopLeft, corners.TopLeft, "ShapeCornerRadius", "ShapeCornerTopLeftInput", 0m, 1000000m),
+                ReadGraphicNumber(vm.CornerTopRight, corners.TopRight, "ShapeCornerRadius", "ShapeCornerTopRightInput", 0m, 1000000m),
+                ReadGraphicNumber(vm.CornerBottomRight, corners.BottomRight, "ShapeCornerRadius", "ShapeCornerBottomRightInput", 0m, 1000000m),
+                ReadGraphicNumber(vm.CornerBottomLeft, corners.BottomLeft, "ShapeCornerRadius", "ShapeCornerBottomLeftInput", 0m, 1000000m));
+            if (edited != corners)
+            {
+                shape = shape with { CornerRadii = edited };
+            }
         }
         if (vm.IsArrow)
         {

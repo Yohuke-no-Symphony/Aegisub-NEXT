@@ -28,6 +28,10 @@ internal sealed partial class WorkbenchSession
             return false;
         }
         var kind = mode == CanvasEditMode.CREATE_SHAPE ? shapeKind ?? SceneEditing.CreationShapeKind : SceneEditing.CreationShapeKind;
+        if (kind == ShapeKind.ROUNDED_RECTANGLE)
+        {
+            kind = ShapeKind.RECTANGLE;
+        }
         if (SceneEditing.Mode == mode && SceneEditing.CreationShapeKind == kind)
         {
             return true;

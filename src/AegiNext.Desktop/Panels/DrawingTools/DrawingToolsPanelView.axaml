@@ -20,7 +20,6 @@
       <common:ToolbarToggleButton Name="EditShapePathToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.EditShapePath}" AutomationProperties.Name="{Loc Key=Preview.EditShapePath}" />
       <Border Classes="tool-divider" />
       <common:ToolbarToggleButton Name="RectangleToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateRectangle}" AutomationProperties.Name="{Loc Key=Preview.CreateRectangle}" />
-      <common:ToolbarToggleButton Name="RoundedRectangleToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateRoundedRectangle}" AutomationProperties.Name="{Loc Key=Preview.CreateRoundedRectangle}" />
       <common:ToolbarToggleButton Name="EllipseToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateEllipse}" AutomationProperties.Name="{Loc Key=Preview.CreateEllipse}" />
       <common:ToolbarToggleButton Name="LineToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateLine}" AutomationProperties.Name="{Loc Key=Preview.CreateLine}" />
       <common:ToolbarToggleButton Name="ArrowToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreateArrow}" AutomationProperties.Name="{Loc Key=Preview.CreateArrow}" />

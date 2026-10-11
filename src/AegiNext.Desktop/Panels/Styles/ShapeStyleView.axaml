@@ -17,10 +17,31 @@
       <controls:VectorDraftInput Name="ShapeSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput"
           XTextBinding="{Binding Width.RawText, Mode=TwoWay}" YTextBinding="{Binding Height.RawText, Mode=TwoWay}"
           XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="0.001" Maximum="1000000" />
-      <StackPanel Spacing="8" IsVisible="{Binding IsRoundedRectangle}">
-        <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeCornerRadiusInput}" Text="{Loc Key=Workbench.ShapeCornerRadius}" />
-        <controls:NumericDraftInput Name="ShapeCornerRadiusInput" RawText="{Binding CornerRadius.RawText, Mode=TwoWay}"
-            Value="{Binding CornerRadius.Value, Mode=TwoWay}" Minimum="0" Maximum="1000000" />
+      <StackPanel Spacing="8" IsVisible="{Binding IsRectangle}">
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.ShapeCornerRadius}" />
+        <CheckBox Name="ShapeCornersLinkedInput" Content="{Loc Key=Workbench.ShapeCornersLinked}" IsChecked="{Binding CornersLinked, Mode=TwoWay}" />
+        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+          <StackPanel Grid.Row="0" Grid.Column="0" Spacing="4">
+            <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeCornerTopLeftInput}" Text="{Loc Key=Workbench.ShapeCornerTopLeft}" />
+            <controls:NumericDraftInput Name="ShapeCornerTopLeftInput" RawText="{Binding CornerTopLeft.RawText, Mode=TwoWay}"
+                Value="{Binding CornerTopLeft.Value, Mode=TwoWay}" Minimum="0" Maximum="1000000" />
+          </StackPanel>
+          <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+            <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeCornerTopRightInput}" Text="{Loc Key=Workbench.ShapeCornerTopRight}" />
+            <controls:NumericDraftInput Name="ShapeCornerTopRightInput" RawText="{Binding CornerTopRight.RawText, Mode=TwoWay}"
+                Value="{Binding CornerTopRight.Value, Mode=TwoWay}" Minimum="0" Maximum="1000000" />
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="0" Spacing="4">
+            <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeCornerBottomLeftInput}" Text="{Loc Key=Workbench.ShapeCornerBottomLeft}" />
+            <controls:NumericDraftInput Name="ShapeCornerBottomLeftInput" RawText="{Binding CornerBottomLeft.RawText, Mode=TwoWay}"
+                Value="{Binding CornerBottomLeft.Value, Mode=TwoWay}" Minimum="0" Maximum="1000000" />
+          </StackPanel>
+          <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+            <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeCornerBottomRightInput}" Text="{Loc Key=Workbench.ShapeCornerBottomRight}" />
+            <controls:NumericDraftInput Name="ShapeCornerBottomRightInput" RawText="{Binding CornerBottomRight.RawText, Mode=TwoWay}"
+                Value="{Binding CornerBottomRight.Value, Mode=TwoWay}" Minimum="0" Maximum="1000000" />
+          </StackPanel>
+        </Grid>
       </StackPanel>
       <StackPanel Spacing="8" IsVisible="{Binding IsArrow}">
         <controls:NumericDragLabel Classes="field" Input="{Binding #ShapeArrowHeadInput}" Text="{Loc Key=Workbench.ShapeArrowHead}" />

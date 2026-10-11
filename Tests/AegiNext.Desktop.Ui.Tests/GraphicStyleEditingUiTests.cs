@@ -14,6 +14,145 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class GraphicStyleEditingUiTests
 {
     [AvaloniaFact]
+    public async Task LinkedCornerTextEscapeRemovesAllPropagationBeforeFocusCanCommit()
+    {
+        await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
+        var layer = new ProjectLayer
+        {
+            Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 100, 80) { CornerRadii = ShapeCornerRadii.Uniform(10) }
+        };
+        var source = new ProjectDocument { Layers = [layer] };
+        context.Session.Editor.Reset(source);
+        context.Session.SelectLayer(layer.Id, [layer.Id]);
+        var panel = new StylesPanelView(context.ViewModel.Styles, context.Session);
+        var window = new Window { Width = 390, Height = 900, Content = panel };
+        try
+        {
+            window.Show();
+            var model = context.ViewModel.Styles.Shape;
+            Type(window, UiTestActions.Find<NumericDraftInput>(panel, "ShapeCornerTopLeftInput"), "20");
+            Assert.Equal("20", model.CornerBottomRight.RawText);
+            window.KeyTextInput("e-");
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("20e-", model.CornerTopLeft.RawText);
+            UiTestActions.Press(window, Key.Escape);
+            Assert.Equal("10", model.CornerTopLeft.RawText);
+            Assert.Equal("10", model.CornerTopRight.RawText);
+            Assert.Equal("10", model.CornerBottomRight.RawText);
+            Assert.Equal("10", model.CornerBottomLeft.RawText);
+            UiTestActions.Click(window, "ShapeCornersLinkedInput");
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(context.Session.TryCommitDrafts(false));
+            Assert.Same(source, context.Session.DocumentSnapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+        }
+        finally
+        {
+            context.ViewModel.Styles.Shape.RestoreField("ShapeCornerTopLeftInput");
+            window.Close();
+            panel.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task LinkedCornerTitleDragRestoresAllRawTextsOnEscapeAndCommitsOneUndoOnRelease()
+    {
+        await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
+        var layer = new ProjectLayer
+        {
+            Kind = LayerKind.SHAPE, Shape = new(ShapeKind.ROUNDED_RECTANGLE, 100, 80) { CornerRadius = 10 }
+        };
+        var source = new ProjectDocument { Layers = [layer] };
+        context.Session.Editor.Reset(source);
+        context.Session.SelectLayer(layer.Id, [layer.Id]);
+        var panel = new StylesPanelView(context.ViewModel.Styles, context.Session);
+        var window = new Window { Width = 390, Height = 900, Content = panel };
+        try
+        {
+            window.Show();
+            var model = context.ViewModel.Styles.Shape;
+            Assert.Equal(0, UiTestActions.Find<ComboBox>(panel, "ShapeTypeInput").SelectedIndex);
+            Assert.True(model.CornersLinked);
+            using (context.Session.BeginWorkbenchUpdate())
+            {
+                model.CornerTopLeft.RawText = "10.0000";
+                model.CornerTopRight.RawText = "10.000";
+                model.CornerBottomRight.RawText = "10.00";
+                model.CornerBottomLeft.RawText = "10.0";
+            }
+            var corner = UiTestActions.Find<NumericDraftInput>(panel, "ShapeCornerTopLeftInput");
+            var end = BeginDrag(window, corner);
+            Assert.True(corner.IsTitleDragging);
+            Assert.Equal("22", model.CornerBottomLeft.RawText);
+            UiTestActions.Press(window, Key.Escape);
+            window.MouseUp(end, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("10.0000", model.CornerTopLeft.RawText);
+            Assert.Equal("10.000", model.CornerTopRight.RawText);
+            Assert.Equal("10.00", model.CornerBottomRight.RawText);
+            Assert.Equal("10.0", model.CornerBottomLeft.RawText);
+            Assert.Same(source, context.Session.DocumentSnapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+
+            end = BeginDrag(window, corner);
+            window.MouseUp(end, MouseButton.Left);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(ShapeCornerRadii.Uniform(22), context.Session.SelectedLayer!.Shape!.CornerRadii);
+            Assert.True(context.Session.Editor.Undo());
+            Assert.Same(source, context.Session.DocumentSnapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+        }
+        finally
+        {
+            window.Close();
+            panel.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task IndependentCornersKeepInvalidTextAndRestoreOnlyTheFocusedField()
+    {
+        await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
+        var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 100, 80) };
+        var source = new ProjectDocument { Layers = [layer] };
+        context.Session.Editor.Reset(source);
+        context.Session.SelectLayer(layer.Id, [layer.Id]);
+        var panel = new StylesPanelView(context.ViewModel.Styles, context.Session);
+        var window = new Window { Width = 390, Height = 900, Content = panel };
+        try
+        {
+            window.Show();
+            UiTestActions.Click(window, "ShapeCornersLinkedInput");
+            var model = context.ViewModel.Styles.Shape;
+            Assert.False(model.CornersLinked);
+            Assert.False(context.Session.HasProjectDrafts);
+            Type(window, UiTestActions.Find<NumericDraftInput>(panel, "ShapeCornerTopLeftInput"), "7e-");
+            model.CornerBottomRight.RawText = "9";
+            Assert.False(context.Session.TryCommitDrafts(false));
+            Assert.Equal("7e-", model.CornerTopLeft.RawText);
+            Assert.Same(source, context.Session.DocumentSnapshot);
+            UiTestActions.Press(window, Key.Escape);
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal("0", model.CornerTopLeft.RawText);
+            Assert.Equal("9", model.CornerBottomRight.RawText);
+            Assert.True(context.Session.TryCommitDrafts(false));
+            Assert.Equal(new ShapeCornerRadii(0, 0, 9, 0), context.Session.SelectedLayer!.Shape!.CornerRadii);
+            Assert.True(context.Session.Editor.Undo());
+            Assert.Same(source, context.Session.DocumentSnapshot);
+            Assert.False(context.Session.Editor.CanUndo);
+        }
+        finally
+        {
+            context.ViewModel.Styles.Shape.RestoreField("ShapeCornerTopLeftInput");
+            window.Close();
+            panel.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task LinkedImageTitleDragRestoresBothOriginalTextsOnEscapeAndCommitsOneUndoOnRelease()
     {
         await using var context = new MainWindowTestContext();
@@ -129,10 +268,10 @@ public sealed class GraphicStyleEditingUiTests
             Assert.False(context.Session.HasProjectDrafts);
             context.Session.SelectLayer(shape.Id, [shape.Id]);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(4, UiTestActions.Find<ComboBox>(panel, "ShapeTypeInput").SelectedIndex);
+            Assert.Equal(3, UiTestActions.Find<ComboBox>(panel, "ShapeTypeInput").SelectedIndex);
             context.Session.UpdatePreferences(context.Session.Preferences with { Language = "zh-CN" });
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(4, UiTestActions.Find<ComboBox>(panel, "ShapeTypeInput").SelectedIndex);
+            Assert.Equal(3, UiTestActions.Find<ComboBox>(panel, "ShapeTypeInput").SelectedIndex);
             Assert.Equal(ShapeKind.ARROW, context.Session.SelectedLayer!.Shape!.Kind);
             Assert.False(context.Session.HasProjectDrafts);
         }

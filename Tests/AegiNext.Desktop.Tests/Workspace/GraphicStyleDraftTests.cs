@@ -96,7 +96,7 @@ public sealed class GraphicStyleDraftTests
         await context.InitializeAsync();
         context.Session.SelectLayer(layer.Id, [layer.Id]);
         var model = context.Session.ViewModel.Styles.Shape;
-        model.ShapeType = 4;
+        model.ShapeType = 3;
         model.ArrowHead.RawText = "100";
         model.ArrowShaft.RawText = "40";
         Assert.False(context.Session.TryCommitDrafts(false));
