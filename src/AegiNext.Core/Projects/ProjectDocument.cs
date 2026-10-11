@@ -6,7 +6,7 @@ namespace AegiNext.Core.Projects;
 /// <summary>AegiNext 不可变工程快照；所有边界通过 ProjectValidator 验证。</summary>
 public sealed record ProjectDocument
 {
-    public const int CURRENT_VERSION = 13;
+    public const int CURRENT_VERSION = 14;
     public int Version { get; init; } = CURRENT_VERSION;
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get; init; } = "Untitled";
@@ -16,6 +16,7 @@ public sealed record ProjectDocument
     public double ReferenceWhiteNits { get; init; } = 203;
     public ProjectMediaBinding? Media { get; init; }
     public ImmutableArray<ProjectAsset> Assets { get; init; } = [];
+    public ProjectAssetLibrary AssetLibrary { get; init; } = new();
     public ImmutableArray<ProjectTrack> Tracks { get; init; } = [ProjectTrack.Default];
     public ImmutableArray<SubtitleLine> Subtitles { get; init; } = [];
     public ImmutableArray<SubtitleColorTag> ColorTags { get; init; } = [];

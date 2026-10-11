@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace AegiNext.Core.Projects;
 
 /// <summary>工程边界校验；无效快照在进入编辑历史、渲染或持久化前整体拒绝。</summary>
-public static class ProjectValidator
+public static partial class ProjectValidator
 {
     /// <summary>验证版本、资源引用、轨道片段、关键帧与文本区间，不修改输入。</summary>
     public static void Validate(ProjectDocument document, bool enforceAnimationRange = true)
@@ -30,10 +30,12 @@ public static class ProjectValidator
             NotNull(asset, "数据项不能为 null。");
             Require(asset.Id != Guid.Empty && assets.TryAdd(asset.Id, asset), "资源标识为空或重复。");
             Require(Enum.IsDefined(asset.Kind), "未知资源类型。");
+            Require(Enum.IsDefined(asset.Storage) && (asset.Kind != ProjectAssetKind.FONT || asset.Storage == ProjectAssetStorage.MANAGED),
+                "资源存储方式无效。");
             if (asset.ExternalPath is { } external)
             {
-                Require(asset.Kind == ProjectAssetKind.MEDIA && asset.RelativePath == string.Empty &&
-                    ProjectAssetLocation.IsAbsoluteReference(external), "只有媒体允许本机绝对外部引用。");
+                Require((asset.Kind == ProjectAssetKind.MEDIA || asset.Kind == ProjectAssetKind.IMAGE && asset.Storage == ProjectAssetStorage.LINKED) &&
+                    asset.RelativePath == string.Empty && ProjectAssetLocation.IsAbsoluteReference(external), "仅媒体和链接图片允许绝对外部引用。");
             }
             else
             {
@@ -41,6 +43,8 @@ public static class ProjectValidator
             }
             Require(asset.Sha256 is null || asset.Sha256.Length == 64 && asset.Sha256.All(Uri.IsHexDigit), "资源哈希无效。");
         }
+
+        ValidateAssetLibrary(document.AssetLibrary, assets);
 
         if (document.Media is { } media)
         {
@@ -345,14 +349,7 @@ public static class ProjectValidator
 
         if (layer.Shape is { } shape)
         {
-            Require(Enum.IsDefined(shape.Kind), "未知形状。");
-            Number(shape.Width, 0.001, 1e6, "形状宽度");
-            Number(shape.Height, 0.001, 1e6, "形状高度");
-            Require((shape.Kind == ShapeKind.PATH) == (shape.Path is not null), "路径形状缺少路径或其他形状含多余路径。");
-            if (shape.Path is { } geometry)
-            {
-                Path(geometry);
-            }
+            ValidateLayerShape(shape);
         }
 
         if (layer.Image is { } image)
@@ -361,6 +358,12 @@ public static class ProjectValidator
             Number(image.Width, 0.001, 1e6, "图片宽度");
             Number(image.Height, 0.001, 1e6, "图片高度");
             Require(Enum.IsDefined(image.Fit), "未知图片适配方式。");
+            ValidateImageCrop(image.Crop);
+            if (image.Playback is { } playback)
+            {
+                Require(Enum.IsDefined(playback.Mode) && double.IsFinite(playback.Speed) && playback.Speed > 0,
+                    "图片播放模式或速度无效。");
+            }
         }
 
     }

@@ -42,14 +42,15 @@ public static class ProjectAssetLocation
         ArgumentException.ThrowIfNullOrWhiteSpace(projectDirectory);
         if (asset.ExternalPath is { } external)
         {
-            if (asset.Kind != ProjectAssetKind.MEDIA || asset.RelativePath != string.Empty || !IsAbsoluteReference(external))
+            if (!(asset.Kind == ProjectAssetKind.MEDIA || asset.Kind == ProjectAssetKind.IMAGE && asset.Storage == ProjectAssetStorage.LINKED) ||
+                asset.RelativePath != string.Empty || !IsAbsoluteReference(external))
             {
-                throw new InvalidDataException("非法外部媒体资源。");
+                throw new InvalidDataException("非法外部资源引用。");
             }
 
             if (!Path.IsPathFullyQualified(external))
             {
-                throw new NotSupportedException("外部媒体路径属于其他平台，请重新绑定媒体。");
+                throw new NotSupportedException("外部资源路径属于其他平台，请重新定位资源。");
             }
 
             return Path.GetFullPath(external);

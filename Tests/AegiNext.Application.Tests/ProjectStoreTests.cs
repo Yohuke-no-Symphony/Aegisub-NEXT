@@ -113,10 +113,10 @@ public sealed class ProjectStoreTests
     }
 
     [Theory]
-    [InlineData("\"version\": 13", "\"version\": 99")]
-    [InlineData("\"version\": 13,", "")]
-    [InlineData("\"version\": 13,", "\"version\": 13, \"version\": 13,")]
-    [InlineData("\"version\": 13,", "\"version\": 13, \"unknown\": 0,")]
+    [InlineData("\"version\": 14", "\"version\": 99")]
+    [InlineData("\"version\": 14,", "")]
+    [InlineData("\"version\": 14,", "\"version\": 14, \"version\": 14,")]
+    [InlineData("\"version\": 14,", "\"version\": 14, \"unknown\": 0,")]
     [InlineData("\"width\": 1920", "\"width\": 0")]
     public void UnsupportedMissingDuplicateAndUnknownDataIsRejected(string find, string replacement)
     {

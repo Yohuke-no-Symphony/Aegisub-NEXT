@@ -56,6 +56,8 @@ public static partial class ProjectEditingOperations
         var layers = document.Layers.ToBuilder();
         var presets = document.Presets.ToBuilder();
         var colorTags = document.ColorTags.ToBuilder();
+        var assetFolders = document.AssetLibrary.Folders.ToBuilder();
+        var assetItems = document.AssetLibrary.Items.ToBuilder();
         var importedTrackIds = ImmutableArray.CreateBuilder<Guid>();
         var importedLayerIds = ImmutableArray.CreateBuilder<Guid>();
         var importedSubtitleIds = ImmutableArray.CreateBuilder<Guid>();
@@ -92,6 +94,25 @@ public static partial class ProjectEditingOperations
                 {
                     reusableAssets.Add(newKey, id);
                 }
+            }
+
+            var folderIds = source.Document.AssetLibrary.Folders.ToDictionary(folder => folder.Id, _ => NewMergeId(reservedIds));
+            foreach (var folder in source.Document.AssetLibrary.Folders)
+            {
+                assetFolders.Add(folder with
+                {
+                    Id = folderIds[folder.Id],
+                    ParentId = folder.ParentId is { } parentId ? folderIds[parentId] : null
+                });
+            }
+            foreach (var item in source.Document.AssetLibrary.Items)
+            {
+                assetItems.Add(item with
+                {
+                    Id = NewMergeId(reservedIds),
+                    AssetId = assetIds[item.AssetId],
+                    FolderId = item.FolderId is { } folderId ? folderIds[folderId] : null
+                });
             }
 
             var sourceTracks = ImmutableArray.CreateBuilder<ProjectTrack>();
@@ -151,6 +172,7 @@ public static partial class ProjectEditingOperations
         {
             Assets = assets.ToImmutable(), Tracks = tracks.ToImmutable(), Subtitles = subtitles.ToImmutable(),
             Layers = layers.ToImmutable(), Presets = presets.ToImmutable(),
+            AssetLibrary = document.AssetLibrary with { Folders = assetFolders.ToImmutable(), Items = assetItems.ToImmutable() },
             ColorTags = colorTags.Count == document.ColorTags.Length ? document.ColorTags : colorTags.ToImmutable()
         };
         ProjectValidator.Validate(merged);
@@ -160,6 +182,7 @@ public static partial class ProjectEditingOperations
     private static Guid[] CollectMergeAssetIds(ProjectDocument document)
     {
         var ids = new HashSet<Guid>();
+        ids.UnionWith(document.AssetLibrary.Items.Select(item => item.AssetId));
         foreach (var track in document.Tracks)
         {
             if (track.DefaultStyle?.FontAssetId is { } fontId)
@@ -200,6 +223,8 @@ public static partial class ProjectEditingOperations
         var subtitles = (long)document.Subtitles.Length;
         var layers = (long)document.Layers.Length;
         var presets = (long)document.Presets.Length;
+        var assetFolders = (long)document.AssetLibrary.Folders.Length;
+        var assetItems = (long)document.AssetLibrary.Items.Length;
         var assetKeys = new HashSet<(ProjectAssetKind Kind, string Hash, string Path)>();
         foreach (var asset in document.Assets)
         {
@@ -210,6 +235,12 @@ public static partial class ProjectEditingOperations
         }
         foreach (var source in sources)
         {
+            assetFolders += source.Document.AssetLibrary.Folders.Length;
+            assetItems += source.Document.AssetLibrary.Items.Length;
+            if (assetFolders > 10000 || assetItems > 10000)
+            {
+                throw new InvalidDataException("合并后的素材库超过数量限制。");
+            }
             var dependencies = CollectMergeAssetIds(source.Document).ToHashSet();
             foreach (var asset in source.Document.Assets.Where(asset => dependencies.Contains(asset.Id)))
             {
@@ -232,7 +263,7 @@ public static partial class ProjectEditingOperations
 
     private static (ProjectAssetKind Kind, string Hash, string Path)? GetMergeAssetKey(ProjectAsset asset)
     {
-        return asset.Kind is ProjectAssetKind.FONT or ProjectAssetKind.IMAGE && asset.Sha256 is { } hash
+        return asset.Kind is ProjectAssetKind.FONT or ProjectAssetKind.IMAGE && asset.Storage == ProjectAssetStorage.MANAGED && asset.Sha256 is { } hash
             ? (asset.Kind, hash.ToUpperInvariant(), asset.RelativePath) : null;
     }
 
@@ -290,6 +321,8 @@ public static partial class ProjectEditingOperations
     {
         ids.Add(document.Id);
         ids.UnionWith(document.Assets.Select(asset => asset.Id));
+        ids.UnionWith(document.AssetLibrary.Folders.Select(folder => folder.Id));
+        ids.UnionWith(document.AssetLibrary.Items.Select(item => item.Id));
         ids.UnionWith(document.Tracks.Select(track => track.Id));
         ids.UnionWith(document.ColorTags.Select(tag => tag.Id));
         foreach (var line in document.Subtitles)

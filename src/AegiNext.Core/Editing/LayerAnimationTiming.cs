@@ -48,6 +48,8 @@ public static class LayerAnimationTiming
             End = end,
             AnimationOffset = mode == TimelineEditMode.CROP ? layer.AnimationOffset + start - layer.Start :
                 Scale(layer.AnimationOffset, newDuration, oldDuration),
+            Image = mode == TimelineEditMode.CROP && layer.Image is { Playback: { } playback } image
+                ? image with { Playback = ImagePlaybackTiming.Crop(playback, start - layer.Start) } : layer.Image,
             Tracks = mode == TimelineEditMode.CROP ? layer.Tracks : layer.Tracks.Select(track => track with
             {
                 Keyframes = track.Keyframes.Select(frame => frame with { Time = Scale(frame.Time, newDuration, oldDuration) }).ToImmutableArray(),

@@ -5,5 +5,8 @@ public enum ShapeKind
 {
     RECTANGLE,
     ELLIPSE,
-    PATH
+    PATH,
+    ROUNDED_RECTANGLE,
+    LINE,
+    ARROW
 }
