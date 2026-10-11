@@ -105,6 +105,7 @@
     "Workbench.Layers": "图层",
     "Workbench.Font": "字体",
     "Workbench.Size": "字号",
+    "Workbench.GraphicSize": "尺寸",
     "Workbench.ImportFont": "导入字体",
     "Workbench.Fonts": "字体文件",
     "Workbench.SplitCaret": "先在字幕文字中定位拆分位置。",

@@ -8,7 +8,7 @@
         <Button Name="ImageMatchSubtitleTimingButton" Margin="0,0,0,4" Content="{Loc Key=Workbench.MatchSubtitleTiming}"
                 ToolTip.Tip="{Loc Key=Workbench.MatchSubtitleTimingHint}" Command="{Binding MatchSubtitleTimingCommand}" IsEnabled="{Binding CanMatchSubtitleTiming}" />
       </WrapPanel>
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.Size}" />
+      <TextBlock Classes="field" Text="{Loc Key=Workbench.GraphicSize}" />
       <controls:VectorDraftInput Name="ImageSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput"
           XTextBinding="{Binding Width.RawText, Mode=TwoWay}" YTextBinding="{Binding Height.RawText, Mode=TwoWay}"
           XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="0.001" Maximum="1000000" />
@@ -20,22 +20,21 @@
           <DataTemplate x:DataType="styles:GraphicStyleChoice"><TextBlock Text="{Binding Label}" /></DataTemplate>
         </ComboBox.ItemTemplate>
       </ComboBox>
-      <Expander Header="{Loc Key=Workbench.ImageCrop}" HorizontalAlignment="Stretch">
-        <StackPanel Spacing="8">
-          <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropPosition}" />
-          <controls:VectorDraftInput Name="ImageCropPositionInput" XFieldKey="ImageCropXInput" YFieldKey="ImageCropYInput"
-              XTextBinding="{Binding CropX.RawText, Mode=TwoWay}" YTextBinding="{Binding CropY.RawText, Mode=TwoWay}"
-              XBinding="{Binding CropX.Value, Mode=TwoWay}" YBinding="{Binding CropY.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
-          <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropSize}" />
-          <controls:VectorDraftInput Name="ImageCropSizeInput" XFieldKey="ImageCropWidthInput" YFieldKey="ImageCropHeightInput"
-              XTextBinding="{Binding CropWidth.RawText, Mode=TwoWay}" YTextBinding="{Binding CropHeight.RawText, Mode=TwoWay}"
-              XBinding="{Binding CropWidth.Value, Mode=TwoWay}" YBinding="{Binding CropHeight.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
-          <WrapPanel>
-            <Button Name="ImageEditCropButton" Margin="0,0,6,0" Content="{Loc Key=Workbench.EditCropOnCanvas}" Command="{Binding EditCropCommand}" />
-            <Button Name="ImageResetCropButton" Content="{Loc Key=Workbench.ResetCrop}" Command="{Binding ResetCropCommand}" />
-          </WrapPanel>
-        </StackPanel>
-      </Expander>
+      <TextBlock Classes="field" Margin="0,8,0,0" Text="{Loc Key=Workbench.ImageCrop}" />
+      <StackPanel Spacing="8">
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropPosition}" />
+        <controls:VectorDraftInput Name="ImageCropPositionInput" XFieldKey="ImageCropXInput" YFieldKey="ImageCropYInput"
+            XTextBinding="{Binding CropX.RawText, Mode=TwoWay}" YTextBinding="{Binding CropY.RawText, Mode=TwoWay}"
+            XBinding="{Binding CropX.Value, Mode=TwoWay}" YBinding="{Binding CropY.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.ImageCropSize}" />
+        <controls:VectorDraftInput Name="ImageCropSizeInput" XFieldKey="ImageCropWidthInput" YFieldKey="ImageCropHeightInput"
+            XTextBinding="{Binding CropWidth.RawText, Mode=TwoWay}" YTextBinding="{Binding CropHeight.RawText, Mode=TwoWay}"
+            XBinding="{Binding CropWidth.Value, Mode=TwoWay}" YBinding="{Binding CropHeight.Value, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.1" />
+        <WrapPanel>
+          <Button Name="ImageEditCropButton" Margin="0,0,6,0" Content="{Loc Key=Workbench.EditCropOnCanvas}" Command="{Binding EditCropCommand}" />
+          <Button Name="ImageResetCropButton" Content="{Loc Key=Workbench.ResetCrop}" Command="{Binding ResetCropCommand}" />
+        </WrapPanel>
+      </StackPanel>
       <CheckBox Name="ImageAnimationEnabledInput" Content="{Loc Key=Workbench.ImagePlaybackEnabled}" IsChecked="{Binding AnimationEnabled, Mode=TwoWay}" />
       <StackPanel Spacing="8" IsVisible="{Binding AnimationEnabled}">
         <TextBlock Classes="field" Text="{Loc Key=Workbench.ImagePlaybackMode}" />

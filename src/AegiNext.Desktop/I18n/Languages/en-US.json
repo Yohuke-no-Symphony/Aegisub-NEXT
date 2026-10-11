@@ -105,6 +105,7 @@
     "Workbench.Layers": "Layers",
     "Workbench.Font": "Font",
     "Workbench.Size": "Size",
+    "Workbench.GraphicSize": "Dimensions",
     "Workbench.ImportFont": "Import font",
     "Workbench.Fonts": "Font files",
     "Workbench.SplitCaret": "Place the caret at the text split first.",

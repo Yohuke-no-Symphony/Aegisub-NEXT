@@ -13,7 +13,7 @@
           </ComboBox.ItemTemplate>
         </ComboBox>
       </StackPanel>
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.Size}" />
+      <TextBlock Classes="field" Text="{Loc Key=Workbench.GraphicSize}" />
       <controls:VectorDraftInput Name="ShapeSizeInput" XFieldKey="LayerWidthInput" YFieldKey="LayerHeightInput"
           XTextBinding="{Binding Width.RawText, Mode=TwoWay}" YTextBinding="{Binding Height.RawText, Mode=TwoWay}"
           XBinding="{Binding Width.Value, Mode=TwoWay}" YBinding="{Binding Height.Value, Mode=TwoWay}" Minimum="0.001" Maximum="1000000" />
