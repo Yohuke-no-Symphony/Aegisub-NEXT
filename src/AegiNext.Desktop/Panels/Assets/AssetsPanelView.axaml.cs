@@ -278,7 +278,7 @@ internal sealed partial class AssetsPanelView : UserControl, IWorkbenchPanelView
         }
         CancelGestures();
         using var data = new DataTransfer();
-        data.Add(DataTransferItem.Create(AssetDragPayload.Format, payload));
+        data.Add(payload.CreateTransferItem());
         await DragDrop.DoDragDropAsync(start, data, payload.IsFolder ? DragDropEffects.Move : DragDropEffects.Copy | DragDropEffects.Move);
     }
     private void OnDragOver(object? sender, DragEventArgs e)
