@@ -699,6 +699,8 @@
     "Workbench.ClipMask": "Clip 蒙版",
     "Workbench.MaskRectangle": "矩形",
     "Workbench.MaskEdit": "编辑蒙版",
+    "Workbench.MaskSnap": "自动吸附",
+    "Workbench.MaskSnapHint": "自动吸附到当前字幕的四边和宽高中心线。",
     "Workbench.MaskVectorGesture": "点击添加节点，拖动创建控制柄。点击首节点或按 Enter 闭合；Alt 拖动节点编辑出柄，Alt+Shift 编辑入柄。",
     "Workbench.MaskVector": "贝塞尔",
     "Workbench.MaskAddContour": "添加轮廓",

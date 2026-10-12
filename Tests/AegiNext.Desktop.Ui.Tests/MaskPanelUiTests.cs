@@ -201,7 +201,7 @@ public sealed class MaskPanelUiTests
             Assert.DoesNotContain(panel.GetVisualDescendants(), control => control is Expander);
             var toolbar = UiTestActions.Find<WrapPanel>(context.Window, "MaskToolbar");
             var buttons = toolbar.GetVisualDescendants().OfType<Button>().Where(button => button.IsEffectivelyVisible).ToArray();
-            Assert.Equal(8, buttons.Length);
+            Assert.Equal(9, buttons.Length);
             Assert.All(buttons, button =>
             {
                 Assert.Equal(button.Bounds.Width, button.Bounds.Height, 6);

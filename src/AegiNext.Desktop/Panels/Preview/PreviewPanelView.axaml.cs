@@ -277,6 +277,10 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         {
             ApplyScene();
         }
+        else if (e.PropertyName == nameof(PreviewPanelViewModel.IsMaskSnapEnabled))
+        {
+            canvas.IsMaskSnapEnabled = viewModel.IsMaskSnapEnabled;
+        }
         else if (e.PropertyName is nameof(PreviewPanelViewModel.IsPlaying) or nameof(PreviewPanelViewModel.IsMuted))
         {
             ApplyTransportIcons();
@@ -295,6 +299,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         canvas.InteractivePreview = scene.IsInteractive;
         canvas.PlaybackActive = viewModel.IsPlaying;
         canvas.CreationShapeKind = scene.CreationShapeKind;
+        canvas.IsMaskSnapEnabled = viewModel.IsMaskSnapEnabled;
         canvas.EditMode = scene.Mode;
         canvas.MaskSelectedNodeId = session.SceneEditing.MaskNodeId;
         canvas.SetScene(scene.Document, scene.SelectedLayer, scene.Position, scene.AssetDirectory, scene.IsEditingPose);

@@ -140,37 +140,7 @@ public sealed partial class EffectCanvasControl
         return [];
     }
 
-    private StreamGeometry MaskGeometry(ClipMask mask)
-    {
-        var geometry = new StreamGeometry();
-        var matrix = MaskMatrix(mask);
-        using var stream = geometry.Open();
-        stream.SetFillRule(FillRule.NonZero);
-        if (mask is RectangleClipMask rectangle)
-        {
-            stream.BeginFigure(MaskPoint(rectangle.TopLeft) * matrix, true);
-            stream.LineTo(new Point(rectangle.BottomRight.X, rectangle.TopLeft.Y) * matrix);
-            stream.LineTo(MaskPoint(rectangle.BottomRight) * matrix);
-            stream.LineTo(new Point(rectangle.TopLeft.X, rectangle.BottomRight.Y) * matrix);
-            stream.EndFigure(true);
-        }
-        else if (mask is VectorClipMask vector)
-        {
-            foreach (var contour in vector.Contours.Where(contour => !contour.Nodes.IsEmpty))
-            {
-                stream.BeginFigure(MaskPoint(contour.Nodes[0].Position) * matrix, true);
-                for (var index = 0; index < contour.Nodes.Length; index++)
-                {
-                    var first = contour.Nodes[index];
-                    var next = contour.Nodes[(index + 1) % contour.Nodes.Length];
-                    stream.CubicBezierTo(MaskPoint(Add(first.Position, first.OutHandle)) * matrix,
-                        MaskPoint(Add(next.Position, next.InHandle)) * matrix, MaskPoint(next.Position) * matrix);
-                }
-                stream.EndFigure(true);
-            }
-        }
-        return geometry;
-    }
+    private StreamGeometry MaskGeometry(ClipMask mask) => MaskCanvasGeometry.Create(mask, MaskMatrix(mask));
 
     private void DrawClipMask(DrawingContext context)
     {
@@ -234,13 +204,19 @@ public sealed partial class EffectCanvasControl
             context.DrawRectangle(new SolidColorBrush(Color.FromArgb(192, 16, 20, 26)), null, rectangle, 2, 2);
             layout.Draw(context, WorkbenchTextFormatting.CenteredOrigin(layout, rectangle.Deflate(new Thickness(3, 0))));
         }
+        DrawMaskSnapGuides(context);
     }
 
     private bool StartMaskGesture()
     {
         var starting = new CanvasGestureStartingEventArgs();
         MaskGestureStarting?.Invoke(this, starting);
-        return !starting.Cancel;
+        if (starting.Cancel)
+        {
+            return false;
+        }
+        BeginMaskSnapping();
+        return true;
     }
 
     private void MaskPointerPressed(PointerPressedEventArgs e)
@@ -305,7 +281,6 @@ public sealed partial class EffectCanvasControl
             }
         }
         var creationMatrix = existingMask is VectorClipMask ? MaskMatrix(existingMask) : Fit();
-        var engineering = creationMatrix.TryInvert(out var creationInverse) ? point * creationInverse : point * inverseFit;
         if (EditMode == CanvasEditMode.MASK_DRAW_VECTOR || EditMode == CanvasEditMode.MASK_VECTOR && selected.Mask is null)
         {
             if (ClipMaskAnimation.IsTopologyLocked(selected))
@@ -322,6 +297,8 @@ public sealed partial class EffectCanvasControl
             {
                 return;
             }
+            var snapped = SnapMaskPoint(point);
+            var engineering = creationMatrix.TryInvert(out var creationInverse) ? snapped * creationInverse : snapped * inverseFit;
             openContourId ??= Guid.NewGuid();
             openContour = openContour.Add(new() { Position = new(engineering.X, engineering.Y) });
             dragStart = point;
@@ -365,6 +342,10 @@ public sealed partial class EffectCanvasControl
         maskHandle = hit;
         creatingRectangle = hit is null && !inside;
         maskDraft = mask;
+        if (creatingRectangle)
+        {
+            maskRectangleStart = SnapMaskPoint(point) * inverseFit;
+        }
         if (hit?.Target.NodeId is { } nodeId && mask is not null)
         {
             maskSelectedNodeId = nodeId;
@@ -400,8 +381,8 @@ public sealed partial class EffectCanvasControl
         }
         else if (creatingRectangle)
         {
-            var first = dragStart * inverseFit;
-            var current = point * inverseFit;
+            var first = maskRectangleStart;
+            var current = SnapMaskPoint(point) * inverseFit;
             var topLeft = new ScenePoint(Math.Min(first.X, current.X), Math.Min(first.Y, current.Y));
             var bottomRight = new ScenePoint(Math.Max(first.X, current.X), Math.Max(first.Y, current.Y));
             maskDraft = topLeft.X == bottomRight.X || topLeft.Y == bottomRight.Y ? maskOriginal : new RectangleClipMask
@@ -415,10 +396,17 @@ public sealed partial class EffectCanvasControl
         {
             if (maskHandle is null)
             {
-                maskDraft = original with { Transform = original.Transform with { Position = Offset(original.Transform.Position, delta) } };
+                var translated = original with { Transform = original.Transform with { Position = Offset(original.Transform.Position, delta) } };
+                maskDraft = SnapMaskTranslation(translated, inverseFit);
             }
             else if (MaskMatrix(original).TryInvert(out var inverse))
             {
+                maskSnapFeedback = default;
+                if (maskHandle.Corner >= 0 || maskHandle.Target.Property == AnimationProperty.MASK_NODE_POSITION)
+                {
+                    var candidate = maskHandle.Position + (point - dragStart);
+                    point += SnapMaskPoint(candidate) - candidate;
+                }
                 var localDelta = point * inverse - dragStart * inverse;
                 if (original is RectangleClipMask rectangle)
                 {
@@ -464,6 +452,10 @@ public sealed partial class EffectCanvasControl
         {
             maskInsertionHandle = null;
             var insertingDraft = insertion.ContourId == openContourId;
+            if (!insertingDraft)
+            {
+                ResetMaskSnapping();
+            }
             if (insertingDraft)
             {
                 if (DistanceSquared(insertion.Position, e.GetPosition(this)) <= 100)
@@ -486,6 +478,7 @@ public sealed partial class EffectCanvasControl
         if (maskDeletionHandle is { } deletion)
         {
             maskDeletionHandle = null;
+            ResetMaskSnapping();
             if (selected is { } layer && deletion.Target.NodeId is { } deletedNodeId && DistanceSquared(deletion.Position, e.GetPosition(this)) <= 100)
             {
                 MaskNodeDeleteRequested?.Invoke(this, new(layer.Id, deletedNodeId));
@@ -500,6 +493,8 @@ public sealed partial class EffectCanvasControl
         if (creatingNodeHandle)
         {
             creatingNodeHandle = false;
+            maskSnapFeedback = default;
+            InvalidateVisual();
             return;
         }
         var mask = maskDraft;
@@ -512,6 +507,7 @@ public sealed partial class EffectCanvasControl
         maskOriginal = null;
         maskDraft = null;
         maskHandle = null;
+        ResetMaskSnapping();
         if (invalidCreation)
         {
             MaskGestureCancelled?.Invoke(this, EventArgs.Empty);
@@ -538,6 +534,7 @@ public sealed partial class EffectCanvasControl
         openContour = [];
         openContourId = null;
         creatingNodeHandle = false;
+        ResetMaskSnapping();
         MaskEdited?.Invoke(this, new(selected.Id, vector, nodeId));
         editMode = CanvasEditMode.MASK_VECTOR;
         InvalidateVisual();
@@ -545,28 +542,13 @@ public sealed partial class EffectCanvasControl
 
     private static ScenePoint MaskGeometryCenter(ImmutableArray<MaskContour> contours)
     {
-        using var path = new SkiaSharp.SKPath();
-        foreach (var contour in contours)
-        {
-            path.MoveTo((float)contour.Nodes[0].Position.X, (float)contour.Nodes[0].Position.Y);
-            for (var index = 0; index < contour.Nodes.Length; index++)
-            {
-                var first = contour.Nodes[index];
-                var next = contour.Nodes[(index + 1) % contour.Nodes.Length];
-                var control1 = Add(first.Position, first.OutHandle);
-                var control2 = Add(next.Position, next.InHandle);
-                path.CubicTo((float)control1.X, (float)control1.Y, (float)control2.X, (float)control2.Y,
-                    (float)next.Position.X, (float)next.Position.Y);
-            }
-            path.Close();
-        }
-        var bounds = path.TightBounds;
-        return new((bounds.Left + bounds.Right) / 2d, (bounds.Top + bounds.Bottom) / 2d);
+        var center = MaskCanvasGeometry.Bounds(new VectorClipMask { Contours = contours }, Matrix.Identity).Center;
+        return new(center.X, center.Y);
     }
 
     private void CancelMaskGesture()
     {
-        var active = maskDragging || !openContour.IsEmpty || creatingNodeHandle || maskDeletionHandle is not null || maskInsertionHandle is not null;
+        var active = HasActiveMaskGesture;
         maskDeletionHandle = null;
         maskInsertionHandle = null;
         creatingRectangle = false;
@@ -577,6 +559,7 @@ public sealed partial class EffectCanvasControl
         creatingNodeHandle = false;
         openContour = [];
         openContourId = null;
+        ResetMaskSnapping();
         if (active)
         {
             MaskGestureCancelled?.Invoke(this, EventArgs.Empty);

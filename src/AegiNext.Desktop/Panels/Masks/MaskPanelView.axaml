@@ -73,6 +73,10 @@
         </StackPanel>
         <StackPanel Name="MaskClipTools" Orientation="Horizontal" Spacing="4" Margin="0,0,4,4" VerticalAlignment="Center">
           <Separator Name="MaskClipSeparator" Classes="mask-toolbar-separator" />
+          <common:ToolbarToggleButton Name="MaskSnapButton" IsChecked="{Binding IsSnapEnabled, Mode=TwoWay}"
+                  ToolTip.Tip="{Loc Key=Workbench.MaskSnapHint}" AutomationProperties.Name="{Loc Key=Workbench.MaskSnap}">
+            <icons:MaterialIcon Kind="Magnet" Width="16" Height="16" />
+          </common:ToolbarToggleButton>
           <common:ToolbarToggleButton Name="InvertClipMaskButton" Command="{Binding InvertMaskCommand}"
                   IsChecked="{Binding MaskInverted, Mode=OneWay}" IsEnabled="{Binding HasClipMask}"
                   ToolTip.Tip="{Loc Key=Workbench.InvertMask}" AutomationProperties.Name="{Loc Key=Workbench.InvertMask}">

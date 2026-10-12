@@ -92,7 +92,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         }
     }
 
-    internal bool HasActiveDrag => graphicGestureActive || creationActive || dragging || pathTopologyEdit is not null || maskDragging || !openContour.IsEmpty || maskDeletionHandle is not null || maskInsertionHandle is not null;
+    internal bool HasActiveDrag => graphicGestureActive || creationActive || dragging || pathTopologyEdit is not null || HasActiveMaskGesture;
     internal long PreviewSequence => previewSequence;
     internal long PresentedPreviewSequence => presentedPreviewSequence;
     internal Task PreviewCompletion => previewScheduler?.Completion ?? previewDrain;
@@ -142,7 +142,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             directoryChanged = true;
         }
 
-        if ((dragging || graphicGestureActive || creationActive) && ReferenceEquals(document, value) && selected?.Id == layer?.Id)
+        if ((dragging || graphicGestureActive || creationActive || HasActiveMaskGesture) && ReferenceEquals(document, value) && selected?.Id == layer?.Id)
         {
             time = position;
             editorPose = editingPose;
@@ -153,7 +153,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             return;
         }
 
-        if (!ReferenceEquals(document, value) || selected?.Id != layer?.Id ||
+        if (directoryChanged || !ReferenceEquals(document, value) || selected?.Id != layer?.Id ||
             pathTopologyEdit is not null && (!ReferenceEquals(selected, layer) || position != time ||
                 pathTopologyEdit.EditingEndpoint != (editorPose && layer is not null && time == layer.End)))
         {

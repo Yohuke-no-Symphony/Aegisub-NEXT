@@ -31,6 +31,7 @@ internal sealed class PreviewPanelViewModel : ObservableObject
     private string muteLabel = string.Empty;
     private string volumeLabel = string.Empty;
     private bool isScrubbing;
+    private bool isMaskSnapEnabled = true;
     private PreviewQualityChoice[] qualityChoices = [];
     private PreviewQualityChoice? selectedQuality;
     private string qualityLabel = string.Empty;
@@ -53,6 +54,12 @@ internal sealed class PreviewPanelViewModel : ObservableObject
     }
 
     public bool ShowEmptyHint => !HasFrame && Scene.Document.Layers.IsEmpty;
+
+    public bool IsMaskSnapEnabled
+    {
+        get => isMaskSnapEnabled;
+        internal set => SetProperty(ref isMaskSnapEnabled, value);
+    }
 
     public PreviewQualityChoice[] QualityChoices
     {

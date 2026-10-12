@@ -699,6 +699,8 @@
     "Workbench.ClipMask": "Clip mask",
     "Workbench.MaskRectangle": "Rectangle",
     "Workbench.MaskEdit": "Edit mask",
+    "Workbench.MaskSnap": "Auto snap",
+    "Workbench.MaskSnapHint": "Snap to the selected subtitle's edges and horizontal and vertical center lines.",
     "Workbench.MaskVectorGesture": "Click to add nodes; drag to create handles. Click the first node or press Enter to close. Alt-drag a node edits its outgoing handle; Alt+Shift edits its incoming handle.",
     "Workbench.MaskVector": "Bézier",
     "Workbench.MaskAddContour": "Add contour",

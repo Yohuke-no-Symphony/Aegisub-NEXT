@@ -149,6 +149,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         ViewModel.Preview.PropertyChanged += OnPreviewPropertyChanged;
         ViewModel.Export.PropertyChanged += OnExportPropertyChanged;
         SubscribeTimelinePreferences();
+        SubscribeMaskPreferences();
         SubscribeSubtitleListPreferences();
         ApplyPreferences();
         ResetTimelineViewState(this.editor.Snapshot);
@@ -574,6 +575,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         await audioCalibrationCompletion.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
         await persistence.DisposeAsync();
         applicationContext.PreferencesChanged -= OnApplicationPreferencesChanged;
+        UnsubscribeMaskPreferences();
         UnsubscribeSubtitleListPreferences();
         applicationContext.AudioAnalysisRebuildRequested -= OnAudioAnalysisRebuildRequested;
         applicationContext.StylesChanged -= OnApplicationStylesChanged;
@@ -630,6 +632,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         {
             ViewModel.Preview.Volume = preferences.Volume;
             ApplyTimelinePreferences();
+            ApplyMaskPreferences();
             ApplySubtitleListPreferences();
             controller.SetVolume(preferences.Volume);
         }

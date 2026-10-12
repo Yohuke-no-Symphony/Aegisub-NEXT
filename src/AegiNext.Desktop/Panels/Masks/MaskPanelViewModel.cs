@@ -14,6 +14,7 @@ internal sealed class MaskPanelViewModel : ObservableObject
     private readonly WorkbenchSession session;
     private MaskNumericField[] sourceFields = [];
     private bool refreshingChoices;
+    private bool isSnapEnabled = true;
     private string? validationError;
     private string? invalidFieldKey;
 
@@ -47,6 +48,11 @@ internal sealed class MaskPanelViewModel : ObservableObject
     public bool CanDeleteNode => session.MaskEditing.CanDeleteSelectedNode;
     public bool HasSelectedPoint => SelectedPoint is not null;
     public bool MaskInverted => session.SelectedLayer?.Mask?.Inverted == true;
+    public bool IsSnapEnabled
+    {
+        get => isSnapEnabled;
+        set => SetProperty(ref isSnapEnabled, value);
+    }
     public string ContourToolTip => MaskTopologyReason ?? Localization.Get("Workbench.MaskAddContour");
     public string DeleteContourToolTip => MaskTopologyReason ?? Localization.Get("Workbench.MaskDeleteContour");
     public string DeleteNodeToolTip => MaskTopologyReason ?? Localization.Get("Workbench.MaskDeleteNode");
