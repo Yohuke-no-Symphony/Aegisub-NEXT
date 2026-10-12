@@ -35,12 +35,14 @@ public sealed partial class ProjectSceneRenderer
 
     private SubtitleLayout Layout(ProjectDocument document, EvaluatedLayer layer)
     {
+        layer = CanvasLayer(document, layer);
         var subtitle = TypographySubtitle(layer);
         return Layout(document, subtitle, animatedLayerId: ReferenceEquals(subtitle, layer.Subtitle) ? null : layer.Source.Id);
     }
 
     private SubtitleLayout Layout(ProjectDocument document, SubtitleLine subtitle, double? letterSpacing = null, Guid? animatedLayerId = null)
     {
+        subtitle = CanvasSubtitle(document, subtitle);
         var key = new SubtitleLayoutKey(subtitle, document.Width, document.Height, letterSpacing);
         if (layouts.TryGet(key, out var existing))
         {

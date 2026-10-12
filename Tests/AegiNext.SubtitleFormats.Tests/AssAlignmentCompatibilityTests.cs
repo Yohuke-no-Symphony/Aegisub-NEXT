@@ -31,7 +31,7 @@ public sealed class AssAlignmentCompatibilityTests
     [InlineData(9, TextAlignment.TOP_RIGHT)]
     public void ModernAlignmentImportsAndExportsAllNinePositions(int value, TextAlignment alignment)
     {
-        var imported = Assert.Single(AssSubtitleFormat.Parse(File("{\\an" + value + "}")).Lines);
+        var imported = Assert.Single(AssSubtitleFormat.Parse(File("{\\an" + value + "}"), 640, 360).Lines);
         Assert.Equal(alignment, imported.Style.Alignment);
         Assert.Null(imported.Style.TextAlign);
         var document = SubtitleFormatTestDocument.Create(imported) with { Width = 640, Height = 360 };

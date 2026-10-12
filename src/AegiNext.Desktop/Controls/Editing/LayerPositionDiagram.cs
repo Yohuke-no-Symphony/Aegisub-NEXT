@@ -104,7 +104,8 @@ public sealed class LayerPositionDiagram : Control
         var geometry = Geometry;
         var position = Position;
         var hasGeometry = geometry is not null && double.IsFinite(geometry.ParentSize.X) && double.IsFinite(geometry.ParentSize.Y) &&
-                          geometry.ParentSize.X > 0 && geometry.ParentSize.Y > 0;
+                          geometry.ParentSize.X > 0 && geometry.ParentSize.Y > 0 &&
+                          double.IsFinite(geometry.OffsetScale) && geometry.OffsetScale > 0;
         var parentSize = hasGeometry ? geometry!.ParentSize : new ScenePoint(CanvasWidth, CanvasHeight);
         if (parentSize.X <= 0 || parentSize.Y <= 0 || (!ShowMargins && (!hasGeometry || position is null)))
         {
@@ -120,7 +121,7 @@ public sealed class LayerPositionDiagram : Control
         if (drawGeometry)
         {
             var measured = geometry!;
-            var placement = position!;
+            var placement = position! with { Offset = new(position!.Offset.X * measured.OffsetScale, position.Offset.Y * measured.OffsetScale) };
             anchor = new(placement.Anchor.X * parentSize.X, placement.Anchor.Y * parentSize.Y);
             var basePosition = LayerPositionGeometry.BasePosition(placement, parentSize);
             offset = new(basePosition.X, basePosition.Y);
@@ -164,7 +165,10 @@ public sealed class LayerPositionDiagram : Control
             {
                 return;
             }
-            DrawMargins(context, Margins!.Value, parentSize, canvas, Map);
+            var marginScale = hasGeometry ? geometry!.OffsetScale : 1;
+            var scaledMargins = new SubtitleMargins(Margins!.Value.Left * marginScale,
+                Margins.Value.Right * marginScale, Margins.Value.Vertical * marginScale);
+            DrawMargins(context, scaledMargins, parentSize, canvas, Map);
         }
         if (!drawGeometry)
         {

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 
@@ -130,7 +131,8 @@ public static class AssSubtitleFormat
         var unsupportedGeometry = new HashSet<string>(StringComparer.Ordinal);
         foreach (var fields in styleRows)
         {
-            var style = ParseStyle(fields, scaleX, scaleY, wrapStyle, resolution, diagnostics);
+            var style = ParseStyle(fields, scaleX, scaleY, wrapStyle, resolution, diagnostics,
+                new() { ReferenceWidth = targetWidth, ReferenceHeight = targetHeight });
             if (!styles.TryAdd(style.Name, style))
             {
                 throw new InvalidDataException("ASS 样式名称重复。");
@@ -142,6 +144,7 @@ public static class AssSubtitleFormat
         }
         var fallback = new AssStyleDefinition("Default", new()
         {
+            Scaling = new() { ReferenceWidth = targetWidth, ReferenceHeight = targetHeight },
             FontSize = 20 * scaleY, ShadowBlur = 0,
             WrapMode = wrapStyle == 2 ? SubtitleWrapMode.NO_WRAP : SubtitleWrapMode.NATURAL
         }, SceneColor.White);
@@ -215,6 +218,7 @@ public static class AssSubtitleFormat
         ISubtitlePlacementMeasurer? placementMeasurer = null)
     {
         ProjectValidator.Validate(document);
+        document = CanvasProjection(document);
         var result = new StringBuilder();
         result.AppendLine("[Script Info]").AppendLine("ScriptType: v4.00+")
             .AppendLine("PlayResX: " + document.Width.ToString(CultureInfo.InvariantCulture))
@@ -281,7 +285,7 @@ public static class AssSubtitleFormat
                 }
                 var sampleLine = line with { Start = sample.Start, End = sample.End };
                 var body = AssTextWriter.Write(sampleLine, sample.ContentTime, conversion: conversion,
-                    eventOrigin: conversion.EventOrigin(sample, timeOffset));
+                    eventOrigin: conversion.EventOrigin(sample, timeOffset), canvasUnits: true);
                 foreach (var diagnostic in body.Diagnostics)
                 {
                     if (reportedDiagnostics.Add((diagnostic.SubtitleId, diagnostic.Code)))
@@ -302,8 +306,26 @@ public static class AssSubtitleFormat
         return new(text, diagnostics.DistinctBy(diagnostic => (diagnostic.SubtitleId, diagnostic.LayerId, diagnostic.Code)).ToImmutableArray());
     }
 
-    private static AssStyleDefinition ParseStyle(Dictionary<string, string> row, double sx, double sy, int wrapStyle, AssResolutionContext resolution,
-        ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
+    private static ProjectDocument CanvasProjection(ProjectDocument document)
+    {
+        var scales = document.Subtitles.ToDictionary(line => line.Id,
+            line => SubtitleStyleScaling.GetScaleFactor(line.Style.Scaling, document.Width, document.Height));
+        if (scales.Values.All(scale => scale.Equals(1d)))
+        {
+            return document;
+        }
+        return document with
+        {
+            Subtitles = document.Subtitles.Select(line => SubtitleStyleScaling.ToCanvasUnits(line,
+                document.Width, document.Height)).ToImmutableArray(),
+            Layers = document.Layers.Select(layer => layer.SubtitleId is { } id && !scales[id].Equals(1d)
+                ? layer with { Tracks = SubtitleStyleScaling.ScaleDimensions(layer.Tracks, scales[id]) } : layer).ToImmutableArray()
+        };
+    }
+
+    private static AssStyleDefinition ParseStyle(Dictionary<string, string> row, double sx, double sy, int wrapStyle,
+        AssResolutionContext resolution, ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics,
+        SubtitleScalingSettings scaling)
     {
         var spacing = AssFormatValues.Number(Get(row, "Spacing", "0")) * sx;
         if (!double.IsFinite(spacing) || spacing is < -4096 or > 4096)
@@ -313,6 +335,7 @@ public static class AssSubtitleFormat
         }
         var style = new SubtitleStyle
         {
+            Scaling = scaling,
             FontFamily = Required(row, "Fontname"), FontSize = AssFormatValues.Number(Required(row, "Fontsize")) * sy,
             LetterSpacing = spacing, WrapMode = wrapStyle == 2 ? SubtitleWrapMode.NO_WRAP : SubtitleWrapMode.NATURAL,
             Fill = AssFormatValues.Color(Required(row, "PrimaryColour")), Stroke = AssFormatValues.Color(Get(row, "OutlineColour", "&H00000000")),

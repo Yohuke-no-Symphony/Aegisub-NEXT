@@ -15,6 +15,7 @@ public sealed class SubtitleStylePreviewRenderingTests
         var font = new EmbeddedSubtitleFont("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "", new()
         {
+            Scaling = new() { ReferenceWidth = 320, ReferenceHeight = 180 },
             FontFamily = "Embedded preview fixture", FontSize = 44, Margins = new(12, 12, 12),
             StrokeWidth = 0, ShadowColor = SceneColor.Transparent
         }, font);

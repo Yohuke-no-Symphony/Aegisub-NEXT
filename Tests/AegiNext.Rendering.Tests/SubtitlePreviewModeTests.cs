@@ -83,7 +83,11 @@ public sealed class SubtitlePreviewModeTests
         var line = new SubtitleLine
         {
             Text = "AB\nC", End = new(20),
-            Style = new() { FontAssetId = font.Id, FontSize = 28, Fill = new(0, 0, 1), StrokeWidth = 1 },
+            Style = new()
+            {
+                Scaling = new() { ReferenceWidth = 300, ReferenceHeight = 200 },
+                FontAssetId = font.Id, FontSize = 28, Fill = new(0, 0, 1), StrokeWidth = 1
+            },
             InlineSpans = [new(1, 1, new() { Bold = true, Fill = new(0, 1, 0) })],
             KaraokeStyle = KaraokeHighlightStyle.FromStyle(Guid.NewGuid(), "Red", new()
             {

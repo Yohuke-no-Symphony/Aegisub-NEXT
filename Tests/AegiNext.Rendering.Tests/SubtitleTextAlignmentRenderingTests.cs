@@ -94,7 +94,7 @@ public sealed class SubtitleTextAlignmentRenderingTests
     [InlineData(SubtitleTextAlignment.RIGHT)]
     public void SoftWrappedRowsUseTheSameBlockAndRetainCaretHitTesting(SubtitleTextAlignment textAlign)
     {
-        var document = Document("WWWWWWWWWWWWWWWWWWWWX", TextAlignment.MIDDLE_CENTER) with { Width = 128 };
+        var document = Document("WWWWWWWWWWWWWWWWWWWWX", TextAlignment.MIDDLE_CENTER, width: 128);
         var line = document.Subtitles[0] with { Style = document.Subtitles[0].Style with { TextAlign = textAlign } };
         document = document with { Subtitles = [line] };
         using var renderer = Renderer();
@@ -275,7 +275,7 @@ public sealed class SubtitleTextAlignmentRenderingTests
 
     private static ProjectSceneRenderer Renderer() => new(new DirectoryProjectAssetResolver(AppContext.BaseDirectory));
 
-    private static ProjectDocument Document(string text, TextAlignment alignment, string fontPath = "Fixtures/NotoSans.ttf")
+    private static ProjectDocument Document(string text, TextAlignment alignment, string fontPath = "Fixtures/NotoSans.ttf", int width = 256)
     {
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, fontPath);
         var line = new SubtitleLine
@@ -284,6 +284,7 @@ public sealed class SubtitleTextAlignmentRenderingTests
             End = new(3),
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = width, ReferenceHeight = 240 },
                 FontAssetId = font.Id,
                 FontSize = 24,
                 Alignment = alignment,
@@ -295,7 +296,7 @@ public sealed class SubtitleTextAlignmentRenderingTests
         };
         return new()
         {
-            Width = 256,
+            Width = width,
             Height = 240,
             Assets = [font],
             Subtitles = [line],

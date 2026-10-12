@@ -321,7 +321,7 @@ public sealed class AssSubtitleFormatTests
     [Fact]
     public void FileAssPositionStillExportsAndImportsIntoNativePlacement()
     {
-        var line = new SubtitleLine { Text = "x", Style = new() { Position = new()
+        var line = new SubtitleLine { Text = "x", Style = new() { Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 }, Position = new()
         {
             Anchor = new(0.5, 1), Pivot = new(0.5, 1), Offset = new(12, -24)
         } } };

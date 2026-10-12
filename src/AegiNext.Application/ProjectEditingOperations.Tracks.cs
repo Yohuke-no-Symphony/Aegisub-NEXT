@@ -28,11 +28,12 @@ public static partial class ProjectEditingOperations
             return document;
         }
 
-        return Verified(document with
+        var prepared = updateExisting ? SubtitleStyleReplacement.Apply(document, subtitleIds, style) : document;
+        return Verified(prepared with
         {
             Tracks = document.Tracks.SetItem(index, track),
-            Subtitles = updateExisting ? document.Subtitles.Select(line => subtitleIds.Contains(line.Id)
-                ? line with { Style = style, StyleName = presetName, StylePresetId = presetId, InlineSpans = [] } : line).ToImmutableArray() : document.Subtitles
+            Subtitles = updateExisting ? prepared.Subtitles.Select(line => subtitleIds.Contains(line.Id)
+                ? line with { StyleName = presetName, StylePresetId = presetId } : line).ToImmutableArray() : document.Subtitles
         });
     }
 
@@ -57,7 +58,7 @@ public static partial class ProjectEditingOperations
         var track = document.Tracks[TrackIndex(document, trackId)];
         var style = track.AutoApplyStyle && track.DefaultStyle is { } defaultStyle
             ? defaultStyle : fallbackStyle ?? new SubtitleStyle();
-        var imported = lines.Select(line => line with
+        var imported = lines.Select(line => SubtitleStyleScaling.ConvertUnits(line, style.Scaling, document.Width, document.Height) with
         {
             Style = style,
             StyleName = track.AutoApplyStyle && track.DefaultStyle is not null ? track.StylePresetName! : line.StyleName,

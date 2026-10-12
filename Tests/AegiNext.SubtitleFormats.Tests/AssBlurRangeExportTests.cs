@@ -107,6 +107,7 @@ public sealed class AssBlurRangeExportTests
             End = new(2),
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 },
                 FontFamily = "Noto Sans",
                 FontSize = 20,
                 StrokeWidth = strokeWidth,

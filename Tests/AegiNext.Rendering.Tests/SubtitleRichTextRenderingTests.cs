@@ -79,7 +79,17 @@ public sealed class SubtitleRichTextRenderingTests
         Assert.True(layout.GetCaretBounds(2).Left < layout.GetCaretBounds(3).Left);
         Assert.Equal(2, layout.GetSelectionRects(0, line.Text.Length).Count(rect => rect.Width > 1));
         Assert.True(layout.GetCaretBounds(line.Text.Length).Top > layout.GetCaretBounds(6).Top);
-        var wrapped = document with { Width = 42, Subtitles = [line with { Text = "WWWW", Style = line.Style with { Margins = new(4, 4, 4) } }] };
+        var wrapped = document with
+        {
+            Width = 42,
+            Subtitles = [line with
+            {
+                Text = "WWWW", Style = line.Style with
+                {
+                    Scaling = line.Style.Scaling with { ReferenceWidth = 42 }, Margins = new(4, 4, 4)
+                }
+            }]
+        };
         var wrapLayout = renderer.MeasureSubtitleTextLayout(wrapped, wrapped.Subtitles[0]);
         Assert.True(wrapLayout.Runs.Length > 1);
         var boundary = wrapLayout.Runs[1].Utf16Start;
@@ -102,7 +112,7 @@ public sealed class SubtitleRichTextRenderingTests
     public void LongWrappedTextRetainsEveryGraphemeAndSparseKaraokeAtTheEnd()
     {
         var text = new string('W', 2048);
-        var document = Document(text) with { Width = 96 };
+        var document = Document(text, width: 96);
         var line = document.Subtitles[0] with
         {
             Karaoke = [new(text.Length - 1, 1, MediaTime.Zero, new(1), new(1, 0, 0))]
@@ -389,20 +399,21 @@ public sealed class SubtitleRichTextRenderingTests
 
     private static ProjectSceneRenderer Renderer() => new(new DirectoryProjectAssetResolver(AppContext.BaseDirectory));
 
-    private static ProjectDocument Document(string text)
+    private static ProjectDocument Document(string text, int width = 256)
     {
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "Fixtures/NotoSans.ttf");
         var line = new SubtitleLine
         {
             Text = text, End = new(3), Style = new()
             {
+                Scaling = new() { ReferenceWidth = width, ReferenceHeight = 160 },
                 FontAssetId = font.Id, FontSize = 24, Alignment = TextAlignment.TOP_LEFT, Margins = new(8, 8, 8),
                 Fill = new(0, 0, 1), StrokeWidth = 0, ShadowColor = SceneColor.Transparent
             }
         };
         return new()
         {
-            Width = 256, Height = 160, Assets = [font], Subtitles = [line],
+            Width = width, Height = 160, Assets = [font], Subtitles = [line],
             Layers = [new() { Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, Start = line.Start, End = line.End }]
         };
     }

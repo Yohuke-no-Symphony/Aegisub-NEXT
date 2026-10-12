@@ -10,9 +10,9 @@ internal static class AssTextWriter
 {
     internal static AssBodyWriteResult Write(SubtitleLine line, MediaTime origin, bool projection = false,
         AssEventConversionContext? conversion = null, MediaTime? eventOrigin = null,
-        AssTextAnimationExport? textAnimation = null)
+        AssTextAnimationExport? textAnimation = null, bool canvasUnits = false)
     {
-        AssTextParser.ValidateLine(line);
+        AssTextParser.ValidateLine(line, canvasUnits);
         var result = new StringBuilder();
         var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
         if (!projection)

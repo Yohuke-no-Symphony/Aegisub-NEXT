@@ -186,6 +186,7 @@ public sealed class SubtitleGeometryTests
             Text = text,
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 256, ReferenceHeight = 160 },
                 FontAssetId = font.Id, FontSize = 22, Margins = new(8, 8, 8),
                 StrokeWidth = 0, ShadowColor = SceneColor.Transparent
             }

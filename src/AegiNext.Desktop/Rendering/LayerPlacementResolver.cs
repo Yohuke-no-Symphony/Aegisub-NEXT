@@ -3,6 +3,7 @@ using AegiNext.Core.Editing;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Editing;
 using AegiNext.Rendering.Projects;
+using System.Collections.Immutable;
 
 namespace AegiNext.Desktop.Rendering;
 
@@ -12,7 +13,7 @@ internal sealed class LayerPlacementResolver : IDisposable
     private ProjectSceneRenderer? renderer;
     private string? directory;
     private ProjectDocument? cachedDocument;
-    private readonly Dictionary<Guid, (double? LetterSpacing, LayerPlacementResolution Result)> cache = [];
+    private readonly Dictionary<Guid, (ImmutableDictionary<AnimationTrackTarget, AnimationValue> Typography, LayerPlacementResolution Result)> cache = [];
 
     internal LayerPlacementResolution Resolve(ProjectDocument document, string projectDirectory, ProjectLayer? layer, MediaTime? contentTime = null)
     {
@@ -45,34 +46,38 @@ internal sealed class LayerPlacementResolver : IDisposable
             cache.Clear();
         }
 
-        var spacingTrack = contentTime.HasValue
-            ? layer.Tracks.FirstOrDefault(track => track.Property == AnimationProperty.LETTER_SPACING) : null;
-        var letterSpacing = spacingTrack is not null
-            ? SceneEvaluator.EvaluateScalarTrack(spacingTrack, contentTime!.Value) : (double?)null;
-        if (cache.TryGetValue(id, out var cached) && cached.LetterSpacing == letterSpacing)
+        var subtitle = document.Subtitles.Single(line => line.Id == id);
+        var evaluated = contentTime.HasValue ? SceneEvaluator.EvaluateLayer(layer, subtitle, contentTime.Value) : null;
+        var typography = evaluated?.AnimationValues.Where(pair => pair.Key.Property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING)
+            .ToImmutableDictionary() ?? ImmutableDictionary<AnimationTrackTarget, AnimationValue>.Empty;
+        if (cache.TryGetValue(id, out var cached) && typography.Count == cached.Typography.Count &&
+            typography.All(pair => cached.Typography.TryGetValue(pair.Key, out var previous) && previous == pair.Value))
         {
             return cached.Result;
         }
 
-        var subtitle = document.Subtitles.Single(line => line.Id == id);
         LayerPlacementResolution result;
         try
         {
-            var measurement = letterSpacing.HasValue
-                ? renderer.MeasureSubtitlePlacement(document, SceneEvaluator.EvaluateLayer(layer, subtitle, contentTime!.Value))
+            var measurement = evaluated is not null
+                ? renderer.MeasureSubtitlePlacement(document, evaluated)
                 : renderer.MeasureSubtitlePlacement(document, subtitle);
             var position = measurement.Position;
             result = new(new ScenePoint(position.Anchor.X * document.Width + position.Offset.X,
-                position.Anchor.Y * document.Height + position.Offset.Y), position, Geometry: new(
+                position.Anchor.Y * document.Height + position.Offset.Y),
+                SubtitleStyleScaling.ToReferencePosition(position, subtitle.Style.Scaling, document.Width, document.Height), Geometry: new(
                 new(document.Width, document.Height), new(measurement.Bounds.Left, measurement.Bounds.Top),
-                new(measurement.Bounds.Width, measurement.Bounds.Height), layer.Transform, measurement.HasInk));
+                new(measurement.Bounds.Width, measurement.Bounds.Height), layer.Transform, measurement.HasInk)
+                {
+                    OffsetScale = SubtitleStyleScaling.GetScaleFactor(subtitle.Style.Scaling, document.Width, document.Height)
+                });
         }
         catch (Exception error) when (error is InvalidDataException or IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
             result = new(null, null, error);
         }
 
-        cache[id] = (letterSpacing, result);
+        cache[id] = (typography, result);
         return result;
     }
 

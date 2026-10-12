@@ -14,6 +14,7 @@ public sealed class AssSubtitlePlacementMeasurerTests
             Text = "  Layout\n  ABC  ",
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 },
                 FontFamily = "sans-serif", Position = new()
                 {
                     Anchor = new(0.3, 0.7), Pivot = new(0.2, 0.8), Offset = new(12, -9)

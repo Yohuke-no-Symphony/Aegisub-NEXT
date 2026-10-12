@@ -52,6 +52,7 @@ public sealed partial class ProjectSceneRenderer
     private void DrawSubtitle(ProjectDocument document, SKCanvas canvas, EvaluatedLayer layer,
         SubtitlePreviewMode previewMode = SubtitlePreviewMode.TIMED)
     {
+        layer = CanvasLayer(document, layer);
         var subtitle = layer.Subtitle!;
         var layout = Layout(document, layer);
         var matrices = RangeMatrices(layer, layout.Snapshot);

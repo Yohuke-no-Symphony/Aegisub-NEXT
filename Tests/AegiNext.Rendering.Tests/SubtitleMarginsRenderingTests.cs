@@ -272,6 +272,7 @@ public sealed class SubtitleMarginsRenderingTests
             Text = text,
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 256, ReferenceHeight = 160 },
                 FontAssetId = font.Id, FontSize = 22, Margins = margins, Alignment = alignment,
                 StrokeWidth = 0, ShadowColor = SceneColor.Transparent
             }

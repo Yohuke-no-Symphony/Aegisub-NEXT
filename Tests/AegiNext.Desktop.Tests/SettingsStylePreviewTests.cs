@@ -294,7 +294,9 @@ public sealed class SettingsStylePreviewTests
     [Fact]
     public void ValidMarginsRefreshBothPlacementAxesWhileInvalidMarginsKeepTheLastMeasurement()
     {
-        var model = CreateModel(CreatePreset());
+        var original = CreatePreset();
+        original = original with { Style = original.Style with { Scaling = new() { ReferenceWidth = 1280, ReferenceHeight = 720 } } };
+        var model = CreateModel(original);
         var measurements = 0;
         model.SetPositionMeasurement(preset =>
         {

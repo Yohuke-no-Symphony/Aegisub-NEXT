@@ -133,7 +133,8 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     /// <summary>将自动对齐转换为保持实际字形位置的显式锚点，不要求字幕在当前播放时间可见。</summary>
     public SubtitlePosition ResolveSubtitlePosition(ProjectDocument document, SubtitleLine subtitle)
     {
-        return MeasureSubtitlePlacement(document, subtitle).Position;
+        return SubtitleStyleScaling.ToReferencePosition(MeasureSubtitlePlacement(document, subtitle).Position,
+            subtitle.Style.Scaling, document.Width, document.Height);
     }
 
     /// <summary>测量任意字幕的真实字形及自动布局锚点，不依赖当前播放时间或图层可见性。</summary>
@@ -143,6 +144,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(document);
         ArgumentNullException.ThrowIfNull(subtitle);
         Prepare(document);
+        subtitle = CanvasSubtitle(document, subtitle);
         var layout = Layout(document, subtitle);
         return Placement(subtitle, layout, document.Width, document.Height);
     }
@@ -158,7 +160,8 @@ public sealed partial class ProjectSceneRenderer : IDisposable
             throw new ArgumentException("排版测量需要字幕层。", nameof(layer));
         }
         Prepare(document);
-        return Placement(layer.Subtitle, Layout(document, layer), document.Width, document.Height);
+        layer = CanvasLayer(document, layer);
+        return Placement(layer.Subtitle!, Layout(document, layer), document.Width, document.Height);
     }
 
     private static SubtitlePlacementMeasurement Placement(SubtitleLine subtitle, SubtitleLayout layout, int width, int height)
@@ -724,6 +727,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     {
         layouts.Clear();
         typographyProjections.Clear();
+        scalingProjections.Clear();
         foreach (var shaper in actualTextShapers.Values)
         {
             shaper.Dispose();

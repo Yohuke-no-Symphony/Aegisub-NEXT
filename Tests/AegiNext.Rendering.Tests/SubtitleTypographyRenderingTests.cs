@@ -54,7 +54,7 @@ public sealed class SubtitleTypographyRenderingTests
     [Fact]
     public void NaturalWrappingPrefersWordBoundariesAndNoWrapKeepsOnlyHardNewlines()
     {
-        var document = Document("one two three\nABCD") with { Width = 94 };
+        var document = Document("one two three\nABCD", width: 94);
         var line = document.Subtitles[0] with { Style = document.Subtitles[0].Style with { WrapMode = SubtitleWrapMode.NATURAL } };
         document = document with { Subtitles = [line] };
         using var renderer = Renderer();
@@ -78,7 +78,7 @@ public sealed class SubtitleTypographyRenderingTests
     public void NaturalWrappingDoesNotSplitAnOversizedGluedGroup(string glue)
     {
         var text = new string('W', 80) + glue + new string('W', 80);
-        var document = Document(text) with { Width = 96 };
+        var document = Document(text, width: 96);
         var line = document.Subtitles[0] with { Style = document.Subtitles[0].Style with { WrapMode = SubtitleWrapMode.NATURAL } };
         document = document with { Subtitles = [line] };
         using var renderer = Renderer();
@@ -92,7 +92,7 @@ public sealed class SubtitleTypographyRenderingTests
     [Fact]
     public void LongNegativeSpacingWrapKeepsEveryGraphemeWithoutNegativeOrEmptyLayoutBounds()
     {
-        var document = Document(new string('W', 4096)) with { Width = 96 };
+        var document = Document(new string('W', 4096), width: 96);
         var line = document.Subtitles[0] with { Style = document.Subtitles[0].Style with { LetterSpacing = -40 } };
         document = document with { Subtitles = [line] };
         using var renderer = Renderer();
@@ -107,7 +107,7 @@ public sealed class SubtitleTypographyRenderingTests
     [MacSystemFontFact]
     public void LongCjkNegativeSpacingUsesNaturalBoundariesWithoutDroppingCharacters()
     {
-        var document = Document(string.Concat(Enumerable.Repeat("中文标点，测试。", 128))) with { Width = 128, Assets = [] };
+        var document = Document(string.Concat(Enumerable.Repeat("中文标点，测试。", 128)), width: 128) with { Assets = [] };
         var line = document.Subtitles[0] with
         {
             Style = document.Subtitles[0].Style with { FontAssetId = null, FontFamily = "Arial", LetterSpacing = -2, WrapMode = SubtitleWrapMode.NATURAL }
@@ -129,7 +129,7 @@ public sealed class SubtitleTypographyRenderingTests
         Assert.Single(joined.Clusters.ToArray());
         var available = (int)Math.Ceiling(joined.AdvanceWidth * 2 / 3);
         Assert.True(split.InkBounds.Width > available);
-        var document = Document("ffi") with { Width = available + 16 };
+        var document = Document("ffi", width: available + 16);
         var line = document.Subtitles[0] with
         {
             Style = document.Subtitles[0].Style with { FontSize = 100, LetterSpacing = -1 }
@@ -231,15 +231,16 @@ public sealed class SubtitleTypographyRenderingTests
         Assert.Equal(0, line.Style.LetterSpacing);
     }
 
-    private static ProjectDocument Document(string text)
+    private static ProjectDocument Document(string text, int width = 384)
     {
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "Fixtures/NotoSans.ttf");
         var line = new SubtitleLine { Text = text, End = new(2), Style = new()
         {
+            Scaling = new() { ReferenceWidth = width, ReferenceHeight = 160 },
             FontAssetId = font.Id, FontSize = 24, Alignment = TextAlignment.TOP_LEFT, Margins = new(8, 8, 8),
             Fill = SceneColor.White, StrokeWidth = 0, ShadowColor = SceneColor.Transparent
         } };
-        return new() { Width = 384, Height = 160, Assets = [font], Subtitles = [line],
+        return new() { Width = width, Height = 160, Assets = [font], Subtitles = [line],
             Layers = [new() { SubtitleId = line.Id, End = line.End }] };
     }
 

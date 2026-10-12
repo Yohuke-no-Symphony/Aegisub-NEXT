@@ -18,6 +18,7 @@ public sealed class SubtitleAnimationWorkflowTests
         {
             Text = "ABC", End = new(3), AnimationRanges = [range], Style = new()
             {
+                Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 },
                 FontFamily = "Noto Sans", FontAssetId = font.Id, FontSize = 24, StrokeWidth = 0,
                 ShadowColor = SceneColor.Transparent, Alignment = TextAlignment.TOP_LEFT,
                 Margins = new(16, 16, 16), WrapMode = SubtitleWrapMode.NO_WRAP

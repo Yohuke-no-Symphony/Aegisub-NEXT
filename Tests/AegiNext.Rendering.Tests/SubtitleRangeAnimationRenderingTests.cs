@@ -130,6 +130,7 @@ public sealed class SubtitleRangeAnimationRenderingTests
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "Fixtures/NotoSans.ttf");
         var line = new SubtitleLine { Text = text, End = new(3), Style = new()
         {
+            Scaling = new() { ReferenceWidth = 384, ReferenceHeight = 160 },
             FontAssetId = font.Id, FontSize = 24, Alignment = TextAlignment.TOP_LEFT, Margins = new(8, 8, 8),
             WrapMode = SubtitleWrapMode.NO_WRAP, Fill = SceneColor.White, StrokeWidth = 0, ShadowColor = SceneColor.Transparent
         } };

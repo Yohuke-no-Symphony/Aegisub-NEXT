@@ -15,6 +15,7 @@ public sealed class SubtitleAnimationCacheTests
         {
             Text = "ffi", End = new(3), AnimationRanges = [range], Style = new()
             {
+                Scaling = new() { ReferenceWidth = 256, ReferenceHeight = 128 },
                 FontAssetId = font.Id, FontSize = 48, StrokeWidth = 0, ShadowColor = SceneColor.Transparent,
                 Alignment = TextAlignment.TOP_LEFT, Margins = new(16, 16, 16), WrapMode = SubtitleWrapMode.NO_WRAP
             }

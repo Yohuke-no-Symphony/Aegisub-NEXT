@@ -456,6 +456,7 @@ public sealed class ProjectFrameCacheTests
         {
             Text = "MMMM", End = new(3), Style = new()
             {
+                Scaling = new() { ReferenceWidth = 128, ReferenceHeight = 64 },
                 FontAssetId = font.Id, FontSize = 22, Margins = new(2, 2, 2), Alignment = TextAlignment.TOP_LEFT,
                 StrokeWidth = 0, ShadowBlur = 0, ShadowColor = SceneColor.Transparent
             }

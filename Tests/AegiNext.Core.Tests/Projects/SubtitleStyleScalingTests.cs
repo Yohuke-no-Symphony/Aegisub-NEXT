@@ -1,5 +1,6 @@
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
+using AegiNext.Core.Timing;
 
 namespace AegiNext.Core.Tests.Projects;
 
@@ -89,6 +90,72 @@ public sealed class SubtitleStyleScalingTests
 
         Assert.Same(line, SubtitleStyleScaling.ConvertUnits(line, line.Style.Scaling, 1280, 720));
         Assert.Same(line.Style, SubtitleStyleScaling.ScaleDimensions(line.Style, 1));
+    }
+
+    [Theory]
+    [InlineData(AnimationProperty.FONT_SIZE)]
+    [InlineData(AnimationProperty.LETTER_SPACING)]
+    [InlineData(AnimationProperty.STROKE_WIDTH)]
+    [InlineData(AnimationProperty.FILL_BLUR)]
+    [InlineData(AnimationProperty.STROKE_BLUR)]
+    [InlineData(AnimationProperty.SHADOW_BLUR)]
+    public void DimensionTracksScaleTargetsButPreserveTimingAndMultipliers(AnimationProperty property)
+    {
+        var rangeId = Guid.NewGuid();
+        var target = new AnimationTrackTarget(property, TextRangeId: rangeId, State: SubtitleAnimationState.ACTIVE);
+        var multiply = new AnimationTransformOperation(Guid.NewGuid(), new(1), new(2), 1.5)
+        {
+            Mode = AnimationTransformMode.MULTIPLY_BY, ComponentMask = 1
+        };
+        var ordered = new AnimationTrack(target, [])
+        {
+            InitialValue = 10,
+            Transforms = [new(Guid.NewGuid(), new(0), new(1), 20, 2), multiply]
+        };
+        var keyed = new AnimationTrack(target, [new(MediaTime.Zero, 10), new(new(2), 20, KeyframeInterpolation.EASE_IN)]);
+
+        var scaled = SubtitleStyleScaling.ScaleDimensions(ordered, 2);
+        var scaledKeys = SubtitleStyleScaling.ScaleDimensions(keyed, 2);
+
+        Assert.Equal(target, scaled.Target);
+        Assert.Equal(20, scaled.InitialValue!.Value.Scalar);
+        Assert.Equal(40, scaled.Transforms[0].Value.Scalar);
+        Assert.Equal(ordered.Transforms[0].Id, scaled.Transforms[0].Id);
+        Assert.Equal(ordered.Transforms[0].End, scaled.Transforms[0].End);
+        Assert.Equal(ordered.Transforms[0].Acceleration, scaled.Transforms[0].Acceleration);
+        Assert.Same(multiply, scaled.Transforms[1]);
+        Assert.Equal(20, scaledKeys.Keyframes[0].Value.Scalar);
+        Assert.Equal(40, scaledKeys.Keyframes[1].Value.Scalar);
+        Assert.Equal(keyed.Keyframes[1].Interpolation, scaledKeys.Keyframes[1].Interpolation);
+        Assert.Equal(10, ordered.InitialValue!.Value.Scalar);
+    }
+
+    [Fact]
+    public void ShadowVectorsScaleButMotionAndMasksKeepEngineeringUnits()
+    {
+        var shadow = new AnimationTrack(AnimationProperty.SHADOW_OFFSET, [new(new(0), new ScenePoint(-3, 5))]);
+        var position = new AnimationTrack(AnimationProperty.POSITION, [new(new(0), new ScenePoint(20, 30))]);
+        var mask = new AnimationTrack(AnimationProperty.MASK_POSITION, [new(new(0), new ScenePoint(7, 9))]);
+        var blur = new AnimationTrack(AnimationProperty.BLUR, [new(new(0), 4)]);
+
+        var tracks = SubtitleStyleScaling.ScaleDimensions([shadow, position, mask, blur], 2);
+
+        Assert.Equal(new ScenePoint(-6, 10), tracks[0].Keyframes[0].Value.Vector);
+        Assert.Same(position, tracks[1]);
+        Assert.Same(mask, tracks[2]);
+        Assert.Same(blur, tracks[3]);
+    }
+
+    [Fact]
+    public void PositionMeasurementsReturnToReferenceUnits()
+    {
+        var pixels = new SubtitlePosition { Anchor = new(0.25, 1), Pivot = new(0, 1), Offset = new(40, -60) };
+
+        var stored = SubtitleStyleScaling.ToReferencePosition(pixels, new(), 3840, 2160);
+
+        Assert.Equal(new ScenePoint(20, -30), stored.Offset);
+        Assert.Equal(pixels.Anchor, stored.Anchor);
+        Assert.Equal(pixels.Pivot, stored.Pivot);
     }
 
     [Theory]

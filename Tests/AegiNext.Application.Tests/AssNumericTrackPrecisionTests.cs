@@ -121,6 +121,7 @@ public sealed class AssNumericTrackPrecisionTests
             AnimationRanges = [range],
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 },
                 FontFamily = "Noto Sans",
                 FontSize = 20,
                 StrokeWidth = property == AnimationProperty.FILL_BLUR ? 0 : 2,

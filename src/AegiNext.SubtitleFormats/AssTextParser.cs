@@ -976,7 +976,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         return new(column / 2.0, row / 2.0);
     }
 
-    internal static void ValidateLine(SubtitleLine line)
+    internal static void ValidateLine(SubtitleLine line, bool canvasUnits = false)
     {
         var boundaries = line.InlineSpans.IsEmpty && line.Karaoke.IsEmpty && line.KaraokeStyleSpans.IsEmpty && line.AnimationRanges.IsEmpty
             ? null : new SubtitleTextBoundaries(line.Text);
@@ -986,7 +986,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             {
                 throw new InvalidDataException("ASS 局部样式不能拆开字素。");
             }
-            ProjectValidator.ValidateSubtitleStyle(span.Style.ApplyTo(line.Style));
+            ValidateStyle(span.Style.ApplyTo(line.Style), canvasUnits);
         }
         foreach (var segment in line.Karaoke)
         {
@@ -1003,11 +1003,11 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             }
             if (span.ActiveStyle is { } active)
             {
-                ProjectValidator.ValidateSubtitleStyle(active.ApplyTo(line.Style));
+                ValidateStyle(active.ApplyTo(line.Style), canvasUnits);
             }
             if (span.InactiveStyle is { } inactiveStyle)
             {
-                ProjectValidator.ValidateSubtitleStyle(inactiveStyle.ApplyTo(line.Style));
+                ValidateStyle(inactiveStyle.ApplyTo(line.Style), canvasUnits);
             }
         }
         foreach (var range in line.AnimationRanges)
@@ -1017,6 +1017,18 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 throw new InvalidDataException("ASS 动画范围不能拆开字素。");
             }
         }
-        ProjectValidator.ValidateSubtitleStyle(line.Style);
+        ValidateStyle(line.Style, canvasUnits);
+    }
+
+    private static void ValidateStyle(SubtitleStyle style, bool canvasUnits)
+    {
+        if (canvasUnits)
+        {
+            AssSubtitleOutputValidation.ValidateStyle(style);
+        }
+        else
+        {
+            ProjectValidator.ValidateSubtitleStyle(style);
+        }
     }
 }

@@ -103,6 +103,7 @@ public static partial class ProjectEditingOperations
             throw new InvalidOperationException("包含片段动画、变换、蒙版或混合效果的字幕不能无损合并。");
         }
 
+        second = SubtitleStyleScaling.ConvertUnits(second, first.Style.Scaling, document.Width, document.Height);
         var firstOrigin = first.Start - firstLayer.AnimationOffset;
         var secondOrigin = second.Start - secondLayer.AnimationOffset;
         var mergedOrigin = firstOrigin < secondOrigin ? firstOrigin : secondOrigin;

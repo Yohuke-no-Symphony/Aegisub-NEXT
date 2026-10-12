@@ -62,7 +62,7 @@ public sealed class AssMarginsTests
         var line = new SubtitleLine
         {
             Text = "margin test", End = new(3),
-            Style = new() { Alignment = alignment, Margins = new(13, 41, 27) }
+            Style = new() { Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 }, Alignment = alignment, Margins = new(13, 41, 27) }
         };
         var document = SubtitleFormatTestDocument.Create(line) with { Width = 640, Height = 360 };
         var written = AssSubtitleFormat.Write(document);
@@ -90,8 +90,8 @@ public sealed class AssMarginsTests
     [Fact]
     public void DistinctHorizontalMarginsRemainDistinctExportedStyles()
     {
-        var first = new SubtitleLine { Text = "first", End = new(3), Style = new() { Margins = new(13, 41, 27) } };
-        var second = new SubtitleLine { Text = "second", Start = new(3), End = new(6), Style = new() { Margins = new(41, 13, 27) } };
+        var first = new SubtitleLine { Text = "first", End = new(3), Style = new() { Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 }, Margins = new(13, 41, 27) } };
+        var second = new SubtitleLine { Text = "second", Start = new(3), End = new(6), Style = new() { Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 }, Margins = new(41, 13, 27) } };
         var document = SubtitleFormatTestDocument.Create(first, second) with { Width = 640, Height = 360 };
         var written = AssSubtitleFormat.Write(document);
         Assert.Equal(2, written.Text.Split('\n').Count(row => row.StartsWith("Style: ", StringComparison.Ordinal)));

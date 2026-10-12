@@ -44,8 +44,8 @@ public static partial class ProjectEditingOperations
         ProjectValidator.Validate(document);
         var index = SubtitleIndex(document, subtitleId);
         var line = document.Subtitles[index];
-        return WithSubtitleContent(document, index,
-            line.Style == style && line.InlineSpans.IsEmpty ? line : line with { Style = style, InlineSpans = [] });
+        return line.Style == style && line.InlineSpans.IsEmpty ? document : Verified(
+            SubtitleStyleReplacement.Apply(document, new HashSet<Guid> { subtitleId }, style));
     }
 
     /// <summary>精确修改逐字片段时长并顺延后续片段；允许超出字幕可见范围，保留字幕与图层起止。</summary>

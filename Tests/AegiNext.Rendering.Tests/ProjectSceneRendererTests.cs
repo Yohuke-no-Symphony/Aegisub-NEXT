@@ -179,7 +179,12 @@ public sealed class ProjectSceneRendererTests
     public void MultilineSubtitleAndKaraokeReuseTheSameShapedLayout()
     {
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "Fixtures/NotoSans.ttf");
-        var style = new SubtitleStyle { FontAssetId = font.Id, FontSize = 22, Alignment = TextAlignment.TOP_LEFT, Margins = new(2, 2, 2), StrokeWidth = 0, ShadowColor = SceneColor.Transparent };
+        var style = new SubtitleStyle
+        {
+            Scaling = new() { ReferenceWidth = 128, ReferenceHeight = 96 },
+            FontAssetId = font.Id, FontSize = 22, Alignment = TextAlignment.TOP_LEFT, Margins = new(2, 2, 2),
+            StrokeWidth = 0, ShadowColor = SceneColor.Transparent
+        };
         var subtitle = new SubtitleLine { Text = "ABC\nDEF", Style = style, Karaoke = [new(0, 3, MediaTime.Zero, new(1), new(1, 0, 0))] };
         var document = new ProjectDocument { Width = 128, Height = 96, Assets = [font], Subtitles = [subtitle], Layers = [new ProjectLayer { Id = subtitle.Id, Kind = LayerKind.SUBTITLE, SubtitleId = subtitle.Id, Start = subtitle.Start, End = subtitle.End }] };
         using var renderer = new ProjectSceneRenderer(new DirectoryProjectAssetResolver(AppContext.BaseDirectory));

@@ -260,6 +260,7 @@ public sealed class AssNumericTransformExportTests
         {
             Text = "ab", End = new(2), Style = new()
             {
+                Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 },
                 Alignment = TextAlignment.TOP_LEFT,
                 Position = new() { Anchor = new(0, 0), Pivot = new(0, 0), Offset = new(20, 20) },
                 WrapMode = SubtitleWrapMode.NO_WRAP, StrokeWidth = 0, ShadowBlur = 0, ShadowColor = SceneColor.Transparent,

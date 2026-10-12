@@ -111,7 +111,7 @@ public sealed class AssKaraokeClockTests
         var line = new SubtitleLine
         {
             Text = "ab", Start = new(1001, 1000), End = new(3001, 1000),
-            Style = new() { ShadowBlur = 0, Alignment = TextAlignment.TOP_LEFT, Position = new() { Pivot = new(0, 0) } },
+            Style = new() { Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 }, ShadowBlur = 0, Alignment = TextAlignment.TOP_LEFT, Position = new() { Pivot = new(0, 0) } },
             Karaoke = [new(0, 2, new(1, 50), new(51, 50), SceneColor.White)]
         };
         var layer = new ProjectLayer

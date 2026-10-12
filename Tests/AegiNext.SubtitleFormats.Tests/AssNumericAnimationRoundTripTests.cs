@@ -148,6 +148,7 @@ public sealed class AssNumericAnimationRoundTripTests
             Text = "ab", Start = new(203, 100), End = new(403, 100),
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 },
                 FontSize = 28, Alignment = TextAlignment.TOP_LEFT, WrapMode = SubtitleWrapMode.NO_WRAP,
                 Position = new() { Anchor = new(0, 0), Pivot = new(0, 0), Offset = new(100, 80) },
                 StrokeWidth = property == AnimationProperty.STROKE_BLUR ? 2 : 0,

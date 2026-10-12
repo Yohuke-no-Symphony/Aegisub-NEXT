@@ -31,7 +31,7 @@ public class LayerPositionDraft : ObservableObject
     public NumericValueDraft OffsetX { get; } = new();
     public NumericValueDraft OffsetY { get; } = new();
     public LayerPositionDraftGeometry? Geometry => geometry;
-    public bool CanSelectPreset => CanCustomize && geometry is not null;
+    public bool CanSelectPreset => CanCustomize && geometry is { OffsetScale: > 0 } && double.IsFinite(geometry.OffsetScale);
     public ScenePoint? AnchorSelection => Selection(AnchorX, AnchorY);
     public ScenePoint? PivotSelection => Selection(PivotX, PivotY);
     public LayerPosition? DiagramPosition => !CanCustomize ? null :
@@ -108,8 +108,8 @@ public class LayerPositionDraft : ObservableObject
         }
 
         var previous = IsExplicit ? CreatePosition()! : source;
-        var offset = new ScenePoint(previous.Offset.X + (previous.Anchor.X - anchor.X) * geometry!.ParentSize.X,
-            previous.Offset.Y + (previous.Anchor.Y - anchor.Y) * geometry.ParentSize.Y);
+        var offset = new ScenePoint(previous.Offset.X + (previous.Anchor.X - anchor.X) * geometry!.ParentSize.X / geometry.OffsetScale,
+            previous.Offset.Y + (previous.Anchor.Y - anchor.Y) * geometry.ParentSize.Y / geometry.OffsetScale);
         if (setPivot)
         {
             var displacement = geometry.PivotDisplacement(previous.Pivot, anchor);

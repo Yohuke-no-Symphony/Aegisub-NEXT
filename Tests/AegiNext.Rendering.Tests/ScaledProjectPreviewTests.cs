@@ -17,6 +17,7 @@ public sealed class ScaledProjectPreviewTests
             Text = "Natural\nposition",
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 640, ReferenceHeight = 360 },
                 FontAssetId = font.Id, FontSize = 44, Alignment = TextAlignment.BOTTOM_RIGHT,
                 Margins = new(20, 20, 20), StrokeWidth = 0, ShadowColor = SceneColor.Transparent
             }
@@ -122,6 +123,7 @@ public sealed class ScaledProjectPreviewTests
             Start = new(1), End = new(2), Text = "New target",
             Style = new()
             {
+                Scaling = new() { ReferenceWidth = 128, ReferenceHeight = 64 },
                 FontAssetId = font.Id, FontSize = 22, Alignment = TextAlignment.TOP_LEFT,
                 Margins = new(2, 2, 2), Fill = new(0, 1, 0), StrokeWidth = 0, ShadowColor = SceneColor.Transparent
             }

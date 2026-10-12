@@ -159,6 +159,62 @@ public static class SubtitleStyleScaling
         };
     }
 
+    /// <summary>将画布中的测量位置换回保存的参考单位；锚点和轴心保持归一化值。</summary>
+    public static SubtitlePosition ToReferencePosition(SubtitlePosition position, SubtitleScalingSettings settings,
+        int canvasWidth, int canvasHeight)
+    {
+        ArgumentNullException.ThrowIfNull(position);
+        var scale = GetScaleFactor(settings, canvasWidth, canvasHeight);
+        return scale == 1 ? position : position with { Offset = ScalePoint(position.Offset, 1 / scale) };
+    }
+
+    /// <summary>判断动画属性是否属于字幕参考尺寸；图层运动、蒙版和通用模糊仍使用工程单位。</summary>
+    public static bool IsStyleDimension(AnimationProperty property) => property is
+        AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING or AnimationProperty.STROKE_WIDTH or
+        AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_OFFSET or
+        AnimationProperty.SHADOW_BLUR;
+
+    /// <summary>缩放已求值的字幕尺寸动画值，保留颜色及图层坐标值。</summary>
+    public static AnimationValue ScaleDimensions(AnimationProperty property, AnimationValue value, double factor)
+    {
+        CheckFactor(factor);
+        if (factor == 1 || !IsStyleDimension(property))
+        {
+            return value;
+        }
+        return property == AnimationProperty.SHADOW_OFFSET
+            ? ScalePoint(value.Vector, factor) : value.Scalar * factor;
+    }
+
+    /// <summary>缩放字幕尺寸关键帧和有序目标值；乘法操作本身是无量纲系数。</summary>
+    public static AnimationTrack ScaleDimensions(AnimationTrack track, double factor)
+    {
+        ArgumentNullException.ThrowIfNull(track);
+        CheckFactor(factor);
+        if (factor == 1 || !IsStyleDimension(track.Property))
+        {
+            return track;
+        }
+        return track with
+        {
+            InitialValue = track.InitialValue is { } initial ? ScaleDimensions(track.Property, initial, factor) : null,
+            Keyframes = track.Keyframes.Select(frame => frame with
+            {
+                Value = ScaleDimensions(track.Property, frame.Value, factor)
+            }).ToImmutableArray(),
+            Transforms = track.Transforms.Select(operation => operation.Mode == AnimationTransformMode.MULTIPLY_BY
+                ? operation : operation with { Value = ScaleDimensions(track.Property, operation.Value, factor) }).ToImmutableArray()
+        };
+    }
+
+    /// <summary>换算字幕拥有者的外观动画轨道，保留所有非尺寸轨道。</summary>
+    public static ImmutableArray<AnimationTrack> ScaleDimensions(ImmutableArray<AnimationTrack> tracks, double factor)
+    {
+        CheckFactor(factor);
+        return factor == 1 || tracks.IsDefaultOrEmpty || !tracks.Any(track => IsStyleDimension(track.Property))
+            ? tracks : tracks.Select(track => ScaleDimensions(track, factor)).ToImmutableArray();
+    }
+
     private static SubtitleScalingSettings CanvasSettings(int width, int height) => new()
     {
         ReferenceWidth = width, ReferenceHeight = height

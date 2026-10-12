@@ -323,6 +323,7 @@ public sealed class KaraokeStyleRangeRenderingTests
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "Fixtures/" + fontName);
         var line = new SubtitleLine { Text = text, End = new(10), Style = new()
         {
+            Scaling = new() { ReferenceWidth = 384, ReferenceHeight = 256 },
             FontAssetId = font.Id, FontSize = 64, Fill = new(0, 0, 1), StrokeWidth = 0,
             ShadowColor = SceneColor.Transparent, Alignment = TextAlignment.TOP_LEFT, Margins = new(24, 24, 24)
         } };

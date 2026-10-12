@@ -61,6 +61,23 @@ public sealed class AnchorPresetDraftTests
     }
 
     [Theory]
+    [InlineData(0.5, false)]
+    [InlineData(2, false)]
+    [InlineData(0.5, true)]
+    [InlineData(2, true)]
+    public void ScaledReferenceOffsetsPreserveActualGlyphsAcrossAnchorAndPivotChanges(double scale, bool setPivot)
+    {
+        var position = new SubtitlePosition { Anchor = new(0.25, 0.8), Pivot = new(0.6, 0.2), Offset = new(17, -22) };
+        var geometry = CreateGeometry() with { OffsetScale = scale };
+        var draft = new SubtitlePositionDraft();
+        draft.Load(new() { Position = position }, geometry: geometry);
+
+        Assert.True(draft.SelectPreset(new(1, 0), setPivot));
+
+        AssertSameGlyphPoints(position, draft.CreatePosition()!, geometry);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void AltResetsOffsetsAfterApplyingAnchorAndOptionalPivot(bool setPivot)
@@ -149,9 +166,9 @@ public sealed class AnchorPresetDraftTests
         var y = ((point.Y - position.Pivot.Y) * geometry.GlyphSize.Y - transform.AnchorY) * transform.ScaleY;
         var radians = transform.Rotation * Math.PI / 180;
         var localX = Math.Cos(radians) * x - Math.Sin(radians) * y +
-                     position.Anchor.X * geometry.ParentSize.X + position.Offset.X + transform.X;
+                     position.Anchor.X * geometry.ParentSize.X + position.Offset.X * geometry.OffsetScale + transform.X;
         var localY = Math.Sin(radians) * x + Math.Cos(radians) * y +
-                     position.Anchor.Y * geometry.ParentSize.Y + position.Offset.Y + transform.Y;
+                     position.Anchor.Y * geometry.ParentSize.Y + position.Offset.Y * geometry.OffsetScale + transform.Y;
         return new(localX * 0.75 + localY * -0.2 + 41, localX * 0.3 + localY * 1.2 - 17);
     }
 }

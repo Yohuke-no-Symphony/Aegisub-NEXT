@@ -6,9 +6,13 @@ namespace AegiNext.Desktop.Editing;
 public sealed record LayerPositionDraftGeometry(ScenePoint ParentSize, ScenePoint GlyphOrigin,
     ScenePoint GlyphSize, LayerTransform Transform, bool HasInk = true)
 {
-    /// <summary>将规范化 pivot 的改变量转换为旋转、缩放后的父局部像素位移。</summary>
+    /// <summary>偏移参考单位到父画布像素的比例；图片与绘图使用默认值一。</summary>
+    public double OffsetScale { get; init; } = 1;
+
+    /// <summary>将规范化 pivot 的改变量转换为旋转、缩放后的偏移参考单位。</summary>
     public ScenePoint PivotDisplacement(ScenePoint previous, ScenePoint next)
     {
-        return LayerPositionGeometry.PivotDisplacement(previous, next, GlyphSize, Transform);
+        var displacement = LayerPositionGeometry.PivotDisplacement(previous, next, GlyphSize, Transform);
+        return new(displacement.X / OffsetScale, displacement.Y / OffsetScale);
     }
 }

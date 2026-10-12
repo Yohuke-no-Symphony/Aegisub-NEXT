@@ -153,7 +153,8 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
             ? session.StyleLibrary.Snapshot.Presets.FirstOrDefault(value => value.Id == id)
             : null;
         var highlightStyle = preset is not null
-            ? KaraokeHighlightStyle.FromStyle(preset.Id, preset.Name, preset.Style)
+            ? KaraokeHighlightStyle.FromStyle(preset.Id, preset.Name, SubtitleStyleScaling.ConvertUnits(preset.Style,
+                cue.Style.Scaling, session.DocumentSnapshot.Width, session.DocumentSnapshot.Height))
             : presetId is { } existingId && cue.KaraokeStyle?.PresetId == existingId
                 ? cue.KaraokeStyle
                 : null;

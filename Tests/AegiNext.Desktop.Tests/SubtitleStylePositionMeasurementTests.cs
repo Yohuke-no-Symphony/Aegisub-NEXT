@@ -37,6 +37,7 @@ public sealed class SubtitleStylePositionMeasurementTests
         var font = new EmbeddedSubtitleFont("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Example", new()
         {
+            Scaling = new() { ReferenceWidth = 256, ReferenceHeight = 160 },
             FontFamily = "Embedded test font", FontSize = 22, Margins = new(8, 8, 8),
             StrokeWidth = 0, ShadowColor = SceneColor.Transparent
         }, font);
@@ -54,11 +55,42 @@ public sealed class SubtitleStylePositionMeasurementTests
         Assert.InRange(Math.Abs(plain.Geometry!.GlyphSize.X - measured.Geometry.GlyphSize.X), 0, 0.001);
         Assert.InRange(Math.Abs(plain.Geometry.GlyphSize.Y - measured.Geometry.GlyphSize.Y), 0, 0.001);
         Assert.Equal(new ScenePoint(1920, 1080), largerCanvas.Geometry!.ParentSize);
-        Assert.InRange(Math.Abs(measured.Geometry.GlyphSize.X - largerCanvas.Geometry.GlyphSize.X), 0, 0.001);
-        Assert.InRange(Math.Abs(measured.Geometry.GlyphSize.Y - largerCanvas.Geometry.GlyphSize.Y), 0, 0.001);
+        var scale = Math.Sqrt(1920.0 / 256 * (1080.0 / 160));
+        var canvasPreset = preset with { Style = preset.Style with
+        {
+            Scaling = new() { ReferenceWidth = 1920, ReferenceHeight = 1080 },
+            FontSize = 22 * scale, Margins = new(8 * scale, 8 * scale, 8 * scale)
+        } };
+        var expectedLarge = SubtitleStylePositionMeasurer.Measure(canvasPreset, 1920, 1080, "  ABC  \n  DEF  ");
+        Assert.Equal(scale, largerCanvas.Geometry.OffsetScale, 10);
+        Assert.Equal(expectedLarge.Geometry!.GlyphSize, largerCanvas.Geometry.GlyphSize);
+        Assert.True(largerCanvas.Geometry.GlyphSize.X > measured.Geometry.GlyphSize.X * 5);
+        Assert.True(largerCanvas.Geometry.GlyphSize.Y > measured.Geometry.GlyphSize.Y * 5);
         Assert.Null(preset.Style.FontAssetId);
         Assert.Null(preset.Style.Position);
         Assert.Same(font, preset.Font);
+    }
+
+    [Fact]
+    public void PlacementResolverSeparatesReferenceOffsetFromCanvasGeometry()
+    {
+        var position = new SubtitlePosition { Anchor = new(0.5, 1), Pivot = new(0.5, 1), Offset = new(10, -20) };
+        var line = new SubtitleLine { Text = "ABC", Style = new()
+        {
+            Position = position, FontSize = 24, FontFamily = "sans-serif",
+            Scaling = new() { ReferenceWidth = 400, ReferenceHeight = 240 }
+        } };
+        var layer = new ProjectLayer { SubtitleId = line.Id, End = line.End };
+        var document = new ProjectDocument { Width = 800, Height = 480, Subtitles = [line], Layers = [layer] };
+        using var resolver = new LayerPlacementResolver();
+
+        var result = resolver.Resolve(document, Path.GetTempPath(), layer);
+
+        Assert.Null(result.Error);
+        Assert.Equal(position, result.Position);
+        Assert.Equal(new ScenePoint(420, 440), result.BasePosition);
+        Assert.Equal(new ScenePoint(800, 480), result.Geometry!.ParentSize);
+        Assert.Equal(2, result.Geometry.OffsetScale);
     }
 
     [Fact]

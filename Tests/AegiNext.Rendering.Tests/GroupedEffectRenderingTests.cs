@@ -123,6 +123,7 @@ public sealed class GroupedEffectRenderingTests
         {
             Text = text, End = new(5), Style = new()
             {
+                Scaling = new() { ReferenceWidth = 384, ReferenceHeight = 160 },
                 FontAssetId = font.Id, FontSize = 24, Alignment = TextAlignment.TOP_LEFT, Margins = new(8, 24, 8),
                 WrapMode = SubtitleWrapMode.NO_WRAP, Fill = SceneColor.White, StrokeWidth = 0, ShadowColor = SceneColor.Transparent
             }

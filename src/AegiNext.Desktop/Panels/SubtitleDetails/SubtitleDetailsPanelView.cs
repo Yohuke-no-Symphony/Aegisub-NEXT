@@ -1,6 +1,7 @@
 using System.Globalization;
 using AegiNext.Application.Presets;
 using AegiNext.Application;
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
@@ -453,7 +454,8 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
         }
         session.Editor.Apply("Apply subtitle selection preset", _ => ProjectEditingOperations.ApplySubtitleInlineStyle(
             prepared.Project, line.Id, start, length,
-            SubtitleInlineStyleOverride.FromStyle(prepared.Style)));
+            SubtitleInlineStyleOverride.FromStyle(SubtitleStyleScaling.ConvertUnits(prepared.Style, line.Style.Scaling,
+                snapshot.Width, snapshot.Height))));
     }
 
     private Task ApplyHighlightPresetAsync()
@@ -469,7 +471,8 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
         var snapshot = session.Editor.Snapshot;
         var preset = session.StyleLibrary.Snapshot.Presets.FirstOrDefault(value => value.Id == selected.Id);
         var value = selected.Id == Guid.Empty ? null : preset is not null
-            ? KaraokeHighlightStyle.FromStyle(preset.Id, preset.Name, preset.Style)
+            ? KaraokeHighlightStyle.FromStyle(preset.Id, preset.Name, SubtitleStyleScaling.ConvertUnits(preset.Style,
+                line.Style.Scaling, snapshot.Width, snapshot.Height))
             : line.KaraokeStyle?.PresetId == selected.Id ? line.KaraokeStyle : null;
         if (coordinator.Line?.Id == line.Id && ReferenceEquals(snapshot, session.Editor.Snapshot))
         {
