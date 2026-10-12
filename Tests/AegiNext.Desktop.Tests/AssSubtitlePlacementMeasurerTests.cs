@@ -1,11 +1,41 @@
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Rendering;
 using AegiNext.Rendering.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Desktop.Tests;
 
 public sealed class AssSubtitlePlacementMeasurerTests
 {
+    [Fact]
+    public void AssExportMeasuresProjectedSizesBeyondStorageLimitsUsingTheValidatedSourceProject()
+    {
+        var line = new SubtitleLine
+        {
+            Text = "A", End = new(2),
+            Style = new() { FontFamily = "sans-serif", FontSize = 3000 }
+        };
+        var layer = new ProjectLayer
+        {
+            SubtitleId = line.Id, End = line.End, Transform = new() { Position = new(1, 0) }
+        };
+        var document = new ProjectDocument
+        {
+            Width = 3840, Height = 2160, Subtitles = [line], Layers = [layer]
+        };
+        ProjectValidator.Validate(document);
+        using var measurer = new AssSubtitlePlacementMeasurer(Path.GetTempPath());
+
+        var written = AssSubtitleFormat.Write(document, placementMeasurer: measurer);
+
+        Assert.Contains(",6000,", written.Text);
+        Assert.Contains(@"\pos(", written.Text);
+        Assert.DoesNotContain(written.Diagnostics, diagnostic => diagnostic.Code == "Ass.PlacementMeasurement");
+        Assert.Same(line, document.Subtitles[0]);
+        Assert.Equal(3000, line.Style.FontSize);
+        Assert.Same(layer, document.Layers[0]);
+    }
+
     [Fact]
     public void ConversionMetricsUseTheSameInkGeometryAsTheRenderedSubtitle()
     {

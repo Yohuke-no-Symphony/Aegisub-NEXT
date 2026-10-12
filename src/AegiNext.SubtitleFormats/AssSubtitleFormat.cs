@@ -218,6 +218,7 @@ public static class AssSubtitleFormat
         ISubtitlePlacementMeasurer? placementMeasurer = null)
     {
         ProjectValidator.Validate(document);
+        var sourceDocument = document;
         document = CanvasProjection(document);
         var result = new StringBuilder();
         result.AppendLine("[Script Info]").AppendLine("ScriptType: v4.00+")
@@ -276,7 +277,7 @@ public static class AssSubtitleFormat
             {
                 diagnostics.Add(new("Ass.LayerBlur", "ASS 文字边缘模糊不能表达项目整层模糊，导出时已省略整层模糊。", SubtitleId: line.Id));
             }
-            var conversion = new AssEventConversionContext(document, layer, line, placementMeasurer, diagnostics);
+            var conversion = new AssEventConversionContext(sourceDocument, layer, line, placementMeasurer, diagnostics);
             foreach (var sample in AssMaskSampling.Samples(document, layer, line, diagnostics, timeOffset))
             {
                 if (exportedCount++ >= 100000)

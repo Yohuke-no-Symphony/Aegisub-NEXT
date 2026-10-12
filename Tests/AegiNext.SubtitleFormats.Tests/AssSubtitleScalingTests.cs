@@ -120,20 +120,48 @@ public sealed class AssSubtitleScalingTests
         Assert.Equal(1.5, font.Transforms[1].Value.Scalar);
     }
 
-    [Fact]
-    public void ProjectedDimensionsMayExceedStorageLimitsWhileSourceAndImportStayStrict()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ProjectedDimensionsMayExceedStorageLimitsWhileSourceAndImportStayStrict(bool requireMeasurement)
     {
         var line = Line() with
         {
-            Style = Line().Style with { FontSize = 4096, StrokeWidth = 4096 },
+            Style = Line().Style with
+            {
+                FontSize = 4096, StrokeWidth = 4096,
+                Position = requireMeasurement ? null : Line().Style.Position
+            },
             InlineSpans = [new(1, 1, new() { FontSize = 4096 })],
             KaraokeStyleSpans = [new(0, 1, new() { StrokeWidth = 4096 })]
         };
-        var document = Document(line) with { Width = 3840, Height = 2160 };
-        var written = AssSubtitleFormat.Write(document);
+        var document = Document(line) with
+        {
+            Width = 3840, Height = 2160,
+            Layers = [Layer(line) with { Transform = new() { Position = new(1, 0) } }]
+        };
+        var measurer = new RecordingSubtitlePlacementMeasurer(new(new(1920, 2100), default, default, new(100, 100)));
+        var written = AssSubtitleFormat.Write(document, placementMeasurer: measurer);
 
         Assert.Contains("\\fs8192", written.Text, StringComparison.Ordinal);
         Assert.Contains("\\bord8192", written.Text, StringComparison.Ordinal);
+        if (requireMeasurement)
+        {
+            var measuredDocument = Assert.IsType<ProjectDocument>(measurer.Document);
+            Assert.Same(document, measuredDocument);
+            ProjectValidator.Validate(measuredDocument);
+            var measured = Assert.IsType<SubtitleLine>(measurer.Line);
+            Assert.Equal(8192, measured.Style.FontSize);
+            Assert.Equal(8192, Assert.Single(measured.InlineSpans).Style.FontSize);
+            Assert.Equal(8192, measured.KaraokeStyleSpans[0].ActiveStyle!.StrokeWidth);
+            Assert.Equal(3840, measured.Style.Scaling.ReferenceWidth);
+            Assert.Equal(2160, measured.Style.Scaling.ReferenceHeight);
+            Assert.Equal(4096, document.Subtitles[0].Style.FontSize);
+        }
+        else
+        {
+            Assert.Null(measurer.Line);
+        }
         Assert.Throws<InvalidDataException>(() => AssSubtitleFormat.Parse(written.Text, 3840, 2160));
         Assert.Throws<InvalidDataException>(() => AssSubtitleFormat.Write(document with
         {
