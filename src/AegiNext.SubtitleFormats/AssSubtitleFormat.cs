@@ -14,7 +14,21 @@ public static class AssSubtitleFormat
     public static AssImportResult Parse(string source, int targetWidth = 1920, int targetHeight = 1080,
         IAssFontWeightResolver? fontWeightResolver = null)
     {
+        return ParseCore(source, targetWidth, targetHeight, fontWeightResolver).Result;
+    }
+
+    /// <summary>按源 PlayRes 导入，不重采样已声明的轴；缺失的宽、高分别采用 1920、1080 并报告诊断。</summary>
+    public static AssSourceImportResult ParseAtSourceResolution(string source, IAssFontWeightResolver? fontWeightResolver = null)
+    {
+        return ParseCore(source, null, null, fontWeightResolver);
+    }
+
+    private static AssSourceImportResult ParseCore(string source, int? requestedWidth, int? requestedHeight,
+        IAssFontWeightResolver? fontWeightResolver)
+    {
         AssFormatValues.CheckText(source);
+        var targetWidth = requestedWidth ?? 1920;
+        var targetHeight = requestedHeight ?? 1080;
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetWidth);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetHeight);
         var rows = source.TrimStart('\uFEFF').Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n').Split('\n');
@@ -101,6 +115,12 @@ public static class AssSubtitleFormat
         {
             throw new InvalidDataException("ASS PlayRes 必须为正。");
         }
+        if (requestedWidth is null)
+        {
+            ProjectValidator.Validate(new ProjectDocument { Width = width, Height = height });
+            targetWidth = width;
+            targetHeight = height;
+        }
         var scaleX = (double)targetWidth / width;
         var scaleY = (double)targetHeight / height;
         var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
@@ -152,7 +172,23 @@ public static class AssSubtitleFormat
         var clips = ImmutableArray.CreateBuilder<SubtitleClipImport>();
         if (!hasWidth || !hasHeight)
         {
-            diagnostics.Add(new("Ass.PlayRes", "ASS 缺失的 PlayRes 轴按目标画布尺寸解释，已声明的轴仍按其源尺寸重采样。"));
+            if (requestedWidth is not null)
+            {
+                diagnostics.Add(new("Ass.PlayRes", "ASS 缺失的 PlayRes 轴按目标画布尺寸解释，已声明的轴仍按其源尺寸重采样。"));
+            }
+            else
+            {
+                var missingAxes = new List<string>();
+                if (!hasWidth)
+                {
+                    missingAxes.Add("PlayResX=1920");
+                }
+                if (!hasHeight)
+                {
+                    missingAxes.Add("PlayResY=1080");
+                }
+                diagnostics.Add(new("Ass.PlayRes", $"ASS 缺失的 PlayRes 轴采用默认尺寸（{string.Join("、", missingAxes)}），已声明的轴保持源尺寸。"));
+            }
         }
         if (attachments)
         {
@@ -210,7 +246,7 @@ public static class AssSubtitleFormat
                 diagnostics.Add(new("Ass.StyleGeometry", "ASS 样式的背景框未导入。", SubtitleId: line.Id));
             }
         }
-        return new(lines.ToImmutable(), diagnostics.ToImmutable()) { Clips = clips.ToImmutable() };
+        return new(width, height, new(lines.ToImmutable(), diagnostics.ToImmutable()) { Clips = clips.ToImmutable() });
     }
 
     /// <summary>按工程合成层顺序导出字幕及可表达的静态形状，静态样式去重，时间显式量化到厘秒。</summary>

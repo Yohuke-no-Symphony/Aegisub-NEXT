@@ -1,9 +1,9 @@
 using AegiNext.Core.Projects;
-using AegiNext.Desktop.Rendering;
 using AegiNext.Rendering.Projects;
+using AegiNext.Rendering.SubtitleFormats;
 using AegiNext.SubtitleFormats;
 
-namespace AegiNext.Desktop.Tests;
+namespace AegiNext.Rendering.Tests;
 
 public sealed class AssSubtitlePlacementMeasurerTests
 {

@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../AegiNext.Core/AegiNext.Core.csproj" />
+    <ProjectReference Include="../AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.HarfBuzz" />
     <PackageReference Include="Uax14Net" />

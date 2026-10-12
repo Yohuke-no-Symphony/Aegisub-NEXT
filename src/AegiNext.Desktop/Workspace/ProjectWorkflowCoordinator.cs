@@ -7,7 +7,7 @@ using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controllers;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
-using AegiNext.Desktop.Rendering;
+using AegiNext.Rendering.SubtitleFormats;
 using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Desktop.Workspace;

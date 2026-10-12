@@ -3,13 +3,15 @@ using AegiNext.Rendering.Fonts;
 using AegiNext.Rendering.Projects;
 using AegiNext.SubtitleFormats;
 
-namespace AegiNext.Desktop.Rendering;
+namespace AegiNext.Rendering.SubtitleFormats;
 
-internal sealed class AssSubtitlePlacementMeasurer : ISubtitlePlacementMeasurer, IDisposable
+/// <summary>通过共享字幕渲染器提供 ASS 导出所需的实际排版度量。</summary>
+public sealed class AssSubtitlePlacementMeasurer : ISubtitlePlacementMeasurer, IDisposable
 {
     private readonly ProjectSceneRenderer renderer;
 
-    internal AssSubtitlePlacementMeasurer(string projectDirectory, SystemFontCatalog? fontCatalog = null)
+    /// <summary>使用指定工程资源目录和可选字体目录创建本次导出的排版测量器。</summary>
+    public AssSubtitlePlacementMeasurer(string projectDirectory, SystemFontCatalog? fontCatalog = null)
     {
         renderer = new(new DirectoryProjectAssetResolver(projectDirectory), fontCatalog);
     }
@@ -23,5 +25,8 @@ internal sealed class AssSubtitlePlacementMeasurer : ISubtitlePlacementMeasurer,
     }
 
     /// <summary>释放本次字幕导出所用的排版与字体资源。</summary>
-    public void Dispose() => renderer.Dispose();
+    public void Dispose()
+    {
+        renderer.Dispose();
+    }
 }

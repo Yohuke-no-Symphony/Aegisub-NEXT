@@ -1,9 +1,9 @@
 using AegiNext.Core.Projects;
-using AegiNext.Desktop.Rendering;
 using AegiNext.Rendering.Fonts;
+using AegiNext.Rendering.SubtitleFormats;
 using AegiNext.SubtitleFormats;
 
-namespace AegiNext.Desktop.Tests;
+namespace AegiNext.Rendering.Tests;
 
 public sealed class AssFontWeightResolverTests
 {
@@ -66,10 +66,11 @@ public sealed class AssFontWeightResolverTests
     {
         var face = Face("Fixture", "SemiBold Italic", 600, italic: true) with { Aliases = ["Alias"] };
         var resolver = new AssFontWeightResolver([face]);
-        var parsed = AssSubtitleFormat.Parse("[Script Info]\nPlayResX: 1920\nPlayResY: 1080\n[Events]\n" +
+        var imported = AssSubtitleFormat.ParseAtSourceResolution("[Script Info]\nPlayResX: 1920\nPlayResY: 1080\n[Events]\n" +
             "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n" +
             "Dialogue: 0,0:00:00.00,0:00:02.00,Default,,0,0,0,,{\\fnAlias\\b600\\i1}x\n",
             fontWeightResolver: resolver);
+        var parsed = imported.Result;
         var line = Assert.Single(parsed.Lines);
         var style = line.InlineSpans.FirstOrDefault()?.Style.ApplyTo(line.Style) ?? line.Style;
 

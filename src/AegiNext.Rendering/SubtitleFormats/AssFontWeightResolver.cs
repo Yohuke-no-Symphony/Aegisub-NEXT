@@ -3,13 +3,15 @@ using AegiNext.Core.Projects;
 using AegiNext.Rendering.Fonts;
 using AegiNext.SubtitleFormats;
 
-namespace AegiNext.Desktop.Rendering;
+namespace AegiNext.Rendering.SubtitleFormats;
 
-internal sealed class AssFontWeightResolver : IAssFontWeightResolver
+/// <summary>使用已捕获的字体目录，为 ASS 字重请求选择特征完全匹配的真实字体变体。</summary>
+public sealed class AssFontWeightResolver : IAssFontWeightResolver
 {
     private readonly ImmutableDictionary<string, ImmutableArray<SystemFontFace>> families;
 
-    internal AssFontWeightResolver(IEnumerable<SystemFontFace> faces)
+    /// <summary>捕获字体及家族别名，后续解析不受输入集合变化影响。</summary>
+    public AssFontWeightResolver(IEnumerable<SystemFontFace> faces)
     {
         families = faces.SelectMany(face => face.Aliases.Append(face.FamilyName)
                 .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct(StringComparer.OrdinalIgnoreCase)
