@@ -9,6 +9,14 @@ public static class ProjectCreationService
     private const int MAXIMUM_NAME_LENGTH = 128;
     private const string INVALID_NAME_CHARACTERS = "<>:\"/\\|?*";
 
+    /// <summary>创建包含默认轨道和一行空白字幕的初始工程快照。</summary>
+    public static ProjectDocument CreateDocument(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var document = new ProjectDocument { Name = name };
+        return ProjectEditingOperations.CreateSubtitleClips(document, [new()], document.Tracks[0].Id);
+    }
+
     /// <summary>验证名称、绝对父目录和目标冲突；不修改文件系统。</summary>
     public static void Validate(ProjectCreationRequest request)
     {
@@ -73,7 +81,7 @@ public static class ProjectCreationService
         {
             Directory.CreateDirectory(temporary);
             Directory.CreateDirectory(Path.Combine(temporary, "backup"));
-            var document = new ProjectDocument { Name = request.Name };
+            var document = CreateDocument(request.Name);
             await ProjectStore.CreateAsync(document, Path.Combine(temporary, request.Name + ".aeginext"),
                 cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();

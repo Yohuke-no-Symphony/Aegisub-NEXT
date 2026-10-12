@@ -1,6 +1,5 @@
 using AegiNext.Application;
 using AegiNext.Core.Projects;
-using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Shortcuts;
@@ -31,7 +30,8 @@ public sealed class TimelineViewStatePersistenceUiTests
         await session.Styles.Completion;
         Assert.Equal(ProjectOpenStatus.OPENED,
             (await session.CreateProjectAsync(new ProjectCreationRequest("Timeline view state", environment.DirectoryPath))).Status);
-        var id = session.Editor.AddSubtitle(MediaTime.Zero, new(2), "字幕 ABC 123");
+        var id = Assert.Single(session.DocumentSnapshot.Subtitles).Id;
+        session.Editor.UpdateSubtitle(id, line => line with { Text = "字幕 ABC 123" });
         session.Editor.SetKeyframe(id, AnimationProperty.OPACITY, new(new(1), 0.5));
         session.SelectCue(id);
         await session.WaitForProjectIdleAsync();

@@ -1,6 +1,5 @@
 using AegiNext.Application;
 using AegiNext.Core.Projects;
-using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Views;
@@ -33,7 +32,8 @@ public sealed class ProjectPersistenceUiTests
         var asset = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.MEDIA, string.Empty,
             ExternalPath: Path.Combine(session.ProjectDirectory, "视频 01.mkv"));
         session.Editor.Apply("Legacy media", document => document with { Assets = [asset] });
-        var id = session.Editor.AddSubtitle(MediaTime.Zero, new(2), "字幕 ABC 123");
+        var id = Assert.Single(session.DocumentSnapshot.Subtitles).Id;
+        session.Editor.UpdateSubtitle(id, line => line with { Text = "字幕 ABC 123" });
         session.SelectCue(id);
         await session.WaitForProjectIdleAsync();
         var window = new MainWindow(session);

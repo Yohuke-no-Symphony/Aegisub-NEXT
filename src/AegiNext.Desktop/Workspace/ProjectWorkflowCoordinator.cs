@@ -160,7 +160,7 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
             }
             else
             {
-                document = new() { Name = Path.GetFileNameWithoutExtension(path) };
+                document = ProjectCreationService.CreateDocument(Path.GetFileNameWithoutExtension(path));
                 await ProjectStore.CreateAsync(document, path, cancellationToken);
             }
             context.EnterCommit(() => !session.IsClosing);

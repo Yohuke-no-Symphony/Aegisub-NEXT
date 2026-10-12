@@ -1,4 +1,5 @@
 using AegiNext.Core.Projects;
+using AegiNext.Core.Timing;
 
 namespace AegiNext.Application.Tests;
 
@@ -16,7 +17,25 @@ public sealed class ProjectCreationServiceTests
         Assert.Equal(Path.Combine(parent, request.Name, request.Name + ".aeginext"), created.Path);
         Assert.Equal(created.Path, ProjectCreationService.GetProjectPath(request));
         Assert.Equal(request.Name, created.Document.Name);
-        Assert.Equal(created.Document.Id, (await ProjectStore.LoadAsync(created.Path)).Id);
+        var loaded = await ProjectStore.LoadAsync(created.Path);
+        Assert.Equal(created.Document.Id, loaded.Id);
+        var subtitle = Assert.Single(created.Document.Subtitles);
+        Assert.Equal(string.Empty, subtitle.Text);
+        Assert.Equal(MediaTime.Zero, subtitle.Start);
+        Assert.Equal(new MediaTime(2), subtitle.End);
+        var layer = Assert.Single(created.Document.Layers);
+        Assert.Equal(LayerKind.SUBTITLE, layer.Kind);
+        Assert.Equal(subtitle.Id, layer.SubtitleId);
+        Assert.Equal(Assert.Single(created.Document.Tracks).Id, layer.TrackId);
+        Assert.Equal(subtitle.Start, layer.Start);
+        Assert.Equal(subtitle.End, layer.End);
+        Assert.Equal(subtitle.Id, Assert.Single(loaded.Subtitles).Id);
+        Assert.Equal(string.Empty, loaded.Subtitles[0].Text);
+        Assert.Equal(subtitle.Start, loaded.Subtitles[0].Start);
+        Assert.Equal(subtitle.End, loaded.Subtitles[0].End);
+        Assert.Equal(layer.Id, Assert.Single(loaded.Layers).Id);
+        Assert.Equal(subtitle.Id, loaded.Layers[0].SubtitleId);
+        ProjectValidator.Validate(loaded);
         Assert.True(Directory.Exists(Path.Combine(parent, request.Name, "backup")));
         Assert.Single(Directory.EnumerateDirectories(parent));
     }

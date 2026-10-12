@@ -1,7 +1,6 @@
 using AegiNext.Application;
 using AegiNext.Application.Tasks;
 using AegiNext.Core.Projects;
-using AegiNext.Core.Timing;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Shortcuts;
 
@@ -21,7 +20,8 @@ public sealed class WorkbenchSessionPersistenceTests
         var asset = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.MEDIA, string.Empty,
             ExternalPath: Path.Combine(context.Session.ProjectDirectory, "字幕 01.mkv"));
         context.Editor.Apply("Media asset", document => document with { Assets = [asset] });
-        var id = context.Editor.AddSubtitle(MediaTime.Zero, new(1), "中文 ABC 123");
+        var id = Assert.Single(context.Editor.Snapshot.Subtitles).Id;
+        context.Editor.UpdateSubtitle(id, line => line with { End = new(1), Text = "中文 ABC 123" });
         context.Session.SelectCue(id);
         await context.Session.WaitForProjectIdleAsync();
         context.Session.ViewModel.Styles.Subtitle.FontSizeText = "not a number";
