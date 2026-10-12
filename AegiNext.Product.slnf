@@ -8,6 +8,7 @@
       "src\\AegiNext.Media\\AegiNext.Media.csproj",
       "src\\AegiNext.Application\\AegiNext.Application.csproj",
       "src\\AegiNext.SubtitleFormats\\AegiNext.SubtitleFormats.csproj",
+      "src\\AegiNext.Cli\\AegiNext.Cli.csproj",
       "src\\AegiNext.ExportWorker\\AegiNext.ExportWorker.csproj",
       "src\\AegiNext.Export\\AegiNext.Export.csproj"
     ]

@@ -24,6 +24,10 @@
     <PackageVersion Include="HarfBuzzSharp.NativeAssets.Linux" Version="8.3.1.5" />
     <PackageVersion Include="HarfBuzzSharp.NativeAssets.WebAssembly" Version="8.3.1.5" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
+    <PackageVersion Include="Spectre.Console" Version="0.57.2" />
+    <PackageVersion Include="Spectre.Console.Cli" Version="0.57.2" />
+    <PackageVersion Include="Spectre.Console.Testing" Version="0.57.2" />
+    <PackageVersion Include="Spectre.Console.Cli.Testing" Version="0.57.2" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.v3" Version="3.2.2" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />

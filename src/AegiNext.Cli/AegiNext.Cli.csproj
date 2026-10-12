@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>aegnc</AssemblyName>
+    <RootNamespace>AegiNext.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AegiNext.Cli.Tests" />
+    <PackageReference Include="Spectre.Console" />
+    <PackageReference Include="Spectre.Console.Cli" />
+    <ProjectReference Include="../AegiNext.Application/AegiNext.Application.csproj" />
+    <ProjectReference Include="../AegiNext.Export/AegiNext.Export.csproj" />
+    <ProjectReference Include="../AegiNext.Rendering/AegiNext.Rendering.csproj" />
+  </ItemGroup>
+</Project>
