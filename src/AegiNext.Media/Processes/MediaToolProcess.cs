@@ -53,7 +53,7 @@ public static class MediaToolProcess
             RethrowReadFailure(stderr);
             if (deadline.IsCancellationRequested)
             {
-                throw new TimeoutException($"媒体探测超过 {timeout.TotalSeconds} 秒，子进程已停止。");
+                throw new TimeoutException($"Media probing exceeded {timeout.TotalSeconds} seconds; the child process was stopped.");
             }
 
             throw;
@@ -76,7 +76,7 @@ public static class MediaToolProcess
 
                 if (count > limit - result.Length)
                 {
-                    throw new InvalidDataException($"媒体工具输出超过 {limit} 个字符限制。");
+                    throw new InvalidDataException($"Media tool output exceeds the limit of {limit} characters.");
                 }
 
                 result.Append(buffer, 0, count);

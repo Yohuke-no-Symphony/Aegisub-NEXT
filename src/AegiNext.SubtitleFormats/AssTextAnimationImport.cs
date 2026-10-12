@@ -220,7 +220,7 @@ internal sealed class AssTextAnimationImport
             }
             if (key == "blur" && runs.Any(BorderCrossesZero))
             {
-                Report("Ass.TransformAppearanceAnimation", "ASS 模糊动画跨越描边零值，作用对象随时间改变，已省略模糊动画并保留其他动画。");
+                Report("Ass.TransformAppearanceAnimation", "ASS blur animation crosses a zero stroke width and changes its target over time. Blur animation was omitted and other animations were preserved.");
                 continue;
             }
             foreach (var runIndex in mixed || staticGeometry ? Enumerable.Range(0, runs.Count) : Enumerable.Range(0, Math.Min(runs.Count, 1)))
@@ -238,7 +238,7 @@ internal sealed class AssTextAnimationImport
                     {
                         if (rangeIds.Count >= 256)
                         {
-                            Report("Ass.TextRangeBudget", "ASS 可见动画范围超过每字幕 256 个范围的预算，已省略额外范围动画并保留文字与静态样式。");
+                            Report("Ass.TextRangeBudget", "Visible ASS animation ranges exceed the 256-ranges-per-subtitle budget. Additional range animations were omitted; text and static styles were preserved.");
                             continue;
                         }
                         id = Guid.NewGuid();
@@ -288,7 +288,7 @@ internal sealed class AssTextAnimationImport
         if (result.AnimationRanges.Any(range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0) ||
             tracks.Any(track => track.Target.TextRangeId is not null && track.Property is AnimationProperty.SCALE or AnimationProperty.ROTATION))
         {
-            Report("Ass.TextRangeGeometry", "ASS 片段变换已保存为文字范围，原生排版后变换与 ASS 的字形、边缘、阴影及共享布局顺序可能不同。");
+            Report("Ass.TextRangeGeometry", "ASS segment transforms were stored as text ranges. Native transforms after layout may differ from the ASS order of glyph, edge, shadow, and shared layout operations.");
         }
         return (result, LayerAnimationTiming.Clip(new ProjectLayer
         {
@@ -305,7 +305,7 @@ internal sealed class AssTextAnimationImport
             {
                 var fallbackValue = component == 0 ? fallback.X : fallback.Y;
                 initial = initial.WithComponent(component, ValidScale(fallbackValue, component) ? fallbackValue : 1);
-                Report("Ass.TransformRange", "ASS 字形缩放基础值超出原生范围，已回退该轴并保留另一轴和其他内容。");
+                Report("Ass.TransformRange", "ASS glyph scaling base values exceed the native range. This axis reverted to its fallback; the other axis and other content were preserved.");
             }
         }
         var operations = ImmutableArray.CreateBuilder<AssTextAnimationOperation>();
@@ -322,7 +322,7 @@ internal sealed class AssTextAnimationImport
                     if ((mask & bit) != 0)
                     {
                         remaining &= ~bit;
-                        Report("Ass.TransformRange", "ASS 字形缩放动画超出原生范围，已省略该轴操作并保留另一轴和其他内容。");
+                        Report("Ass.TransformRange", "ASS glyph scaling animation exceeds the native range. This axis operation was omitted; the other axis and other content were preserved.");
                     }
                     value = value.WithComponent(component, initial.GetComponent(component));
                 }
@@ -415,7 +415,7 @@ internal sealed class AssTextAnimationImport
                     AssSourceAnimationEvaluator.Evaluate(snapshot, time, true).Scalar < minimum));
             if (belowFontFloor)
             {
-                Report("Ass.FontSizeRange", "ASS 连续字号经过小于原生 0.01 的正值，已钳制到原生下限并保留逐操作样式复位。");
+                Report("Ass.FontSizeRange", "ASS continuous font size passes through positive values below the native minimum of 0.01. It was clamped to the native minimum; per-operation style resets were preserved.");
             }
             track = track with
             {
@@ -427,8 +427,8 @@ internal sealed class AssTextAnimationImport
                 }).ToImmutableArray()
             };
             Report(samples.Limited ? "Ass.AnimationSamplingLimit" : "Ass.AnimationSampling",
-                samples.Limited ? $"ASS {key} 逐操作约束采样达到 1 毫秒、断点量化或 4096 点限制，部分区间误差可能超过 1/255。" :
-                    $"ASS {key} 插值后的逐操作约束已采样为原生动画，检查的源坐标分量误差不超过 1/255，最短间隔为 1 毫秒。");
+                samples.Limited ? $"ASS {key} per-operation constraint sampling reached the 1-millisecond, breakpoint quantization, or 4096-point limit. Errors in some intervals may exceed 1/255." :
+                    $"ASS {key} interpolated per-operation constraints were sampled as native animation. Errors in checked source-coordinate components do not exceed 1/255, with a minimum interval of 1 millisecond.");
         }
         else if (key == "shadow" && transform.Rotation != 0 && snapshot.Operations.Any(operation => operation.ComponentMask != 0))
         {
@@ -456,8 +456,8 @@ internal sealed class AssTextAnimationImport
                 }).ToImmutableArray()
             };
             Report(samples.Limited ? "Ass.AnimationSamplingLimit" : "Ass.AnimationSampling",
-                samples.Limited ? "旋转下独立阴影轴的转换采样达到 1 毫秒或 4096 点限制，部分区间误差可能超过 1/255。" :
-                    "旋转下独立阴影轴已采样为原生向量，检查的分量误差不超过 1/255，最短间隔为 1 毫秒。");
+                samples.Limited ? "Conversion sampling for independent shadow axes under rotation reached the 1-millisecond or 4096-point limit. Errors in some intervals may exceed 1/255." :
+                    "Independent shadow axes under rotation were sampled as native vectors. Errors in checked components do not exceed 1/255, with a minimum interval of 1 millisecond.");
         }
         track = LayerAnimationTiming.Clip(new ProjectLayer
         {
@@ -472,7 +472,7 @@ internal sealed class AssTextAnimationImport
         }
         catch (InvalidDataException)
         {
-            Report("Ass.TransformRange", $"ASS {key} 动画超出原生范围或时间预算，已舍弃该轨道并保留其他内容。");
+            Report("Ass.TransformRange", $"ASS {key} animation exceeds the native range or time budget. The track was discarded and other content was preserved.");
         }
     }
 

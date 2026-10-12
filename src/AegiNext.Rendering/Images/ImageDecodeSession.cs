@@ -19,11 +19,11 @@ internal sealed class ImageDecodeSession(SKData data, SKCodec codec, ImageMetada
         var result = codec.GetPixels(info, bitmap.GetPixels(), bitmap.RowBytes, new SKCodecOptions(frameIndex, -1));
         if (result != SKCodecResult.Success)
         {
-            throw new InvalidDataException($"图片第 {frameIndex + 1} 帧解码失败：{result}。");
+            throw new InvalidDataException($"Image frame {frameIndex + 1} could not be decoded: {result}.");
         }
 
         bitmap.SetImmutable();
-        return SKImage.FromBitmap(bitmap) ?? throw new InvalidDataException("无法创建图片帧。");
+        return SKImage.FromBitmap(bitmap) ?? throw new InvalidDataException("The image frame could not be created.");
     }
 
     /// <inheritdoc />

@@ -31,7 +31,7 @@ public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
             }
         }
 
-        throw new JsonException("动画值必须为有限数值、完整二维向量或完整线性 RGBA。");
+        throw new JsonException("Animation values must be finite numbers, complete two-dimensional vectors, or complete linear RGBA colors.");
     }
 
     /// <inheritdoc />
@@ -58,7 +58,7 @@ public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
         }
         else
         {
-            throw new JsonException("未知动画值类型。");
+            throw new JsonException("Unknown animation value kind.");
         }
 
         writer.WriteEndObject();
@@ -69,7 +69,7 @@ public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
         var component = value.GetProperty(name);
         if (component.ValueKind != JsonValueKind.Number || !component.TryGetDouble(out var number))
         {
-            throw new JsonException("动画分量必须为数值。");
+            throw new JsonException("Animation components must be numeric.");
         }
 
         return ReadNumber(number);
@@ -79,7 +79,7 @@ public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
     {
         if (!double.IsFinite(value))
         {
-            throw new JsonException("动画值必须为有限数值。");
+            throw new JsonException("Animation values must be finite numbers.");
         }
 
         return value;

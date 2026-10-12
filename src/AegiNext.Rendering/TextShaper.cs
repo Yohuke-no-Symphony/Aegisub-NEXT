@@ -61,12 +61,12 @@ public sealed class TextShaper : IDisposable
         ArgumentOutOfRangeException.ThrowIfNegative(faceIndex);
         if (fontData.IsEmpty)
         {
-            throw new ArgumentException("字体数据不能为空。", nameof(fontData));
+            throw new ArgumentException("Font data cannot be empty.", nameof(fontData));
         }
 
         using var data = SKData.CreateCopy(fontData);
         return SKTypeface.FromData(data, faceIndex)
-            ?? throw new ArgumentException("无法解析指定字体。", nameof(fontData));
+            ?? throw new ArgumentException("The specified font could not be parsed.", nameof(fontData));
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ public sealed class TextShaper : IDisposable
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(fontSize);
         if (!float.IsNormal(fontSize))
         {
-            throw new ArgumentOutOfRangeException(nameof(fontSize), "字号不能为会导致塑形缩放下溢的次正规数。");
+            throw new ArgumentOutOfRangeException(nameof(fontSize), "The font size cannot be a subnormal number that causes shaping scale underflow.");
         }
 
         if (!Enum.IsDefined(direction))
@@ -133,7 +133,7 @@ public sealed class TextShaper : IDisposable
             ids[i] = checked((ushort)result.Codepoints[i]);
             if (ids[i] == 0)
             {
-                throw new InvalidOperationException($"字体缺少 UTF-16 cluster {result.Clusters[i]} 所需的字形。");
+                throw new InvalidOperationException($"The font is missing the glyphs required for UTF-16 cluster {result.Clusters[i]}.");
             }
 
             var original = result.Points[i];
@@ -145,7 +145,7 @@ public sealed class TextShaper : IDisposable
 
         using var builder = new SKTextBlobBuilder();
         builder.AddPositionedRun(ids, font, result.Points);
-        var blob = builder.Build() ?? throw new InvalidOperationException("文本未产生可绘制字形。");
+        var blob = builder.Build() ?? throw new InvalidOperationException("The text did not produce drawable glyphs.");
         try
         {
             var bounds = blob.Bounds;
@@ -238,7 +238,7 @@ public sealed class TextShaper : IDisposable
             if (Rune.DecodeFromUtf16(remaining, out var rune, out var consumed) != OperationStatus.Done
                 || Rune.IsControl(rune) || rune.Value is 0x2028 or 0x2029)
             {
-                throw new ArgumentException("需要有效的单行 UTF-16 文本，不支持换行或控制字符。", nameof(text));
+                throw new ArgumentException("Valid single-line UTF-16 text is required; line breaks and control characters are not supported.", nameof(text));
             }
 
             remaining = remaining[consumed..];

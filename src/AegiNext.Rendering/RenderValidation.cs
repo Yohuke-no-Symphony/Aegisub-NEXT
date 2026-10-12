@@ -8,7 +8,7 @@ internal static class RenderValidation
     {
         if (!float.IsFinite(value))
         {
-            throw new ArgumentOutOfRangeException(parameter, value, "数值必须有限。");
+            throw new ArgumentOutOfRangeException(parameter, value, "The value must be finite.");
         }
     }
 

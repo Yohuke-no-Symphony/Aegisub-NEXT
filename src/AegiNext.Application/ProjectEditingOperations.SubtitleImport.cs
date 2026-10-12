@@ -17,7 +17,7 @@ public static partial class ProjectEditingOperations
         }
         if (imported.Clips.Length != imported.Lines.Length || !imported.Clips.Select(clip => clip.Line).SequenceEqual(imported.Lines))
         {
-            throw new InvalidDataException("ASS 导入片段与字幕身份不一致。");
+            throw new InvalidDataException("The imported ASS clips do not match the subtitle identities.");
         }
         var clips = imported.Clips.ToDictionary(clip => clip.Line.Id);
         return Verified(result with
@@ -35,20 +35,20 @@ public static partial class ProjectEditingOperations
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ProjectValidator.ValidateText(name);
         var imported = lines.Cast<SubtitleLine?>().Take(100001)
-            .Select(line => line ?? throw new InvalidDataException("导入字幕不能为 null。")).ToArray();
+            .Select(line => line ?? throw new InvalidDataException("An imported subtitle cannot be null.")).ToArray();
         if (imported.Length == 0)
         {
             return document;
         }
         if (imported.Length > 100000 || document.Subtitles.Length + imported.Length > 100000 || name.Length > 1024)
         {
-            throw new InvalidDataException("字幕导入数量或轨道名称超过预算。");
+            throw new InvalidDataException("The subtitle import count or track name exceeds the budget.");
         }
         var slots = new SubtitleImportTrackAllocator(imported).Allocate(imported);
         var trackCount = slots.Max() + 1;
         if (document.Tracks.Length + trackCount > 10000)
         {
-            throw new InvalidDataException("导入轨道数量超过预算。");
+            throw new InvalidDataException("The imported track count exceeds the budget.");
         }
         var tracks = Enumerable.Range(0, trackCount).Select(slot => new ProjectTrack
         {

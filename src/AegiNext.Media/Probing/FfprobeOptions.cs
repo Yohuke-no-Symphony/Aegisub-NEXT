@@ -14,13 +14,13 @@ public sealed record FfprobeOptions
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         if (!Path.IsPathFullyQualified(executablePath))
         {
-            throw new ArgumentException("ffprobe 必须使用完整路径。", nameof(executablePath));
+            throw new ArgumentException("ffprobe must use an absolute path.", nameof(executablePath));
         }
 
         var effectiveTimeout = timeout ?? TimeSpan.FromSeconds(30);
         if (effectiveTimeout <= TimeSpan.Zero || effectiveTimeout > TimeSpan.FromMinutes(10))
         {
-            throw new ArgumentOutOfRangeException(nameof(timeout), "探测超时必须在 0 至 10 分钟之间。");
+            throw new ArgumentOutOfRangeException(nameof(timeout), "The probing timeout must be between 0 and 10 minutes.");
         }
 
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumOutputCharacters);

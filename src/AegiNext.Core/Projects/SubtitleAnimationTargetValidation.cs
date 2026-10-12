@@ -13,7 +13,7 @@ public static class SubtitleAnimationTargetValidation
             target.TextRangeId.HasValue && !AnimationPropertyMetadata.IsTextRangeProperty(target.Property) ||
             target.State != SubtitleAnimationState.NORMAL && !AnimationPropertyMetadata.IsSubtitleVisualProperty(target.Property))
         {
-            throw new InvalidDataException("动画目标的属性、节点、文字范围或绘制状态无效。");
+            throw new InvalidDataException("The animation target property, node, text range, or drawing state is invalid.");
         }
     }
 
@@ -25,12 +25,12 @@ public static class SubtitleAnimationTargetValidation
         if ((target.TextRangeId.HasValue || target.State != SubtitleAnimationState.NORMAL ||
             AnimationPropertyMetadata.IsSubtitleOnlyProperty(target.Property)) && subtitle is null && !allowUnboundTextRange)
         {
-            throw new InvalidDataException("字幕动画目标缺少所属字幕。");
+            throw new InvalidDataException("The subtitle animation target is missing its owning subtitle.");
         }
         if (target.TextRangeId is { } rangeId && !allowUnboundTextRange &&
             !subtitle!.AnimationRanges.Any(range => range.Id == rangeId))
         {
-            throw new InvalidDataException("文字动画范围不属于当前字幕。");
+            throw new InvalidDataException("The text animation range does not belong to the current subtitle.");
         }
         if (!AnimationPropertyMetadata.IsMaskProperty(target.Property))
         {
@@ -40,7 +40,7 @@ public static class SubtitleAnimationTargetValidation
             mask is not RectangleClipMask || target.NodeId is { } nodeId &&
             (mask is not VectorClipMask vector || !vector.Contours.Any(contour => contour.Nodes.Any(node => node.Id == nodeId))))
         {
-            throw new InvalidDataException("蒙版动画目标缺少对应几何或节点。");
+            throw new InvalidDataException("The mask animation target is missing its geometry or node.");
         }
     }
 }

@@ -64,7 +64,7 @@ public sealed class FfprobeIntegrationTests(ITestOutputHelper output)
             var corruptPath = Path.Combine(directory, "损坏.bin");
             await File.WriteAllTextAsync(corruptPath, "not a media container");
             var error = await Assert.ThrowsAsync<InvalidDataException>(() => probe.ProbeAsync(corruptPath));
-            Assert.Contains("退出码", error.Message, StringComparison.Ordinal);
+            Assert.Contains("exited with code", error.Message, StringComparison.Ordinal);
         }
         finally
         {

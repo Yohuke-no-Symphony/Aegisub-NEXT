@@ -12,7 +12,7 @@ public sealed record MediaTimeRange
     {
         if (end <= start)
         {
-            throw new ArgumentOutOfRangeException(nameof(end), end, "结束时间必须晚于开始时间。");
+            throw new ArgumentOutOfRangeException(nameof(end), end, "The end time must be later than the start time.");
         }
 
         Start = start;

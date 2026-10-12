@@ -66,7 +66,7 @@ public sealed class FfprobeVideoTimingProbeTests
 
             var error = await Assert.ThrowsAsync<InvalidDataException>(() => CreateProbe().ProbeAsync(source, 2, new(5)));
 
-            Assert.Contains("媒体文件发生变化", error.Message, StringComparison.Ordinal);
+            Assert.Contains("media file changed", error.Message, StringComparison.Ordinal);
         }
         finally
         {

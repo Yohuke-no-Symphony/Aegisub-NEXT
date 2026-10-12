@@ -13,7 +13,7 @@ internal static partial class AssMaskDrawing
         var stripped = TokenPattern().Replace(drawing, string.Empty);
         if (!string.IsNullOrWhiteSpace(stripped) || tokens.Length > 100000)
         {
-            throw new InvalidDataException("ASS 蒙版绘图包含非法命令或超过预算。");
+            throw new InvalidDataException("ASS mask drawing contains invalid commands or exceeds the budget.");
         }
         var contours = ImmutableArray.CreateBuilder<MaskContour>();
         var nodes = new List<MaskNode>();
@@ -28,7 +28,7 @@ internal static partial class AssMaskDrawing
             {
                 if (cursor + 1 >= tokens.Length || char.IsAsciiLetter(tokens[cursor + 1][0]))
                 {
-                    throw new InvalidDataException("ASS 蒙版绘图坐标必须成对。");
+                    throw new InvalidDataException("ASS mask drawing coordinates must occur in pairs.");
                 }
                 points.Add(new(AssFormatValues.Number(tokens[cursor++]) * scaleX, AssFormatValues.Number(tokens[cursor++]) * scaleY));
             }
@@ -37,7 +37,7 @@ internal static partial class AssMaskDrawing
                 case "m":
                     if (points.Count == 0)
                     {
-                        throw new InvalidDataException("ASS m 命令缺少坐标。");
+                        throw new InvalidDataException("The ASS m command is missing coordinates.");
                     }
                     FlushContour();
                     nodes.Add(new() { Position = points[^1] });
@@ -47,7 +47,7 @@ internal static partial class AssMaskDrawing
                     RequireStart();
                     if (points.Count == 0)
                     {
-                        throw new InvalidDataException("ASS n 命令缺少坐标。");
+                        throw new InvalidDataException("The ASS n command is missing coordinates.");
                     }
                     if (nodes.Count == 1)
                     {
@@ -59,7 +59,7 @@ internal static partial class AssMaskDrawing
                     RequireStart();
                     if (points.Count == 0)
                     {
-                        throw new InvalidDataException("ASS l 命令缺少坐标。");
+                        throw new InvalidDataException("The ASS l command is missing coordinates.");
                     }
                     foreach (var point in points)
                     {
@@ -71,7 +71,7 @@ internal static partial class AssMaskDrawing
                     RequireStart();
                     if (points.Count == 0 || points.Count % 3 != 0)
                     {
-                        throw new InvalidDataException("ASS b 命令必须有三点一组的三次贝塞尔坐标。");
+                        throw new InvalidDataException("The ASS b command requires cubic Bezier coordinates in groups of three points.");
                     }
                     for (var index = 0; index < points.Count; index += 3)
                     {
@@ -83,7 +83,7 @@ internal static partial class AssMaskDrawing
                     RequireStart();
                     if (points.Count < 3)
                     {
-                        throw new InvalidDataException("ASS s 命令至少需要三个控制点。");
+                        throw new InvalidDataException("The ASS s command requires at least three control points.");
                     }
                     var spline = new List<ScenePoint> { previousSourcePoint };
                     spline.AddRange(points);
@@ -114,17 +114,17 @@ internal static partial class AssMaskDrawing
                     }
                     break;
                 default:
-                    throw new InvalidDataException($"ASS 蒙版绘图命令 {command} 没有合法的前置曲线。");
+                    throw new InvalidDataException($"ASS mask drawing command {command} has no valid preceding curve.");
             }
             if (nodeCount + nodes.Count > 10000)
             {
-                throw new InvalidDataException("ASS 蒙版总节点数超过 10,000 点预算。");
+                throw new InvalidDataException("The total ASS mask node count exceeds the 10,000-point budget.");
             }
         }
         FlushContour();
         if (contours.Count == 0)
         {
-            throw new InvalidDataException("ASS 蒙版绘图不能为空。");
+            throw new InvalidDataException("ASS mask drawing cannot be empty.");
         }
         var allNodes = contours.SelectMany(contour => contour.Nodes).ToArray();
         return new()
@@ -139,7 +139,7 @@ internal static partial class AssMaskDrawing
         {
             if (nodes.Count == 0)
             {
-                throw new InvalidDataException("ASS 蒙版绘图必须以 m 命令开始。");
+                throw new InvalidDataException("ASS mask drawing must start with an m command.");
             }
         }
 

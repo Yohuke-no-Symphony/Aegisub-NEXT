@@ -77,7 +77,7 @@ public sealed partial class ProjectSceneRenderer
 
                     break;
                 default:
-                    throw new InvalidDataException("未知字幕蒙版形状。");
+                    throw new InvalidDataException("Unknown subtitle mask shape.");
             }
 
             var transform = mask.Transform;

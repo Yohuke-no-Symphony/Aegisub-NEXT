@@ -1,3 +1,4 @@
+using System.Globalization;
 using AegiNext.Application;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
@@ -63,7 +64,7 @@ public sealed class ExportCommandTests
         var exit = await CreateApplication(console, true, service).RunAsync(["export", .. arguments]);
         Assert.Equal(2, exit);
         Assert.Null(service.Request);
-        Assert.DoesNotContain("工程文件路径", console.Output);
+        Assert.DoesNotContain("Project file path", console.Output);
     }
 
     [Fact]
@@ -76,7 +77,7 @@ public sealed class ExportCommandTests
         var exit = await CreateApplication(console, true, service).RunAsync(["export", "-o", output]);
         Assert.Equal(2, exit);
         Assert.Null(service.Request);
-        Assert.DoesNotContain("工程文件路径", console.Output);
+        Assert.DoesNotContain("Project file path", console.Output);
         Assert.Equal("keep", await File.ReadAllTextAsync(output));
     }
 
@@ -91,8 +92,8 @@ public sealed class ExportCommandTests
         Assert.Equal(0, exit);
         Assert.Equal(8_000_000, service.Request!.VideoBitrate);
         Assert.Equal(VideoRateControlMode.VBR, service.Request.RateControlMode);
-        Assert.DoesNotContain("视频码率（", console.Output);
-        Assert.DoesNotContain("视频编码", console.Output);
+        Assert.DoesNotContain("Video bitrate (", console.Output);
+        Assert.DoesNotContain("Video codec", console.Output);
         Assert.Contains("8 Mbps", console.Output);
     }
 
@@ -109,7 +110,8 @@ public sealed class ExportCommandTests
         Assert.Equal(8_125_000, service.Request!.VideoBitrate);
         Assert.Equal(64_000, service.Request.AudioBitrate);
         Assert.Equal(VideoDecodeMode.Software, service.Request.DecodeMode);
-        Assert.DoesNotContain("输出文件或目录（", console.Output);
+        Assert.Contains("Project file path", console.Output);
+        Assert.DoesNotContain("Output file or directory (", console.Output);
     }
 
     [Fact]
@@ -148,8 +150,8 @@ public sealed class ExportCommandTests
         Assert.Equal(0, exit);
         Assert.Equal(VideoRateControlMode.CRF, service.Request!.RateControlMode);
         Assert.Equal(20, service.Request.Quality);
-        Assert.Contains("输出容器", console.Output);
-        Assert.DoesNotContain("音频码率（", console.Output);
+        Assert.Contains("Output container", console.Output);
+        Assert.DoesNotContain("Audio bitrate (", console.Output);
     }
 
     [Fact]
@@ -197,13 +199,72 @@ public sealed class ExportCommandTests
         Assert.Equal(130, exit);
     }
 
+    [Fact]
+    public async Task ExportHelpUsesEnglishDescriptionsWithoutRunningExport()
+    {
+        var console = CreateConsole(false);
+        var service = new RecordingVideoExportService();
+        var exit = await CreateApplication(console, false, service).RunAsync(["export", "--help"]);
+        Assert.Equal(0, exit);
+        Assert.Null(service.Request);
+        Assert.Contains("Video codec", console.Output);
+        Assert.Contains("AAC/Opus audio bitrate", console.Output);
+        Assert.Contains("Container: mp4/mkv/webm", console.Output);
+    }
+
+    [Fact]
+    public void SharedExportValidatorUsesEnglishQualityAndPresetErrors()
+    {
+        var quality = Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Validate(new() { Quality = 52 }));
+        var preset = Assert.Throws<ArgumentException>(() => VideoExportSettingsValidator.Validate(new() { Preset = "turbo" }));
+        Assert.StartsWith("Quality must", quality.Message, StringComparison.Ordinal);
+        Assert.StartsWith("Unsupported encoding speed Preset", preset.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("zh-CN")]
+    [InlineData("fr-FR")]
+    public async Task CommandsUseEnglishWithoutChangingCallerCulture(string cultureName)
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+        var hostCulture = CultureInfo.GetCultureInfo(cultureName);
+        CultureInfo.CurrentCulture = hostCulture;
+        CultureInfo.CurrentUICulture = hostCulture;
+        try
+        {
+            var console = CreateConsole(false);
+            console.Profile.Width = 160;
+            var service = new RecordingVideoExportService();
+            var app = CreateApplication(console, false, service);
+            Assert.Equal(0, await app.RunAsync(["--help"]));
+            Assert.Equal(hostCulture, CultureInfo.CurrentCulture);
+            Assert.Equal(hostCulture, CultureInfo.CurrentUICulture);
+            Assert.Equal(2, await app.RunAsync(["convert"]));
+            Assert.Equal(hostCulture, CultureInfo.CurrentCulture);
+            Assert.Equal(hostCulture, CultureInfo.CurrentUICulture);
+            Assert.Equal(2, await app.RunAsync(["export", "--quality", "52"]));
+            Assert.Equal(hostCulture, CultureInfo.CurrentCulture);
+            Assert.Equal(hostCulture, CultureInfo.CurrentUICulture);
+            Assert.Contains("Convert ASS, SRT, or project subtitles", console.Output);
+            Assert.Contains("interactive prompts are disabled", console.Output);
+            Assert.Contains("Quality must be between 0 and 51", console.Output);
+            Assert.Null(service.Request);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
+    }
+
     private static CliApplication CreateApplication(TestConsole console, bool interactive, RecordingVideoExportService service)
     {
         var runtime = new CliRuntime(console, interactive);
         var app = new CliApplication(runtime);
         var runner = new ExportRunner(runtime, service);
         app.RegisterInstance(runner);
-        app.RegisterCommand<ExportCommand>("export", "项目导出视频", cancellationToken => runner.RunAsync(new(), cancellationToken));
+        app.RegisterCommand<ExportCommand>("export", "Export project video", cancellationToken => runner.RunAsync(new(), cancellationToken));
         return app;
     }
 

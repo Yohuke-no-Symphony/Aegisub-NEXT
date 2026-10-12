@@ -26,7 +26,7 @@ internal sealed class SubtitleImportTrackAllocator
             var line = lines[index];
             if (line.Start >= line.End)
             {
-                throw new InvalidDataException("导入字幕的结束时间必须晚于开始时间。");
+                throw new InvalidDataException("The imported subtitle end time must be later than its start time.");
             }
             var start = Array.BinarySearch(boundaries, line.Start);
             var end = Array.BinarySearch(boundaries, line.End) - 1;

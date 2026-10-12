@@ -21,11 +21,11 @@ public static class ExportWorkerHost
             var line = await input.ReadLineAsync(cancellationToken).ConfigureAwait(false);
             if (line is null)
             {
-                throw new InvalidDataException("导出 worker 需要快照请求。");
+                throw new InvalidDataException("The export worker requires a snapshot request.");
             }
 
             var job = JsonSerializer.Deserialize<ExportWorkerJob>(line, ExportWire.Options)
-                ?? throw new InvalidDataException("缺少导出请求。");
+                ?? throw new InvalidDataException("The export request is missing.");
             ExportWire.ValidateJob(job);
             writer.Operation = job.Operation;
             var document = deserializeProject(job.Project);

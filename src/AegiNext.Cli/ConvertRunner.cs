@@ -23,11 +23,11 @@ public sealed class ConvertRunner(CliRuntime runtime, ISubtitleConversionService
         }
         if ((input is null || target is null) && !runtime.CanPrompt(settings))
         {
-            throw new CliUsageException("convert 必须填写 --input/-i PATH 和 --target ass|srt；当前环境禁止交互询问。");
+            throw new CliUsageException("convert requires --input/-i PATH and --target ass|srt; interactive prompts are disabled.");
         }
         while (input is null)
         {
-            var value = await runtime.PromptTextAsync("输入文件路径：", cancellationToken).ConfigureAwait(false);
+            var value = await runtime.PromptTextAsync("Input file path:", cancellationToken).ConfigureAwait(false);
             try
             {
                 input = CliPaths.ResolveInput(value, ".aeginext", ".ass", ".srt");
@@ -37,20 +37,20 @@ public sealed class ConvertRunner(CliRuntime runtime, ISubtitleConversionService
                 runtime.Console.WriteLine(error.Message);
             }
         }
-        target ??= await runtime.SelectAsync("选择目标字幕格式：", ["ass", "srt"], cancellationToken).ConfigureAwait(false);
+        target ??= await runtime.SelectAsync("Select target subtitle format:", ["ass", "srt"], cancellationToken).ConfigureAwait(false);
         var outputOption = settings.Output;
         if (fullWizard)
         {
-            var value = await runtime.PromptTextAsync("输出文件或目录（留空使用输入目录）：", cancellationToken, allowEmpty: true).ConfigureAwait(false);
+            var value = await runtime.PromptTextAsync("Output file or directory (leave blank to use the input directory):", cancellationToken, allowEmpty: true).ConfigureAwait(false);
             outputOption = string.IsNullOrWhiteSpace(value) ? null : value;
         }
         var output = CliPaths.ResolveOutput(input, outputOption, target);
-        runtime.Console.WriteLine($"转换：{input}");
-        runtime.Console.WriteLine($"目标：{target} → {output}");
+        runtime.Console.WriteLine($"Converting: {input}");
+        runtime.Console.WriteLine($"Target: {target} -> {output}");
         var result = await conversion.ConvertAsync(input, target, cancellationToken).ConfigureAwait(false);
         if (!result.Diagnostics.IsEmpty)
         {
-            var table = new Table().AddColumn("诊断代码").AddColumn("说明");
+            var table = new Table().AddColumn("Diagnostic code").AddColumn("Description");
             foreach (var diagnostic in result.Diagnostics)
             {
                 table.AddRow(new Text(diagnostic.Code), new Text(diagnostic.Message));
@@ -60,11 +60,11 @@ public sealed class ConvertRunner(CliRuntime runtime, ISubtitleConversionService
             {
                 if (!runtime.CanPrompt(settings))
                 {
-                    throw new CliUsageException("转换存在诊断；脚本需显式提供 --accept-loss 才能写入输出。");
+                    throw new CliUsageException("Conversion diagnostics require --accept-loss before output can be written in non-interactive mode.");
                 }
-                if (!await runtime.ConfirmAsync("接受上述转换诊断并写入输出？", cancellationToken).ConfigureAwait(false))
+                if (!await runtime.ConfirmAsync("Accept these conversion diagnostics and write the output?", cancellationToken).ConfigureAwait(false))
                 {
-                    throw new OperationCanceledException("用户取消转换。");
+                    throw new OperationCanceledException("Conversion canceled by user.");
                 }
             }
         }
@@ -89,7 +89,7 @@ public sealed class ConvertRunner(CliRuntime runtime, ISubtitleConversionService
         {
             File.Delete(temporary);
         }
-        runtime.Console.WriteLine($"已写入：{output}");
+        runtime.Console.WriteLine($"Written: {output}");
         return 0;
     }
 
@@ -97,7 +97,7 @@ public sealed class ConvertRunner(CliRuntime runtime, ISubtitleConversionService
     {
         if (!target.Equals("ass", StringComparison.OrdinalIgnoreCase) && !target.Equals("srt", StringComparison.OrdinalIgnoreCase))
         {
-            throw new CliUsageException("--target 仅支持 ass 或 srt。");
+            throw new CliUsageException("--target must be ass or srt.");
         }
         return target.ToLowerInvariant();
     }

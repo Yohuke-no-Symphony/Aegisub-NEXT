@@ -27,7 +27,7 @@ public sealed class ExportWorkerHostTests
         Assert.False(loaded);
         var message = JsonSerializer.Deserialize<ExportWorkerMessage>(output.ToString(), ExportWire.Options)!;
         Assert.Equal("error", message.Type);
-        Assert.Contains("快照请求", message.Error, StringComparison.Ordinal);
+        Assert.Contains("snapshot request", message.Error, StringComparison.Ordinal);
         Assert.Contains(nameof(InvalidDataException), errors.ToString(), StringComparison.Ordinal);
     }
 
@@ -56,6 +56,6 @@ public sealed class ExportWorkerHostTests
         Assert.Equal(expectedLoad, loaded);
         var message = JsonSerializer.Deserialize<ExportWorkerMessage>(output.ToString(), ExportWire.Options)!;
         Assert.Equal("error", message.Type);
-        Assert.Contains(expectedLoad ? "application project rejected" : "协议", message.Error, StringComparison.Ordinal);
+        Assert.Contains(expectedLoad ? "application project rejected" : "protocol", message.Error, StringComparison.Ordinal);
     }
 }

@@ -18,7 +18,7 @@ internal static class ExportWorkerClient
             File.Exists(Path.Combine(AppContext.BaseDirectory, executable)) ? executable : "aegn-exporter.dll");
         if (!Path.IsPathFullyQualified(worker) || !File.Exists(worker))
         {
-            throw new FileNotFoundException("缺少邻接的 aegn-exporter，请完整部署应用。", worker);
+            throw new FileNotFoundException("The adjacent aegn-exporter is missing; deploy the complete application.", worker);
         }
 
         var start = new ProcessStartInfo
@@ -41,7 +41,7 @@ internal static class ExportWorkerClient
         process.StartInfo = start;
         if (!process.Start())
         {
-            throw new InvalidOperationException("无法启动导出 worker。");
+            throw new InvalidOperationException("The export worker could not be started.");
         }
 
         await using var cancelled = cancellationToken.Register(static state =>
@@ -65,11 +65,11 @@ internal static class ExportWorkerClient
             {
                 if (line.Length > MESSAGE_LENGTH_LIMIT)
                 {
-                    throw new InvalidDataException("导出 worker 消息超过限制。");
+                    throw new InvalidDataException("The export worker message exceeds the size limit.");
                 }
 
                 var message = JsonSerializer.Deserialize<ExportWorkerMessage>(line, ExportWire.Options)
-                    ?? throw new InvalidDataException("导出 worker 返回空消息。");
+                    ?? throw new InvalidDataException("The export worker returned an empty message.");
                 if (message.Type == "progress")
                 {
                     reportProgress?.Invoke(message);
@@ -89,7 +89,7 @@ internal static class ExportWorkerClient
             cancellationToken.ThrowIfCancellationRequested();
             if (process.ExitCode != 0 || completed is null)
             {
-                throw new InvalidOperationException(failure ?? $"导出失败：{diagnostics}");
+                throw new InvalidOperationException(failure ?? $"Export failed: {diagnostics}");
             }
 
             return completed;

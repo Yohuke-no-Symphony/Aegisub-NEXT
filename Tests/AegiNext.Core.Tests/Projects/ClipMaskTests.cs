@@ -90,7 +90,7 @@ public sealed class ClipMaskTests
         };
 
         var failure = Assert.Throws<InvalidDataException>(() => ProjectValidator.Validate(new() { Layers = [layer] }));
-        Assert.Contains("字幕", failure.Message, StringComparison.Ordinal);
+        Assert.Contains("subtitle", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]

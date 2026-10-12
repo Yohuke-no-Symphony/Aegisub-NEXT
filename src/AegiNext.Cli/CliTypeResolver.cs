@@ -35,7 +35,7 @@ internal sealed class CliTypeResolver(IReadOnlyDictionary<Type, List<Type>> impl
         {
             foreach (var implementation in types)
             {
-                yield return Create(implementation) ?? throw new InvalidOperationException($"无法解析命令服务：{implementation.Name}");
+                yield return Create(implementation) ?? throw new InvalidOperationException($"Cannot resolve command service: {implementation.Name}");
             }
         }
         if (factories.TryGetValue(type, out var values))
@@ -56,7 +56,7 @@ internal sealed class CliTypeResolver(IReadOnlyDictionary<Type, List<Type>> impl
         }
         var constructor = constructors.MaxBy(candidate => candidate.GetParameters().Length)!;
         var parameters = constructor.GetParameters().Select(parameter => Resolve(parameter.ParameterType)
-            ?? throw new InvalidOperationException($"无法解析命令依赖：{parameter.ParameterType.Name}")).ToArray();
+            ?? throw new InvalidOperationException($"Cannot resolve command dependency: {parameter.ParameterType.Name}")).ToArray();
         return constructor.Invoke(parameters);
     }
 }

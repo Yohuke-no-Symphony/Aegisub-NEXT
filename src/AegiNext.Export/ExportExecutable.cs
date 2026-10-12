@@ -13,7 +13,7 @@ internal static class ExportExecutable
         {
             if (!Path.IsPathFullyQualified(explicitPath) || !File.Exists(explicitPath))
             {
-                throw new FileNotFoundException($"需要存在的 {name} 完整路径。", explicitPath);
+                throw new FileNotFoundException($"An absolute path to an existing {name} executable is required.", explicitPath);
             }
 
             return Path.GetFullPath(explicitPath);
@@ -30,6 +30,6 @@ internal static class ExportExecutable
             }
         }
 
-        throw new FileNotFoundException($"未找到 {name}，请配置其完整路径。");
+        throw new FileNotFoundException($"{name} was not found; configure its absolute path.");
     }
 }

@@ -11,11 +11,11 @@ public static class CliPaths
         var fullPath = FullPath(path);
         if (!extensions.Any(extension => string.Equals(Path.GetExtension(fullPath), NormalizeExtension(extension), StringComparison.OrdinalIgnoreCase)))
         {
-            throw new CliUsageException($"输入格式不受支持；允许的扩展名：{string.Join("、", extensions)}。");
+            throw new CliUsageException($"Unsupported input format. Allowed extensions: {string.Join(", ", extensions)}.");
         }
         if (!File.Exists(fullPath))
         {
-            throw new CliUsageException($"输入文件不存在：{fullPath}");
+            throw new CliUsageException($"Input file does not exist: {fullPath}");
         }
         return fullPath;
     }
@@ -33,14 +33,14 @@ public static class CliPaths
         {
             if (!string.Equals(Path.GetExtension(fullOutput), suffix, StringComparison.OrdinalIgnoreCase))
             {
-                throw new CliUsageException($"输出扩展名必须为 {suffix}：{fullOutput}");
+                throw new CliUsageException($"Output extension must be {suffix}: {fullOutput}");
             }
             ValidateOutputFile(inputPath, fullOutput);
             return fullOutput;
         }
         if (File.Exists(fullOutput))
         {
-            throw new CliUsageException($"输出目录路径已被文件占用：{fullOutput}");
+            throw new CliUsageException($"Output directory path is occupied by a file: {fullOutput}");
         }
         var stem = Path.GetFileNameWithoutExtension(inputPath);
         if (video)
@@ -69,7 +69,7 @@ public static class CliPaths
         {
             if (File.Exists(fullPath))
             {
-                throw new CliUsageException($"输出目录路径已被文件占用：{fullPath}");
+                throw new CliUsageException($"Output directory path is occupied by a file: {fullPath}");
             }
             return fullPath;
         }
@@ -77,15 +77,15 @@ public static class CliPaths
         var extensions = allowedExtensions.Select(NormalizeExtension).ToArray();
         if (!extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
         {
-            throw new CliUsageException($"输出文件的扩展名必须为 {string.Join("、", extensions)}。");
+            throw new CliUsageException($"Output file extension must be one of {string.Join(", ", extensions)}.");
         }
         if (expectedExtension is not null && !extension.Equals(NormalizeExtension(expectedExtension), StringComparison.OrdinalIgnoreCase))
         {
-            throw new CliUsageException($"输出扩展名必须为 {NormalizeExtension(expectedExtension)}：{fullPath}");
+            throw new CliUsageException($"Output extension must be {NormalizeExtension(expectedExtension)}: {fullPath}");
         }
         if (File.Exists(fullPath))
         {
-            throw new CliUsageException($"输出已存在，不能覆盖：{fullPath}");
+            throw new CliUsageException($"Output already exists and cannot be overwritten: {fullPath}");
         }
         return fullPath;
     }
@@ -102,7 +102,7 @@ public static class CliPaths
     {
         if (string.IsNullOrWhiteSpace(path))
         {
-            throw new CliUsageException("文件路径不能为空。");
+            throw new CliUsageException("File path cannot be empty.");
         }
         try
         {
@@ -110,7 +110,7 @@ public static class CliPaths
         }
         catch (Exception error) when (error is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            throw new CliUsageException($"文件路径无效：{path}");
+            throw new CliUsageException($"Invalid file path: {path}");
         }
     }
 
@@ -118,11 +118,11 @@ public static class CliPaths
     {
         if (SamePath(input, output))
         {
-            throw new CliUsageException("输入与输出不能为同一路径。");
+            throw new CliUsageException("Input and output cannot be the same path.");
         }
         if (File.Exists(output) || Directory.Exists(output))
         {
-            throw new CliUsageException($"输出已存在，不能覆盖：{output}");
+            throw new CliUsageException($"Output already exists and cannot be overwritten: {output}");
         }
     }
 

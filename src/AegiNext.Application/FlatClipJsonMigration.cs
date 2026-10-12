@@ -15,22 +15,22 @@ internal static class FlatClipJsonMigration
         if (document.ContainsKey("tracks") || document["subtitleTracks"] is not JsonArray tracks ||
             document["subtitles"] is not JsonArray subtitles || document["layers"] is not JsonArray layers)
         {
-            throw new JsonException("旧工程缺少字幕轨道、字幕或合成层，或同时包含新旧轨道字段。");
+            throw new JsonException("The legacy project is missing subtitle tracks, subtitles, or composition layers, or contains both old and new track fields.");
         }
         var trackIds = tracks.Select(track => RequiredId(track as JsonObject, "id")).ToHashSet();
         if (trackIds.Count != tracks.Count)
         {
-            throw new JsonException("旧工程轨道标识重复。");
+            throw new JsonException("The legacy project contains duplicate track IDs.");
         }
         var subtitleTracks = new Dictionary<Guid, Guid>();
         foreach (var node in subtitles)
         {
-            var line = node as JsonObject ?? throw new JsonException("旧字幕不能为 null。");
+            var line = node as JsonObject ?? throw new JsonException("A legacy subtitle cannot be null.");
             var subtitleId = RequiredId(line, "id");
             var trackId = RequiredId(line, "trackId");
             if (!subtitleTracks.TryAdd(subtitleId, trackId) || !trackIds.Contains(trackId))
             {
-                throw new JsonException("旧字幕标识重复或引用不存在的轨道。");
+                throw new JsonException("A legacy subtitle has a duplicate ID or references a missing track.");
             }
             line.Remove("trackId");
         }
@@ -41,7 +41,7 @@ internal static class FlatClipJsonMigration
         var layerIds = new HashSet<Guid>();
         foreach (var node in layers)
         {
-            Flatten(node as JsonObject ?? throw new JsonException("旧图层不能为 null。"), 0,
+            Flatten(node as JsonObject ?? throw new JsonException("A legacy layer cannot be null."), 0,
                 flattened, tracks, trackIds, subtitleTracks, sceneTracks, groups, layerIds, options);
         }
         var ownership = ArrangeTracks(flattened, tracks, trackIds, options);
@@ -60,7 +60,7 @@ internal static class FlatClipJsonMigration
             layer.ContainsKey("trackId") || layer["children"] is not JsonArray children ||
             layer["kind"] is not JsonValue kindValue || !kindValue.TryGetValue<string>(out var kind))
         {
-            throw new JsonException("旧合成树过深、过大、标识重复或字段无效。");
+            throw new JsonException("The legacy composition tree is too deep or large, contains duplicate IDs, or has invalid fields.");
         }
         if (kind == "GROUP")
         {
@@ -68,10 +68,10 @@ internal static class FlatClipJsonMigration
             metadata.Remove("children");
             metadata["kind"] = "SHAPE";
             metadata["trackId"] = ProjectTrack.DEFAULT_TRACK_ID;
-            var group = metadata.Deserialize<ProjectLayer>(options) ?? throw new JsonException("旧组不能为 null。");
+            var group = metadata.Deserialize<ProjectLayer>(options) ?? throw new JsonException("A legacy group cannot be null.");
             if (group.SubtitleId is not null || group.Shape is not null || group.Image is not null)
             {
-                throw new JsonException("旧组不能包含字幕、形状或图片载荷。");
+                throw new JsonException("A legacy group cannot contain subtitle, shape, or image payloads.");
             }
             if (group.Transform != new LayerTransform() || !group.Opacity.Equals(1d) ||
                 group.Blend != BlendMode.NORMAL || group.Blur != 0 || !group.Tracks.IsEmpty ||
@@ -82,10 +82,10 @@ internal static class FlatClipJsonMigration
             ProjectValidator.Validate(new() { Layers = [group with { Shape = new(ShapeKind.RECTANGLE, 1, 1) }] });
             foreach (var childNode in children)
             {
-                var child = childNode as JsonObject ?? throw new JsonException("旧组子节点不能为 null。");
-                var start = child["start"]?.Deserialize<MediaTime>(options) ?? throw new JsonException("旧组子节点缺少开始时间。");
-                var end = child["end"]?.Deserialize<MediaTime>(options) ?? throw new JsonException("旧组子节点缺少结束时间。");
-                var blend = child["blend"]?.Deserialize<BlendMode>(options) ?? throw new JsonException("旧组子节点缺少混合方式。");
+                var child = childNode as JsonObject ?? throw new JsonException("A legacy group child cannot be null.");
+                var start = child["start"]?.Deserialize<MediaTime>(options) ?? throw new JsonException("A legacy group child is missing its start time.");
+                var end = child["end"]?.Deserialize<MediaTime>(options) ?? throw new JsonException("A legacy group child is missing its end time.");
+                var blend = child["blend"]?.Deserialize<BlendMode>(options) ?? throw new JsonException("A legacy group child is missing its blend mode.");
                 if (start < group.Start || end > group.End || blend != BlendMode.NORMAL)
                 {
                     throw CannotFlatten(group);
@@ -101,7 +101,7 @@ internal static class FlatClipJsonMigration
         }
         if (children.Count != 0)
         {
-            throw new JsonException("只有旧图层组可以包含子节点。");
+            throw new JsonException("Only legacy layer groups can contain child nodes.");
         }
         var clip = layer.DeepClone().AsObject();
         clip.Remove("children");
@@ -110,7 +110,7 @@ internal static class FlatClipJsonMigration
             var subtitleId = RequiredId(layer, "subtitleId");
             if (!subtitleTracks.TryGetValue(subtitleId, out var trackId))
             {
-                throw new JsonException("旧字幕层引用不存在的字幕。");
+                throw new JsonException("A legacy subtitle layer references a missing subtitle.");
             }
             clip["trackId"] = trackId;
         }
@@ -131,7 +131,7 @@ internal static class FlatClipJsonMigration
         var originals = legacyTracks.OfType<JsonObject>().ToArray();
         var originalIds = originals.Select(track => RequiredId(track, "id")).ToArray();
         var parsed = clips.Select(clip => clip!.Deserialize<ProjectLayer>(options) ??
-            throw new JsonException("旧片段不能为 null。")).ToArray();
+            throw new JsonException("A legacy clip cannot be null.")).ToArray();
         var allocation = new LegacyTrackOrderAllocator(parsed, originalIds).Allocate();
         var reverse = new LegacyTrackOrderAllocator(parsed, originalIds, true).Allocate();
         if (reverse.TrackOwners.Length < allocation.TrackOwners.Length)
@@ -170,14 +170,14 @@ internal static class FlatClipJsonMigration
 
     private static InvalidDataException CannotFlatten(ProjectLayer group)
     {
-        return new($"旧图层组“{group.Name}”（{group.Id}）包含变换、隔离合成或时间裁剪，无法安全展开为轨道片段；原文件未修改。");
+        return new($"Legacy layer group '{group.Name}' ({group.Id}) contains transforms, isolated composition, or time clipping and cannot be safely flattened into track clips; the original file was not modified.");
     }
 
     private static Guid RequiredId(JsonObject? owner, string property)
     {
         if (owner?[property] is not JsonValue value || !value.TryGetValue<Guid>(out var id) || id == Guid.Empty)
         {
-            throw new JsonException($"旧工程缺少有效 {property} 标识。");
+            throw new JsonException($"The legacy project is missing a valid {property} ID.");
         }
         return id;
     }
@@ -228,7 +228,7 @@ internal static class FlatClipJsonMigration
             var ids = collapsed.Select(node => node?.GetValue<Guid>() ?? Guid.Empty).ToArray();
             if (ids.Length > 100000 || ids.Any(id => id == Guid.Empty) || ids.Distinct().Count() != ids.Length)
             {
-                throw new JsonException("旧折叠轨道标识无效或重复。");
+                throw new JsonException("A legacy collapsed track ID is invalid or duplicated.");
             }
             state["collapsedTrackIds"] = new JsonArray(ids.SelectMany(id =>
                 {
@@ -248,11 +248,11 @@ internal static class FlatClipJsonMigration
             var originalIdentities = new HashSet<(string Scope, Guid OwnerId, AnimationProperty Property)>();
             if (rows.Count > 100000)
             {
-                throw new JsonException("旧折叠动画行超过预算。");
+                throw new JsonException("Legacy collapsed animation rows exceed the budget.");
             }
             foreach (var node in rows)
             {
-                var row = node?.DeepClone().AsObject() ?? throw new JsonException("旧动画行不能为 null。");
+                var row = node?.DeepClone().AsObject() ?? throw new JsonException("A legacy animation row cannot be null.");
                 var id = RequiredId(row, "ownerId");
                 var scope = row["scope"]?.GetValue<string>();
                 var propertyName = row["property"]?.GetValue<string>();
@@ -261,7 +261,7 @@ internal static class FlatClipJsonMigration
                     !AnimationPropertyMetadata.CurrentProperties.Contains(property) ||
                     !originalIdentities.Add((scope, id, property)))
                 {
-                    throw new JsonException("旧折叠动画行字段无效或重复。");
+                    throw new JsonException("A legacy collapsed animation row contains invalid or duplicate fields.");
                 }
                 if (scope == "SCENE_LAYER" && groups.Contains(id))
                 {

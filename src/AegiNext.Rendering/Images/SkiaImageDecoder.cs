@@ -33,7 +33,7 @@ public sealed class SkiaImageDecoder : IImageDecoder
         var height = Math.Max(1, (int)Math.Round(frame.Height * scale));
         using var colorSpace = SKColorSpace.CreateSrgb();
         using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul, colorSpace))
-            ?? throw new InvalidOperationException("无法创建图片缩略图。");
+            ?? throw new InvalidOperationException("The image thumbnail could not be created.");
         surface.Canvas.Clear(SKColors.Transparent);
         surface.Canvas.DrawImage(frame, new SKRect(0, 0, width, height), new SKSamplingOptions(SKFilterMode.Linear));
         return surface.Snapshot();
@@ -47,23 +47,23 @@ public sealed class SkiaImageDecoder : IImageDecoder
         try
         {
             RejectAnimatedPng(data.AsSpan());
-            codec = SKCodec.Create(data) ?? throw new InvalidDataException("无法识别图片内容。");
+            codec = SKCodec.Create(data) ?? throw new InvalidDataException("The image content could not be recognized.");
             if (codec.EncodedFormat is not (SKEncodedImageFormat.Png or SKEncodedImageFormat.Jpeg or
                 SKEncodedImageFormat.Bmp or SKEncodedImageFormat.Gif or SKEncodedImageFormat.Webp))
             {
-                throw new InvalidDataException("仅支持 PNG、JPEG、BMP、GIF 和 WebP 图片。");
+                throw new InvalidDataException("Only PNG, JPEG, BMP, GIF, and WebP images are supported.");
             }
 
             var info = codec.Info;
             if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > ImageDecodeLimits.MaximumPixels)
             {
-                throw new InvalidDataException("图片超过像素预算。");
+                throw new InvalidDataException("The image exceeds the pixel budget.");
             }
 
             var count = Math.Max(1, codec.FrameCount);
             if (count > ImageDecodeLimits.MaximumFrameCount)
             {
-                throw new InvalidDataException("图片帧数超过解码预算。");
+                throw new InvalidDataException("The image frame count exceeds the decoding budget.");
             }
 
             var frames = codec.FrameInfo;
@@ -91,10 +91,10 @@ public sealed class SkiaImageDecoder : IImageDecoder
             var length = stream.Length - stream.Position;
             if (length <= 0 || length > ImageDecodeLimits.MaximumEncodedBytes)
             {
-                throw new InvalidDataException("图片文件为空或超过 256 MiB。");
+                throw new InvalidDataException("The image file is empty or exceeds 256 MiB.");
             }
 
-            return SKData.Create(stream) ?? throw new InvalidDataException("无法读取图片内容。");
+            return SKData.Create(stream) ?? throw new InvalidDataException("The image content could not be read.");
         }
 
         using var buffer = new MemoryStream();
@@ -104,14 +104,14 @@ public sealed class SkiaImageDecoder : IImageDecoder
         {
             if (buffer.Length + count > ImageDecodeLimits.MaximumEncodedBytes)
             {
-                throw new InvalidDataException("图片文件超过 256 MiB。");
+                throw new InvalidDataException("The image file exceeds 256 MiB.");
             }
             buffer.Write(bytes, 0, count);
         }
 
         if (buffer.Length == 0)
         {
-            throw new InvalidDataException("图片文件为空。");
+            throw new InvalidDataException("The image file is empty.");
         }
         return SKData.CreateCopy(buffer.GetBuffer().AsSpan(0, checked((int)buffer.Length)));
     }
@@ -130,12 +130,12 @@ public sealed class SkiaImageDecoder : IImageDecoder
             var length = BinaryPrimitives.ReadUInt32BigEndian(bytes.Slice(offset, 4));
             if (length > bytes.Length - offset - 12)
             {
-                throw new InvalidDataException("PNG 数据块长度无效。");
+                throw new InvalidDataException("The PNG chunk length is invalid.");
             }
             var kind = bytes.Slice(offset + 4, 4);
             if (kind.SequenceEqual("acTL"u8))
             {
-                throw new NotSupportedException("暂不支持 APNG 动画图片，请使用 GIF 或动画 WebP。");
+                throw new NotSupportedException("Animated APNG images are not supported; use GIF or animated WebP.");
             }
             if (kind.SequenceEqual("IEND"u8))
             {

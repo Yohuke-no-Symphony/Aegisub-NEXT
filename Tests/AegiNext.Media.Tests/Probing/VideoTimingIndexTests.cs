@@ -127,7 +127,7 @@ public sealed class VideoTimingIndexTests
 
         var error = Assert.Throws<InvalidDataException>(() => FfprobeVideoTimingJsonReader.Read(json.ToJsonString(), 2, new(5)));
 
-        Assert.Contains("递增", error.Message, StringComparison.Ordinal);
+        Assert.Contains("strictly increasing", error.Message, StringComparison.Ordinal);
     }
 
     [Theory]

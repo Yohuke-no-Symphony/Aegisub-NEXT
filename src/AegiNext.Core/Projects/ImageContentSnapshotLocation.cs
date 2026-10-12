@@ -12,7 +12,7 @@ public static class ImageContentSnapshotLocation
         ArgumentException.ThrowIfNullOrWhiteSpace(sha256);
         if (sha256.Length != 64 || !sha256.All(char.IsAsciiHexDigit))
         {
-            throw new ArgumentException("图片版本必须是 SHA-256 指纹。", nameof(sha256));
+            throw new ArgumentException("The image version must be a SHA-256 fingerprint.", nameof(sha256));
         }
         return Path.Combine(DirectoryPath, sha256.ToLowerInvariant());
     }

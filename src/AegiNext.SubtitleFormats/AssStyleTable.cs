@@ -41,7 +41,7 @@ internal static class AssStyleTable
             names.Add(line.Id, name);
             if (name != line.StyleName)
             {
-                diagnostics.Add(new("Ass.StyleName", $"ASS 样式名存在分隔符、首尾空白或同名不同内容，导出名称为“{name}”；项目样式名保持不变。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.StyleName", $"The ASS style name contains separators or surrounding whitespace, or conflicts with a different style of the same name. It was exported as '{name}'; the project style name is unchanged.", SubtitleId: line.Id));
             }
         }
         return names;
@@ -67,7 +67,7 @@ internal static class AssStyleTable
     {
         if (style.FontFamily.Contains(',', StringComparison.Ordinal))
         {
-            throw new InvalidDataException("ASS 样式字体名不能包含逗号。");
+            throw new InvalidDataException("ASS style font names cannot contain commas.");
         }
         return string.Create(CultureInfo.InvariantCulture,
             $"{style.FontFamily},{AssFormatValues.Number(style.FontSize)},{AssFormatValues.Color(style.Fill)},{AssFormatValues.Color(style.Fill)},{AssFormatValues.Color(style.Stroke)},{AssFormatValues.Color(style.ShadowColor)},{(style.Bold ? -1 : 0)},{(style.Italic ? -1 : 0)},{(style.Underline ? -1 : 0)},{(style.Strikethrough ? -1 : 0)},100,100,{AssFormatValues.Number(style.LetterSpacing)},0,1,{AssFormatValues.Number(style.StrokeWidth)},{AssFormatValues.Number(style.ShadowOffset.Y)},{AssFormatValues.Alignment(style.Alignment)},{AssFormatValues.Number(style.Margins.Left)},{AssFormatValues.Number(style.Margins.Right)},{AssFormatValues.Number(style.Margins.Vertical)},1");

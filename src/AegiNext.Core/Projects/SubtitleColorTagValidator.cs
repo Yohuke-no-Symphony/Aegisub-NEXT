@@ -19,7 +19,7 @@ public static class SubtitleColorTagValidator
             tag.Name.Any(char.IsControl) || tag.ColorHex is not { Length: 7 } || tag.ColorHex[0] != '#' ||
             !tag.ColorHex.Skip(1).All(Uri.IsHexDigit))
         {
-            throw new InvalidDataException("字幕颜色标记的标识、名称或 HEX 颜色无效。");
+            throw new InvalidDataException("The subtitle color tag ID, name, or HEX color is invalid.");
         }
         ProjectValidator.ValidateText(tag.Name);
     }
@@ -29,19 +29,19 @@ public static class SubtitleColorTagValidator
     {
         if (tags.IsDefault || tags.Length > MAXIMUM_TAGS)
         {
-            throw new InvalidDataException("字幕颜色标记集合无效或超过数量预算。");
+            throw new InvalidDataException("The subtitle color tag collection is invalid or exceeds the count budget.");
         }
         var identities = new HashSet<Guid>();
         foreach (var tag in tags)
         {
             if (tag is null)
             {
-                throw new InvalidDataException("字幕颜色标记不能为 null。");
+                throw new InvalidDataException("A subtitle color tag cannot be null.");
             }
             Validate(tag);
             if (!identities.Add(tag.Id))
             {
-                throw new InvalidDataException("字幕颜色标记标识重复。");
+                throw new InvalidDataException("Duplicate subtitle color tag ID.");
             }
         }
     }

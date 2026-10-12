@@ -57,6 +57,6 @@ Omitted output uses `project directory/output/project filename-yyyyMMdd-HHmmss.e
 
 Run `aegnc` without arguments to choose conversion or video export and follow the applicable steps. Bare `convert` or `export` starts that command's complete wizard. Partial arguments only prompt for missing required fields: conversion needs input and target, while export only needs input. Other options use defaults. For example, `export -i project.aeginext --vbr` uses 8 Mbps without asking for a bitrate.
 
-Invalid or conflicting explicit arguments fail directly. `--non-interactive`, redirected input, or redirected output prohibit prompts. Scripts must provide required fields and accept any conversion diagnostics. Use `--help/-h` for help and `--version` for the product version. Current prompts and descriptions use Chinese.
+Invalid or conflicting explicit arguments fail directly. `--non-interactive`, redirected input, or redirected output prohibit prompts. Scripts must provide required fields and accept any conversion diagnostics. Use `--help/-h` for help and `--version` for the product version. The CLI currently uses English for help, prompts, diagnostics, and errors, with no language selector. Subtitle content and user-provided names remain in their original language.
 
 Commands show resolved settings before execution. Export reports frame count, time, and actual encoder. Ctrl+C cancels and cleans temporary files; output is committed atomically only after success. Exit codes: success `0`, runtime failure `1`, argument/configuration error `2`, cancellation `130`.

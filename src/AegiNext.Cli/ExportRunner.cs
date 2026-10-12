@@ -36,7 +36,7 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
         var project = await ProjectStore.LoadAsync(input, cancellationToken).ConfigureAwait(false);
         if (project.Media is null || project.Width % 2 != 0 || project.Height % 2 != 0)
         {
-            throw new CliUsageException("视频导出需要已绑定媒体，并使用偶数宽高的工程画布。");
+            throw new CliUsageException("Video export requires a media binding and a project canvas with even width and height.");
         }
         var request = new VideoExportRequest(project, Path.GetDirectoryName(input)!, output)
             .WithSettings(configuration.Settings) with { DecodeMode = configuration.DecodeMode };
@@ -44,7 +44,7 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
         VideoExportResult result;
         if (runtime.CanPrompt(options))
         {
-            result = await runtime.Console.Status().StartAsync("准备视频导出…", context =>
+            result = await runtime.Console.Status().StartAsync("Preparing video export...", context =>
                 service.ExportAsync(request, new ExportConsoleProgress(runtime.Console, context), cancellationToken))
                 .ConfigureAwait(false);
         }
@@ -53,7 +53,7 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
             result = await service.ExportAsync(request, new ExportConsoleProgress(runtime.Console), cancellationToken)
                 .ConfigureAwait(false);
         }
-        runtime.Console.WriteLine($"已导出：{result.OutputPath}（{result.Frames} 帧，编码器 {result.Encoder ?? "未知"}）");
+        runtime.Console.WriteLine($"Exported: {result.OutputPath} ({result.Frames} frames, encoder {result.Encoder ?? "unknown"})");
         return 0;
     }
 
@@ -61,7 +61,7 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
     {
         while (true)
         {
-            var input = await runtime.PromptTextAsync("工程文件路径", cancellationToken).ConfigureAwait(false);
+            var input = await runtime.PromptTextAsync("Project file path", cancellationToken).ConfigureAwait(false);
             try
             {
                 return CliPaths.ResolveInput(input, ".aeginext");
@@ -75,16 +75,16 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
 
     private async Task FillWizardAsync(ExportSettings options, CancellationToken cancellationToken)
     {
-        options.Encoding = await runtime.SelectAsync("视频编码", ["auto", "h264", "hevc", "vp8", "vp9", "av1"], cancellationToken)
+        options.Encoding = await runtime.SelectAsync("Video codec", ["auto", "h264", "hevc", "vp8", "vp9", "av1"], cancellationToken)
             .ConfigureAwait(false);
         var initial = ExportOptions.Resolve(options);
         var capability = VideoExportCapabilities.Get(initial.Settings.Codec);
         if (capability.SupportsHardwareOnCurrentPlatform)
         {
-            options.UseGpu = await runtime.ConfirmAsync("使用 GPU 编码（不可用时失败）？", cancellationToken).ConfigureAwait(false);
+            options.UseGpu = await runtime.ConfirmAsync("Use GPU encoding (fail if unavailable)?", cancellationToken).ConfigureAwait(false);
         }
         var qualityMode = capability.QualityMode.ToString().ToLowerInvariant();
-        var mode = await runtime.SelectAsync("码率控制", options.UseGpu ? ["vbr", "cbr"] : [qualityMode, "vbr", "cbr"], cancellationToken)
+        var mode = await runtime.SelectAsync("Rate control", options.UseGpu ? ["vbr", "cbr"] : [qualityMode, "vbr", "cbr"], cancellationToken)
             .ConfigureAwait(false);
         options.Crf = mode == "crf";
         options.Cq = mode == "cq";
@@ -92,14 +92,14 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
         options.Cbr = mode == "cbr";
         if (options.Crf || options.Cq)
         {
-            options.Quality = await PromptIntegerAsync($"质量值（{capability.QualityMinimum}–{capability.QualityMaximum}）",
+            options.Quality = await PromptIntegerAsync($"Quality ({capability.QualityMinimum}–{capability.QualityMaximum})",
                 capability.DefaultQuality, capability.QualityMinimum, capability.QualityMaximum, cancellationToken).ConfigureAwait(false);
         }
         if (!options.Crf)
         {
             while (true)
             {
-                options.VideoBitrate = await runtime.PromptTextAsync("视频码率（Mbps，最多三位小数）", cancellationToken, "8")
+                options.VideoBitrate = await runtime.PromptTextAsync("Video bitrate (Mbps, at most three decimal places)", cancellationToken, "8")
                     .ConfigureAwait(false);
                 try
                 {
@@ -112,22 +112,22 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
                 }
             }
         }
-        options.Speed = await runtime.SelectAsync("编码速度", ["medium", "ultrafast", "superfast", "veryfast", "faster", "fast", "slow", "slower", "veryslow"],
+        options.Speed = await runtime.SelectAsync("Encoding speed", ["medium", "ultrafast", "superfast", "veryfast", "faster", "fast", "slow", "slower", "veryslow"],
             cancellationToken).ConfigureAwait(false);
-        options.Audio = await runtime.SelectAsync("音频处理", ["copy", "aac", "opus", "none"], cancellationToken).ConfigureAwait(false);
+        options.Audio = await runtime.SelectAsync("Audio mode", ["copy", "aac", "opus", "none"], cancellationToken).ConfigureAwait(false);
         if (options.Audio is "aac" or "opus")
         {
-            options.AudioBitrate = await PromptIntegerAsync("音频码率（kbps，32–512）", 192, 32, 512, cancellationToken).ConfigureAwait(false);
+            options.AudioBitrate = await PromptIntegerAsync("Audio bitrate (kbps, 32–512)", 192, 32, 512, cancellationToken).ConfigureAwait(false);
         }
-        options.Decode = await runtime.SelectAsync("视频解码", ["auto", "software", "hardware"], cancellationToken).ConfigureAwait(false);
+        options.Decode = await runtime.SelectAsync("Video decode mode", ["auto", "software", "hardware"], cancellationToken).ConfigureAwait(false);
         var containers = capability.Extensions.Where(extension => extension != ".webm" || options.Audio != "aac")
             .Select(extension => extension[1..]);
         var defaultContainer = initial.Extension[1..];
-        options.Container = await runtime.SelectAsync("输出容器", containers.OrderBy(value => value != defaultContainer), cancellationToken)
+        options.Container = await runtime.SelectAsync("Output container", containers.OrderBy(value => value != defaultContainer), cancellationToken)
             .ConfigureAwait(false);
         while (true)
         {
-            var output = await runtime.PromptTextAsync("输出文件或目录（留空使用工程 output 目录）", cancellationToken, allowEmpty: true)
+            var output = await runtime.PromptTextAsync("Output file or directory (leave blank to use the project output directory)", cancellationToken, allowEmpty: true)
                 .ConfigureAwait(false);
             options.Output = string.IsNullOrWhiteSpace(output) ? null : output;
             try
@@ -153,19 +153,19 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
             {
                 return value;
             }
-            runtime.Console.WriteLine($"请输入 {minimum}–{maximum} 的整数。");
+            runtime.Console.WriteLine($"Enter an integer between {minimum} and {maximum}.");
         }
     }
 
     private void PrintSummary(VideoExportRequest request)
     {
         var settings = request.ToSettings();
-        var rate = settings.RateControlMode == VideoRateControlMode.CRF ? $"质量 {settings.Quality}" :
+        var rate = settings.RateControlMode == VideoRateControlMode.CRF ? $"quality {settings.Quality}" :
             settings.RateControlMode == VideoRateControlMode.CQ ?
-                $"质量 {settings.Quality}，{settings.VideoBitrate / 1_000_000m} Mbps" : $"{settings.VideoBitrate / 1_000_000m} Mbps";
-        runtime.Console.WriteLine($"导出：{settings.Codec} / {settings.EncodingMode} / {settings.RateControlMode}（{rate}） / {settings.Preset}");
-        runtime.Console.WriteLine($"音频：{settings.AudioMode}" + (settings.AudioMode is AudioExportMode.Aac or AudioExportMode.Opus
-            ? $"（{settings.AudioBitrate / 1000} kbps）" : string.Empty));
-        runtime.Console.WriteLine($"解码：{request.DecodeMode}；输出：{request.OutputPath}");
+                $"quality {settings.Quality}, {settings.VideoBitrate / 1_000_000m} Mbps" : $"{settings.VideoBitrate / 1_000_000m} Mbps";
+        runtime.Console.WriteLine($"Export: {settings.Codec} / {settings.EncodingMode} / {settings.RateControlMode} ({rate}) / {settings.Preset}");
+        runtime.Console.WriteLine($"Audio: {settings.AudioMode}" + (settings.AudioMode is AudioExportMode.Aac or AudioExportMode.Opus
+            ? $" ({settings.AudioBitrate / 1000} kbps)" : string.Empty));
+        runtime.Console.WriteLine($"Decode: {request.DecodeMode}; output: {request.OutputPath}");
     }
 }

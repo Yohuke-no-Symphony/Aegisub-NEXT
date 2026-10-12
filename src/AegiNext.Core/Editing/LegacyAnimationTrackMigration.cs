@@ -15,7 +15,7 @@ public static class LegacyAnimationTrackMigration
         if (tracks.IsDefault || tracks.Any(track => track is null) || components.IsEmpty ||
             fallback.Kind != AnimationPropertyMetadata.GetValueKind(property))
         {
-            throw new InvalidDataException("迁移的轨道集合、属性或基础值无效。");
+            throw new InvalidDataException("The migrated track collection, property, or base value is invalid.");
         }
 
         var sources = components.Select(component => tracks.Where(track => track.Property == component).ToArray()).ToArray();
@@ -26,7 +26,7 @@ public static class LegacyAnimationTrackMigration
 
         if (sources.Any(source => source.Length > 1) || tracks.Any(track => track.Property == property))
         {
-            throw new InvalidDataException($"{property} 的旧分量重复，或同组新旧轨道同时存在。");
+            throw new InvalidDataException($"Legacy components of {property} are duplicated, or old and new tracks coexist in the same group.");
         }
 
         foreach (var source in sources.SelectMany(source => source))
@@ -73,7 +73,7 @@ public static class LegacyAnimationTrackMigration
     {
         if (track.Keyframes.IsDefaultOrEmpty || track.Keyframes.Length > 10000)
         {
-            throw new InvalidDataException("旧动画分量为空或超出预算。");
+            throw new InvalidDataException("A legacy animation component is empty or exceeds the budget.");
         }
 
         MediaTime? previous = null;
@@ -87,7 +87,7 @@ public static class LegacyAnimationTrackMigration
                 frame.CurveStart >= frame.CurveEnd || frame.CurveEnd > 1 || !double.IsFinite(frame.Exponent) || frame.Exponent <= 0 ||
                 frame.ComponentCurves.IsDefault || !frame.ComponentCurves.IsEmpty || track.IsOrdered || track.Target.NodeId.HasValue)
             {
-                throw new InvalidDataException("旧动画分量包含无效时间、数值或插值。");
+                throw new InvalidDataException("A legacy animation component contains invalid timing, values, or interpolation.");
             }
 
             previous = frame.Time;

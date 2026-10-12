@@ -24,7 +24,7 @@ public sealed class AssScriptInfoLossTests
         Assert.Equal(0, diagnostic.SourceStart);
         Assert.Equal(0, diagnostic.SourceLength);
         Assert.Contains("RGB", diagnostic.Message, StringComparison.Ordinal);
-        Assert.Contains("可能", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("may differ", diagnostic.Message, StringComparison.Ordinal);
         var baseline = AssSubtitleFormat.Parse(Script("YCbCr Matrix: None"), 640, 360);
         Assert.Equal(baseline.Lines[0].Start, result.Lines[0].Start);
         Assert.Equal(baseline.Lines[0].End, result.Lines[0].End);

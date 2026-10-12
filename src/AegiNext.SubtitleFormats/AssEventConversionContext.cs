@@ -56,7 +56,7 @@ internal sealed class AssEventConversionContext
             }
             else
             {
-                Report("Ass.TransformPivotAnimation", "动态字距会改变自动定位或自定义轴心的补偿位置，ASS 无法保持该位移，已仅省略字距动画。");
+                Report("Ass.TransformPivotAnimation", "Animated letter spacing changes the compensation position for automatic placement or a custom pivot. ASS cannot preserve this translation, so only the letter-spacing animation was omitted.");
             }
         }
         foreach (var property in new[] { AnimationProperty.STROKE_WIDTH, AnimationProperty.FILL_BLUR, AnimationProperty.STROKE_BLUR })
@@ -65,7 +65,7 @@ internal sealed class AssEventConversionContext
             {
                 if (KaraokeOverrides(property))
                 {
-                    Report("Ass.KaraokeAnimation", "卡拉 OK 的独立视觉覆盖与整行描边或模糊动画同时存在，ASS 不能保留其覆盖顺序，已仅省略冲突的整行视觉动画。");
+                    Report("Ass.KaraokeAnimation", "Independent karaoke appearance overrides coexist with whole-line stroke or blur animation. ASS cannot preserve their override order, so only the conflicting whole-line appearance animation was omitted.");
                 }
                 else
                 {
@@ -79,7 +79,7 @@ internal sealed class AssEventConversionContext
         {
             if (opacity is null)
             {
-                Report("Ass.OpacityAnimation", "ASS 淡入淡出不能保留这条多段或重叠透明度动画，导出时已省略该动画。");
+                Report("Ass.OpacityAnimation", "ASS fades cannot preserve this multisegment or overlapping opacity animation. The animation was omitted during export.");
             }
             else
             {
@@ -88,7 +88,7 @@ internal sealed class AssEventConversionContext
         }
         if (opacity is { Approximate: true })
         {
-            Report("Ass.OpacityApproximation", "ASS 淡入淡出仅支持线性变化，已保留透明度端点、延迟和起止时间，将缓动近似为线性。");
+            Report("Ass.OpacityApproximation", "ASS fades support only linear changes. Opacity endpoints, delays, and start/end times were preserved, with easing approximated as linear.");
         }
         var transform = layer.Transform;
         scale = Constant(AnimationProperty.SCALE)?.Vector ?? transform.Scale;
@@ -98,7 +98,7 @@ internal sealed class AssEventConversionContext
         var rotationAnimation = Dynamic(AnimationProperty.ROTATION);
         if (scale.X < 0 || scale.Y < 0)
         {
-            Report("Ass.TransformScale", "ASS 导出已省略负缩放分量；项目中的镜像变换保持不变。");
+            Report("Ass.TransformScale", "Negative scaling components were omitted from ASS export; mirrored transforms in the project are unchanged.");
             scale = new(scale.X >= 0 ? scale.X : 1, scale.Y >= 0 ? scale.Y : 1);
         }
         position = transform.Position;
@@ -119,7 +119,7 @@ internal sealed class AssEventConversionContext
         }
         if (move is { Approximate: true })
         {
-            Report("Ass.MoveApproximation", "ASS move 仅支持匀速直线，已保留移动路径和起止时间，将速度变化近似为匀速。");
+            Report("Ass.MoveApproximation", "ASS move supports only straight-line movement at constant speed. The path and start/end times were preserved, with speed changes approximated as constant speed.");
         }
         hasPlacement = line.Style.Position is not null || position != default || transform.Pivot != default ||
             scale != new ScenePoint(1, 1) || !rotation.Equals(0d) || move is not null && move.First != move.Last ||
@@ -145,7 +145,7 @@ internal sealed class AssEventConversionContext
         }
         else if (hasPlacement && needsMeasurement)
         {
-            Report("Ass.PlacementMeasurement", "未提供字体排版测量，定位使用九宫格边距近似；无法补偿真实字形边界和自定义文字轴心。");
+            Report("Ass.PlacementMeasurement", "Font layout measurements were not provided. Placement uses an approximation based on alignment margins and cannot compensate for actual glyph bounds or custom text pivots.");
         }
         if (hasPlacement)
         {
@@ -157,7 +157,7 @@ internal sealed class AssEventConversionContext
             }
             else if (transform.Pivot != default)
             {
-                Report("Ass.RotationOrigin", $"当前几何组合不能生成可逆的 ASS org 补偿（{originReason}），已采用原有位置、轴心与动画转换。");
+                Report("Ass.RotationOrigin", $"This geometry combination cannot produce reversible ASS org compensation ({originReason}). Existing position, pivot, and animation conversion was used.");
             }
         }
         if (AcceptScale(scaleXAnimation, delta.X, needsMeasurement && measurer is null && stylePosition.Pivot != alignmentPivot))
@@ -182,24 +182,24 @@ internal sealed class AssEventConversionContext
             }
             else
             {
-                Report("Ass.TransformPivotAnimation", "旋转动画需要随时间改变自定义轴心的补偿位置，ASS 无法保持该位移，已仅省略旋转动画。");
+                Report("Ass.TransformPivotAnimation", "Rotation animation requires the compensation position of a custom pivot to change over time. ASS cannot preserve this translation, so only the rotation animation was omitted.");
             }
         }
         rotationParts = AssTransformMath.SinCos(rotation);
         if (scale != new ScenePoint(1, 1) || numeric.ContainsKey((AnimationProperty.SCALE, 0)) || numeric.ContainsKey((AnimationProperty.SCALE, 1)))
         {
-            Report("Ass.TransformLayout", "ASS 的缩放在自动换行前生效，项目在排版后缩放；长句的换行和文字边界可能不同。");
+            Report("Ass.TransformLayout", "ASS applies scaling before automatic wrapping, while the project scales after layout. Wrapping and text bounds may differ for long lines.");
         }
         if (!ExactScale(scale.X) || !ExactScale(scale.Y))
         {
-            Report("Ass.NumberPrecision", "导出的 ASS 缩放百分比保留最多 9 位小数，部分缩放数值已取近似值。");
+            Report("Ass.NumberPrecision", "Exported ASS scaling percentages use up to 9 decimal places. Some scaling values were approximated.");
         }
         var compensation = TransformVector(delta);
         placementOffset = new(basis.X + compensation.X, basis.Y + compensation.Y);
         if (layer.Tracks.Any(track => !AnimationPropertyMetadata.IsMaskProperty(track.Property) && !consumed.Contains(track.Property)) ||
             layer.MotionPath is not null && !convertedPath || layer.Blend != BlendMode.NORMAL)
         {
-            Report("Subtitle.Composition", "字幕格式不能保留部分项目合成或动画；已保留可以转换的位置、缩放、旋转和透明度。");
+            Report("Subtitle.Composition", "Subtitle formats cannot preserve some project compositing or animation. Convertible position, scaling, rotation, and opacity were preserved.");
         }
     }
 
@@ -247,7 +247,7 @@ internal sealed class AssEventConversionContext
             if (tag is null)
             {
                 Report(animation.Property == AnimationProperty.FILL_BLUR ? "Ass.FillBlurAnimation" : "Ass.StrokeBlurAnimation",
-                    "ASS 单一模糊通道无法同时保留这段文字的独立填充与描边模糊动画，已仅省略当前未选中的模糊动画。");
+                    "The single ASS blur channel cannot preserve independent fill and stroke blur animations for this text at the same time. Only the currently unselected blur animation was omitted.");
                 continue;
             }
             var factor = animation.Property switch
@@ -275,19 +275,19 @@ internal sealed class AssEventConversionContext
                 numeric.ContainsKey((blurProperty, 0)) || KaraokeOverrides(AnimationProperty.STROKE_WIDTH) || KaraokeOverrides(blurProperty)) &&
             (style.StrokeWidth > 0 || style.FillBlur > 0 || style.StrokeBlur > 0 || style.ShadowBlur > 0)))
         {
-            Report("Ass.TransformAppearanceAnimation", "缩放或旋转动画已保留，但 ASS 无法同步保留独立描边、模糊或阴影的全部变换补偿，部分外观按初始变换近似。");
+            Report("Ass.TransformAppearanceAnimation", "Scaling or rotation animation was preserved, but ASS cannot retain all transform compensation for independent stroke, blur, or shadow simultaneously. Some appearance values were approximated using the initial transform.");
         }
         if (style.ShadowColor.Alpha > 0 && (numeric.ContainsKey((blurProperty, 0)) && !textAnimation.HasMatchingShadowBlur(blurProperty) ||
             uniform is not null && !style.ShadowBlur.Equals(AssBlurConversion.Sigma(style))))
         {
-            Report("Ass.ShadowBlur", "ASS 的模糊动画同时改变阴影模糊，无法独立保留项目的阴影模糊外观。");
+            Report("Ass.ShadowBlur", "ASS blur animation also changes shadow blur and cannot independently preserve the project shadow blur appearance.");
         }
         if (numeric.TryGetValue((AnimationProperty.STROKE_WIDTH, 0), out var border) &&
             (border.Initial == 0 || border.Operations.Any(operation => operation.Value == 0)) &&
             (border.Initial > 0 || border.Operations.Any(operation => operation.Value > 0)) &&
             (style.FillBlur > 0 || style.StrokeBlur > 0))
         {
-            Report("Ass.BlurAnimation", "描边动画可能切换 ASS 模糊所作用的通道，独立填充与描边模糊已按初始描边状态选择。");
+            Report("Ass.BlurAnimation", "Stroke animation may switch the channel affected by ASS blur. Independent fill and stroke blur were selected using the initial stroke state.");
         }
         return result.ToString();
     }
@@ -320,7 +320,7 @@ internal sealed class AssEventConversionContext
         consumed.Add(animation.Property);
         if (animation.Approximate)
         {
-            Report("Ass.TransformCurveApproximation", "ASS 数值变换不能直接保留部分缓动或已裁剪的曲线相位，已保留端点和时间并近似为线性。");
+            Report("Ass.TransformCurveApproximation", "ASS numeric transforms cannot directly preserve some easing or trimmed curve phases. Endpoints and times were preserved, with the curve approximated as linear.");
         }
     }
 
@@ -332,12 +332,12 @@ internal sealed class AssEventConversionContext
         }
         if (animation.HasNegative)
         {
-            Report("Ass.TransformScale", "ASS 不支持这条缩放分量中的负值，已仅省略该分量动画，零缩放仍可转换。");
+            Report("Ass.TransformScale", "ASS does not support negative values in this scaling component. Only this component animation was omitted; zero scaling remains convertible.");
             return false;
         }
         if (!animation.Operations.IsEmpty && (Math.Abs(delta) >= 1e-9 || unknownPivot))
         {
-            Report("Ass.TransformPivotAnimation", "缩放动画需要随时间改变自定义轴心的补偿位置，ASS 无法保持该位移，已仅省略冲突的缩放分量动画。");
+            Report("Ass.TransformPivotAnimation", "Scaling animation requires the compensation position of a custom pivot to change over time. ASS cannot preserve this translation, so only the conflicting scaling component animation was omitted.");
             return false;
         }
         AddNumeric(animation);
@@ -374,11 +374,11 @@ internal sealed class AssEventConversionContext
         }
         if (!scale.X.Equals(scale.Y) && style.StrokeWidth > 0 && style.Stroke.Alpha > 0)
         {
-            Report("Ass.TransformAppearance", "非等比缩放的描边已按两轴缩放的几何平均值近似，文字缩放和阴影方向仍保留。");
+            Report("Ass.TransformAppearance", "Stroke under nonuniform scaling was approximated using the geometric mean of the two axis scales. Text scaling and shadow direction were preserved.");
         }
         if (!scale.X.Equals(scale.Y) && (style.FillBlur > 0 || style.StrokeBlur > 0 || style.ShadowBlur > 0))
         {
-            Report("Ass.TransformAppearance", "非等比缩放的模糊已按两轴缩放的几何平均值近似，水平与垂直扩散范围不能同时保持。");
+            Report("Ass.TransformAppearance", "Blur under nonuniform scaling was approximated using the geometric mean of the two axis scales. Horizontal and vertical spread cannot both be preserved.");
         }
         AssExportPrecision.AddNumbers(line.Id, diagnostics, -rotation);
         return style with
@@ -420,7 +420,7 @@ internal sealed class AssEventConversionContext
         var endMs = Math.Max(startMs + 1, Milliseconds(endTime - origin));
         if (new MediaTime(startMs, 1000) != startTime - origin || new MediaTime(endMs, 1000) != endTime - origin)
         {
-            Report("Ass.MoveTimeQuantization", "ASS 移动时刻已取整到毫秒，极短移动至少保留 1 毫秒。");
+            Report("Ass.MoveTimeQuantization", "ASS movement times were rounded to milliseconds; very short movements retain at least 1 millisecond.");
         }
         AssExportPrecision.AddNumbers(line.Id, diagnostics, first.X, first.Y, last.X, last.Y);
         return alignment + "\\move(" + Point(first) + "," + Point(last) + "," +
@@ -440,7 +440,7 @@ internal sealed class AssEventConversionContext
         var tags = AssOpacityConversion.WriteTags(opacity, origin, end, line.Id, diagnostics);
         if (tags.Length > 0 && opacity.Clip(origin, end).HasPartialOpacity)
         {
-            Report("Ass.OpacityComposition", "ASS 淡入淡出在字形组成部分绘制时应用透明度，项目在整层绘制后应用；填充、描边或阴影重叠区域可能不同。");
+            Report("Ass.OpacityComposition", "ASS fades apply opacity while drawing glyph components, while the project applies it after drawing the whole layer. Areas where fill, stroke, or shadow overlap may differ.");
         }
         return tags.Length == 0 ? string.Empty : "{" + tags + "}";
     }

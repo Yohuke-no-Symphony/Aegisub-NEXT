@@ -24,7 +24,7 @@ internal static class FfprobeJsonReader
             var format = ReadSection(root, "format", JsonValueKind.Object);
             if (streams is null && format is null)
             {
-                throw Invalid("root", "必须包含 streams 数组或 format 对象。");
+                throw Invalid("root", "A streams array or format object is required.");
             }
 
             var result = ImmutableArray.CreateBuilder<MediaStreamInfo>();
@@ -36,7 +36,7 @@ internal static class FfprobeJsonReader
                     var stream = ReadStream(element);
                     if (!indices.Add(stream.Index))
                     {
-                        throw Invalid("index", "流索引重复。");
+                        throw Invalid("index", "Duplicate stream index.");
                     }
 
                     result.Add(stream);
@@ -54,21 +54,21 @@ internal static class FfprobeJsonReader
         }
         catch (JsonException exception)
         {
-            throw new InvalidDataException("FFprobe 返回了无效的 JSON。", exception);
+            throw new InvalidDataException("FFprobe returned invalid JSON.", exception);
         }
         catch (OverflowException exception)
         {
-            throw new InvalidDataException("FFprobe 数值超出媒体契约的表示范围。", exception);
+            throw new InvalidDataException("FFprobe numbers exceed the representation range of the media contract.", exception);
         }
     }
 
     private static MediaStreamInfo ReadStream(JsonElement stream)
     {
         RequireObject(stream, "stream");
-        var index = ReadInt32(stream, "index") ?? throw Invalid("index", "缺少流索引。");
+        var index = ReadInt32(stream, "index") ?? throw Invalid("index", "The stream index is missing.");
         if (index < 0)
         {
-            throw Invalid("index", "流索引不能为负。");
+            throw Invalid("index", "The stream index cannot be negative.");
         }
 
         var codecType = ReadText(stream, "codec_type");
@@ -77,7 +77,7 @@ internal static class FfprobeJsonReader
         var durationTicks = ReadInt64(stream, "duration_ts", timestampSentinel: true);
         if (durationTicks < 0)
         {
-            throw Invalid("duration_ts", "报告时长不能为负。");
+            throw Invalid("duration_ts", "The reported duration cannot be negative.");
         }
 
         return new()
@@ -201,7 +201,7 @@ internal static class FfprobeJsonReader
             {
                 if (tag.Value.ValueKind != JsonValueKind.String)
                 {
-                    throw Invalid(tag.Name, "标签必须为字符串。");
+                    throw Invalid(tag.Name, "A tag must be a string.");
                 }
 
                 result.Add(tag.Name, tag.Value.GetString()!);
@@ -221,7 +221,7 @@ internal static class FfprobeJsonReader
                 var value = ReadInt32(disposition, flag.Name);
                 if (value is not (0 or 1))
                 {
-                    throw Invalid(flag.Name, "流 disposition 必须为 0 或 1。");
+                    throw Invalid(flag.Name, "A stream disposition must be 0 or 1.");
                 }
 
                 result.Add(flag.Name, value.Value);
@@ -240,7 +240,7 @@ internal static class FfprobeJsonReader
 
         if (value.ValueKind != JsonValueKind.String)
         {
-            throw Invalid(name, "应为字符串。");
+            throw Invalid(name, "A string is required.");
         }
 
         var text = value.GetString();
@@ -258,12 +258,12 @@ internal static class FfprobeJsonReader
         {
             JsonValueKind.String => value.GetString()!,
             JsonValueKind.Number => value.GetRawText(),
-            _ => throw Invalid(name, "应为数值或数值字符串。")
+            _ => throw Invalid(name, "A number or numeric string is required.")
         };
 
         if (text.Length > MAX_NUMERIC_CHARACTER_COUNT)
         {
-            throw Invalid(name, "数值表示超过 256 个字符的解析上限。");
+            throw Invalid(name, "The numeric representation exceeds the parsing limit of 256 characters.");
         }
 
         return text == "N/A" ? null : text;
@@ -278,7 +278,7 @@ internal static class FfprobeJsonReader
 
         if (!long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value))
         {
-            throw Invalid(name, "整数无效或超出 Int64 范围。");
+            throw Invalid(name, "The integer is invalid or exceeds the Int64 range.");
         }
 
         return timestampSentinel && value == long.MinValue ? null : value;
@@ -295,7 +295,7 @@ internal static class FfprobeJsonReader
         var value = ReadInt32(parent, name);
         if (value < 0)
         {
-            throw Invalid(name, "数值不能为负。");
+            throw Invalid(name, "The number cannot be negative.");
         }
 
         return value == 0 ? null : value;
@@ -327,7 +327,7 @@ internal static class FfprobeJsonReader
             !BigInteger.TryParse(text.AsSpan(separatorIndex + 1), NumberStyles.AllowLeadingSign,
                 CultureInfo.InvariantCulture, out var denominator))
         {
-            throw Invalid(name, "有理数格式无效。");
+            throw Invalid(name, "The rational number format is invalid.");
         }
 
         if (numerator.IsZero && denominator.IsZero)
@@ -337,7 +337,7 @@ internal static class FfprobeJsonReader
 
         if (denominator.Sign <= 0 || (nonNegative && numerator.Sign < 0))
         {
-            throw Invalid(name, "有理数符号或分母无效。");
+            throw Invalid(name, "The rational number sign or denominator is invalid.");
         }
 
         if (zeroIsUnknown && numerator.IsZero)
@@ -357,7 +357,7 @@ internal static class FfprobeJsonReader
 
         if (nonNegative && ratio.Numerator < 0)
         {
-            throw Invalid(name, "报告时长不能为负。");
+            throw Invalid(name, "The reported duration cannot be negative.");
         }
 
         return new(ratio.Numerator, ratio.Denominator);
@@ -379,7 +379,7 @@ internal static class FfprobeJsonReader
             if (!int.TryParse(text.AsSpan(exponentIndex + 1), NumberStyles.AllowLeadingSign,
                     CultureInfo.InvariantCulture, out exponent))
             {
-                throw Invalid(name, "十进制指数无效或溢出。");
+                throw Invalid(name, "The decimal exponent is invalid or overflows.");
             }
         }
 
@@ -394,13 +394,13 @@ internal static class FfprobeJsonReader
         if (mantissa.Length == 0 || decimalIndex == 0 || decimalIndex == mantissa.Length - 1 ||
             (decimalIndex >= 0 && decimalIndex != mantissa.LastIndexOf('.')))
         {
-            throw Invalid(name, "十进制数格式无效。");
+            throw Invalid(name, "The decimal number format is invalid.");
         }
 
         var digits = decimalIndex < 0 ? mantissa : mantissa.Remove(decimalIndex, 1);
         if (digits.Any(static character => !char.IsAsciiDigit(character)))
         {
-            throw Invalid(name, "十进制数包含无效字符。");
+            throw Invalid(name, "The decimal number contains invalid characters.");
         }
 
         var numerator = BigInteger.Parse(digits, NumberStyles.None, CultureInfo.InvariantCulture);
@@ -418,7 +418,7 @@ internal static class FfprobeJsonReader
 
         if (scale < -18 || scale > 63)
         {
-            throw Invalid(name, "十进制数无法精确表示为 Int64 有理数。");
+            throw Invalid(name, "The decimal number cannot be represented exactly as an Int64 rational number.");
         }
 
         if (negative)
@@ -446,7 +446,7 @@ internal static class FfprobeJsonReader
 
         if (value.ValueKind != kind)
         {
-            throw Invalid(name, $"应为 {kind}。");
+            throw Invalid(name, $"A value of kind {kind} is required.");
         }
 
         if (kind == JsonValueKind.Object)
@@ -461,7 +461,7 @@ internal static class FfprobeJsonReader
     {
         if (value.ValueKind != JsonValueKind.Object)
         {
-            throw Invalid(name, "应为对象。");
+            throw Invalid(name, "An object is required.");
         }
 
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -469,13 +469,13 @@ internal static class FfprobeJsonReader
         {
             if (!names.Add(property.Name))
             {
-                throw Invalid(property.Name, "同一对象中的字段重复。");
+                throw Invalid(property.Name, "Duplicate field within the same object.");
             }
         }
     }
 
     private static InvalidDataException Invalid(string field, string message)
     {
-        return new($"FFprobe 字段 {field}：{message}");
+        return new($"FFprobe field {field}: {message}");
     }
 }

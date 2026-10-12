@@ -79,7 +79,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 var end = source.IndexOf('}', index + 1);
                 if (end < 0)
                 {
-                    throw new InvalidDataException("ASS 标签块缺少结束括号。");
+                    throw new InvalidDataException("An ASS override block is missing its closing brace.");
                 }
                 ParseTags(source.AsSpan(index + 1, end - index - 1), index + 1);
                 map.Add(new(index, end - index + 1, text.Length, 0));
@@ -99,7 +99,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 };
                 if (source[index + 1] is '{' or '}')
                 {
-                    Report("Ass.LiteralBraces", "字面花括号转义属于 libass 扩展，其他 ASS 播放器可能改变文字。", index, count);
+                    Report("Ass.LiteralBraces", "Escaping literal braces is a libass extension; other ASS players may alter the text.", index, count);
                 }
             }
             var offset = text.Length;
@@ -129,7 +129,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                     else if (!projectSource && !segmentRunsReported &&
                         (segmentRunStyle != current || segmentRunInactive != inactiveColor || segmentRunActive != activeVisual))
                     {
-                        Report("Ass.KaraokeStyleRuns", "ASS 同一演唱组内的样式变化可能形成独立渲染片段；已保留完整组时间和各范围外观，源播放器的激活或扫色时序可能不同。", index, count);
+                        Report("Ass.KaraokeStyleRuns", "Style changes within the same ASS karaoke group may create separate rendering segments. Full group timing and the appearance of each range were preserved; activation or sweep timing in the source player may differ.", index, count);
                         segmentRunsReported = true;
                     }
                     segmentRunStyle = current;
@@ -142,7 +142,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 {
                     if (projectSource && !projectAnimations || !instantNumericOnly)
                     {
-                        Report("Ass.UnsupportedTag", "ASS 瞬时边缘和阴影变换需要逐字片段时间，普通文字无法保存此动画。", instantSourceStart, instantSourceLength);
+                        Report("Ass.UnsupportedTag", "Instantaneous ASS edge and shadow transforms require per-word segment timing. Ordinary text cannot store this animation.", instantSourceStart, instantSourceLength);
                     }
                     instantVisualTime = null;
                     instantVisual = null;
@@ -171,7 +171,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             };
             if (currentWrapStyle is 0 or 3)
             {
-                Report("Ass.WrapModeApproximation", "ASS 智能均衡换行已转换为原生自然换行，行宽分配可能不同。", 0, 0);
+                Report("Ass.WrapModeApproximation", "ASS balanced smart wrapping was converted to native natural wrapping. Line-width distribution may differ.", 0, 0);
             }
         }
         var line = original with
@@ -211,7 +211,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 }
                 else
                 {
-                    Report("Ass.RotationOrigin", "ASS 旋转原点未保留：" + reason + "；已保留其他定位和动画属性。",
+                    Report("Ass.RotationOrigin", "The ASS rotation origin was not preserved: " + reason + "; other placement and animation properties were preserved.",
                         rotationOriginParser.SourceStart, rotationOriginParser.SourceLength);
                 }
             }
@@ -276,19 +276,19 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 depth += block[cursor] == '(' ? 1 : block[cursor] == ')' ? -1 : 0;
                 if (depth < 0)
                 {
-                    throw new InvalidDataException("ASS 标签括号不匹配。");
+                    throw new InvalidDataException("ASS tag parentheses do not match.");
                 }
                 cursor++;
             }
             if (depth != 0)
             {
-                throw new InvalidDataException("ASS 标签括号不匹配。");
+                throw new InvalidDataException("ASS tag parentheses do not match.");
             }
             var token = block[valueStart..cursor].ToString();
             var name = knownTags.FirstOrDefault(tag => token.StartsWith(tag, StringComparison.Ordinal));
             if (name is null)
             {
-                Report("Ass.UnsupportedTag", $"不支持 ASS 标签：{token}。", sourceOffset + start, cursor - start);
+                Report("Ass.UnsupportedTag", $"Unsupported ASS tag: {token}.", sourceOffset + start, cursor - start);
                 continue;
             }
             var value = token[name.Length..].Trim();
@@ -328,7 +328,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 var spacing = value.Length == 0 ? resetStyle.LetterSpacing : AssFormatValues.Number(value) * scaleX;
                 if (!double.IsFinite(spacing) || spacing is < -4096 or > 4096)
                 {
-                    Report("Ass.LetterSpacingRange", "ASS 字距重采样后超出原生范围，已忽略该字距标签并保留其他样式。", sourceStart, sourceLength);
+                    Report("Ass.LetterSpacingRange", "Resampled ASS letter spacing exceeds the native range. The letter-spacing tag was ignored and other style properties were preserved.", sourceStart, sourceLength);
                 }
                 else
                 {
@@ -361,7 +361,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 current = current with { Bold = bold, FontVariant = bold == current.Bold ? current.FontVariant : null };
                 if (weight is not (-1 or 0 or 1))
                 {
-                    Report("Ass.FontWeight", "ASS 显式字体粗细被转换为普通或粗体。", sourceStart, sourceLength);
+                    Report("Ass.FontWeight", "Explicit ASS font weight was converted to regular or bold.", sourceStart, sourceLength);
                 }
                 break;
             case "i":
@@ -426,7 +426,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 current = current with { ShadowBlur = value.Length == 0 ? baseline.ShadowBlur : AssFormatValues.Number(value) * scaleY };
                 if (current.ShadowBlur > 0 && (current.Fill.Alpha > 0 || current.StrokeWidth > 0 && current.Stroke.Alpha > 0 || current.ShadowColor.Alpha > 0))
                 {
-                    Report("Ass.ShadowBlur", "ASS 的模糊作用于文字或描边边缘，转换为项目阴影模糊会改变边缘外观。", sourceStart, sourceLength);
+                    Report("Ass.ShadowBlur", "ASS blur affects text or stroke edges. Converting it to project shadow blur changes the edge appearance.", sourceStart, sourceLength);
                 }
                 break;
             case "r":
@@ -454,19 +454,19 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 }
                 if (value.Length > 0 && !styles.ContainsKey(value))
                 {
-                    Report("Ass.UnknownStyle", $"未找到重置样式 {value}，使用当前行样式。", sourceStart, sourceLength);
+                    Report("Ass.UnknownStyle", $"Reset style '{value}' was not found. The current line style was used.", sourceStart, sourceLength);
                 }
                 break;
             case "q":
                 if (projectSource)
                 {
-                    Report("Ass.UnsupportedTag", "项目 ASS 代码不支持 q，请通过原生换行模式调整整行排版。", sourceStart, sourceLength);
+                    Report("Ass.UnsupportedTag", "Project ASS code does not support q. Adjust whole-line layout using the native wrapping mode.", sourceStart, sourceLength);
                     break;
                 }
                 var wrapping = value.Length == 0 ? defaultWrapStyle : AssFormatValues.Integer(value);
                 if (wrapping is < 0 or > 3)
                 {
-                    Report("Ass.WrapStyle", "ASS 换行模式须为 0 至 3，已恢复文件的 WrapStyle。", sourceStart, sourceLength);
+                    Report("Ass.WrapStyle", "ASS wrapping mode must be between 0 and 3. The file WrapStyle was restored.", sourceStart, sourceLength);
                     wrapping = defaultWrapStyle;
                 }
                 currentWrapStyle = wrapping;
@@ -477,7 +477,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                     AssFormatValues.LegacyAlignment(AssFormatValues.Integer(value));
                 if (explicitAlignment)
                 {
-                    Report("Ass.DuplicatePlacement", "ASS 同一行重复的对齐标签已忽略，采用首个值。", sourceStart, sourceLength);
+                    Report("Ass.DuplicatePlacement", "Duplicate ASS alignment tags on the same line were ignored; the first value was used.", sourceStart, sourceLength);
                     break;
                 }
                 explicitAlignment = true;
@@ -495,7 +495,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             case "fr":
                 if (projectSource && !projectAnimations)
                 {
-                    Report("Ass.UnsupportedTag", $"项目 ASS 代码不支持 {name}，请在项目原生变换属性中调整。", sourceStart, sourceLength);
+                    Report("Ass.UnsupportedTag", $"Project ASS code does not support {name}. Adjust it using native project transform properties.", sourceStart, sourceLength);
                 }
                 else
                 {
@@ -509,7 +509,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 if (projectSource)
                 {
                     Report(name == "pos" ? "Ass.ProjectPositionUnsupported" : "Ass.UnsupportedTag",
-                        $"项目 ASS 代码不支持位置标签，请移除 \\{name}，并在项目原生位置属性中调整定位。", sourceStart, sourceLength);
+                        $"Project ASS code does not support placement tags. Remove \\{name} and adjust placement using native project position properties.", sourceStart, sourceLength);
                     break;
                 }
                 if (geometryParser.TryPlacement(name, value, sourceStart, sourceLength, out var offset))
@@ -520,7 +520,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             case "org":
                 if (projectSource)
                 {
-                    Report("Ass.UnsupportedTag", "项目 ASS 代码不支持 org，请在项目原生轴心属性中调整。", sourceStart, sourceLength);
+                    Report("Ass.UnsupportedTag", "Project ASS code does not support org. Adjust it using native project pivot properties.", sourceStart, sourceLength);
                 }
                 else
                 {
@@ -534,7 +534,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 karaokeTime = new(karaokeStart, 100);
                 if (projectSource && karaokeTime < MediaTime.Zero)
                 {
-                    throw new InvalidDataException("项目高级代码的卡拉 OK 时间不能为负。");
+                    throw new InvalidDataException("Karaoke times in project advanced code cannot be negative.");
                 }
                 break;
             case "k":
@@ -545,7 +545,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 var centiseconds = AssFormatValues.Integer(value);
                 if (centiseconds < 0)
                 {
-                    throw new InvalidDataException("ASS 卡拉 OK 时长不能为负。");
+                    throw new InvalidDataException("ASS karaoke durations cannot be negative.");
                 }
                 AssKaraokeTiming.ValidateCount(centiseconds);
                 segmentDuration = new(centiseconds, 100);
@@ -562,7 +562,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             case "fade":
                 if (projectSource)
                 {
-                    Report("Ass.UnsupportedTag", $"项目 ASS 代码不支持 {name}，请在原生不透明度属性或时间轴中调整淡化。", sourceStart, sourceLength);
+                    Report("Ass.UnsupportedTag", $"Project ASS code does not support {name}. Adjust fades using native opacity properties or the timeline.", sourceStart, sourceLength);
                 }
                 else
                 {
@@ -585,10 +585,10 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 break;
             case "p":
                 drawing = AssFormatValues.Integer(value) != 0;
-                Report("Ass.Drawing", "ASS 绘图未导入，请使用项目图形图层。", sourceStart, sourceLength);
+                Report("Ass.Drawing", "ASS drawing was not imported. Use project shape layers.", sourceStart, sourceLength);
                 break;
             default:
-                Report("Ass.UnsupportedTag", name == "move" ? "ASS move 不受支持，请使用项目位置特效。" : $"ASS 标签 {name} 未导入。", sourceStart, sourceLength);
+                Report("Ass.UnsupportedTag", name == "move" ? "ASS move is unsupported. Use project position effects." : $"ASS tag {name} was not imported.", sourceStart, sourceLength);
                 break;
         }
         if (!projectSource || projectAnimations)
@@ -614,7 +614,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         }
         else if (text.Length > segmentStart && !projectSource)
         {
-            Report("Ass.ZeroKaraoke", "零时长演唱文字已作为普通文字导入。", 0, 0);
+            Report("Ass.ZeroKaraoke", "Zero-duration karaoke text was imported as ordinary text.", 0, 0);
         }
         karaokeTime += duration;
         segmentDuration = null;
@@ -634,7 +634,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             if (projectSource && !projectAnimations || !instantNumericOnly)
             {
-                Report("Ass.UnsupportedTag", "ASS 瞬时边缘和阴影变换必须与逐字或轮廓逐字片段起点对齐。", instantSourceStart, instantSourceLength);
+                Report("Ass.UnsupportedTag", "Instantaneous ASS edge and shadow transforms must align with the start of a per-word or outline-per-word segment.", instantSourceStart, instantSourceLength);
             }
             return null;
         }
@@ -672,13 +672,13 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         catch (InvalidDataException)
         {
             incompleteGeometry |= !projectSource && AssRotationOriginGeometry.ContainsGeometry(tags);
-            Report("Ass.TransformTiming", "ASS 数值变换的时间或参数无效，已舍弃该变换并保留其他内容。", sourceStart, sourceLength);
+            Report("Ass.TransformTiming", "ASS numeric transform times or arguments are invalid. The transform was discarded and other content was preserved.", sourceStart, sourceLength);
             return;
         }
         if (timing.End < timing.Start || !double.IsFinite(timing.Acceleration) || timing.Acceleration < 0)
         {
             incompleteGeometry |= !projectSource && AssRotationOriginGeometry.ContainsGeometry(tags);
-            Report("Ass.TransformTiming", "ASS 逆序时间或负加速度不能准确转换为有限原生动画，已舍弃该变换。", sourceStart, sourceLength);
+            Report("Ass.TransformTiming", "ASS reversed times or negative acceleration cannot be converted exactly to finite native animation. The transform was discarded.", sourceStart, sourceLength);
             return;
         }
         var clips = tags.Where(tag => tag.Name is "clip" or "iclip").ToArray();
@@ -726,7 +726,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 incompleteGeometry |= !projectSource && AssRotationOriginGeometry.ContainsGeometry([tag]);
                 if (candidate == 0 || !visualTags.Contains(tag))
                 {
-                    Report("Ass.UnsupportedTag", $"ASS 变换中的 {tag.Name} 尚不能转换为原生动画，已保留可转换的其他属性。", sourceStart, sourceLength);
+                    Report("Ass.UnsupportedTag", $"ASS transform tag {tag.Name} cannot yet be converted to native animation. Other convertible properties were preserved.", sourceStart, sourceLength);
                 }
                 continue;
             }
@@ -775,14 +775,14 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
     {
         if (!value.StartsWith('(') || !value.EndsWith(')'))
         {
-            throw new InvalidDataException("ASS t 必须使用括号参数。");
+            throw new InvalidDataException("ASS t requires parenthesized arguments.");
         }
         var parts = value[1..^1].Split(',', 3);
         if (parts.Length != 3 || !long.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var start) ||
             !long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var end) || start == 0 || start != end ||
             !parts[2].TrimStart().StartsWith('\\') || instantVisual is not null)
         {
-            Report("Ass.UnsupportedTag", "ASS 仅支持与演唱组起点对齐的单个非零时间瞬时边缘和阴影变换。", sourceStart, sourceLength);
+            Report("Ass.UnsupportedTag", "Only one instantaneous ASS edge and shadow transform at a nonzero time aligned with the karaoke group start is supported.", sourceStart, sourceLength);
             return;
         }
         var visual = new KaraokeVisualStyleOverride();
@@ -815,7 +815,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             };
             if (name is not ("3c" or "3a" or "4c" or "4a" or "bord" or "shad" or "xshad" or "yshad" or "blur") || argument.Length == 0)
             {
-                Report("Ass.UnsupportedTag", "ASS 瞬时变换只能包含可保存的边缘和阴影标签。", sourceStart, sourceLength);
+                Report("Ass.UnsupportedTag", "Instantaneous ASS transforms can only contain supported edge and shadow tags.", sourceStart, sourceLength);
                 return;
             }
         }
@@ -841,7 +841,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
     {
         if (!projectSource && borderResolution.ApproximatesStroke && width > 0)
         {
-            ReportTypographyOnce("Ass.BorderResampling", "ASS 描边的横纵重采样比例不同，已按几何平均比例近似转换为原生单一描边宽度。");
+            ReportTypographyOnce("Ass.BorderResampling", "ASS stroke has different horizontal and vertical resampling ratios. It was approximated as a single native stroke width using their geometric mean.");
         }
     }
 
@@ -855,7 +855,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         blur = (interpolate ? amount : Math.Clamp(amount, 0, AssSourceAnimationEvaluator.MAX_BLUR)) * ExternalBlurScale;
         if (!double.IsFinite(blur))
         {
-            Report("Ass.BlurRange", "ASS 边缘模糊换算后超出原生范围，已忽略该模糊标签并保留其他样式。", sourceStart, sourceLength);
+            Report("Ass.BlurRange", "Converted ASS edge blur exceeds the native range. The blur tag was ignored and other style properties were preserved.", sourceStart, sourceLength);
             return false;
         }
         return true;
@@ -867,13 +867,13 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             if (blurUsesPlayRes)
             {
-                ReportTypographyOnce("Ass.BlurLayoutResolution", "ASS 未提供完整有效的 LayoutRes，边缘模糊按 PlayRes 重采样；原视频分辨率不同时外观可能不同。");
+                ReportTypographyOnce("Ass.BlurLayoutResolution", "ASS does not provide complete, valid LayoutRes values. Edge blur was resampled using PlayRes; its appearance may differ if the original video resolution differs.");
             }
             if (!(blurScaleX ?? scaleX).Equals(blurScaleY ?? scaleY))
             {
-                ReportTypographyOnce("Ass.BlurResampling", "ASS 模糊的横纵重采样比例不同，已按几何平均比例近似转换为原生圆形模糊。");
+                ReportTypographyOnce("Ass.BlurResampling", "ASS blur has different horizontal and vertical resampling ratios. It was approximated as native circular blur using their geometric mean.");
             }
-            ReportTypographyOnce("Ass.BlurAppearance", "ASS 边缘模糊已转换为原生分通道高斯模糊；栅格化、边缘合成及带描边阴影的轮廓可能不同。");
+            ReportTypographyOnce("Ass.BlurAppearance", "ASS edge blur was converted to native per-channel Gaussian blur. Rasterization, edge compositing, and outlined shadow contours may differ.");
         }
         return style with
         {
@@ -929,7 +929,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         current = current with { FontVariant = null, Bold = weight >= 600 };
         if (reportedFontWeights.Add((current.FontFamily, weight, requestedFontWidth, current.Italic)))
         {
-            Report("Ass.FontWeight", "ASS 显式字体粗细未匹配到真实命名变体，已转换为普通或粗体。", fontWeightSourceStart, fontWeightSourceLength);
+            Report("Ass.FontWeight", "Explicit ASS font weight did not match an actual named font variant and was converted to regular or bold.", fontWeightSourceStart, fontWeightSourceLength);
         }
     }
 
@@ -984,7 +984,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             if (!boundaries!.Contains(span.Utf16Start) || !boundaries.Contains(span.Utf16Start + span.Utf16Length))
             {
-                throw new InvalidDataException("ASS 局部样式不能拆开字素。");
+                throw new InvalidDataException("ASS local styles cannot split graphemes.");
             }
             ValidateStyle(span.Style.ApplyTo(line.Style), canvasUnits);
         }
@@ -992,14 +992,14 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             if (!boundaries!.Contains(segment.Utf16Start) || !boundaries.Contains(segment.Utf16Start + segment.Utf16Length))
             {
-                throw new InvalidDataException("ASS 卡拉 OK 标签不能拆开字素。");
+                throw new InvalidDataException("ASS karaoke tags cannot split graphemes.");
             }
         }
         foreach (var span in line.KaraokeStyleSpans)
         {
             if (!boundaries!.Contains(span.Utf16Start) || !boundaries.Contains(span.Utf16Start + span.Utf16Length))
             {
-                throw new InvalidDataException("ASS 卡拉 OK 外观不能拆开字素。");
+                throw new InvalidDataException("ASS karaoke appearance cannot split graphemes.");
             }
             if (span.ActiveStyle is { } active)
             {
@@ -1014,7 +1014,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             if (!boundaries!.Contains(range.Utf16Start) || !boundaries.Contains(range.Utf16Start + range.Utf16Length))
             {
-                throw new InvalidDataException("ASS 动画范围不能拆开字素。");
+                throw new InvalidDataException("ASS animation ranges cannot split graphemes.");
             }
         }
         ValidateStyle(line.Style, canvasUnits);

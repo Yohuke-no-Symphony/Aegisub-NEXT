@@ -9,13 +9,13 @@ internal sealed class ExportOutputTransaction : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
         if (!Path.IsPathFullyQualified(outputPath))
         {
-            throw new ArgumentException("输出文件必须使用完整路径。", nameof(outputPath));
+            throw new ArgumentException("The output file must use an absolute path.", nameof(outputPath));
         }
 
         OutputPath = Path.GetFullPath(outputPath);
         if (File.Exists(OutputPath))
         {
-            throw new IOException("输出文件已存在，请选择新文件名。");
+            throw new IOException("The output file already exists; choose a new filename.");
         }
 
         var directory = Path.GetDirectoryName(OutputPath)!;
@@ -36,7 +36,7 @@ internal sealed class ExportOutputTransaction : IDisposable
         ObjectDisposedException.ThrowIf(disposed, this);
         if (!File.Exists(TemporaryOutputPath) || new FileInfo(TemporaryOutputPath).Length == 0)
         {
-            throw new InvalidDataException("导出 worker 未产生有效成片。");
+            throw new InvalidDataException("The export worker did not produce a valid output video.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();

@@ -34,7 +34,7 @@ public sealed class FfprobeVideoTimingProbe
         var sourcePath = Path.GetFullPath(filePath);
         if (!File.Exists(sourcePath))
         {
-            throw new FileNotFoundException("媒体文件不存在。", sourcePath);
+            throw new FileNotFoundException("The media file does not exist.", sourcePath);
         }
 
         var sourceInfo = new FileInfo(sourcePath);
@@ -54,7 +54,7 @@ public sealed class FfprobeVideoTimingProbe
             cancellationToken).ConfigureAwait(false);
         if (await HashToolAsync(cancellationToken).ConfigureAwait(false) != hash)
         {
-            throw new InvalidDataException("扫描期间媒体工具发生变化，请重新执行。");
+            throw new InvalidDataException("The media tool changed during scanning; run the operation again.");
         }
 
         var index = await Task.Run(() =>
@@ -64,7 +64,7 @@ public sealed class FfprobeVideoTimingProbe
             if (observed.Version != identity.Version || observed.LibraryVersions.Count != identity.LibraryVersions.Count ||
                 observed.LibraryVersions.Any(pair => !identity.LibraryVersions.TryGetValue(pair.Key, out var expected) || pair.Value != expected))
             {
-                throw new InvalidDataException("扫描期间媒体工具发生变化，请重新执行。");
+                throw new InvalidDataException("The media tool changed during scanning; run the operation again.");
             }
 
             return FfprobeVideoTimingJsonReader.Read(framesOutput.StandardOutput, streamIndex, origin, cancellationToken);
@@ -75,7 +75,7 @@ public sealed class FfprobeVideoTimingProbe
         if (!sourceInfo.Exists || sourceInfo.Length != sourceLength || sourceInfo.LastWriteTimeUtc != sourceModifiedAt ||
             sourceInfo.CreationTimeUtc != sourceCreatedAt)
         {
-            throw new InvalidDataException("扫描期间媒体文件发生变化，请重新执行。");
+            throw new InvalidDataException("The media file changed during scanning; run the operation again.");
         }
 
         return index;
@@ -87,7 +87,7 @@ public sealed class FfprobeVideoTimingProbe
             options.MaximumOutputCharacters, options.MaximumErrorCharacters, cancellationToken).ConfigureAwait(false);
         if (result.ExitCode != 0 || !string.IsNullOrWhiteSpace(result.StandardError))
         {
-            throw new InvalidDataException($"ffprobe 视频帧扫描退出码 {result.ExitCode}：{result.StandardError}");
+            throw new InvalidDataException($"ffprobe video frame scanning exited with code {result.ExitCode}: {result.StandardError}");
         }
 
         return result;

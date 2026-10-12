@@ -27,7 +27,7 @@ public sealed partial class ProjectSceneRenderer
         ArgumentNullException.ThrowIfNull(layer);
         if (layer.Subtitle is null)
         {
-            throw new ArgumentException("排版测量需要字幕层。", nameof(layer));
+            throw new ArgumentException("Layout measurement requires a subtitle layer.", nameof(layer));
         }
         Prepare(document);
         return VisibleLayout(layer, Layout(document, layer).Snapshot);

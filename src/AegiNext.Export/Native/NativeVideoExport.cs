@@ -83,7 +83,7 @@ internal static class NativeVideoExport
     {
         if (!Enum.IsDefined((VideoRateControlVerification)info.Verification) || info.BitratePrecision is 0 or > 1000000)
         {
-            throw new InvalidDataException("原生导出码控证据或码率精度无效。");
+            throw new InvalidDataException("The native export rate-control evidence or bitrate precision is invalid.");
         }
 
         return new((VideoRateControlMode)info.RateControlMode, info.VideoBitrate, info.Quality,

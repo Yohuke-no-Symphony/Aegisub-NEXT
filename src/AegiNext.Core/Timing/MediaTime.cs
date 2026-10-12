@@ -166,7 +166,7 @@ public readonly record struct MediaTime : IComparable<MediaTime>
     {
         if (!Enum.IsDefined(rounding))
         {
-            throw new ArgumentOutOfRangeException(nameof(rounding), rounding, "未知的时间取整策略。");
+            throw new ArgumentOutOfRangeException(nameof(rounding), rounding, "Unknown time rounding policy.");
         }
 
         var quotient = BigInteger.DivRem(numerator, denominator, out var remainder);

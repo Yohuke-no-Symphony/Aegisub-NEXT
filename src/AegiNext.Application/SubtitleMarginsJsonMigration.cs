@@ -48,12 +48,12 @@ internal static class SubtitleMarginsJsonMigration
     {
         if (style.ContainsKey("margins"))
         {
-            throw new JsonException("旧版字幕样式不能包含未声明版本的独立边距字段。");
+            throw new JsonException("Legacy subtitle styles cannot contain separate margin fields not declared by their version.");
         }
         if (style["margin"] is not JsonValue value || !value.TryGetValue<double>(out var margin) ||
             !double.IsFinite(margin) || margin is < 0 or > 32768)
         {
-            throw new JsonException("旧版字幕样式必须包含完整、有效的标量边距。");
+            throw new JsonException("Legacy subtitle styles must contain complete, valid scalar margins.");
         }
         style.Remove("margin");
         style["margins"] = new JsonObject

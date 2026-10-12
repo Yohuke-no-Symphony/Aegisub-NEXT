@@ -82,7 +82,7 @@ internal sealed class AssNumericTransformParser
         }
         foreach (var pair in channels.Where(pair => pair.Value.Mixed && pair.Value.HasAnimation))
         {
-            Report("Ass.InlineTransform", $"ASS 行内 {pair.Key} 的基础值或动画不一致，无法保存为整行动画，已仅舍弃该属性的动画。");
+            Report("Ass.InlineTransform", $"Inline ASS {pair.Key} base values or animations differ and cannot be stored as whole-line animation. Only this property animation was discarded.");
         }
         var tracks = ImmutableArray.CreateBuilder<AnimationTrack>();
         var appearanceScale = Math.Sqrt(transform.Scale.X * transform.Scale.Y);
@@ -97,7 +97,7 @@ internal sealed class AssNumericTransformParser
         {
             if (hasBorder && hasNoBorder)
             {
-                Report("Ass.TransformAppearanceAnimation", "ASS 模糊动画随描边是否存在切换作用对象，不能对应单一原生模糊轨道，已舍弃模糊动画并保留描边和其他属性。");
+                Report("Ass.TransformAppearanceAnimation", "ASS blur animation changes its target depending on whether a stroke exists and cannot map to a single native blur track. Blur animation was discarded; stroke and other properties were preserved.");
             }
             else
             {
@@ -113,7 +113,7 @@ internal sealed class AssNumericTransformParser
         if ((Usable("fscx") || Usable("fscy") || Usable("frz")) && (hasBorder || hasBlur || hasShadow) ||
             Usable("bord") && hasBlur)
         {
-            Report("Ass.TransformAppearanceAnimation", "ASS 动态字形变换与描边、模糊及阴影的作用顺序和原生整层变换不同，已保留几何动画，边缘或阴影外观可能随时间偏离。");
+            Report("Ass.TransformAppearanceAnimation", "ASS animated glyph transforms apply stroke, blur, and shadow in a different order from native whole-layer transforms. Geometry animation was preserved; edge or shadow appearance may diverge over time.");
         }
         var rebased = tracks.Select(track => track with
         {
@@ -141,7 +141,7 @@ internal sealed class AssNumericTransformParser
         var values = channel.Operations.Select(operation => operation.Value).Prepend(channel.Initial).Select(convert);
         if (values.Any(value => !double.IsFinite(value) || value < AnimationPropertyMetadata.GetMinimum(property) || value > AnimationPropertyMetadata.GetMaximum(property)))
         {
-            Report("Ass.TransformRange", $"ASS {name} 动画超出原生属性范围，已舍弃该属性动画并保留其他内容。");
+            Report("Ass.TransformRange", $"ASS {name} animation exceeds the native property range. This property animation was discarded and other content was preserved.");
             return;
         }
         tracks.Add(Track(property, AnimationValue.FromScalar(convert(channel.Initial)), channel.Operations,
@@ -189,7 +189,7 @@ internal sealed class AssNumericTransformParser
             }).Tracks;
             return LegacyAnimationTrackMigration.Merge(axes, AnimationProperty.SCALE, AnimationValue.FromVector(initial)).Single();
         }
-        Report("Ass.TransformScaleAxes", "ASS 横纵缩放包含独立时序的重叠或瞬时操作，无法准确对应原生完整向量操作，已舍弃缩放动画并保留其他属性。");
+        Report("Ass.TransformScaleAxes", "ASS horizontal and vertical scaling contain overlapping or instantaneous operations with independent timing and cannot map exactly to native whole-vector operations. Scaling animation was discarded and other properties were preserved.");
         return null;
     }
 
@@ -205,7 +205,7 @@ internal sealed class AssNumericTransformParser
         if (channel.Operations.Select(operation => operation.Value).Prepend(channel.Initial)
             .Any(value => !double.IsFinite(value) || value is < 0 or > 10000))
         {
-            Report("Ass.TransformRange", $"ASS {name} 动画超出原生范围，已舍弃该轴动画并保留另一轴和其他属性。");
+            Report("Ass.TransformRange", $"ASS {name} animation exceeds the native range. This axis animation was discarded; the other axis and other properties were preserved.");
             return false;
         }
         return true;

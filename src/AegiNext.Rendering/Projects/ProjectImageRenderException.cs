@@ -7,7 +7,7 @@ public sealed class ProjectImageRenderException : IOException
 {
     /// <summary>保留具体解码或文件异常及失败资源身份。</summary>
     public ProjectImageRenderException(ProjectAsset asset, Exception innerException)
-        : base($"无法渲染图片资源 {asset.Id}（{Path.GetFileName(asset.ExternalPath ?? asset.RelativePath)}）：{innerException.Message}", innerException)
+        : base($"Image asset {asset.Id} ({Path.GetFileName(asset.ExternalPath ?? asset.RelativePath)}) could not be rendered: {innerException.Message}", innerException)
     {
         AssetId = asset.Id;
     }

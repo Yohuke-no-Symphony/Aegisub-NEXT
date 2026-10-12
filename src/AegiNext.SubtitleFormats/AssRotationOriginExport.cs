@@ -11,14 +11,14 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
         reason = string.Empty;
         if (AssRotationOriginConversion.HasRangeGeometry(line, layer.Tracks))
         {
-            reason = "文字范围包含独立位移、缩放或旋转";
+            reason = "text ranges contain independent translation, scaling, or rotation";
             return null;
         }
         var geometry = layer.Tracks.Where(track => track.Target.TextRangeId is null &&
             track.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION).ToArray();
         if (geometry.Any(track => track.Target.State != SubtitleAnimationState.NORMAL))
         {
-            reason = "独立文字状态的几何不能共用固定原点";
+            reason = "geometry for independent text states cannot share a fixed origin";
             return null;
         }
         var scale = layer.Transform.Scale;
@@ -31,7 +31,7 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
             {
                 if (!constant)
                 {
-                    reason = "动态缩放需要原点与位置联动";
+                    reason = "animated scaling requires coordinated origin and position changes";
                     return null;
                 }
                 scale = value.Vector;
@@ -49,39 +49,39 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
             }
             else if (move is null)
             {
-                reason = "位置轨道不能完整转换为单段直线移动";
+                reason = "the position track cannot be fully converted to a single straight-line movement";
                 return null;
             }
         }
         if (!double.IsFinite(scale.X) || !double.IsFinite(scale.Y) || scale.X is <= 0 or > 10000 ||
             scale.Y is <= 0 or > 10000 || scale != outputScale)
         {
-            reason = "原点补偿需要完整保留的固定正缩放";
+            reason = "origin compensation requires fully preserved, fixed positive scaling";
             return null;
         }
         if (!double.IsFinite(rotation) || !animatedRotation && !rotation.Equals(outputRotation))
         {
-            reason = "整行旋转未完整保留";
+            reason = "whole-line rotation was not fully preserved";
             return null;
         }
         if (layer.MotionPath is not null && !convertedPath || move is { Approximate: true })
         {
-            reason = "移动路径或速度不能精确转换为单段直线移动";
+            reason = "the movement path or speed cannot be converted exactly to a single straight-line movement";
             return null;
         }
         if (animatedRotation && move is not null && move.First != move.Last)
         {
-            reason = "旋转动画与移动同时存在，需要位置联动";
+            reason = "rotation animation and movement coexist and require coordinated position changes";
             return null;
         }
         if (needsMeasurement && (!hasMeasurement || HasUnmeasuredTypography(layer)))
         {
-            reason = "未取得完整固定排版轴心，静态测量不能补偿字号或字距布局轨道";
+            reason = "a complete fixed layout pivot is unavailable; static measurements cannot compensate for font-size or letter-spacing layout tracks";
             return null;
         }
         if (!AssRotationOriginConversion.ValidPoint(basis))
         {
-            reason = "排版基准超出可转换的坐标范围";
+            reason = "the layout reference exceeds the convertible coordinate range";
             return null;
         }
         AssRotationOriginExport converted;
@@ -108,7 +108,7 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
             move is not null && (!AssRotationOriginConversion.ValidPoint(converted.MapPosition(move.First)) ||
                 !AssRotationOriginConversion.ValidPoint(converted.MapPosition(move.Last))))
         {
-            reason = "原点补偿后的原点或定位超出可转换的坐标范围";
+            reason = "the compensated origin or placement exceeds the convertible coordinate range";
             return null;
         }
         return converted;

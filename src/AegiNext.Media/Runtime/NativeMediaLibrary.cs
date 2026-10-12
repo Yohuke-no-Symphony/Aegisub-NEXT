@@ -11,7 +11,7 @@ public static class NativeMediaLibrary
         ArgumentException.ThrowIfNullOrWhiteSpace(moduleName);
         if (moduleName is not ("aeginext_decode" or "aeginext_audio" or "aeginext_media" or "aeginext_export"))
         {
-            throw new ArgumentException("只能加载已定义的 AegiNext 原生媒体模块。", nameof(moduleName));
+            throw new ArgumentException("Only defined AegiNext native media modules can be loaded.", nameof(moduleName));
         }
         var filename = OperatingSystem.IsWindows() ? moduleName + ".dll"
             : OperatingSystem.IsMacOS() ? "lib" + moduleName + ".dylib" : "lib" + moduleName + ".so";
@@ -29,10 +29,10 @@ public static class NativeMediaLibrary
         }
         catch (Exception error) when (error is DllNotFoundException or BadImageFormatException)
         {
-            var reason = !File.Exists(path) ? "运行时文件缺失"
-                : error is BadImageFormatException ? "模块格式或架构与当前进程不匹配"
-                : "文件已存在，但其依赖库缺失或无法加载";
-            throw new DllNotFoundException($"原生媒体模块 {filename}：{reason}。进程架构 {RuntimeInformation.ProcessArchitecture}；加载路径 {path}。请使用同一平台/RID 的完整应用包。原始错误：{error.Message}", error);
+            var reason = !File.Exists(path) ? "The runtime file is missing"
+                : error is BadImageFormatException ? "The module format or architecture does not match the current process"
+                : "The file exists, but its dependencies are missing or cannot be loaded";
+            throw new DllNotFoundException($"Native media module {filename}: {reason}. Process architecture: {RuntimeInformation.ProcessArchitecture}; load path: {path}. Use the complete application package for the same platform/RID. Original error: {error.Message}", error);
         }
     }
 }

@@ -18,7 +18,7 @@ internal static class ExportWire
             (job.Video is null || job.Video.RateControlMode is not VideoRateControlMode.CRF and
                 not VideoRateControlMode.VBR and not VideoRateControlMode.CBR and not VideoRateControlMode.CQ))
         {
-            throw new InvalidDataException("导出 worker 请求协议、操作或专属参数不匹配，请使用同配置的应用和 worker。");
+            throw new InvalidDataException("The export worker request protocol, operation, or operation-specific parameters do not match; use the application and worker from the same build configuration.");
         }
     }
 

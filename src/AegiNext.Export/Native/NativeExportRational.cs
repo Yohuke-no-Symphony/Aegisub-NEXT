@@ -11,5 +11,5 @@ internal struct NativeExportRational
 
     internal readonly MediaRatio ToMetadata() => Denominator > 0
         ? new(Numerator, Denominator)
-        : throw new InvalidDataException("原生 HDR 元数据包含无效分母。");
+        : throw new InvalidDataException("The native HDR metadata contains an invalid denominator.");
 }

@@ -78,7 +78,7 @@ public sealed class ShapedTextRun : IDisposable
         using var builder = new SKTextBlobBuilder();
         builder.AddPositionedRun(members.Select(glyph => glyph.GlyphId).ToArray(), font,
             members.Select(glyph => new SKPoint(glyph.Position.X, glyph.Position.Y)).ToArray());
-        var clusterBlob = builder.Build() ?? throw new InvalidOperationException("塑形 cluster 未产生可绘制字形。");
+        var clusterBlob = builder.Build() ?? throw new InvalidOperationException("The shaped cluster did not produce drawable glyphs.");
         clusterBlobs.Add(utf16Cluster, clusterBlob);
         return clusterBlob;
     }

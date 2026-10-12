@@ -90,7 +90,7 @@ internal static class AssMaskWriter
         {
             RectangleClipMask value => AssMaskGeometry.RectangleVector(value).Contours,
             VectorClipMask value => value.Contours,
-            _ => throw new InvalidDataException("未知蒙版几何。")
+            _ => throw new InvalidDataException("Unknown mask geometry.")
         };
         foreach (var contour in contours)
         {
@@ -122,7 +122,7 @@ internal static class AssMaskWriter
         }
         if (quantized)
         {
-            diagnostics.Add(new("Ass.MaskQuantization", "矢量蒙版坐标已量化为 1/64 项目像素。", SubtitleId: subtitleId));
+            diagnostics.Add(new("Ass.MaskQuantization", "Vector mask coordinates were quantized to 1/64 of a project pixel.", SubtitleId: subtitleId));
         }
         return result.ToString().TrimEnd() + ")";
 
@@ -187,7 +187,7 @@ internal static class AssMaskWriter
     {
         if (!Integral(first) || !Integral(second))
         {
-            diagnostics.Add(new("Ass.MaskQuantization", "ASS 矩形裁切坐标已量化为整数项目像素。", SubtitleId: subtitleId));
+            diagnostics.Add(new("Ass.MaskQuantization", "ASS rectangular clipping coordinates were quantized to integer project pixels.", SubtitleId: subtitleId));
         }
         return (inverted ? "\\iclip(" : "\\clip(") + Integer(first.X) + "," + Integer(first.Y) + "," + Integer(second.X) + "," + Integer(second.Y) + ")";
     }

@@ -13,13 +13,13 @@ internal static class SubtitleAnimationJsonMigration
             if (context == "animationRanges" && (value.ContainsKey("offset") || value.ContainsKey("generatedOrigin")) ||
                 context is "keyframes" or "componentCurves" && value.ContainsKey("reverse"))
             {
-                throw new JsonException("旧工程不能包含未声明版本的范围位移、生成来源或反向曲线。");
+                throw new JsonException("Legacy projects cannot contain range offsets, generated origins, or reversed curves not declared by their version.");
             }
             if (context == "target" && value["textRangeId"] is not null &&
                 value["property"] is JsonValue property && property.TryGetValue<string>(out var name) &&
                 Enum.TryParse<AnimationProperty>(name, true, out var parsed) && parsed == AnimationProperty.POSITION)
             {
-                throw new JsonException("旧工程不能包含未声明版本的文字范围位移动画。");
+                throw new JsonException("Legacy projects cannot contain text-range offset animation not declared by their version.");
             }
             foreach (var item in value)
             {
@@ -42,13 +42,13 @@ internal static class SubtitleAnimationJsonMigration
             if (value.ContainsKey("animationRanges") || value.ContainsKey("textRangeId") || value.ContainsKey("state") ||
                 value.ContainsKey("colorSpace") || value.ContainsKey("componentMask") || value.ContainsKey("mode"))
             {
-                throw new JsonException("旧工程不能包含未声明版本的文字范围、状态或插值方式。");
+                throw new JsonException("Legacy projects cannot contain text ranges, states, or interpolation modes not declared by their version.");
             }
             if (value["property"] is JsonValue property && property.TryGetValue<string>(out var name) &&
                 Enum.TryParse<AnimationProperty>(name, true, out var parsed) &&
                 parsed is AnimationProperty.FONT_SIZE or AnimationProperty.SHADOW_OFFSET or AnimationProperty.SHADOW_BLUR or AnimationProperty.SHADOW_COLOR)
             {
-                throw new JsonException("旧工程不能包含未声明版本的字号或阴影动画。");
+                throw new JsonException("Legacy projects cannot contain font-size or shadow animation not declared by their version.");
             }
             foreach (var item in value)
             {

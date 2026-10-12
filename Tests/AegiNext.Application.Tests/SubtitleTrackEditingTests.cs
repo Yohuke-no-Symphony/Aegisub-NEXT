@@ -149,7 +149,7 @@ public sealed class SubtitleTrackEditingTests
         var root = JsonNode.Parse(ProjectStore.Serialize(new()))!.AsObject();
         root["version"] = version;
         var error = Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
-        Assert.Contains("只支持项目版本 3", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Only project versions 3", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

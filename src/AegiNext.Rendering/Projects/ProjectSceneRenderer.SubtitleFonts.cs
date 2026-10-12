@@ -93,7 +93,7 @@ public sealed partial class ProjectSceneRenderer
                 return fallback;
             }
         }
-        throw new InvalidDataException($"没有覆盖字素“{grapheme}”的系统字体，请导入项目字体资源。");
+        throw new InvalidDataException($"No system font covers the grapheme '{grapheme}'; import a project font asset.");
     }
 
     private TextShaper CacheTextShaper(SKTypeface typeface, SubtitleStyle style, SystemFontFace? face = null)

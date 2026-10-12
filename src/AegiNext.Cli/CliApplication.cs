@@ -33,7 +33,7 @@ public sealed class CliApplication
             configuration.Settings.CancellationExitCode = 130;
             configuration.SetExceptionHandler((error, _) =>
             {
-                runtime.Console.WriteLine(error is OperationCanceledException ? "任务已取消。" : $"错误：{error.Message}");
+                runtime.Console.WriteLine(error is OperationCanceledException ? "Operation canceled." : $"Error: {error.Message}");
                 return error switch
                 {
                     OperationCanceledException => 130,
@@ -42,7 +42,7 @@ public sealed class CliApplication
                 };
             });
         });
-        RegisterCommand<ConvertCommand>("convert", "转换 ASS、SRT 或工程字幕", cancellationToken => runner.RunAsync(new(), cancellationToken));
+        RegisterCommand<ConvertCommand>("convert", "Convert ASS, SRT, or project subtitles", cancellationToken => runner.RunAsync(new(), cancellationToken));
     }
 
     /// <summary>登记供追加命令使用的依赖实例。</summary>
@@ -58,9 +58,21 @@ public sealed class CliApplication
         catalog.Add(new(name, description, wizard));
     }
 
-    /// <summary>运行命令并将取消传递到输入和执行阶段。</summary>
-    public Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
+    /// <summary>使用固定英文语言环境运行命令并传递取消，结束后恢复调用方的语言环境。</summary>
+    public async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
     {
-        return application.RunAsync(args, cancellationToken);
+        var previousCulture = CultureInfo.CurrentCulture;
+        var previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+            return await application.RunAsync(args, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 }

@@ -35,13 +35,13 @@ internal static class AssOverrideTags
                 depth += block[cursor] == '(' ? 1 : block[cursor] == ')' ? -1 : 0;
                 if (depth < 0)
                 {
-                    throw new InvalidDataException("ASS 标签括号不匹配。");
+                    throw new InvalidDataException("ASS tag parentheses do not match.");
                 }
                 cursor++;
             }
             if (depth != 0)
             {
-                throw new InvalidDataException("ASS 标签括号不匹配。");
+                throw new InvalidDataException("ASS tag parentheses do not match.");
             }
             yield return new(name, block[valueStart..cursor].Trim(), start, cursor - start);
         }
@@ -51,7 +51,7 @@ internal static class AssOverrideTags
     {
         if (!value.StartsWith('(') || !value.EndsWith(')'))
         {
-            throw new InvalidDataException("ASS 裁切和变换必须使用括号参数。");
+            throw new InvalidDataException("ASS clipping and transforms require parenthesized arguments.");
         }
         var result = new List<string>();
         var start = 1;
@@ -86,7 +86,7 @@ internal static class AssOverrideTags
             var end = source.IndexOf('}', cursor + 1);
             if (end < 0)
             {
-                throw new InvalidDataException("ASS 标签块缺少结束括号。");
+                throw new InvalidDataException("An ASS override block is missing its closing brace.");
             }
             foreach (var tag in Parse(source[(cursor + 1)..end]))
             {

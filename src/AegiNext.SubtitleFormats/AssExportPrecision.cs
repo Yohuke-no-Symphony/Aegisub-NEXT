@@ -34,7 +34,7 @@ internal static class AssExportPrecision
         if (values.Any(value => !AssFormatValues.Number(AssFormatValues.Number(value)).Equals(value)) &&
             (reported is null || reported.Add("Ass.NumberPrecision")))
         {
-            diagnostics.Add(new("Ass.NumberPrecision", "导出的 ASS 数值保留最多 9 位小数，部分排版数值已取近似值。", SubtitleId: id));
+            diagnostics.Add(new("Ass.NumberPrecision", "Exported ASS numbers use up to 9 decimal places. Some layout values were approximated.", SubtitleId: id));
         }
     }
 
@@ -42,7 +42,7 @@ internal static class AssExportPrecision
     {
         if (!ExactCentiseconds(start) || !ExactCentiseconds(end))
         {
-            diagnostics.Add(new("Ass.TimeQuantization", "ASS 对白时间仅支持厘秒，开始时间向下、结束时间向上取整。", SubtitleId: id));
+            diagnostics.Add(new("Ass.TimeQuantization", "ASS dialogue times support only centiseconds. Start times were rounded down and end times were rounded up.", SubtitleId: id));
         }
     }
 
@@ -55,7 +55,7 @@ internal static class AssExportPrecision
         {
             return;
         }
-        diagnostics.Add(new("Ass.BlurRange", "导出的 ASS 边缘模糊超过 libass 的 100 上限，采用该限制的播放器会钳制模糊，无法保留原模糊外观。", SubtitleId: id));
+        diagnostics.Add(new("Ass.BlurRange", "Exported ASS edge blur exceeds the libass limit of 100. Players using this limit will clamp blur and cannot preserve the original blur appearance.", SubtitleId: id));
     }
 
     private static bool ExactCentiseconds(MediaTime time)
@@ -73,13 +73,13 @@ internal static class AssExportPrecision
                 Math.Abs(color.Blue - serialized.Blue) > COLOR_TOLERANCE) &&
             (reported is null || reported.Add("Ass.ColorPrecision")))
         {
-            diagnostics.Add(new("Ass.ColorPrecision", "ASS 颜色仅支持 8 位 sRGB，部分颜色已取近似值。", SubtitleId: id));
+            diagnostics.Add(new("Ass.ColorPrecision", "ASS colors support only 8-bit sRGB. Some colors were approximated.", SubtitleId: id));
         }
         if ((componentMask == 0 || (componentMask & 8) != 0) &&
             Math.Abs(color.Alpha - serialized.Alpha) > COLOR_TOLERANCE &&
             (reported is null || reported.Add("Ass.AlphaPrecision")))
         {
-            diagnostics.Add(new("Ass.AlphaPrecision", "ASS 透明度仅支持 8 位精度，部分透明度已取近似值。", SubtitleId: id));
+            diagnostics.Add(new("Ass.AlphaPrecision", "ASS alpha supports only 8-bit precision. Some alpha values were approximated.", SubtitleId: id));
         }
     }
 }

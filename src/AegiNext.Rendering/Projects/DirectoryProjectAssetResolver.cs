@@ -34,12 +34,12 @@ public sealed class DirectoryProjectAssetResolver : IProjectAssetResolver
         {
             if (stream.Length > 256 * 1024 * 1024)
             {
-                throw new InvalidDataException("字体或图片资源超过 256 MiB。");
+                throw new InvalidDataException("The font or image asset exceeds 256 MiB.");
             }
 
             if (asset.Sha256 is { } expected && !Convert.ToHexString(SHA256.HashData(stream)).Equals(expected, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidDataException("项目资源 SHA-256 校验失败。");
+                throw new InvalidDataException("The project asset SHA-256 verification failed.");
             }
 
             stream.Position = 0;

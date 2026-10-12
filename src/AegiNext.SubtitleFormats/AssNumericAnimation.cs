@@ -97,7 +97,7 @@ internal sealed record AssNumericAnimation(AnimationProperty Property, int Compo
             }
             if (new MediaTime(start, 1000) != operation.Start - origin || new MediaTime(end, 1000) != operation.End - origin)
             {
-                diagnostics.Add(new("Ass.TransformTimeQuantization", "ASS 数值变换时间已取整到毫秒；尚未结束的变换至少保留到事件开始后 1 毫秒。", SubtitleId: id));
+                diagnostics.Add(new("Ass.TransformTimeQuantization", "ASS numeric transform times were rounded to milliseconds. Unfinished transforms retain at least 1 millisecond after the event start.", SubtitleId: id));
             }
             var value = Scale(operation.Value, factor);
             AssExportPrecision.AddNumbers(id, diagnostics, value, operation.Exponent);

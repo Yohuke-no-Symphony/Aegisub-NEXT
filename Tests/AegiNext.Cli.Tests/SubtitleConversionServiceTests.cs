@@ -36,6 +36,22 @@ public sealed class SubtitleConversionServiceTests
         Assert.False(File.Exists(directory.File("input.converted.srt")));
     }
 
+    [Theory]
+    [InlineData("invalid.ass", "[Script Info]\nPlayResX: 0\nPlayResY: 360\n[Events]\n", "ASS PlayRes values must be positive.")]
+    [InlineData("invalid.srt", "1\n00:00:02,000 --> 00:00:01,000\nHello\n", "SRT end times must be later than start times.")]
+    [InlineData("invalid.aeginext", "{", "The project JSON format is invalid.")]
+    public async Task InvalidFormatErrorsAreReportedInEnglishWithoutOutput(string name, string source, string expectedMessage)
+    {
+        using var directory = new CliTestDirectory();
+        var input = await directory.InputAsync(name, source);
+        var output = directory.File("converted.srt");
+        var console = new TestConsole();
+        var exit = await new CliApplication(new(console, false)).RunAsync(["convert", "-i", input, "--target", "srt", "-o", output]);
+        Assert.Equal(1, exit);
+        Assert.Contains($"Error: {expectedMessage}", console.Output);
+        Assert.False(File.Exists(output));
+    }
+
     [Fact]
     public async Task ProjectToSrtUsesConfirmedExternalTimeline()
     {
@@ -68,7 +84,8 @@ public sealed class SubtitleConversionServiceTests
         }, [new SubtitleLine { Start = new(1), End = new(2), Text = "字幕" }], "Imported");
         await ProjectStore.CreateAsync(document, input);
         var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "Subtitle.PlaybackOriginUnknown");
+        var diagnostic = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Subtitle.PlaybackOriginUnknown");
+        Assert.StartsWith("The project media playback origin is unconfirmed", diagnostic.Message, StringComparison.Ordinal);
         Assert.Equal(new MediaTime(1), Assert.Single(SubtitleTextFormat.ParseSrt(result.Text)).Start);
     }
 
@@ -90,8 +107,12 @@ public sealed class SubtitleConversionServiceTests
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("source.ass", AssSource(@"{\clip(0,0,200,100)\move(10,20,100,120)}Hello"));
         var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "Srt.Mask");
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "Srt.Animation");
+        var mask = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Srt.Mask");
+        var animation = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Srt.Animation");
+        Assert.StartsWith("SRT does not support clipping masks", mask.Message, StringComparison.Ordinal);
+        Assert.StartsWith("SRT does not support clip or mask animation", animation.Message, StringComparison.Ordinal);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "Srt.Appearance" &&
+            diagnostic.Message.StartsWith("SRT preserves only text and timing", StringComparison.Ordinal));
         Assert.Equal("Hello", Assert.Single(SubtitleTextFormat.ParseSrt(result.Text)).Text);
     }
 
@@ -101,7 +122,8 @@ public sealed class SubtitleConversionServiceTests
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("source.ass", AssSource("Hello").Replace("PlayResY: 360\n", "", StringComparison.Ordinal));
         var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
-        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "Ass.PlayRes");
+        var diagnostic = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Ass.PlayRes");
+        Assert.StartsWith("Missing ASS PlayRes axes use default dimensions", diagnostic.Message, StringComparison.Ordinal);
     }
 
     private static string AssSource(string text)

@@ -35,7 +35,7 @@ public static class LayerPositionGeometry
         {
             LayerKind.IMAGE when layer.Image is { } image => new(image.Width, image.Height),
             LayerKind.SHAPE when layer.Shape is { } shape => new(shape.Width, shape.Height),
-            _ => throw new ArgumentException("图层没有图片或形状逻辑尺寸。", nameof(layer))
+            _ => throw new ArgumentException("The layer has no logical image or shape dimensions.", nameof(layer))
         };
     }
 }

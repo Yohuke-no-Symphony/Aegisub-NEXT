@@ -37,14 +37,14 @@ internal sealed class ExportRenderContext : IDisposable
             cancellationToken.ThrowIfCancellationRequested();
             if (width != project.Width || height != project.Height || channels != (ulong)channelCount || output is null)
             {
-                throw new InvalidDataException("原生导出帧尺寸与项目不一致。");
+                throw new InvalidDataException("The native export frame dimensions do not match the project.");
             }
 
             if (overlay is null || overlay->StructSize != NativeExportAbi.OVERLAY_SIZE ||
                 overlay->AbiVersion != NativeExportAbi.VERSION || overlay->Reserved != 0 ||
                 overlay->State != 0 || overlay->Revision != 0)
             {
-                throw new InvalidDataException("原生导出前景回调协议不匹配。");
+                throw new InvalidDataException("The native export overlay callback protocol does not match.");
             }
 
             var time = new MediaTimestamp(pts, new(timeBaseNumerator, timeBaseDenominator)).ToMediaTime() - project.Media!.MediaOrigin;

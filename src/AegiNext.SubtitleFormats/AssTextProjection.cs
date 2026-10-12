@@ -32,7 +32,7 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
         if (mask is null)
         {
             mask = AssMaskWriter.StaticTags(layer!.Mask!, line.Id, diagnostics);
-            diagnostics.Add(new("Ass.NativeMaskAnimation", "高级 ASS 代码显示蒙版基础几何；不能原生表达的蒙版动画在裁切标签未改写时保留。", SubtitleId: line.Id));
+            diagnostics.Add(new("Ass.NativeMaskAnimation", "Advanced ASS code shows base mask geometry. Mask animations that cannot be represented natively are preserved when clipping tags remain unchanged.", SubtitleId: line.Id));
         }
         var source = "{\\an" + AssFormatValues.Alignment(line.Style.Alignment).ToString(CultureInfo.InvariantCulture) + mask + "}" + written.Text;
         var parsed = Parser(line, canvasWidth, canvasHeight).Parse(source);
@@ -79,7 +79,7 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
         var mask = unchangedMask ? layer?.Mask : PreserveMaskIdentity(layer?.Mask, parsed.Mask);
         if (!unchangedMask && layer is not null && ClipMaskAnimation.IsTopologyLocked(layer) && !ClipMaskAnimation.HasSameTopology(layer.Mask, mask))
         {
-            throw new InvalidOperationException("存在节点形变动画时不能从高级代码改变蒙版拓扑；请先清除节点形变轨道。");
+            throw new InvalidOperationException("Mask topology cannot be changed through advanced code while node deformation animation exists. Clear the node deformation track first.");
         }
         var parsedMaskTracks = unchangedMask || layer?.Mask is null ? parsed.MaskTracks : RebaseMaskTracks(parsed.MaskTracks, mask, layer.Mask.Transform);
         var maskTracks = unchangedMask ? MaskTracks(layer) : mask is null ? [] : parsedMaskTracks.AddRange(MaskTracks(layer)
@@ -162,7 +162,7 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
         }
         if (mask is not RectangleClipMask || transform.Rotation % 360 != 0 || transform.Scale.X <= 0 || transform.Scale.Y <= 0)
         {
-            throw new InvalidOperationException("带旋转或镜像的蒙版不能从 ASS 矩形变换反推原生轨道；请在蒙版面板编辑动画。");
+            throw new InvalidOperationException("Native tracks cannot be recovered from ASS rectangular transforms for rotated or mirrored masks. Edit animation in the mask panel.");
         }
         return tracks.Select(track => track with
         {

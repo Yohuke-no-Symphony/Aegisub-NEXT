@@ -83,7 +83,7 @@ internal static class SubtitleAppearanceJsonMigration
     {
         if (names.Any(style.ContainsKey))
         {
-            throw new JsonException("旧版字幕样式不能包含未声明版本的字距、换行或分通道模糊字段。");
+            throw new JsonException("Legacy subtitle styles cannot contain letter-spacing, wrapping, or channel-blur fields not declared by their version.");
         }
     }
 
@@ -94,7 +94,7 @@ internal static class SubtitleAppearanceJsonMigration
             if (value["property"] is JsonValue property && property.TryGetValue<string>(out var name) &&
                 Enum.TryParse<AnimationProperty>(name, true, out var parsed) && AnimationPropertyMetadata.IsSubtitleOnlyProperty(parsed))
             {
-                throw new JsonException("旧工程不能包含未声明版本的字幕字距或分通道模糊动画。");
+                throw new JsonException("Legacy projects cannot contain subtitle letter-spacing or channel-blur animation not declared by their version.");
             }
             foreach (var item in value)
             {

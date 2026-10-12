@@ -90,7 +90,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         if (destination.Info.Width != document.Width || destination.Info.Height != document.Height ||
             !destination.Info.ReferenceWhiteNits.Equals((float)document.ReferenceWhiteNits))
         {
-            throw new ArgumentException("渲染表面必须匹配项目尺寸和参考白。", nameof(destination));
+            throw new ArgumentException("The render surface must match the project dimensions and reference white.", nameof(destination));
         }
 
         Prepare(document);
@@ -157,7 +157,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(layer);
         if (layer.Subtitle is null)
         {
-            throw new ArgumentException("排版测量需要字幕层。", nameof(layer));
+            throw new ArgumentException("Layout measurement requires a subtitle layer.", nameof(layer));
         }
         Prepare(document);
         layer = CanvasLayer(document, layer);
@@ -208,13 +208,13 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         ArgumentNullException.ThrowIfNull(document);
         if (width <= 0 || height <= 0 || rowBytes < checked(width * 4) || bgra.Length < checked(rowBytes * height))
         {
-            throw new ArgumentException("无效的预览缓冲。", nameof(bgra));
+            throw new ArgumentException("Invalid preview buffer.", nameof(bgra));
         }
 
         if (outputWidth is <= 0 or > 32768 || outputHeight is <= 0 or > 32768 ||
             (long)outputWidth * outputHeight > 33177600)
         {
-            throw new ArgumentOutOfRangeException(nameof(outputWidth), "预览表面超过像素预算。");
+            throw new ArgumentOutOfRangeException(nameof(outputWidth), "The preview surface exceeds the pixel budget.");
         }
 
         Prepare(document);
@@ -273,7 +273,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         var result = previewTarget;
         using var srgb = SKColorSpace.CreateSrgb();
         using var background = SKImage.FromPixelCopy(new(width, height, SKColorType.Bgra8888, SKAlphaType.Opaque, srgb), bgra, rowBytes)
-            ?? throw new InvalidOperationException("无法读取视频预览。");
+            ?? throw new InvalidOperationException("The video preview could not be read.");
         result.Canvas.Clear(SKColors.Black);
         var output = new SKRect(0, 0, outputWidth, outputHeight);
         var videoBounds = projectViewport ? FitPreview(width, height, outputWidth, outputHeight) : output;
@@ -430,7 +430,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                 BlendMode.DARKEN => SKBlendMode.Darken,
                 BlendMode.LIGHTEN => SKBlendMode.Lighten,
                 BlendMode.DIFFERENCE => SKBlendMode.Difference,
-                _ => throw new InvalidDataException("未知图层混合方式。")
+                _ => throw new InvalidDataException("Unknown layer blend mode.")
             };
             if (layer.Source.Blend == BlendMode.ADD)
             {
@@ -458,7 +458,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                     }
                     break;
                 default:
-                    throw new InvalidDataException("未知图层类型。");
+                    throw new InvalidDataException("Unknown layer kind.");
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -632,7 +632,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                 bounds = new(0, 0, (float)image.Width, (float)image.Height);
                 break;
             default:
-                throw new InvalidDataException("未知图层类型。");
+                throw new InvalidDataException("Unknown layer kind.");
         }
 
         if (layer.Source.Kind != LayerKind.SUBTITLE && layer.Source.Position is { } position)
@@ -664,7 +664,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         {
             using var stream = assets.Open(document.Assets.Single(value => value.Id == id));
             using var data = SKData.Create(stream);
-            return SKTypeface.FromData(data) ?? throw new InvalidDataException("无法打开项目字体。");
+            return SKTypeface.FromData(data) ?? throw new InvalidDataException("The project font could not be opened.");
         }
         return SKTypeface.FromFamilyName(style.FontFamily, FontStyle(style));
     }
@@ -672,17 +672,17 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     private static SKColorFilter CreatePreviewWhiteFilter(float scale)
     {
         using var effect = SKRuntimeEffect.CreateColorFilter("uniform float scale; half4 main(half4 c) { return half4(c.rgb * scale, c.a); }", out var error)
-            ?? throw new InvalidOperationException($"无法创建预览参考白转换：{error}");
+            ?? throw new InvalidOperationException($"The preview reference-white conversion could not be created: {error}");
         using var uniforms = new SKRuntimeEffectUniforms(effect);
         uniforms["scale"] = scale;
-        return effect.ToColorFilter(uniforms) ?? throw new InvalidOperationException("无法创建预览参考白转换实例。");
+        return effect.ToColorFilter(uniforms) ?? throw new InvalidOperationException("The preview reference-white conversion instance could not be created.");
     }
 
     private static SKBlender CreateAdditiveBlend()
     {
         using var effect = SKRuntimeEffect.CreateBlender("half4 main(half4 s, half4 d) { return half4(clamp(s.rgb + d.rgb, -65504.0, 65504.0), min(s.a + d.a, 1.0)); }", out var error)
-            ?? throw new InvalidOperationException($"无法创建线性 HDR 加法混合：{error}");
-        return effect.ToBlender() ?? throw new InvalidOperationException("无法创建线性 HDR 混合实例。");
+            ?? throw new InvalidOperationException($"The linear HDR additive blend could not be created: {error}");
+        return effect.ToBlender() ?? throw new InvalidOperationException("The linear HDR blend instance could not be created.");
     }
 
     private SKPaint Paint(SceneColor color)

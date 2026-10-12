@@ -17,10 +17,10 @@ internal static class ExportMuxer
         var sourcePath = ProjectAssetLocation.Resolve(request.Project.Assets.Single(asset => asset.Id == binding.AssetId), request.ProjectDirectory);
         var source = await probe.ProbeAsync(sourcePath, cancellationToken).ConfigureAwait(false);
         var video = source.Asset.Streams.Single(stream => stream.Index == binding.VideoStreamIndex).Video
-            ?? throw new InvalidDataException("选定流不是视频。");
+            ?? throw new InvalidDataException("The selected stream is not a video stream.");
         if (request.Codec == VideoCodec.Vp8 && (video.Color.IsPq || video.Color.IsHlg))
         {
-            throw new NotSupportedException("VP8 仅支持 SDR；HDR 请使用 VP9、AV1 或 HEVC。");
+            throw new NotSupportedException("VP8 only supports SDR; use VP9, AV1, or HEVC for HDR.");
         }
 
         int? audioIndex = null;
@@ -32,7 +32,7 @@ internal static class ExportMuxer
         var selected = audioIndex is { } index ? source.Asset.Streams.Single(stream => stream.Index == index) : null;
         if (selected is not null && selected.CodecType != "audio")
         {
-            throw new InvalidDataException("选定音轨不是音频流。");
+            throw new InvalidDataException("The selected audio track is not an audio stream.");
         }
 
         ValidateAudioCompatibility(Path.GetExtension(request.OutputPath).ToLowerInvariant(), request.AudioMode, selected?.CodecName);
@@ -48,7 +48,7 @@ internal static class ExportMuxer
             }
             catch (InvalidOperationException error)
             {
-                throw new NotSupportedException("目标容器不能原样保存选定音轨；请选择兼容容器或明确选择 AAC/Opus。", error);
+                throw new NotSupportedException("The target container cannot copy the selected audio track; choose a compatible container or explicitly select AAC or Opus.", error);
             }
             finally
             {
@@ -64,7 +64,7 @@ internal static class ExportMuxer
         if (extension == ".webm" && (mode == AudioExportMode.Aac ||
             mode == AudioExportMode.Copy && codec is not null and not "opus" and not "vorbis"))
         {
-            throw new NotSupportedException("WebM 音轨只支持 Opus 或 Vorbis；请选择 Opus、静音，或用 MKV 保存原音轨。");
+            throw new NotSupportedException("WebM audio only supports Opus or Vorbis; select Opus or no audio, or use MKV to copy the original audio track.");
         }
     }
 
@@ -101,14 +101,14 @@ internal static class ExportMuxer
         var expectedCodec = outputColor.Codec switch
         {
             VideoCodec.H264 => "h264", VideoCodec.Hevc => "hevc", VideoCodec.Vp8 => "vp8",
-            VideoCodec.Vp9 => "vp9", VideoCodec.Av1 => "av1", _ => throw new InvalidDataException("缺少实际输出编码格式。")
+            VideoCodec.Vp9 => "vp9", VideoCodec.Av1 => "av1", _ => throw new InvalidDataException("The actual output codec is missing.")
         };
         if (stream.CodecName != expectedCodec || video.Width != request.Project.Width || video.Height != request.Project.Height ||
             video.Color.Transfer != expected.Transfer || video.Color.Primaries != expected.Primaries ||
             video.Color.Matrix != expected.Matrix || video.Color.Range != expected.Range || video.PixelFormat != outputColor.PixelFormat ||
             (expected.IsPq || expected.IsHlg) && outputColor.BitDepth < 10)
         {
-            throw new InvalidDataException("成片编码格式、尺寸、色彩标签或 HDR 位深校验失败，未提交输出。");
+            throw new InvalidDataException("Output video validation failed for the codec, dimensions, color tags, or HDR bit depth; the output was not committed.");
         }
 
         var outputAudio = result.Asset.Streams.Where(item => item.CodecType == "audio").ToArray();
@@ -120,12 +120,12 @@ internal static class ExportMuxer
             };
             if (outputAudio.Length != 1 || outputAudio[0].CodecName != expectedAudioCodec)
             {
-                throw new InvalidDataException("成片未保存选定音轨或所选音频编码，未提交输出。");
+                throw new InvalidDataException("The output video did not preserve the selected audio track or codec; the output was not committed.");
             }
         }
         else if (outputAudio.Length != 0)
         {
-            throw new InvalidDataException("静音输出出现了额外音轨，未提交输出。");
+            throw new InvalidDataException("The output video contains an unexpected audio track despite audio being disabled; the output was not committed.");
         }
     }
 
@@ -137,7 +137,7 @@ internal static class ExportMuxer
         var output = await MediaToolProcess.RunAsync(ffmpeg, arguments, timeout, 65536, 65536, cancellationToken).ConfigureAwait(false);
         if (output.ExitCode != 0)
         {
-            throw new InvalidOperationException($"音轨处理失败：{output.StandardError}");
+            throw new InvalidOperationException($"Audio processing failed: {output.StandardError}");
         }
     }
 }

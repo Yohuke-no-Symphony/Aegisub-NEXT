@@ -17,12 +17,12 @@ internal sealed class AssOpacityParser(MediaTime duration, Guid subtitleId)
         var arguments = AssOverrideTags.Arguments(value);
         if (arguments.Length != (name == "fad" ? 2 : 7))
         {
-            Report("Ass.FadeArguments", "ASS 淡化参数数量无效，已跳过该淡化并保留文字。", sourceStart, sourceLength);
+            Report("Ass.FadeArguments", "The ASS fade argument count is invalid. The fade was skipped and text was preserved.", sourceStart, sourceLength);
             return;
         }
         if (hasFade)
         {
-            Report("Ass.DuplicateFade", "ASS 同一行重复的 fad 或 fade 已忽略，采用首个淡化。", sourceStart, sourceLength);
+            Report("Ass.DuplicateFade", "Duplicate ASS fad or fade tags on the same line were ignored; the first fade was used.", sourceStart, sourceLength);
             return;
         }
         hasFade = true;
@@ -35,7 +35,7 @@ internal sealed class AssOpacityParser(MediaTime duration, Guid subtitleId)
             }
             if (fadeIn < MediaTime.Zero || fadeOut < MediaTime.Zero || duration > new MediaTime(int.MaxValue, 1000))
             {
-                Report("Ass.FadeTiming", "ASS fad 的负时长或超出范围的对白时长不能按标准淡化转换，已跳过淡化。", sourceStart, sourceLength);
+                Report("Ass.FadeTiming", "Negative ASS fad durations or out-of-range dialogue durations cannot be converted as standard fades. The fade was skipped.", sourceStart, sourceLength);
                 return;
             }
             fade = new(0, 1, 0, MediaTime.Zero, fadeIn, duration - fadeOut, duration);
@@ -44,7 +44,7 @@ internal sealed class AssOpacityParser(MediaTime duration, Guid subtitleId)
         var alphas = arguments.Take(3).Select(AssFormatValues.Number).ToArray();
         if (alphas.Any(alpha => alpha < 0 || alpha > 255 || !alpha.Equals(Math.Truncate(alpha))))
         {
-            Report("Ass.FadeAlpha", "ASS fade 透明度必须为 0 至 255 的整数，已跳过无法表示的淡化。", sourceStart, sourceLength);
+            Report("Ass.FadeAlpha", "ASS fade alpha values must be integers between 0 and 255. Unrepresentable fades were skipped.", sourceStart, sourceLength);
             return;
         }
         var times = new MediaTime[4];
@@ -64,7 +64,7 @@ internal sealed class AssOpacityParser(MediaTime duration, Guid subtitleId)
         if (times[1] - times[0] > new MediaTime(int.MaxValue, 1000) ||
             times[3] - times[2] > new MediaTime(int.MaxValue, 1000))
         {
-            Report("Ass.FadeTiming", "ASS 淡化区间超出安全的毫秒范围，已跳过淡化。", sourceStart, sourceLength);
+            Report("Ass.FadeTiming", "The ASS fade interval exceeds the safe millisecond range. The fade was skipped.", sourceStart, sourceLength);
             return;
         }
         fade = new(1 - alphas[0] / 255, 1 - alphas[1] / 255, 1 - alphas[2] / 255,
@@ -96,7 +96,7 @@ internal sealed class AssOpacityParser(MediaTime duration, Guid subtitleId)
             .Any(opacity => opacity > 0 && opacity < 1);
         if (hasPartialOpacity)
         {
-            Report("Ass.OpacityComposition", "ASS 对文字、描边和阴影分别应用淡化，项目在整层合成后应用不透明度；已保留淡化包络和各通道透明度，重叠处外观可能不同。", 0, 0);
+            Report("Ass.OpacityComposition", "ASS applies fades separately to text, stroke, and shadow, while the project applies opacity after whole-layer compositing. The fade envelope and the alpha of each channel were preserved; appearance in overlapping areas may differ.", 0, 0);
         }
         return [track];
     }
@@ -147,13 +147,13 @@ internal sealed class AssOpacityParser(MediaTime duration, Guid subtitleId)
         result = MediaTime.Zero;
         if (number < int.MinValue || number > int.MaxValue)
         {
-            Report("Ass.FadeTiming", "ASS 淡化时间超出 32 位毫秒范围，已跳过淡化。", sourceStart, sourceLength);
+            Report("Ass.FadeTiming", "ASS fade times exceed the 32-bit millisecond range. The fade was skipped.", sourceStart, sourceLength);
             return false;
         }
         result = new((long)number, 1000);
         if (!number.Equals(Math.Truncate(number)))
         {
-            Report("Ass.FadeTiming", "ASS 淡化时间已按整数毫秒解析，小数毫秒被舍弃。", sourceStart, sourceLength);
+            Report("Ass.FadeTiming", "ASS fade times were parsed as integer milliseconds; fractional milliseconds were discarded.", sourceStart, sourceLength);
         }
         return true;
     }

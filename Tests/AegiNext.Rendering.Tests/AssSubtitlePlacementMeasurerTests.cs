@@ -90,7 +90,7 @@ public sealed class AssSubtitlePlacementMeasurerTests
             using var measurer = new AssSubtitlePlacementMeasurer(directory);
 
             var error = Assert.Throws<InvalidDataException>(() => measurer.Measure(document, line));
-            Assert.Equal("无法打开项目字体。", error.Message);
+            Assert.Equal("The project font could not be opened.", error.Message);
         }
         finally
         {

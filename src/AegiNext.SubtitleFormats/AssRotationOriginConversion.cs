@@ -19,27 +19,27 @@ internal static class AssRotationOriginConversion
         reason = string.Empty;
         if (!ValidPoint(origin))
         {
-            reason = "旋转原点超出原生坐标范围";
+            reason = "the rotation origin exceeds the native coordinate range";
             return false;
         }
         if (basePosition is not { } basis)
         {
-            reason = "自动定位或未保留的定位不能精确补偿旋转原点";
+            reason = "automatic or unpreserved placement cannot compensate for the rotation origin exactly";
             return false;
         }
         if (!sourceGeometry.HasContent || !sourceGeometry.IsValid)
         {
-            reason = "源文字缩放或旋转超出可转换的原生范围";
+            reason = "source text scaling or rotation exceeds the convertible native range";
             return false;
         }
         if (!sourceGeometry.IsComplete)
         {
-            reason = "部分源几何变换未保留，不能精确补偿旋转原点";
+            reason = "some source geometry transforms were not preserved, preventing exact rotation-origin compensation";
             return false;
         }
         if (!sourceGeometry.HasCommonScale || !sourceGeometry.HasCommonRotation || HasRangeGeometry(line, numericTracks))
         {
-            reason = "文字范围的位移、缩放或旋转不能共用此整行原点补偿";
+            reason = "text-range translation, scaling, or rotation cannot share this whole-line origin compensation";
             return false;
         }
         var scale = transform.Scale;
@@ -55,7 +55,7 @@ internal static class AssRotationOriginConversion
             }
             if (track.Target.State != SubtitleAnimationState.NORMAL)
             {
-                reason = "独立文字状态的几何不能共用此整行原点补偿";
+                reason = "geometry for independent text states cannot share this whole-line origin compensation";
                 return false;
             }
             var constant = AssGeometryAnimationWindow.TryConstant(track, contentOffset, contentOffset + duration, out var value);
@@ -63,7 +63,7 @@ internal static class AssRotationOriginConversion
             {
                 if (!constant)
                 {
-                    reason = "动态缩放需要旋转原点与位置联动，当前转换不支持该组合";
+                    reason = "animated scaling requires coordinated rotation-origin and position changes, which this conversion does not support";
                     return false;
                 }
                 scale = value.Vector;
@@ -86,46 +86,46 @@ internal static class AssRotationOriginConversion
         }
         if (sourceGeometry.HasScaleAnimation)
         {
-            reason = "动态缩放需要旋转原点与位置联动，当前转换不支持该组合";
+            reason = "animated scaling requires coordinated rotation-origin and position changes, which this conversion does not support";
             return false;
         }
         if (sourceGeometry.ConstantScale != scale || sourceGeometry.ConstantRotation is { } expectedRotation &&
             (animatedRotation || expectedRotation != rotation))
         {
-            reason = "源可见窗口内的固定几何与导入结果不一致，不能精确补偿旋转原点";
+            reason = "fixed geometry within the source visible window differs from the imported result, preventing exact rotation-origin compensation";
             return false;
         }
         if (sourceGeometry.HasRotationAnimation && !animatedRotation)
         {
-            reason = "源旋转动画未完整保留，不能精确补偿旋转原点";
+            reason = "source rotation animation was not fully preserved, preventing exact rotation-origin compensation";
             return false;
         }
         if (!double.IsFinite(scale.X) || !double.IsFinite(scale.Y) || scale.X is <= 0 or > 10000 || scale.Y is <= 0 or > 10000)
         {
-            reason = "旋转原点补偿仅支持固定正缩放，零缩放轴不能使用此轴心换算";
+            reason = "rotation-origin compensation supports only fixed positive scaling; an axis with zero scaling cannot use this pivot conversion";
             return false;
         }
         if (!canvasScaleX.Equals(canvasScaleY) && (rotation != 0 || animatedRotation))
         {
-            reason = "非等比画布重采样与旋转组合产生剪切，不能精确补偿旋转原点";
+            reason = "nonuniform canvas resampling combined with rotation produces shear, preventing exact rotation-origin compensation";
             return false;
         }
         if (placementTracks.Any(track => track.Property != AnimationProperty.POSITION || track.Target.TextRangeId is not null ||
             track.Target.State != SubtitleAnimationState.NORMAL || track.IsOrdered) || placementTracks.Length > 1)
         {
-            reason = "旋转原点补偿仅支持单段整行直线移动";
+            reason = "rotation-origin compensation supports only a single whole-line straight-line movement";
             return false;
         }
         if (animatedRotation && placementTracks.Any(track => !TryConstant(track, out var value) || value.Vector != default))
         {
-            reason = "旋转动画与移动同时存在，需要位置联动，当前转换不支持该组合";
+            reason = "rotation animation and movement coexist and require coordinated position changes, which this conversion does not support";
             return false;
         }
         var delta = new ScenePoint(origin.X - basis.X, origin.Y - basis.Y);
         var pivot = new ScenePoint(delta.X / scale.X, delta.Y / scale.Y);
         if (!ValidPoint(delta) || !ValidPoint(pivot))
         {
-            reason = "旋转原点补偿后的位移或局部轴心超出原生坐标范围";
+            reason = "translation or the local pivot after rotation-origin compensation exceeds the native coordinate range";
             return false;
         }
         var converted = ImmutableArray.CreateBuilder<AnimationTrack>(placementTracks.Length);
@@ -138,7 +138,7 @@ internal static class AssRotationOriginConversion
                 var position = new ScenePoint(delta.X + moved.X, delta.Y + moved.Y);
                 if (!ValidPoint(position))
                 {
-                    reason = "旋转原点补偿后的移动坐标超出原生范围";
+                    reason = "movement coordinates after rotation-origin compensation exceed the native range";
                     return false;
                 }
                 keys.Add(key with { Value = position });

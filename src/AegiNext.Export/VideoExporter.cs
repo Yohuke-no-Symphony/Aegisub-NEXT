@@ -40,7 +40,7 @@ public sealed class VideoExporter
 
         if (completed.Operation != ExportWorkerOperation.BURN_IN || completed.SubtitleMux is not null)
         {
-            throw new InvalidDataException("导出 worker 未确认压制操作；未提交成片。");
+            throw new InvalidDataException("The export worker did not confirm the burn-in operation; the output was not committed.");
         }
 
         ValidateCompletedEncoder(request, completed.Encoder);
@@ -62,17 +62,17 @@ public sealed class VideoExporter
         ArgumentException.ThrowIfNullOrWhiteSpace(request.OutputPath);
         if (!Path.IsPathFullyQualified(request.ProjectDirectory) || !Path.IsPathFullyQualified(request.OutputPath))
         {
-            throw new ArgumentException("项目目录和输出文件必须使用完整路径。", nameof(request));
+            throw new ArgumentException("The project directory and output file must use absolute paths.", nameof(request));
         }
 
         if (request.Project.Media is null || request.Project.Width % 2 != 0 || request.Project.Height % 2 != 0)
         {
-            throw new ArgumentException("压制需要媒体绑定及偶数视频画布尺寸。", nameof(request));
+            throw new ArgumentException("Video export requires linked media and even canvas dimensions.", nameof(request));
         }
 
         if (!VideoExportCapabilities.Get(request.Codec).Extensions.Contains(Path.GetExtension(request.OutputPath).ToLowerInvariant()))
         {
-            throw new ArgumentException("输出容器与所选视频编码格式不兼容。", nameof(request));
+            throw new ArgumentException("The output container is incompatible with the selected video codec.", nameof(request));
         }
 
         ExportMuxer.ValidateAudioCompatibility(Path.GetExtension(request.OutputPath).ToLowerInvariant(), request.AudioMode, null);
@@ -80,7 +80,7 @@ public sealed class VideoExporter
         VideoExportSettingsValidator.Validate(request.ToSettings());
         if (!Enum.IsDefined(request.DecodeMode))
         {
-            throw new ArgumentException("不支持的编码参数。", nameof(request));
+            throw new ArgumentException("Unsupported encoding parameters.", nameof(request));
         }
     }
 
@@ -91,14 +91,14 @@ public sealed class VideoExporter
         {
             if (request.Codec is VideoCodec.Vp8 or VideoCodec.Vp9 or VideoCodec.Av1 && encoder != capability.SoftwareEncoder)
             {
-                throw new InvalidDataException("导出 worker 未确认匹配的软件编码器；未提交成片。");
+                throw new InvalidDataException("The export worker did not confirm the requested software encoder; the output was not committed.");
             }
 
             return;
         }
         if (!capability.HardwareEncoders.Contains(encoder))
         {
-            throw new InvalidDataException("GPU 导出 worker 未确认匹配的硬件编码器，可能部署了旧 worker；未提交成片，也不会回退 CPU。");
+            throw new InvalidDataException("The GPU export worker did not confirm the requested hardware encoder and may be outdated; the output was not committed, and CPU fallback is disabled.");
         }
     }
 
@@ -114,7 +114,7 @@ public sealed class VideoExporter
             (request.DecodeMode == VideoDecodeMode.Hardware &&
                 (!decoder.HardwareConfirmed || decoder.ActiveBackend == VideoDecoderBackend.Software)))
         {
-            throw new InvalidDataException("导出 worker 未确认匹配的解码模式、实际后端与有效色彩；未提交成片。");
+            throw new InvalidDataException("The export worker did not confirm the requested decode mode, actual backend, and valid color metadata; the output was not committed.");
         }
     }
 
@@ -129,7 +129,7 @@ public sealed class VideoExporter
             rateControl.Quality != (hasQuality ? settings.Quality : 0) ||
             !BitrateMatches(rateControl, hasBitrate ? settings.VideoBitrate : 0))
         {
-            throw new InvalidDataException("导出 worker 未确认匹配的实际码控模式和参数，可能部署了旧 worker；未提交成片。");
+            throw new InvalidDataException("The export worker did not confirm the actual rate-control mode and parameters and may be outdated; the output was not committed.");
         }
     }
 
@@ -142,7 +142,7 @@ public sealed class VideoExporter
             color.BitDepth != (color.PixelFormat == "yuv420p10le" ? 10 : 8) ||
             color.ToMetadata() is { } metadata && (metadata.IsPq || metadata.IsHlg) && color.BitDepth < 10)
         {
-            throw new InvalidDataException("导出 worker 未验证实际编码及最终容器的格式、位深和 HDR；未提交成片。");
+            throw new InvalidDataException("The export worker did not verify the actual codec and final container format, bit depth, and HDR metadata; the output was not committed.");
         }
     }
 

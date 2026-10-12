@@ -21,7 +21,7 @@ internal static class Program
             var application = new CliApplication(runtime);
             var exporter = new ExportRunner(runtime, new VideoExportService());
             application.RegisterInstance(exporter);
-            application.RegisterCommand<ExportCommand>("export", "工程烧录视频导出", token => exporter.RunAsync(new(), token));
+            application.RegisterCommand<ExportCommand>("export", "Export project video with burned-in subtitles", token => exporter.RunAsync(new(), token));
             return await application.RunAsync(args, cancellation.Token).ConfigureAwait(false);
         }
         finally

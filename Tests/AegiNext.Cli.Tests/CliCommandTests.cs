@@ -45,7 +45,7 @@ public sealed class CliCommandTests
         var exit = await new CliApplication(new(console, false), service).RunAsync(command == "root" ? [] : [command]);
         Assert.Equal(2, exit);
         Assert.Equal(0, service.Calls);
-        Assert.Contains("禁止交互", console.Output);
+        Assert.Contains(command == "root" ? "Interactive prompts are disabled" : "interactive prompts are disabled", console.Output);
     }
 
     [Fact]
@@ -67,7 +67,8 @@ public sealed class CliCommandTests
         var exit = await new CliApplication(new(console, true), service).RunAsync(["convert", "--target", "srt"]);
         Assert.Equal(0, exit);
         Assert.True(File.Exists(directory.File("input.converted.srt")));
-        Assert.DoesNotContain("输出文件或目录（", console.Output);
+        Assert.Contains("Input file path:", console.Output);
+        Assert.DoesNotContain("Output file or directory (", console.Output);
     }
 
     [Fact]
@@ -123,7 +124,7 @@ public sealed class CliCommandTests
         var exit = await new CliApplication(new(console, true), service).RunAsync(["convert", "-o", directory.File("unsupported.txt")]);
         Assert.Equal(2, exit);
         Assert.Equal(0, service.Calls);
-        Assert.DoesNotContain("输入文件路径：", console.Output);
+        Assert.DoesNotContain("Input file path:", console.Output);
     }
 
     [Fact]
@@ -136,7 +137,7 @@ public sealed class CliCommandTests
         var exit = await new CliApplication(new(console, true), service).RunAsync(["convert", "-o", output]);
         Assert.Equal(2, exit);
         Assert.Equal(0, service.Calls);
-        Assert.DoesNotContain("输入文件路径：", console.Output);
+        Assert.DoesNotContain("Input file path:", console.Output);
         Assert.Equal("keep", await File.ReadAllTextAsync(output));
     }
 
@@ -231,9 +232,31 @@ public sealed class CliCommandTests
         Assert.Equal(0, service.Calls);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task HelpUsesEnglishCommandAndOptionDescriptions(bool convertHelp)
+    {
+        var console = Console(false);
+        var service = new RecordingSubtitleConversionService();
+        var exit = await new CliApplication(new(console, false), service).RunAsync(convertHelp ? ["convert", "--help"] : ["--help"]);
+        Assert.Equal(0, exit);
+        Assert.Equal(0, service.Calls);
+        if (convertHelp)
+        {
+            Assert.Contains("Target subtitle format", console.Output);
+            Assert.Contains("Input file path", console.Output);
+            Assert.Contains("Accept conversion diagnostics", console.Output);
+        }
+        else
+        {
+            Assert.Contains("Convert ASS", console.Output);
+        }
+    }
+
     private static RecordingSubtitleConversionService DiagnosticService()
     {
-        return new() { Result = new("converted", [new SubtitleFormatDiagnostic("Srt.Appearance", "样式将被舍弃。")]) };
+        return new() { Result = new("converted", [new SubtitleFormatDiagnostic("Srt.Appearance", "Styling will be discarded.")]) };
     }
 
     private static TestConsole Console(bool interactive)

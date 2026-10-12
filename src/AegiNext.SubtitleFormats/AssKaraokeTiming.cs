@@ -10,7 +10,7 @@ internal static class AssKaraokeTiming
     {
         if (count is < -MAX_CENTISECONDS or > MAX_CENTISECONDS)
         {
-            throw new InvalidDataException("ASS 卡拉 OK 时间超出播放器的 32 位毫秒范围，无法保真转换。");
+            throw new InvalidDataException("ASS karaoke times exceed the 32-bit millisecond range supported by the player and cannot be converted faithfully.");
         }
     }
 
@@ -29,7 +29,7 @@ internal static class AssKaraokeTiming
         }
         catch (OverflowException exception)
         {
-            throw new InvalidDataException("ASS 卡拉 OK 时间超出可转换的数值范围。", exception);
+            throw new InvalidDataException("ASS karaoke times exceed the convertible numeric range.", exception);
         }
     }
 }

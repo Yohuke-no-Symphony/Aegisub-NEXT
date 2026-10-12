@@ -64,7 +64,7 @@ public static class AssSubtitleFormat
             var colon = content.IndexOf(':');
             if (colon < 0)
             {
-                throw new InvalidDataException("ASS 行缺少字段分隔符。");
+                throw new InvalidDataException("An ASS line is missing a field separator.");
             }
             var key = content[..colon].Trim();
             var value = content[(colon + 1)..].TrimStart();
@@ -80,7 +80,7 @@ public static class AssSubtitleFormat
                 }
                 else if (key.Equals("Style", StringComparison.OrdinalIgnoreCase))
                 {
-                    styleRows.Add(ParseFields(value, styleFormat ?? throw new InvalidDataException("ASS 样式缺少 Format。")));
+                    styleRows.Add(ParseFields(value, styleFormat ?? throw new InvalidDataException("ASS styles are missing a Format declaration.")));
                 }
             }
             else if (section.Equals("[Events]", StringComparison.OrdinalIgnoreCase))
@@ -90,22 +90,22 @@ public static class AssSubtitleFormat
                     eventFormat = ParseFormat(value);
                     if (!eventFormat[^1].Equals("Text", StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new InvalidDataException("ASS Text 必须是最后一个对白字段。");
+                        throw new InvalidDataException("ASS Text must be the last dialogue field.");
                     }
                 }
                 else if (key.Equals("Dialogue", StringComparison.OrdinalIgnoreCase))
                 {
                     if (events.Count >= 100000)
                     {
-                        throw new InvalidDataException("ASS 对白数量超过预算。");
+                        throw new InvalidDataException("The ASS dialogue count exceeds the budget.");
                     }
-                    events.Add(ParseFields(value, eventFormat ?? throw new InvalidDataException("ASS 对白缺少 Format。")));
+                    events.Add(ParseFields(value, eventFormat ?? throw new InvalidDataException("ASS dialogue is missing a Format declaration.")));
                 }
             }
         }
         if (!sawInfo || !sawEvents || info.TryGetValue("ScriptType", out var scriptType) && !scriptType.Equals("v4.00+", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidDataException("仅支持含 Script Info 和 Events 的 ASS v4+ 文件。");
+            throw new InvalidDataException("Only ASS v4+ files with Script Info and Events sections are supported.");
         }
         var hasWidth = info.TryGetValue("PlayResX", out var x);
         var hasHeight = info.TryGetValue("PlayResY", out var y);
@@ -113,7 +113,7 @@ public static class AssSubtitleFormat
         var height = hasHeight ? AssFormatValues.Integer(y!) : targetHeight;
         if (width <= 0 || height <= 0)
         {
-            throw new InvalidDataException("ASS PlayRes 必须为正。");
+            throw new InvalidDataException("ASS PlayRes values must be positive.");
         }
         if (requestedWidth is null)
         {
@@ -127,12 +127,12 @@ public static class AssSubtitleFormat
         var colorMatrix = Get(info, "YCbCr Matrix", string.Empty).Trim().ToUpperInvariant();
         if (colorMatrix is "TV.601" or "PC.601" or "TV.709" or "PC.709" or "TV.240M" or "PC.240M" or "TV.FCC" or "PC.FCC")
         {
-            diagnostics.Add(new("Ass.YCbCrMatrix", $"ASS 的 YCbCr Matrix ({colorMatrix}) 色彩匹配信息未导入；项目保留 RGB 数值，源播放器若依据视频色彩空间进行匹配，颜色可能不同。"));
+            diagnostics.Add(new("Ass.YCbCrMatrix", $"ASS YCbCr Matrix ({colorMatrix}) color-matching information was not imported. The project preserves RGB values; colors may differ if the source player matches them to the video color space."));
         }
         var wrapStyle = AssFormatValues.Integer(Get(info, "WrapStyle", "0"));
         if (wrapStyle is < 0 or > 3)
         {
-            diagnostics.Add(new("Ass.WrapStyle", "ASS WrapStyle 须为 0 至 3，已采用默认智能换行模式 0。"));
+            diagnostics.Add(new("Ass.WrapStyle", "ASS WrapStyle must be between 0 and 3. Default smart wrapping mode 0 was used."));
             wrapStyle = 0;
         }
         var layoutWidth = AssFormatValues.Integer(Get(info, "LayoutResX", "0"));
@@ -145,7 +145,7 @@ public static class AssSubtitleFormat
             blurUsesPlayRes ? new(1, 1) : new((double)targetWidth / layoutWidth, (double)targetHeight / layoutHeight);
         if (!scaledBorder && blurUsesPlayRes)
         {
-            diagnostics.Add(new("Ass.BorderLayoutResolution", "ASS 未提供完整有效的 LayoutRes，未缩放描边与阴影按目标画布像素解释；原视频尺寸不同时外观可能不同。"));
+            diagnostics.Add(new("Ass.BorderLayoutResolution", "ASS does not provide complete, valid LayoutRes values. Unscaled stroke and shadow are interpreted in target canvas pixels; their appearance may differ if the original video dimensions differ."));
         }
         var styles = new Dictionary<string, AssStyleDefinition>(StringComparer.Ordinal);
         var unsupportedGeometry = new HashSet<string>(StringComparer.Ordinal);
@@ -155,7 +155,7 @@ public static class AssSubtitleFormat
                 new() { ReferenceWidth = targetWidth, ReferenceHeight = targetHeight });
             if (!styles.TryAdd(style.Name, style))
             {
-                throw new InvalidDataException("ASS 样式名称重复。");
+                throw new InvalidDataException("ASS style names are duplicated.");
             }
             if (Get(fields, "BorderStyle", "1") != "1")
             {
@@ -174,7 +174,7 @@ public static class AssSubtitleFormat
         {
             if (requestedWidth is not null)
             {
-                diagnostics.Add(new("Ass.PlayRes", "ASS 缺失的 PlayRes 轴按目标画布尺寸解释，已声明的轴仍按其源尺寸重采样。"));
+                diagnostics.Add(new("Ass.PlayRes", "Missing ASS PlayRes axes use the target canvas dimensions; declared axes are still resampled from their source dimensions."));
             }
             else
             {
@@ -187,12 +187,12 @@ public static class AssSubtitleFormat
                 {
                     missingAxes.Add("PlayResY=1080");
                 }
-                diagnostics.Add(new("Ass.PlayRes", $"ASS 缺失的 PlayRes 轴采用默认尺寸（{string.Join("、", missingAxes)}），已声明的轴保持源尺寸。"));
+                diagnostics.Add(new("Ass.PlayRes", $"Missing ASS PlayRes axes use default dimensions ({string.Join(", ", missingAxes)}); declared axes retain their source dimensions."));
             }
         }
         if (attachments)
         {
-            diagnostics.Add(new("Ass.Attachments", "ASS 嵌入字体或图片未导入，请在项目中单独添加资源。"));
+            diagnostics.Add(new("Ass.Attachments", "Embedded ASS fonts or images were not imported. Add these assets to the project separately."));
         }
         foreach (var fields in events.OrderBy(row => AssFormatValues.Integer(Get(row, "Layer", "0"))))
         {
@@ -203,7 +203,7 @@ public static class AssSubtitleFormat
             var end = AssFormatValues.ParseTime(Required(fields, "End"));
             if (start >= end)
             {
-                throw new InvalidDataException("ASS 结束时间必须晚于开始时间。");
+                throw new InvalidDataException("ASS end times must be later than start times.");
             }
             var line = new SubtitleLine { Start = start, End = end, Style = definition.Style, StyleName = name };
             var marginL = AssFormatValues.Number(Get(fields, "MarginL", "0"));
@@ -235,15 +235,15 @@ public static class AssSubtitleFormat
             diagnostics.AddRange(parsed.Diagnostics);
             if (!styles.ContainsKey(name))
             {
-                diagnostics.Add(new("Ass.UnknownStyle", $"样式 {name} 不存在，采用默认样式。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.UnknownStyle", $"Style '{name}' does not exist. The default style was used.", SubtitleId: line.Id));
             }
             if (Get(fields, "Effect", "").Length > 0)
             {
-                diagnostics.Add(new("Ass.Effect", "ASS 对白 Effect 字段未导入。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.Effect", "The ASS dialogue Effect field was not imported.", SubtitleId: line.Id));
             }
             if (unsupportedGeometry.Contains(name))
             {
-                diagnostics.Add(new("Ass.StyleGeometry", "ASS 样式的背景框未导入。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.StyleGeometry", "The ASS style background box was not imported.", SubtitleId: line.Id));
             }
         }
         return new(width, height, new(lines.ToImmutable(), diagnostics.ToImmutable()) { Clips = clips.ToImmutable() });
@@ -282,7 +282,7 @@ public static class AssSubtitleFormat
                 {
                     if (exportedCount++ >= 100000)
                     {
-                        throw new InvalidDataException("ASS 导出后的总对白数量超过 100,000 条预算。");
+                        throw new InvalidDataException("The total exported ASS dialogue count exceeds the 100,000-entry budget.");
                     }
                     result.AppendLine(string.Create(CultureInfo.InvariantCulture,
                         $"Dialogue: {order},{AssFormatValues.Time(layer.Start + timeOffset, MediaTimeRounding.FLOOR)},{AssFormatValues.Time(layer.End + timeOffset, MediaTimeRounding.CEILING)},{graphicStyle},,0,0,0,,{drawing}"));
@@ -293,32 +293,32 @@ public static class AssSubtitleFormat
             var line = byId[layer.SubtitleId!.Value];
             if (line.Start + timeOffset < MediaTime.Zero)
             {
-                throw new InvalidDataException($"ASS 字幕 {line.Id} 的外部开始时间 {line.Start + timeOffset} 为负；请调整区间或播放零点，不会自动裁剪。");
+                throw new InvalidDataException($"ASS subtitle {line.Id} has a negative external start time of {line.Start + timeOffset}. Adjust the interval or playback origin; it will not be clipped automatically.");
             }
             if (line.Style.FontAssetId.HasValue)
             {
-                diagnostics.Add(new("Ass.FontResource", "ASS 文件不包含项目嵌入字体，请在播放环境安装对应字体。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.FontResource", "ASS files do not include project-embedded fonts. Install the corresponding fonts in the playback environment.", SubtitleId: line.Id));
             }
             if (line.Style.TextAlign is { } textAlign && (int)textAlign != (int)line.Style.Alignment % 3)
             {
-                diagnostics.Add(new("Ass.TextAlign", "ASS 九宫格定位不能独立保留项目文字对齐，导出时采用定位对应的文字对齐。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.TextAlign", "ASS alignment anchors cannot independently preserve project text alignment. Text alignment corresponding to the placement anchor was used during export.", SubtitleId: line.Id));
             }
             if (!line.Style.LineHeight.Equals(1.2))
             {
-                diagnostics.Add(new("Ass.LineHeight", "ASS 不支持项目自定义行高。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.LineHeight", "ASS does not support custom project line heights.", SubtitleId: line.Id));
             }
             AssExportPrecision.AddStyle(line.Style, line.Id, diagnostics, includeBlur: false);
             AssExportPrecision.AddTime(line.Start + timeOffset, line.End + timeOffset, line.Id, diagnostics);
             if (layer.Blur > 0)
             {
-                diagnostics.Add(new("Ass.LayerBlur", "ASS 文字边缘模糊不能表达项目整层模糊，导出时已省略整层模糊。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.LayerBlur", "ASS text-edge blur cannot represent project whole-layer blur. Whole-layer blur was omitted during export.", SubtitleId: line.Id));
             }
             var conversion = new AssEventConversionContext(sourceDocument, layer, line, placementMeasurer, diagnostics);
             foreach (var sample in AssMaskSampling.Samples(document, layer, line, diagnostics, timeOffset))
             {
                 if (exportedCount++ >= 100000)
                 {
-                    throw new InvalidDataException("ASS 蒙版展开后的总对白数量超过 100,000 条预算。");
+                    throw new InvalidDataException("The total ASS dialogue count after mask expansion exceeds the 100,000-entry budget.");
                 }
                 var sampleLine = line with { Start = sample.Start, End = sample.End };
                 var body = AssTextWriter.Write(sampleLine, sample.ContentTime, conversion: conversion,
@@ -367,7 +367,7 @@ public static class AssSubtitleFormat
         var spacing = AssFormatValues.Number(Get(row, "Spacing", "0")) * sx;
         if (!double.IsFinite(spacing) || spacing is < -4096 or > 4096)
         {
-            diagnostics.Add(new("Ass.LetterSpacingRange", $"ASS 样式 {Required(row, "Name")} 的字距重采样后超出原生范围，已忽略该字距并保留其他样式。"));
+            diagnostics.Add(new("Ass.LetterSpacingRange", $"Resampled letter spacing for ASS style {Required(row, "Name")} exceeds the native range. The letter spacing was ignored and other style properties were preserved."));
             spacing = 0;
         }
         var style = new SubtitleStyle
@@ -389,7 +389,7 @@ public static class AssSubtitleFormat
         };
         if (resolution.ApproximatesStroke && style.StrokeWidth > 0)
         {
-            diagnostics.Add(new("Ass.BorderResampling", "ASS 描边的横纵重采样比例不同，已按几何平均比例近似转换为原生单一描边宽度。"));
+            diagnostics.Add(new("Ass.BorderResampling", "ASS stroke has different horizontal and vertical resampling ratios. It was approximated as a single native stroke width using their geometric mean."));
         }
         ProjectValidator.ValidateSubtitleStyle(style);
         return new(Required(row, "Name"), style, AssFormatValues.Color(Get(row, "SecondaryColour", "&H000000FF")))
@@ -404,7 +404,7 @@ public static class AssSubtitleFormat
         var format = value.Split(',', StringSplitOptions.TrimEntries);
         if (format.Length == 0 || format.Any(string.IsNullOrEmpty) || format.Distinct(StringComparer.OrdinalIgnoreCase).Count() != format.Length)
         {
-            throw new InvalidDataException("ASS Format 含重复或空字段。");
+            throw new InvalidDataException("ASS Format contains duplicate or empty fields.");
         }
         return format;
     }
@@ -414,12 +414,12 @@ public static class AssSubtitleFormat
         var values = value.Split(',', format.Length);
         if (values.Length != format.Length)
         {
-            throw new InvalidDataException("ASS 字段数量不匹配。");
+            throw new InvalidDataException("ASS field counts do not match.");
         }
         return format.Select((field, index) => (field, Value: field.Equals("Text", StringComparison.OrdinalIgnoreCase) ? values[index] : values[index].Trim()))
             .ToDictionary(pair => pair.field, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
     }
 
-    private static string Required(Dictionary<string, string> fields, string key) => fields.TryGetValue(key, out var value) ? value : throw new InvalidDataException("ASS 缺少 " + key + " 字段。");
+    private static string Required(Dictionary<string, string> fields, string key) => fields.TryGetValue(key, out var value) ? value : throw new InvalidDataException("ASS is missing the " + key + " field.");
     private static string Get(Dictionary<string, string> fields, string key, string fallback) => fields.TryGetValue(key, out var value) ? value : fallback;
 }

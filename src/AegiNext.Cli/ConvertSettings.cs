@@ -7,10 +7,10 @@ namespace AegiNext.Cli;
 public sealed class ConvertSettings : CliCommandSettings
 {
     [CommandOption("--target <FORMAT>")]
-    [Description("目标字幕格式：ass 或 srt。")]
+    [Description("Target subtitle format: ass or srt.")]
     public string? Target { get; set; }
 
     [CommandOption("--accept-loss")]
-    [Description("接受转换诊断并写入输出；仍显示诊断内容。")]
+    [Description("Accept conversion diagnostics and write output; diagnostics are still displayed.")]
     public bool AcceptLoss { get; set; }
 }

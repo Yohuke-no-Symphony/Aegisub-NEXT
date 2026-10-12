@@ -49,7 +49,7 @@ internal struct NativeExportHdrMetadata
     {
         if (Reserved != 0 || (Flags & ~7U) != 0)
         {
-            throw new InvalidDataException("原生 HDR 元数据标记无效。");
+            throw new InvalidDataException("The native HDR metadata flags are invalid.");
         }
     }
 }

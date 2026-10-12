@@ -19,7 +19,7 @@ public sealed record TimelineViewState
     {
         if (ExpandedAnimationClips.IsDefault || ExpandedAnimationClips.Length > MAXIMUM_VIEW_IDENTITIES)
         {
-            throw new InvalidDataException("时间轴展开特效块集合无效或过大。");
+            throw new InvalidDataException("The timeline expanded effect-block collection is invalid or too large.");
         }
 
         var effectIdentities = new HashSet<TimelineEffectClipId>();
@@ -27,7 +27,7 @@ public sealed record TimelineViewState
         {
             if (clip is null || clip.LayerId == Guid.Empty || !effectIdentities.Add(clip))
             {
-                throw new InvalidDataException("时间轴展开特效块身份无效或重复。");
+                throw new InvalidDataException("A timeline expanded effect-block identity is invalid or duplicated.");
             }
 
             SubtitleAnimationTargetValidation.ValidateIdentity(clip.Target);
@@ -35,7 +35,7 @@ public sealed record TimelineViewState
 
         if (CollapsedTrackIds.IsDefault || CollapsedTrackIds.Length > MAXIMUM_VIEW_IDENTITIES)
         {
-            throw new InvalidDataException("时间轴整体折叠轨道集合无效或过大。");
+            throw new InvalidDataException("The timeline fully collapsed track collection is invalid or too large.");
         }
 
         var trackIdentities = new HashSet<Guid>();
@@ -43,13 +43,13 @@ public sealed record TimelineViewState
         {
             if (id == Guid.Empty || !trackIdentities.Add(id))
             {
-                throw new InvalidDataException("时间轴整体折叠轨道身份无效或重复。");
+                throw new InvalidDataException("A timeline fully collapsed track identity is invalid or duplicated.");
             }
         }
 
         if (CollapsedAnimationRows.IsDefault || CollapsedAnimationRows.Length > MAXIMUM_VIEW_IDENTITIES)
         {
-            throw new InvalidDataException("时间轴折叠行集合无效或过大。");
+            throw new InvalidDataException("The timeline collapsed row collection is invalid or too large.");
         }
 
         var identities = new HashSet<TimelineAnimationRowId>();
@@ -61,7 +61,7 @@ public sealed record TimelineViewState
                 row.TextRangeId.HasValue && !AnimationPropertyMetadata.IsTextRangeProperty(row.Property) ||
                 row.State != SubtitleAnimationState.NORMAL && !AnimationPropertyMetadata.IsSubtitleVisualProperty(row.Property))
             {
-                throw new InvalidDataException("时间轴折叠行身份无效或重复。");
+                throw new InvalidDataException("A timeline collapsed row identity is invalid or duplicated.");
             }
         }
     }

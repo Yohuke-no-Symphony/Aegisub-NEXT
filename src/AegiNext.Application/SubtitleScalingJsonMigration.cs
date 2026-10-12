@@ -39,7 +39,7 @@ internal static class SubtitleScalingJsonMigration
         if (document[name] is not JsonValue value || !value.TryGetValue<int>(out var dimension) ||
             dimension is <= 0 or > 32768)
         {
-            throw new JsonException("旧版工程必须包含完整、有效的画布尺寸。");
+            throw new JsonException("Legacy projects must contain complete, valid canvas dimensions.");
         }
         return dimension;
     }
@@ -58,7 +58,7 @@ internal static class SubtitleScalingJsonMigration
             }
             if (style.ContainsKey("scaling"))
             {
-                throw new JsonException("旧版字幕样式不能包含未声明版本的参考尺寸字段。");
+                throw new JsonException("Legacy subtitle styles cannot contain reference-dimension fields not declared by their version.");
             }
             style["scaling"] = new JsonObject
             {

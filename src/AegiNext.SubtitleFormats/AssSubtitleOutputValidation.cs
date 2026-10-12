@@ -28,7 +28,7 @@ internal static class AssSubtitleOutputValidation
     {
         if (!double.IsFinite(value) || nonnegative && value < 0 || positive && value <= 0)
         {
-            throw new InvalidDataException("ASS 输出的派生尺寸必须为有限且有效的数值。");
+            throw new InvalidDataException("Derived dimensions in ASS output must be finite and valid.");
         }
     }
 }

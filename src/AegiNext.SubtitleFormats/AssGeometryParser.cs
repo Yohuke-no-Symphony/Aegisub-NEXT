@@ -94,16 +94,16 @@ internal sealed class AssGeometryParser
         {
             Observe();
         }
-        var x = Component(observedScale.X, mixedScaleX, 1, 10000, "水平缩放", true);
-        var y = Component(observedScale.Y, mixedScaleY, 1, 10000, "垂直缩放", true);
-        var rotation = Component(observedRotation, mixedRotation, 0, 1e9, "旋转", false);
+        var x = Component(observedScale.X, mixedScaleX, 1, 10000, "horizontal scaling", true);
+        var y = Component(observedScale.Y, mixedScaleY, 1, 10000, "vertical scaling", true);
+        var rotation = Component(observedRotation, mixedRotation, 0, 1e9, "rotation", false);
         if (!x.Equals(1d) || !y.Equals(1d))
         {
-            Report("Ass.TransformLayout", "ASS 字形缩放已导入原生片段变换；两种排版器的换行时机和字形锚点不同，自动换行或位置可能改变。", 0, 0);
+            Report("Ass.TransformLayout", "ASS glyph scaling was imported as a native clip transform. The layout engines wrap text at different stages and use different glyph anchors, so automatic wrapping or placement may change.", 0, 0);
         }
         if (!canvasScaleX.Equals(canvasScaleY) && rotation != 0)
         {
-            Report("Ass.TransformLayout", "ASS 旋转与画布非等比重采样的组合可能产生剪切，原生缩放和旋转不能完整表达，已近似保留旋转。", 0, 0);
+            Report("Ass.TransformLayout", "ASS rotation combined with nonuniform canvas resampling may produce shear that native scaling and rotation cannot fully represent. Rotation was preserved approximately.", 0, 0);
         }
         return new() { Scale = new(x, y), Rotation = -rotation };
     }
@@ -113,19 +113,19 @@ internal sealed class AssGeometryParser
         position = new();
         if (hasPlacement)
         {
-            Report("Ass.DuplicatePlacement", "ASS 同一行重复的位置或移动标签已忽略，采用首个值。", sourceStart, sourceLength);
+            Report("Ass.DuplicatePlacement", "Duplicate ASS position or movement tags on the same line were ignored; the first value was used.", sourceStart, sourceLength);
             return false;
         }
         var arguments = AssOverrideTags.Arguments(value);
         if (name == "pos" && arguments.Length != 2 || name == "move" && arguments.Length is not (4 or 6))
         {
-            throw new InvalidDataException(name == "pos" ? "ASS pos 必须有两个坐标。" : "ASS move 必须有四个坐标以及可选的两个时间。");
+            throw new InvalidDataException(name == "pos" ? "ASS pos requires two coordinates." : "ASS move requires four coordinates and optionally two times.");
         }
         hasPlacement = true;
         position = new(AssFormatValues.Number(arguments[0]) * canvasScaleX, AssFormatValues.Number(arguments[1]) * canvasScaleY);
         if (!ValidPoint(position))
         {
-            Report("Ass.UnsupportedTransform", "ASS 定位超出原生坐标范围，已跳过该定位。", sourceStart, sourceLength);
+            Report("Ass.UnsupportedTransform", "ASS placement exceeds the native coordinate range and was skipped.", sourceStart, sourceLength);
             return false;
         }
         if (name == "pos")
@@ -137,7 +137,7 @@ internal sealed class AssGeometryParser
         var delta = new ScenePoint(target.X - position.X, target.Y - position.Y);
         if (!ValidPoint(target) || !ValidPoint(delta))
         {
-            Report("Ass.UnsupportedTransform", "ASS 移动坐标或位移超出原生范围，已跳过该移动。", sourceStart, sourceLength);
+            Report("Ass.UnsupportedTransform", "ASS movement coordinates or translation exceed the native range. The movement was skipped.", sourceStart, sourceLength);
             return false;
         }
         var start = MediaTime.Zero;
@@ -150,7 +150,7 @@ internal sealed class AssGeometryParser
             {
                 if (first < long.MinValue || first >= long.MaxValue || last < long.MinValue || last >= long.MaxValue)
                 {
-                    Report("Ass.MoveTiming", "ASS 移动时间超出可保存的范围，已跳过该移动。", sourceStart, sourceLength);
+                    Report("Ass.MoveTiming", "ASS movement times exceed the supported range. The movement was skipped.", sourceStart, sourceLength);
                     return false;
                 }
                 var firstMilliseconds = (long)first;
@@ -162,13 +162,13 @@ internal sealed class AssGeometryParser
                 }
                 if (!first.Equals((long)first) || !last.Equals((long)last))
                 {
-                    Report("Ass.MoveTiming", "ASS 移动时间已按整数毫秒解析，小数毫秒被舍弃。", sourceStart, sourceLength);
+                    Report("Ass.MoveTiming", "ASS movement times were parsed as integer milliseconds; fractional milliseconds were discarded.", sourceStart, sourceLength);
                 }
             }
         }
         if (end <= start)
         {
-            Report("Ass.MoveTiming", "ASS 逆序或瞬时移动不能表示为连续位置轨道，已跳过该移动。", sourceStart, sourceLength);
+            Report("Ass.MoveTiming", "ASS reversed or instantaneous movement cannot be represented as a continuous position track and was skipped.", sourceStart, sourceLength);
             return false;
         }
         if (delta != new ScenePoint())
@@ -208,12 +208,12 @@ internal sealed class AssGeometryParser
     {
         if (mixed)
         {
-            Report("Ass.InlineTransform", $"ASS 行内{name}不一致，无法保存为整行片段变换，已跳过该分量。", 0, 0);
+            Report("Ass.InlineTransform", $"Inline ASS {name} values differ and cannot be stored as a whole-line clip transform. This component was skipped.", 0, 0);
             return fallback;
         }
         if (!double.IsFinite(value) || Math.Abs(value) > maximum || positive && value < 0)
         {
-            Report("Ass.UnsupportedTransform", $"ASS {name}不符合可转换的原生范围，已跳过该分量。", 0, 0);
+            Report("Ass.UnsupportedTransform", $"ASS {name} is outside the convertible native range. This component was skipped.", 0, 0);
             return fallback;
         }
         return value;

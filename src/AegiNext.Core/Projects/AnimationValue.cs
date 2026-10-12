@@ -26,7 +26,7 @@ public readonly record struct AnimationValue
         AnimationValueKind.SCALAR => 1,
         AnimationValueKind.VECTOR => 2,
         AnimationValueKind.COLOR => 4,
-        _ => throw new InvalidOperationException("未知动画值维度。")
+        _ => throw new InvalidOperationException("Unknown animation value dimensions.")
     };
     public double Scalar => AsScalar();
     public ScenePoint Vector => AsVector();
@@ -42,13 +42,13 @@ public readonly record struct AnimationValue
     public static AnimationValue FromColor(SceneColor value) => new(default, default, value, AnimationValueKind.COLOR);
 
     /// <summary>读取标量；读取错误维度明确失败。</summary>
-    public double AsScalar() => Kind == AnimationValueKind.SCALAR ? scalar : throw new InvalidOperationException("动画值不是标量。");
+    public double AsScalar() => Kind == AnimationValueKind.SCALAR ? scalar : throw new InvalidOperationException("The animation value is not a scalar.");
 
     /// <summary>读取二维向量；读取错误维度明确失败。</summary>
-    public ScenePoint AsVector() => IsVector ? vector : throw new InvalidOperationException("动画值不是二维向量。");
+    public ScenePoint AsVector() => IsVector ? vector : throw new InvalidOperationException("The animation value is not a two-dimensional vector.");
 
     /// <summary>读取直通线性 RGBA；读取错误维度明确失败。</summary>
-    public SceneColor AsColor() => IsColor ? color : throw new InvalidOperationException("动画值不是颜色。");
+    public SceneColor AsColor() => IsColor ? color : throw new InvalidOperationException("The animation value is not a color.");
 
     /// <summary>读取维度范围内的一个分量。</summary>
     public double GetComponent(int index)
@@ -95,7 +95,7 @@ public readonly record struct AnimationValue
     {
         if (first.Kind != second.Kind)
         {
-            throw new InvalidOperationException("动画值维度不一致。");
+            throw new InvalidOperationException("Animation value dimensions do not match.");
         }
 
         var result = first;

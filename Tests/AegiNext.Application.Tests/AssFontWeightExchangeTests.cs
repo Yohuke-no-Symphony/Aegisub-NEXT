@@ -296,7 +296,7 @@ public sealed class AssFontWeightExchangeTests
         var line = Line() with { Text = "x", Style = Style() with { FontVariant = Variant("Real SemiBold Italic", 600, true) } };
         var written = AssTextWriter.Write(line, MediaTime.Zero);
         Assert.Contains("\\b600\\i1", written.Text, StringComparison.Ordinal);
-        Assert.Contains(written.Diagnostics, diagnostic => diagnostic.Code == "Ass.FontVariant" && diagnostic.Message.Contains("合成", StringComparison.Ordinal));
+        Assert.Contains(written.Diagnostics, diagnostic => diagnostic.Code == "Ass.FontVariant" && diagnostic.Message.Contains("synthesize", StringComparison.Ordinal));
         var projected = AssTextProjection.Create(line);
         Assert.Contains("\\b0\\i0", projected.Source, StringComparison.Ordinal);
         Assert.Equal(line, AssTextProjection.Apply(line, projected.Source).Line);

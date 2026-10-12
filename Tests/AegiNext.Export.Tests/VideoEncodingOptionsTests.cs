@@ -116,7 +116,7 @@ public sealed class VideoEncodingOptionsTests
         var request = CreateRequest() with { EncodingMode = VideoEncodingMode.HARDWARE, Codec = VideoCodec.H264 };
         var error = Assert.Throws<InvalidDataException>(() => VideoExporter.ValidateCompletedEncoder(request, encoder));
         Assert.Contains("worker", error.Message, StringComparison.Ordinal);
-        Assert.Contains("未提交成片", error.Message, StringComparison.Ordinal);
+        Assert.Contains("output was not committed", error.Message, StringComparison.Ordinal);
     }
 
     [Theory]

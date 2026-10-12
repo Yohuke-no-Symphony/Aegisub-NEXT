@@ -38,7 +38,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
         if (matching.Any(range => range.Offset != default || layer.Tracks.Any(track =>
             track.Target.TextRangeId == range.Id && track.Property == AnimationProperty.POSITION)))
         {
-            Report("Ass.RangeTranslation", "ASS 无法表达独立文字范围的排版后位移，已省略范围位移；原生范围与位移动画保留在工程中。");
+            Report("Ass.RangeTranslation", "ASS cannot represent independent text-range translation after layout. Range translation was omitted; native ranges and translation animation are preserved in the project.");
         }
         foreach (var range in matching)
         {
@@ -54,7 +54,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
         }
         if (matching.Length > 1)
         {
-            Report("Ass.RangeOverlap", "重叠文字范围的样式按范围顺序转换，叠加几何和轴心不能在 ASS 中精确表达，已省略重叠范围几何。");
+            Report("Ass.RangeOverlap", "Overlapping text-range styles were converted in range order. Combined geometry and pivots cannot be represented exactly in ASS, so overlapping range geometry was omitted.");
             foreach (var property in new[] { AnimationProperty.SCALE, AnimationProperty.ROTATION })
             {
                 if (selected.GetValueOrDefault((property, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null)
@@ -82,15 +82,15 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
                 selected.GetValueOrDefault((AnimationProperty.ROTATION, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null;
             if (hasScale || hasRotation)
             {
-                Report("Ass.TextRangeGeometry", "原生文字范围在排版后变换，ASS 在字形布局中应用缩放和旋转，边缘、阴影及片段位置可能不同。");
+                Report("Ass.TextRangeGeometry", "Native text ranges transform after layout, while ASS applies scaling and rotation during glyph layout. Edges, shadows, and clip positions may differ.");
             }
             if (range.Scale.X < 0 || range.Scale.Y < 0)
             {
-                Report("Ass.TransformScale", "ASS 不能保留文字范围的镜像，已省略负缩放分量并保留可转换的分量。");
+                Report("Ass.TransformScale", "ASS cannot preserve mirrored text ranges. Negative scaling components were omitted and convertible components were preserved.");
             }
             if (range.Pivot != SubtitleAnimationPivot.SUBTITLE_ANCHOR && (hasScale || hasRotation))
             {
-                Report("Ass.RangePivot", "文字范围使用独立中心轴心，ASS 只能采用字幕共享轴心；范围几何位置可能不同。");
+                Report("Ass.RangePivot", "Text ranges use independent center pivots, while ASS can only use a shared subtitle pivot. Range geometry positions may differ.");
             }
             if (projection || hasScale)
             {
@@ -116,17 +116,17 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             }
             if (values.Any(value => value.IsColor && (value.Color.Red is < 0 or > 1 || value.Color.Green is < 0 or > 1 || value.Color.Blue is < 0 or > 1)))
             {
-                Report("Ass.ColorRange", "ASS 8 位 sRGB 颜色限制了动画中的 HDR 或负颜色，已裁切并量化输出颜色。");
+                Report("Ass.ColorRange", "ASS 8-bit sRGB colors limit HDR or negative animation colors. Output colors were clipped and quantized.");
             }
             if (track.Property == AnimationProperty.SCALE && values.Any(value => value.Vector.X < 0 || value.Vector.Y < 0))
             {
-                Report("Ass.TransformScale", "ASS 不能保留缩放动画的镜像阶段，已省略负缩放分量，其他可转换分量继续输出。");
+                Report("Ass.TransformScale", "ASS cannot preserve mirrored phases of scaling animation. Negative scaling components were omitted; other convertible components are still exported.");
             }
             if (track.Target.State != SubtitleAnimationState.NORMAL && !karaoke)
             {
                 if (!projection)
                 {
-                    Report("Ass.DormantKaraokeAnimation", "未计时文字保存的 ACTIVE/INACTIVE 动画无法写入 ASS；已按普通正文导出，工程中的状态动画保持不变。");
+                    Report("Ass.DormantKaraokeAnimation", "Stored ACTIVE/INACTIVE animations for untimed text cannot be written to ASS. The text was exported as ordinary text; state animations in the project are unchanged.");
                 }
                 continue;
             }
@@ -134,7 +134,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
                 karaoke && track.Property == AnimationProperty.FILL && track.Target.State == SubtitleAnimationState.NORMAL ? "2" : "1";
             if (track.Target.State != SubtitleAnimationState.NORMAL && track.Property != AnimationProperty.FILL)
             {
-                Report("Ass.KaraokeAnimation", "ASS 描边、阴影和排版只有共享通道，不能保留激活与未激活状态的独立连续动画，已省略该状态轨道。");
+                Report("Ass.KaraokeAnimation", "ASS stroke, shadow, and layout only have shared channels and cannot preserve independent continuous animations for active and inactive states. This state track was omitted.");
                 continue;
             }
             if (track.Property == AnimationProperty.SHADOW_BLUR)
@@ -143,19 +143,19 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
                 var blur = selected.GetValueOrDefault((blurProperty, track.Target.State)) ?? layer.Tracks.FirstOrDefault(candidate => candidate.Property == blurProperty && candidate.Target == track.Target with { Property = blurProperty });
                 if (blur is null || !Equivalent(blur, track))
                 {
-                    Report("Ass.ShadowBlur", "ASS 模糊同时影响文字或描边及阴影，独立阴影模糊动画无法精确表达，已省略阴影模糊轨道。");
+                    Report("Ass.ShadowBlur", "ASS blur affects text or stroke and shadow together. Independent shadow blur animation cannot be represented exactly, so the shadow blur track was omitted.");
                 }
                 continue;
             }
             if (track.Property is AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR &&
                 (track.Property == AnimationProperty.FILL_BLUR ? style.StrokeWidth > 0 : style.StrokeWidth <= 0))
             {
-                Report("Ass.BlurAnimation", "ASS 只有一个边缘模糊通道，已省略当前描边状态下不可见的独立模糊动画。");
+                Report("Ass.BlurAnimation", "ASS has only one edge-blur channel. Independent blur animation that is invisible in the current stroke state was omitted.");
                 continue;
             }
             if (track.Property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING)
             {
-                Report("Ass.TextLayoutAnimation", "连续字号或字距按 ASS 标签导出；原生逐帧排版与 ASS 行布局、自动换行及锚点计算可能不同。");
+                Report("Ass.TextLayoutAnimation", "Continuous font size or letter spacing was exported as ASS tags. Native per-frame layout may differ from ASS line layout, automatic wrapping, and anchor calculation.");
             }
             var rangeGeometry = track.Target.TextRangeId is { } rangeId ? matching.FirstOrDefault(range => range.Id == rangeId) : null;
             var shadowRotation = rotation + (rangeGeometry?.Rotation ?? 0);

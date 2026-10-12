@@ -24,12 +24,12 @@ internal static class AssTextWriter
         {
             if (line.Text[index] == '\\' && line.Text[index + 1] is 'N' or 'n' or 'h')
             {
-                throw new InvalidDataException("ASS 无法无损表达字面反斜杠与 N、n 或 h 的相邻组合。");
+                throw new InvalidDataException("ASS cannot losslessly represent a literal backslash immediately followed by N, n, or h.");
             }
         }
         if (line.Text.IndexOfAny(['{', '}']) >= 0)
         {
-            diagnostics.Add(new("Ass.LiteralBraces", "字面花括号使用 libass 扩展转义，其他 ASS 播放器可能改变文字。", SubtitleId: line.Id));
+            diagnostics.Add(new("Ass.LiteralBraces", "Literal braces use libass extension escaping; other ASS players may alter the text.", SubtitleId: line.Id));
         }
         var boundaries = new SortedSet<int> { 0, line.Text.Length };
         foreach (var span in line.InlineSpans)
@@ -85,7 +85,7 @@ internal static class AssTextWriter
             var karaokeStyleChanged = nativeInactive != previousInactive || nativeActive != previousActive;
             if (!projection && clip is not null && clip == previousClip && karaokeStyleChanged)
             {
-                diagnostics.Add(new("Ass.KaraokeStyleRuns", "ASS 同一演唱组内的样式变化可能形成独立渲染片段；已保留完整组时间和各范围标签，播放器的激活或扫色时序可能不同。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.KaraokeStyleRuns", "Style changes within the same ASS karaoke group may create separate rendering segments. Full group timing and the tags for each range were preserved; player activation or sweep timing may differ.", SubtitleId: line.Id));
             }
             var endCount = time;
             if (clip != previousClip)
@@ -104,7 +104,7 @@ internal static class AssTextWriter
                     AssKaraokeTiming.ValidateCount(endCount - clipStartCount);
                     if (new MediaTime(clipStartCount, 100) != start || new MediaTime(endCount, 100) != end)
                     {
-                        diagnostics.Add(new("Ass.KaraokeQuantization", "卡拉 OK 起止时间已独立量化为厘秒；量化后折叠的正时长保留至少一厘秒，组间可能因此重叠。", SubtitleId: line.Id));
+                        diagnostics.Add(new("Ass.KaraokeQuantization", "Karaoke start and end times were quantized independently to centiseconds. Positive durations that collapse after quantization retain at least one centisecond, which may cause groups to overlap.", SubtitleId: line.Id));
                     }
                 }
             }
@@ -130,7 +130,7 @@ internal static class AssTextWriter
                         result.Append(VisualTags(inactive, projection, line.Id, diagnostics));
                         if (VisualsDiffer(inactive, active))
                         {
-                            diagnostics.Add(new("Ass.KaraokeVisual", "ASS 的逐字扫过不能完整保留前后的独立描边和阴影，已采用未激活外观。", SubtitleId: line.Id));
+                            diagnostics.Add(new("Ass.KaraokeVisual", "ASS per-word sweeps cannot fully preserve independent stroke and shadow before and after activation. The inactive appearance was used.", SubtitleId: line.Id));
                         }
                     }
                     else if (clipStartCount == 0)
@@ -139,7 +139,7 @@ internal static class AssTextWriter
                         var representedInactive = clip.HighlightKind == KaraokeHighlightKind.OUTLINE_STEP ? active with { StrokeWidth = 0 } : active;
                         if (VisualsDiffer(inactive, representedInactive))
                         {
-                            diagnostics.Add(new("Ass.KaraokeVisual", "演唱组在 ASS 对白起点已激活，采用激活外观；零起点瞬时变换在 ASS 中表示整行渐变，无法保存隐藏的未激活边缘和阴影。", SubtitleId: line.Id));
+                            diagnostics.Add(new("Ass.KaraokeVisual", "The karaoke group is already active at the ASS dialogue start, so the active appearance was used. An instantaneous transform at time zero represents a whole-line transition in ASS and cannot preserve hidden inactive edges and shadows.", SubtitleId: line.Id));
                         }
                     }
                     else
@@ -173,7 +173,7 @@ internal static class AssTextWriter
                     if (clipStartCount < time || clipStartCount - time > AssKaraokeTiming.MAX_CENTISECONDS)
                     {
                         result.Append("{\\kt").Append(clipStartCount.ToString(CultureInfo.InvariantCulture)).Append('}');
-                        diagnostics.Add(new("Ass.KaraokeClockCompatibility", "重叠、倒序或负相对时间的演唱组使用 kt 保留独立起点；部分 ASS 工具和播放器可能不支持此标签。", SubtitleId: line.Id));
+                        diagnostics.Add(new("Ass.KaraokeClockCompatibility", "Karaoke groups with overlapping, reversed, or negative relative times use kt to preserve independent start times. Some ASS tools and players may not support this tag.", SubtitleId: line.Id));
                     }
                     else if (clipStartCount > time)
                     {
@@ -194,7 +194,7 @@ internal static class AssTextWriter
             result.Append(Escape(line.Text[offset..offsets[index + 1]]));
             if (OutOfGamut(style.Fill) || OutOfGamut(style.Stroke) || OutOfGamut(style.ShadowColor))
             {
-                diagnostics.Add(new("Ass.ColorRange", "ASS 8 位 sRGB 颜色会限制线性 HDR 或负颜色。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.ColorRange", "ASS 8-bit sRGB colors limit linear HDR or negative colors.", SubtitleId: line.Id));
             }
         }
         return new(result.ToString(), diagnostics.Distinct().ToImmutableArray(), new(time, 100));
@@ -205,7 +205,7 @@ internal static class AssTextWriter
     {
         if (style.FontFamily.IndexOfAny(['\\', '{', '}', '\r', '\n']) >= 0)
         {
-            throw new InvalidDataException("ASS 字体名包含标签控制字符。");
+            throw new InvalidDataException("ASS font names contain tag control characters.");
         }
         var weight = !projection && !style.FontAssetId.HasValue && style.FontVariant is { Weight: >= 100 and <= 1000 } variant
             ? variant.Weight : style.Bold ? 1 : 0;
@@ -282,37 +282,37 @@ internal static class AssTextWriter
             AssExportPrecision.AddStyle(style, id, diagnostics);
             if (style.WrapMode == SubtitleWrapMode.GRAPHEME)
             {
-                diagnostics.Add(new("Ass.WrapMode", "ASS 不支持项目的逐字素自动换行，已改为自然换行，断行位置可能改变。", SubtitleId: id));
+                diagnostics.Add(new("Ass.WrapMode", "ASS does not support project automatic wrapping by grapheme. Natural wrapping was used; line breaks may change.", SubtitleId: id));
             }
             if (style.StrokeWidth > 0 && style.FillBlur > 0)
             {
-                diagnostics.Add(new("Ass.FillBlur", "ASS 有描边时只模糊描边及阴影，无法保留项目的独立填充模糊，已省略填充模糊。", SubtitleId: id));
+                diagnostics.Add(new("Ass.FillBlur", "When a stroke exists, ASS only blurs stroke and shadow and cannot preserve independent project fill blur. Fill blur was omitted.", SubtitleId: id));
             }
             if (style.StrokeWidth <= 0 && style.StrokeBlur > 0)
             {
-                diagnostics.Add(new("Ass.StrokeBlur", "ASS 无描边时的模糊作用于填充，无法保留项目的独立描边模糊数值。", SubtitleId: id));
+                diagnostics.Add(new("Ass.StrokeBlur", "ASS blur without a stroke affects the fill and cannot preserve independent project stroke blur values.", SubtitleId: id));
             }
         }
         if (!projection && style.FontVariant is not null)
         {
-            diagnostics.Add(new("Ass.FontVariant", "ASS 的字体家族、字重及斜体标签不能完整保留命名变体的名称、PostScript 身份和设计宽度；播放器可能选择其他字形或合成粗体、斜体。", SubtitleId: id));
+            diagnostics.Add(new("Ass.FontVariant", "ASS font family, weight, and italic tags cannot fully preserve the name, PostScript identity, or design width of a named variant. Players may select different glyphs or synthesize bold or italic.", SubtitleId: id));
             if (!style.FontAssetId.HasValue && style.FontVariant is { Weight: < 100 })
             {
-                diagnostics.Add(new("Ass.FontWeight", "原生字体变体的字重低于 ASS 数值字重交换范围 100 至 1000，已使用普通或粗体标签。", SubtitleId: id));
+                diagnostics.Add(new("Ass.FontWeight", "The weight of the native font variant is below the ASS numeric weight exchange range of 100 to 1000. Regular or bold tags were used.", SubtitleId: id));
             }
         }
         if (OutOfGamut(style.Fill) || OutOfGamut(style.Stroke) || OutOfGamut(style.ShadowColor))
         {
-            diagnostics.Add(new("Ass.ColorRange", "ASS 8 位 sRGB 颜色会限制线性 HDR 或负颜色。", SubtitleId: id));
+            diagnostics.Add(new("Ass.ColorRange", "ASS 8-bit sRGB colors limit linear HDR or negative colors.", SubtitleId: id));
         }
         if (projection && style.ShadowBlur > 0 && (style.ShadowColor.Alpha > 0 || style.Fill.Alpha > 0 ||
                 style.StrokeWidth > 0 && style.Stroke.Alpha > 0))
         {
-            diagnostics.Add(new("Ass.ShadowBlur", "项目的阴影模糊与 ASS 的文字边缘模糊语义不同，保留数值会改变文字或描边边缘。", SubtitleId: id));
+            diagnostics.Add(new("Ass.ShadowBlur", "Project shadow blur differs in meaning from ASS text-edge blur. Preserving the value changes text or stroke edges.", SubtitleId: id));
         }
         if (!projection && style.ShadowColor.Alpha > 0 && !style.ShadowBlur.Equals(AssBlurConversion.Sigma(style)))
         {
-            diagnostics.Add(new("Ass.ShadowBlur", "ASS 阴影模糊与当前填充或描边模糊共用数值，无法独立保留项目的阴影模糊，已采用文字通道的模糊。", SubtitleId: id));
+            diagnostics.Add(new("Ass.ShadowBlur", "ASS shadow blur shares its value with the current fill or stroke blur and cannot independently preserve project shadow blur. Text-channel blur was used.", SubtitleId: id));
         }
     }
 
@@ -320,7 +320,7 @@ internal static class AssTextWriter
     {
         if (source.Length > 0 && source[^1] == '\\')
         {
-            throw new InvalidDataException("ASS 字面反斜杠紧邻样式或卡拉 OK 标签，无法无损导出。");
+            throw new InvalidDataException("An ASS literal backslash is adjacent to a style or karaoke tag and cannot be exported losslessly.");
         }
     }
 

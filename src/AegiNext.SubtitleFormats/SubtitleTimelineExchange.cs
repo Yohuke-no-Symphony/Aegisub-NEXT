@@ -34,7 +34,7 @@ public static class SubtitleTimelineExchange
         if (!imported.Clips.IsEmpty && (imported.Clips.Length != imported.Lines.Length ||
             !imported.Clips.Select(clip => clip.Line).SequenceEqual(imported.Lines)))
         {
-            throw new InvalidDataException("ASS 导入片段与字幕身份不一致。");
+            throw new InvalidDataException("Imported ASS clip and subtitle identities do not match.");
         }
         var lines = ToProjectTime(imported.Lines, mapping);
         return imported with

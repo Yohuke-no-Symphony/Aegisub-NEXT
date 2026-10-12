@@ -16,7 +16,7 @@ internal sealed class AssTransformAppearance(LayerTransform transform, Guid subt
     {
         if (transform.Scale.X == 0 || transform.Scale.Y == 0)
         {
-            Report("ASS 零缩放已保留；折叠轴没有可逆的描边、模糊或阴影补偿，相关外观数值按单位比例保留。");
+            Report("Zero ASS scaling was preserved. Collapsed axes have no reversible stroke, blur, or shadow compensation; related appearance values were preserved at unit scale.");
         }
         return line with
         {
@@ -62,12 +62,12 @@ internal sealed class AssTransformAppearance(LayerTransform transform, Guid subt
         var result = width / strokeScale;
         if (!double.IsFinite(result) || result > 4096)
         {
-            Report("ASS 描边的缩放补偿超出原生范围，保留原描边数值，变换后的描边外观可能改变。");
+            Report("ASS stroke scaling compensation exceeds the native range. The original stroke value was preserved; the transformed stroke appearance may change.");
             return width;
         }
         if (width > 0 && !transform.Scale.X.Equals(transform.Scale.Y))
         {
-            Report("ASS 非等比字形缩放的描边按几何平均比例近似转换，水平与垂直描边厚度不能同时保持。");
+            Report("Stroke under nonuniform ASS glyph scaling was approximated using the geometric mean scale. Horizontal and vertical stroke thickness cannot both be preserved.");
         }
         return result;
     }
@@ -79,15 +79,15 @@ internal sealed class AssTransformAppearance(LayerTransform transform, Guid subt
         {
             if (!double.IsFinite(sigma) || sigma > 512)
             {
-                Report("ASS 模糊在图层缩放补偿后仍超出原生范围，已仅省略该模糊数值。", "Ass.BlurRange");
+                Report("ASS blur still exceeds the native range after layer scaling compensation. Only this blur value was omitted.", "Ass.BlurRange");
                 return 0;
             }
-            Report("ASS 模糊的缩放补偿超出原生范围，保留原模糊数值，变换后的模糊外观可能改变。");
+            Report("ASS blur scaling compensation exceeds the native range. The original blur value was preserved; the transformed blur appearance may change.");
             return sigma;
         }
         if (sigma > 0 && !transform.Scale.X.Equals(transform.Scale.Y))
         {
-            Report("ASS 非等比字形缩放的模糊按几何平均比例近似转换，水平与垂直扩散范围不能同时保持。");
+            Report("Blur under nonuniform ASS glyph scaling was approximated using the geometric mean scale. Horizontal and vertical spread cannot both be preserved.");
         }
         return result;
     }
@@ -98,7 +98,7 @@ internal sealed class AssTransformAppearance(LayerTransform transform, Guid subt
             (-rotation.Sine * offset.X + rotation.Cosine * offset.Y) / (transform.Scale.Y == 0 ? 1 : transform.Scale.Y));
         if (!double.IsFinite(result.X) || !double.IsFinite(result.Y) || Math.Abs(result.X) > 1e9 || Math.Abs(result.Y) > 1e9)
         {
-            Report("ASS 阴影位移的变换补偿超出原生范围，保留原位移数值，变换后的阴影位置可能改变。");
+            Report("ASS shadow translation transform compensation exceeds the native range. The original translation value was preserved; the transformed shadow position may change.");
             return offset;
         }
         return result;

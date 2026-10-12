@@ -18,7 +18,7 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
         var parsed = ParseGeometry(name, value);
         if (mask is not null || transforms.Count > 0)
         {
-            diagnostics.Add(new("Ass.DuplicateMask", "ASS 重复的静态裁切采用最后的矩形值；后置静态裁切会覆盖此前裁切变换。", sourceStart, sourceLength, subtitleId));
+            diagnostics.Add(new("Ass.DuplicateMask", "Duplicate static ASS clipping uses the last rectangle value. Later static clipping overrides preceding clipping transforms.", sourceStart, sourceLength, subtitleId));
             transforms.Clear();
         }
         mask = parsed;
@@ -29,7 +29,7 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
         var arguments = AssOverrideTags.Arguments(value);
         if (arguments.Length is < 1 or > 4 || !arguments[^1].StartsWith('\\'))
         {
-            throw new InvalidDataException("ASS t 参数数量或标签列表非法。");
+            throw new InvalidDataException("The ASS t argument count or tag list is invalid.");
         }
         var tags = AssOverrideTags.Parse(arguments[^1]).ToArray();
         var clips = tags.Where(tag => tag.Name is "clip" or "iclip").ToArray();
@@ -46,26 +46,26 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
         var acceleration = arguments.Length is 2 or 4 ? AssFormatValues.Number(arguments[^2]) : 1;
         if (end < start || !double.IsFinite(acceleration))
         {
-            throw new InvalidDataException("ASS 裁切变换必须具有有序时间及有限 accel。");
+            throw new InvalidDataException("ASS clipping transforms require ordered times and a finite accel value.");
         }
         foreach (var clip in clips)
         {
             var target = ParseGeometry(clip.Name, clip.Value);
             if (acceleration < 0)
             {
-                diagnostics.Add(new("Ass.MaskAcceleration", "负 accel 在变换起点产生无穷大，不能保存为有限项目蒙版；已保留基础裁切并舍弃该变换。", sourceStart, sourceLength, subtitleId));
+                diagnostics.Add(new("Ass.MaskAcceleration", "Negative accel produces infinity at the transform start and cannot be stored as a finite project mask. Base clipping was preserved and the transform was discarded.", sourceStart, sourceLength, subtitleId));
                 continue;
             }
             if (target is not RectangleClipMask rectangle)
             {
-                diagnostics.Add(new("Ass.VectorMaskTransform", "ASS 不能以 t 动画矢量裁切，已保留静态矢量；请使用原生蒙版动画。", sourceStart, sourceLength, subtitleId));
+                diagnostics.Add(new("Ass.VectorMaskTransform", "ASS cannot animate vector clipping with t. The static vector was preserved; use native mask animation.", sourceStart, sourceLength, subtitleId));
                 mask ??= target;
                 continue;
             }
             mask ??= new RectangleClipMask { BottomRight = new(width, height), Transform = new() { Pivot = new(width / 2d, height / 2d) }, Inverted = rectangle.Inverted };
             if (mask is not RectangleClipMask || mask.Inverted != rectangle.Inverted)
             {
-                diagnostics.Add(new("Ass.MixedMaskModes", "ASS 混合 clip、iclip 或矩形与矢量的变换不能保留为同一蒙版；已保留基础形状并舍弃不兼容变换。", sourceStart, sourceLength, subtitleId));
+                diagnostics.Add(new("Ass.MixedMaskModes", "ASS transforms mixing clip and iclip, or rectangles and vectors, cannot be preserved as one mask. The base shape was preserved and incompatible transforms were discarded.", sourceStart, sourceLength, subtitleId));
                 continue;
             }
             transforms.Add(new(start, end, acceleration, rectangle));
@@ -108,7 +108,7 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
             var bottomRight = new ScenePoint(AssFormatValues.Integer(arguments[2]) * scaleX, AssFormatValues.Integer(arguments[3]) * scaleY);
             if (topLeft.X > bottomRight.X || topLeft.Y > bottomRight.Y)
             {
-                throw new InvalidDataException("ASS 矩形裁切必须按左上、右下顺序指定坐标。");
+                throw new InvalidDataException("ASS rectangular clipping coordinates must specify the top-left corner followed by the bottom-right corner.");
             }
             return new RectangleClipMask
             {
@@ -118,12 +118,12 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
         }
         if (arguments.Length is not (1 or 2))
         {
-            throw new InvalidDataException("ASS 矢量裁切必须指定绘图以及可选 scale。");
+            throw new InvalidDataException("ASS vector clipping requires drawing commands and an optional scale value.");
         }
         var scale = arguments.Length == 2 ? AssFormatValues.Integer(arguments[0]) : 1;
         if (scale is < 1 or > 31)
         {
-            throw new InvalidDataException("ASS 矢量裁切 scale 必须在 1 至 31 之间。");
+            throw new InvalidDataException("ASS vector clipping scale must be between 1 and 31.");
         }
         var divisor = Math.Pow(2, scale - 1);
         return AssMaskDrawing.Parse(arguments[^1], name == "iclip", scaleX / divisor, scaleY / divisor);

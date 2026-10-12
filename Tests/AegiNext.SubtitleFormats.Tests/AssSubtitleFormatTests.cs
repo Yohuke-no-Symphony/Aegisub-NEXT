@@ -315,7 +315,7 @@ public sealed class AssSubtitleFormatTests
         var diagnostic = Assert.Single(result.Diagnostics.Where(item => item.Code == "Ass.ProjectPositionUnsupported"));
         Assert.Equal(line.Id, diagnostic.SubtitleId);
         Assert.Equal("\\pos(100,200)", source.Substring(diagnostic.SourceStart, diagnostic.SourceLength));
-        Assert.Contains("移除", diagnostic.Message, StringComparison.Ordinal);
+        Assert.Contains("Remove", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]

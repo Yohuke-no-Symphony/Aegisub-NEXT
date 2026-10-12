@@ -105,7 +105,7 @@ internal static class AssOpacityConversion
             var alpha = checked((int)Math.Round((1 - opacity) * 255, MidpointRounding.ToEven));
             if (Math.Abs(opacity - (1 - alpha / 255d)) > ALPHA_TOLERANCE)
             {
-                diagnostics.Add(new("Ass.OpacityPrecision", "ASS 整体透明度仅支持 8 位精度，部分透明度已取近似值。", SubtitleId: subtitleId));
+                diagnostics.Add(new("Ass.OpacityPrecision", "ASS overall alpha supports only 8-bit precision. Some alpha values were approximated.", SubtitleId: subtitleId));
             }
             return alpha;
         }
@@ -115,7 +115,7 @@ internal static class AssOpacityConversion
             var value = time.ToTimestamp(new(1, 1000), MediaTimeRounding.TO_EVEN).Value;
             if (new MediaTime(value, 1000) != time)
             {
-                diagnostics.Add(new("Ass.FadeTimeQuantization", "ASS 淡入淡出的时刻已取整到毫秒，极短过渡可能变为瞬时变化。", SubtitleId: subtitleId));
+                diagnostics.Add(new("Ass.FadeTimeQuantization", "ASS fade times were rounded to milliseconds. Very short transitions may become instantaneous.", SubtitleId: subtitleId));
             }
             return value;
         }

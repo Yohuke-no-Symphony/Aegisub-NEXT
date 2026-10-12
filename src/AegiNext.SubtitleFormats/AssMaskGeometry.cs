@@ -18,7 +18,7 @@ internal static class AssMaskGeometry
     {
         if (transform.Scale.X == 0 || transform.Scale.Y == 0)
         {
-            throw new InvalidOperationException("蒙版零缩放无法从 ASS 画面坐标反推基础几何；请先恢复非零缩放。");
+            throw new InvalidOperationException("Base mask geometry cannot be recovered from ASS screen coordinates with zero scaling. Restore nonzero scaling first.");
         }
         var angle = transform.Rotation * Math.PI / 180;
         var x = point.X - (handle ? 0 : transform.Pivot.X + transform.Position.X);

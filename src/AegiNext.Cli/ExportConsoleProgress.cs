@@ -20,7 +20,7 @@ internal sealed class ExportConsoleProgress(IAnsiConsole console, StatusContext?
         lastReport = now;
         var percent = value.Fraction is >= 0 and <= 1
             ? $" {value.Fraction.Value.ToString("P0", CultureInfo.InvariantCulture)}" : string.Empty;
-        var text = $"{value.Stage}：{value.FrameCount} 帧，时间 {value.Position}，编码器 {value.Encoder ?? "待确认"}{percent}";
+        var text = $"{value.Stage}: {value.FrameCount} frames, time {value.Position}, encoder {value.Encoder ?? "pending"}{percent}";
         if (status is not null)
         {
             status.Status(Markup.Escape(text));

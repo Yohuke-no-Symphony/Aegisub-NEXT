@@ -32,7 +32,7 @@ public sealed class LinearRenderSurface : IDisposable
             createdSurface = (graphicsContext is null
                 ? SKSurface.Create(imageInfo, info.RowBytes)
                 : SKSurface.Create(graphicsContext, true, imageInfo))
-                ?? throw new InvalidOperationException("无法创建 F16 离屏表面。");
+                ?? throw new InvalidOperationException("The F16 offscreen surface could not be created.");
             createdSurface.Canvas.Clear(SKColors.Transparent);
             surface = createdSurface;
         }
@@ -67,7 +67,7 @@ public sealed class LinearRenderSurface : IDisposable
     {
         ObjectDisposedException.ThrowIf(isDisposed, this);
         using var image = SKImage.FromPixelCopy(new(Info.Width, Info.Height, SKColorType.RgbaF16, SKAlphaType.Premul, colorSpace),
-            MemoryMarshal.AsBytes(pixels), Info.RowBytes) ?? throw new InvalidOperationException("无法替换 F16 像素。");
+            MemoryMarshal.AsBytes(pixels), Info.RowBytes) ?? throw new InvalidOperationException("The F16 pixels could not be replaced.");
         using var paint = new SKPaint { BlendMode = SKBlendMode.Src };
         var saved = surface.Canvas.Save();
         try
@@ -93,7 +93,7 @@ public sealed class LinearRenderSurface : IDisposable
         using var bitmap = new SKBitmap(new SKImageInfo(Info.Width, Info.Height, SKColorType.Bgra8888, SKAlphaType.Premul, srgb));
         if (!surface.ReadPixels(bitmap.Info, bitmap.GetPixels(), bitmap.RowBytes, 0, 0))
         {
-            throw new InvalidOperationException("无法读取 sRGB 预览像素。");
+            throw new InvalidOperationException("The sRGB preview pixels could not be read.");
         }
 
         var result = new byte[checked(Info.Width * Info.Height * 4)];
@@ -109,7 +109,7 @@ public sealed class LinearRenderSurface : IDisposable
     {
         var imageInfo = new SKImageInfo(Info.Width, Info.Height, SKColorType.Bgra8888, SKAlphaType.Premul, srgb);
         srgbReadback ??= SKSurface.Create(graphicsContext!, true, imageInfo)
-            ?? throw new InvalidOperationException("无法创建 GPU sRGB 回读表面。");
+            ?? throw new InvalidOperationException("The GPU sRGB readback surface could not be created.");
         using var image = surface.Snapshot();
         using var paint = new SKPaint { BlendMode = SKBlendMode.Src };
         srgbReadback.Canvas.DrawImage(image, 0, 0, paint);
@@ -118,7 +118,7 @@ public sealed class LinearRenderSurface : IDisposable
         {
             if (!srgbReadback.ReadPixels(imageInfo, (nint)pixels, Info.Width * 4, 0, 0))
             {
-                throw new InvalidOperationException("无法读取 GPU sRGB 预览像素。");
+                throw new InvalidOperationException("The GPU sRGB preview pixels could not be read.");
             }
         }
         return result;
@@ -179,7 +179,7 @@ public sealed class LinearRenderSurface : IDisposable
         RenderValidation.UnitInterval(opacity, nameof(opacity));
         if (!source.Info.ReferenceWhiteNits.Equals(Info.ReferenceWhiteNits))
         {
-            throw new ArgumentException("合成前必须统一参考白亮度标度。", nameof(source));
+            throw new ArgumentException("Reference-white luminance scales must match before composition.", nameof(source));
         }
 
         using var snapshot = source.surface.Snapshot();
@@ -195,7 +195,7 @@ public sealed class LinearRenderSurface : IDisposable
         ObjectDisposedException.ThrowIf(isDisposed, this);
         if (destination.Length < Info.ChannelCount)
         {
-            throw new ArgumentException("目标缓冲不足以容纳全部像素。", nameof(destination));
+            throw new ArgumentException("The destination buffer cannot contain all pixels.", nameof(destination));
         }
 
         using var pixels = surface.PeekPixels();
@@ -220,7 +220,7 @@ public sealed class LinearRenderSurface : IDisposable
             if (!surface.ReadPixels(new(Info.Width, Info.Height, SKColorType.RgbaF16, SKAlphaType.Premul, colorSpace),
                     (nint)buffer, Info.RowBytes, 0, 0))
             {
-                throw new InvalidOperationException("无法读取 GPU 离屏像素。");
+                throw new InvalidOperationException("The GPU offscreen pixels could not be read.");
             }
         }
     }
@@ -233,7 +233,7 @@ public sealed class LinearRenderSurface : IDisposable
         ObjectDisposedException.ThrowIf(isDisposed, this);
         if (destination.Length < Info.ChannelCount)
         {
-            throw new ArgumentException("目标缓冲不足以容纳全部像素。", nameof(destination));
+            throw new ArgumentException("The destination buffer cannot contain all pixels.", nameof(destination));
         }
 
         var info = new SKImageInfo(Info.Width, Info.Height, SKColorType.RgbaF32, SKAlphaType.Premul, colorSpace);
@@ -241,7 +241,7 @@ public sealed class LinearRenderSurface : IDisposable
         {
             if (!surface.ReadPixels(info, (nint)pixels, checked(Info.Width * 4 * sizeof(float)), 0, 0))
             {
-                throw new InvalidOperationException("无法读取线性 float 像素。");
+                throw new InvalidOperationException("The linear float pixels could not be read.");
             }
         }
     }

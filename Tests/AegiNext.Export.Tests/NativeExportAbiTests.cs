@@ -58,8 +58,8 @@ public sealed class NativeExportAbiTests
     {
         var library = Path.Combine(Path.GetTempPath(), "工程 native", "libaeginext_export.dylib");
         var error = Assert.Throws<NotSupportedException>(() => NativeExportAbi.Validate(version, library));
-        Assert.Contains("需要 ABI 6", error.Message, StringComparison.Ordinal);
-        Assert.Contains($"实际 ABI {version}", error.Message, StringComparison.Ordinal);
+        Assert.Contains("required ABI 6", error.Message, StringComparison.Ordinal);
+        Assert.Contains($"actual ABI {version}", error.Message, StringComparison.Ordinal);
         Assert.Contains(library, error.Message, StringComparison.Ordinal);
         Assert.Contains("-Target Workbench -Configuration", error.Message, StringComparison.Ordinal);
     }

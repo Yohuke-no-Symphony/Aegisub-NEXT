@@ -17,7 +17,7 @@ public sealed record ImageMetadata
         if (frameDurations.IsDefaultOrEmpty || frameDurations.Any(value => value < MediaTime.Zero) ||
             (frameDurations.Length > 1 && frameDurations.Any(value => value == MediaTime.Zero)))
         {
-            throw new ArgumentException("图片帧时长无效。", nameof(frameDurations));
+            throw new ArgumentException("The image frame duration is invalid.", nameof(frameDurations));
         }
         Width = width;
         Height = height;

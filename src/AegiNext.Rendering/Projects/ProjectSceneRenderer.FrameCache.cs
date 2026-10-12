@@ -54,7 +54,7 @@ public sealed partial class ProjectSceneRenderer
         ArgumentNullException.ThrowIfNull(document);
         if (destination.Length < checked(document.Width * document.Height * 4))
         {
-            throw new ArgumentException("目标缓冲不足以容纳全部像素。", nameof(destination));
+            throw new ArgumentException("The destination buffer cannot contain all pixels.", nameof(destination));
         }
 
         cancellationToken.ThrowIfCancellationRequested();

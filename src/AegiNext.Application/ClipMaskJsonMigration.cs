@@ -88,7 +88,7 @@ internal static class ClipMaskJsonMigration
                         property.NameEquals("scaleX") || property.NameEquals("scaleY") ||
                         property.NameEquals("anchorX") || property.NameEquals("anchorY"))
                     {
-                        throw new JsonException("版本 5 不接受旧标量图层变换字段。");
+                        throw new JsonException("Version 5 does not accept legacy scalar layer-transform fields.");
                     }
                 }
             }
@@ -117,7 +117,7 @@ internal static class ClipMaskJsonMigration
 
             if (track.TryGetProperty("property", out _))
             {
-                throw new JsonException("版本 5 的动画轨道只接受完整 target，不接受旧 property 字段。");
+                throw new JsonException("Version 5 animation tracks require a complete target and do not accept the legacy property field.");
             }
 
             if (track.TryGetProperty("keyframes", out var frames) && frames.ValueKind == JsonValueKind.Array)
@@ -126,7 +126,7 @@ internal static class ClipMaskJsonMigration
                 {
                     if (frame.ValueKind == JsonValueKind.Object && frame.TryGetProperty("vectorCurve", out _))
                     {
-                        throw new JsonException("版本 5 的关键帧不接受旧 vectorCurve 字段。");
+                        throw new JsonException("Version 5 keyframes do not accept the legacy vectorCurve field.");
                     }
                 }
             }
@@ -138,8 +138,8 @@ internal static class ClipMaskJsonMigration
         if (owner["mask"] is not null)
         {
             var id = owner["id"] is JsonValue value && value.TryGetValue<string>(out var identifier)
-                ? identifier : "未知标识";
-            throw new InvalidDataException($"{location}（{id}）含有非空旧局部蒙版，无法安全升级为项目坐标 Clip 蒙版；原文件未修改。");
+                ? identifier : "unknown ID";
+            throw new InvalidDataException($"{location} ({id}) contains a nonempty legacy local mask that cannot be safely upgraded to a project-coordinate Clip mask; the original file was not modified.");
         }
     }
 
@@ -160,7 +160,7 @@ internal static class ClipMaskJsonMigration
             if (track.ContainsKey("target") || track["property"] is not JsonValue value ||
                 !value.TryGetValue<string>(out var property))
             {
-                throw new JsonException($"{location}.tracks[{index}] 缺少旧属性字段，或同时包含新旧轨道目标。");
+                throw new JsonException($"{location}.tracks[{index}] is missing its legacy property field or contains both old and new track targets.");
             }
 
             track["target"] = new JsonObject { ["property"] = property, ["nodeId"] = null };

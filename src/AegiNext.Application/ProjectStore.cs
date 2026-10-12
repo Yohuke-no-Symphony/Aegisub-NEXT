@@ -32,7 +32,7 @@ public static class ProjectStore
         }
         catch (Exception error) when (error is JsonException or ArgumentException or OverflowException)
         {
-            throw new InvalidDataException("项目 JSON 格式无效。", error);
+            throw new InvalidDataException("The project JSON format is invalid.", error);
         }
     }
 
@@ -129,7 +129,7 @@ public static class ProjectStore
         }
         catch (Exception error) when (error is JsonException or ArgumentException or OverflowException)
         {
-            throw new InvalidDataException("项目 JSON 格式无效。", error);
+            throw new InvalidDataException("The project JSON format is invalid.", error);
         }
     }
 
@@ -143,7 +143,7 @@ public static class ProjectStore
         }
         catch (Exception error) when (error is JsonException or ArgumentException or OverflowException)
         {
-            throw new InvalidDataException("项目 JSON 格式无效。", error);
+            throw new InvalidDataException("The project JSON format is invalid.", error);
         }
     }
 
@@ -154,7 +154,7 @@ public static class ProjectStore
             version.ValueKind != JsonValueKind.Number ||
             !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or ProjectDocument.CURRENT_VERSION))
         {
-            throw new InvalidDataException($"只支持项目版本 3、4、5、6、7、8、9、10、11、12、13、14 和 {ProjectDocument.CURRENT_VERSION}，更旧项目需要使用对应版本打开。");
+            throw new InvalidDataException($"Only project versions 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, and {ProjectDocument.CURRENT_VERSION} are supported; open older projects with the corresponding application version.");
         }
 
         if (number >= 5)
@@ -164,7 +164,7 @@ public static class ProjectStore
 
         if (number == ProjectDocument.CURRENT_VERSION)
         {
-            var current = root.Deserialize<ProjectDocument>(options) ?? throw new JsonException("项目不能为空。");
+            var current = root.Deserialize<ProjectDocument>(options) ?? throw new JsonException("The project cannot be null.");
             ProjectValidator.Validate(current);
             return current;
         }
@@ -203,7 +203,7 @@ public static class ProjectStore
             SubtitleKaraokeStyleJsonMigration.Upgrade(content, options);
         }
         content["version"] = ProjectDocument.CURRENT_VERSION;
-        var document = content.Deserialize<ProjectDocument>(options) ?? throw new JsonException("项目不能为空。");
+        var document = content.Deserialize<ProjectDocument>(options) ?? throw new JsonException("The project cannot be null.");
         if (number < 11)
         {
             return LegacySubtitleKaraokeMigration.Upgrade(document);
@@ -286,7 +286,7 @@ public static class ProjectStore
     {
         if (element.ValueKind is JsonValueKind.Object or JsonValueKind.Array && depth >= options.MaxDepth)
         {
-            throw new JsonException("项目 JSON 嵌套过深。");
+            throw new JsonException("The project JSON nesting is too deep.");
         }
 
         if (element.ValueKind == JsonValueKind.Object)
@@ -296,7 +296,7 @@ public static class ProjectStore
             {
                 if (!names.Add(property.Name))
                 {
-                    throw new JsonException($"重复的字段：{property.Name}");
+                    throw new JsonException($"Duplicate field: {property.Name}");
                 }
 
                 RejectDuplicateKeys(property.Value, depth + 1);

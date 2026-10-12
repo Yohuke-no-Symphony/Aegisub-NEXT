@@ -21,7 +21,7 @@ internal static class SubtitleKaraokeStyleJsonMigration
             }
             if (line.ContainsKey("karaokeStyleSpans"))
             {
-                throw new JsonException("旧工程不能包含未声明版本的高亮文字范围样式。");
+                throw new JsonException("Legacy projects cannot contain karaoke text-range styles not declared by their version.");
             }
             var spans = ImmutableArray.CreateBuilder<SubtitleKaraokeStyleSpan>();
             Extract(line["karaoke"], spans, options);
@@ -53,14 +53,14 @@ internal static class SubtitleKaraokeStyleJsonMigration
             }
             if (!segment.ContainsKey("activeStyle") || !segment.ContainsKey("inactiveStyle"))
             {
-                throw new JsonException("旧高亮片段缺少必需的视觉覆盖字段。");
+                throw new JsonException("A legacy karaoke segment is missing the required visual override fields.");
             }
             var active = segment["activeStyle"]?.Deserialize<KaraokeVisualStyleOverride>(options);
             var inactive = segment["inactiveStyle"]?.Deserialize<KaraokeVisualStyleOverride>(options);
             if (active is { HasOverrides: true } || inactive is { HasOverrides: true })
             {
-                var start = segment["utf16Start"]?.Deserialize<int>(options) ?? throw new JsonException("缺少旧高亮范围起点。");
-                var length = segment["utf16Length"]?.Deserialize<int>(options) ?? throw new JsonException("缺少旧高亮范围长度。");
+                var start = segment["utf16Start"]?.Deserialize<int>(options) ?? throw new JsonException("The legacy karaoke range start is missing.");
+                var length = segment["utf16Length"]?.Deserialize<int>(options) ?? throw new JsonException("The legacy karaoke range length is missing.");
                 spans.Add(new(start, length, active, inactive));
             }
             segment.Remove("activeStyle");

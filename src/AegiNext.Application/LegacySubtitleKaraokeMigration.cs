@@ -16,7 +16,7 @@ internal static class LegacySubtitleKaraokeMigration
         }
         if (line.Text is null)
         {
-            throw new InvalidDataException("字幕文字不能为 null。");
+            throw new InvalidDataException("Subtitle text cannot be null.");
         }
         var boundaries = new SubtitleTextBoundaries(line.Text);
         ProjectValidator.ValidateSubtitleKaraoke(line, boundaries);

@@ -22,7 +22,7 @@ internal sealed class AssRotationOriginParser(Guid subtitleId, double scaleX, do
             var arguments = AssOverrideTags.Arguments(value);
             if (arguments.Length != 2)
             {
-                throw new InvalidDataException("ASS org 必须有两个坐标。");
+                throw new InvalidDataException("ASS org requires two coordinates.");
             }
             var x = AssFormatValues.Number(arguments[0]);
             var y = AssFormatValues.Number(arguments[1]);
@@ -32,7 +32,7 @@ internal sealed class AssRotationOriginParser(Guid subtitleId, double scaleX, do
         }
         catch (InvalidDataException)
         {
-            diagnostics.Add(new("Ass.RotationOrigin", "ASS 旋转原点参数无效，已忽略该标签并保留其他内容。",
+            diagnostics.Add(new("Ass.RotationOrigin", "ASS rotation-origin arguments are invalid. The tag was ignored and other content was preserved.",
                 sourceStart, sourceLength, subtitleId));
         }
     }

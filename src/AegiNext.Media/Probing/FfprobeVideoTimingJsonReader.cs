@@ -20,7 +20,7 @@ internal static class FfprobeVideoTimingJsonReader
             var streams = RequireArray(root, "streams");
             if (streams.GetArrayLength() != 1)
             {
-                throw Invalid("streams", "必须包含唯一的目标视频流。");
+                throw Invalid("streams", "Exactly one target video stream is required.");
             }
 
             var stream = streams[0];
@@ -28,7 +28,7 @@ internal static class FfprobeVideoTimingJsonReader
             if (ReadInt64(stream, "index") != streamIndex ||
                 !stream.TryGetProperty("codec_type", out var codecType) || codecType.GetString() != "video")
             {
-                throw Invalid("stream", "目标流索引或类型与请求不一致。");
+                throw Invalid("stream", "The target stream index or type does not match the request.");
             }
 
             var timeBase = ReadTimeBase(stream);
@@ -36,7 +36,7 @@ internal static class FfprobeVideoTimingJsonReader
             var count = frames.GetArrayLength();
             if (count == 0 || count > VideoTimingIndex.MaximumFrameCount)
             {
-                throw Invalid("frames", $"视频帧数必须在 1 至 {VideoTimingIndex.MaximumFrameCount} 之间。");
+                throw Invalid("frames", $"The video frame count must be between 1 and {VideoTimingIndex.MaximumFrameCount}.");
             }
 
             var frameTimes = ImmutableArray.CreateBuilder<MediaTime>(count);
@@ -47,26 +47,26 @@ internal static class FfprobeVideoTimingJsonReader
                 RequireObject(frame, "frame");
                 if (ReadInt64(frame, "stream_index") != streamIndex)
                 {
-                    throw Invalid("stream_index", "帧不属于目标视频流。");
+                    throw Invalid("stream_index", "The frame does not belong to the target video stream.");
                 }
 
                 var pts = ReadInt64(frame, "pts");
                 if (frame.TryGetProperty("best_effort_timestamp", out var bestEffort) &&
                     bestEffort.ValueKind != JsonValueKind.Null && ReadInt64(frame, "best_effort_timestamp") != pts)
                 {
-                    throw Invalid("best_effort_timestamp", "显示时间与实际帧 PTS 不一致，不能建立精确索引。");
+                    throw Invalid("best_effort_timestamp", "The display time does not match the actual frame PTS; an exact index cannot be built.");
                 }
 
                 var time = new MediaTimestamp(pts, timeBase).ToMediaTime() - origin;
                 if (frameTimes.Count > 0 && time <= frameTimes[^1])
                 {
-                    throw Invalid("pts", $"显示顺序第 {frameTimes.Count} 帧时间未严格递增；不能补帧或推算平均帧率。");
+                    throw Invalid("pts", $"The timestamp of display-order frame {frameTimes.Count} is not strictly increasing; frames cannot be inserted or inferred from an average frame rate.");
                 }
 
                 var keyframe = ReadInt64(frame, "key_frame");
                 if (keyframe is not (0 or 1))
                 {
-                    throw Invalid("key_frame", "关键帧标记必须为 0 或 1。");
+                    throw Invalid("key_frame", "The keyframe flag must be 0 or 1.");
                 }
 
                 if (keyframe == 1)
@@ -87,7 +87,7 @@ internal static class FfprobeVideoTimingJsonReader
         }
         catch (Exception exception) when (exception is JsonException or OverflowException or InvalidOperationException)
         {
-            throw new InvalidDataException("FFprobe 视频帧时间报告无效或超出精确时间表示范围。", exception);
+            throw new InvalidDataException("The FFprobe video frame timing report is invalid or exceeds the exact time representation range.", exception);
         }
     }
 
@@ -95,7 +95,7 @@ internal static class FfprobeVideoTimingJsonReader
     {
         if (!stream.TryGetProperty("time_base", out var element) || element.ValueKind != JsonValueKind.String)
         {
-            throw Invalid("time_base", "缺少视频流时基。");
+            throw Invalid("time_base", "The video stream time base is missing.");
         }
 
         var text = element.GetString()!;
@@ -105,7 +105,7 @@ internal static class FfprobeVideoTimingJsonReader
             !long.TryParse(text.AsSpan(separator + 1), NumberStyles.None, CultureInfo.InvariantCulture, out var denominator) ||
             numerator <= 0 || denominator <= 0)
         {
-            throw Invalid("time_base", "视频流时基必须是可精确表示的正有理数。");
+            throw Invalid("time_base", "The video stream time base must be an exactly representable positive rational number.");
         }
 
         return new(numerator, denominator);
@@ -115,7 +115,7 @@ internal static class FfprobeVideoTimingJsonReader
     {
         if (!parent.TryGetProperty(name, out var element))
         {
-            throw Invalid(name, "缺少实际帧字段，不能以估算时间替代。");
+            throw Invalid(name, "An actual frame field is missing; estimated timing cannot replace it.");
         }
 
         var text = element.ValueKind switch
@@ -128,7 +128,7 @@ internal static class FfprobeVideoTimingJsonReader
             !long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value) ||
             value == long.MinValue)
         {
-            throw Invalid(name, "必须是有效的 Int64 整数且不能是未定义 PTS 标记。");
+            throw Invalid(name, "A valid Int64 integer is required, and it cannot be the undefined PTS sentinel.");
         }
 
         return value;
@@ -138,7 +138,7 @@ internal static class FfprobeVideoTimingJsonReader
     {
         if (!parent.TryGetProperty(name, out var element) || element.ValueKind != JsonValueKind.Array)
         {
-            throw Invalid(name, "缺少数组。");
+            throw Invalid(name, "An array is missing.");
         }
 
         return element;
@@ -148,7 +148,7 @@ internal static class FfprobeVideoTimingJsonReader
     {
         if (element.ValueKind != JsonValueKind.Object)
         {
-            throw Invalid(name, "必须是对象。");
+            throw Invalid(name, "An object is required.");
         }
 
         var names = new HashSet<string>(StringComparer.Ordinal);
@@ -156,13 +156,13 @@ internal static class FfprobeVideoTimingJsonReader
         {
             if (!names.Add(property.Name))
             {
-                throw Invalid(property.Name, "同一对象中的字段重复。");
+                throw Invalid(property.Name, "Duplicate field within the same object.");
             }
         }
     }
 
     private static InvalidDataException Invalid(string field, string message)
     {
-        return new($"FFprobe 视频帧字段 {field}：{message}");
+        return new($"FFprobe video frame field {field}: {message}");
     }
 }

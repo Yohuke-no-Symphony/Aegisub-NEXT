@@ -87,8 +87,8 @@ internal static class AssTextAnimationTrackWriter
         var sampled = AssAnimationSampler.Sample(track, components, origin, end);
         var limited = sampled.Limited;
         diagnostics.Add(new(limited ? "Ass.AnimationSamplingLimit" : "Ass.AnimationSampling",
-            limited ? "动画采样达到 1 毫秒或每轨道 4096 点限制，部分区间误差可能超过 1/255；已保留采样结果。" :
-                "原生插值已采样为 ASS 线性变换，采样检查的输出分量误差不超过 1/255，时间精度为毫秒。", SubtitleId: subtitleId));
+            limited ? "Animation sampling reached the 1-millisecond or 4096-point-per-track limit. Errors in some intervals may exceed 1/255; the sampled result was preserved." :
+                "Native interpolation was sampled as ASS linear transforms. Errors in checked output components do not exceed 1/255, with millisecond time precision.", SubtitleId: subtitleId));
         var result = new StringBuilder(tags(sampled.Frames[0].Value, 0, AnimationTransformMode.INTERPOLATE_TO));
         for (var index = 0; index < sampled.Frames.Length - 1; index++)
         {
@@ -118,7 +118,7 @@ internal static class AssTextAnimationTrackWriter
         }
         if (new MediaTime(start, 1000) != startTime || new MediaTime(end, 1000) != endTime)
         {
-            diagnostics.Add(new("Ass.TransformTimeQuantization", "ASS 变换时间已量化到毫秒，正时长至少保留 1 毫秒。", SubtitleId: subtitleId));
+            diagnostics.Add(new("Ass.TransformTimeQuantization", "ASS transform times were quantized to milliseconds; positive durations retain at least 1 millisecond.", SubtitleId: subtitleId));
         }
         AssExportPrecision.AddNumbers(subtitleId, diagnostics, reportedPrecision, acceleration);
         result.Append("\\t(").Append(start.ToString(CultureInfo.InvariantCulture)).Append(',')

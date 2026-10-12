@@ -17,7 +17,7 @@ internal static class PlaybackOriginJsonMigration
         {
             if (media.ContainsKey("playbackOrigin"))
             {
-                throw new JsonException("旧工程不能包含未声明版本的播放零点字段。");
+                throw new JsonException("Legacy projects cannot contain playback-origin fields not declared by their version.");
             }
             media.Add("playbackOrigin", null);
         }

@@ -18,9 +18,9 @@ internal static class VectorAnimationJsonMigration
             {
                 if (line["id"] is JsonValue id && id.TryGetValue<Guid>(out var subtitleId) && line["style"] is JsonObject style)
                 {
-                    if (!styles.TryAdd(subtitleId, style.Deserialize<SubtitleStyle>(options) ?? throw new JsonException("字幕样式不能为空。")))
+                    if (!styles.TryAdd(subtitleId, style.Deserialize<SubtitleStyle>(options) ?? throw new JsonException("The subtitle style cannot be null.")))
                     {
-                        throw new JsonException("字幕标识重复。");
+                        throw new JsonException("Duplicate subtitle ID.");
                     }
                 }
             }
@@ -54,7 +54,7 @@ internal static class VectorAnimationJsonMigration
                 var expected = new HashSet<string>(["x", "y", "scaleX", "scaleY", "rotation", "anchorX", "anchorY"], StringComparer.Ordinal);
                 if (transform.Count != expected.Count || transform.Any(pair => !expected.Contains(pair.Key)))
                 {
-                    throw new JsonException("旧版图层变换字段缺失，或同时包含新旧向量字段。");
+                    throw new JsonException("Legacy layer-transform fields are missing, or both old and new vector fields are present.");
                 }
 
                 layer["transform"] = new JsonObject
@@ -66,7 +66,7 @@ internal static class VectorAnimationJsonMigration
                 };
             }
 
-            var value = layer["transform"]!.Deserialize<LayerTransform>(options) ?? throw new JsonException("图层变换不能为空。");
+            var value = layer["transform"]!.Deserialize<LayerTransform>(options) ?? throw new JsonException("The layer transform cannot be null.");
             var hasLegacyColor = layer["tracks"] is JsonArray tracks && tracks.OfType<JsonObject>().Any(track =>
                 track["target"]?["property"] is JsonValue property && property.TryGetValue<string>(out var name) &&
                 Enum.TryParse<AnimationProperty>(name, ignoreCase: true, out var animationProperty) &&
@@ -79,7 +79,7 @@ internal static class VectorAnimationJsonMigration
                 {
                     if (!styles.TryGetValue(subtitleId, out var style))
                     {
-                        throw new JsonException("旧字幕颜色轨道缺少引用的真实字幕样式。");
+                        throw new JsonException("A legacy subtitle color track is missing its referenced subtitle style.");
                     }
 
                     fill = style.Fill;
@@ -87,8 +87,8 @@ internal static class VectorAnimationJsonMigration
                 }
                 else
                 {
-                    fill = layer["fill"]?.Deserialize<SceneColor>(options) ?? throw new JsonException("旧颜色轨道缺少图层填充。");
-                    stroke = layer["stroke"]?.Deserialize<SceneColor>(options) ?? throw new JsonException("旧颜色轨道缺少图层描边。");
+                    fill = layer["fill"]?.Deserialize<SceneColor>(options) ?? throw new JsonException("A legacy color track is missing the layer fill.");
+                    stroke = layer["stroke"]?.Deserialize<SceneColor>(options) ?? throw new JsonException("A legacy color track is missing the layer stroke.");
                 }
             }
 
@@ -110,7 +110,7 @@ internal static class VectorAnimationJsonMigration
     {
         if (value[name] is not JsonValue number || !number.TryGetValue<double>(out var result) || !double.IsFinite(result))
         {
-            throw new JsonException($"旧版变换 {name} 不是有效数值。");
+            throw new JsonException($"Legacy transform {name} is not a valid number.");
         }
 
         return result;
@@ -130,7 +130,7 @@ internal static class VectorAnimationJsonMigration
             {
                 if (key.ContainsKey("componentCurves"))
                 {
-                    throw new JsonException("关键帧同时包含新旧分量曲线字段。");
+                    throw new JsonException("A keyframe contains both old and new component-curve fields.");
                 }
 
                 key["componentCurves"] = key["vectorCurve"] is { } curve ? new JsonArray(curve.DeepClone()) : new JsonArray();
@@ -141,7 +141,7 @@ internal static class VectorAnimationJsonMigration
         var tracks = nodes.Deserialize<ImmutableArray<AnimationTrack>>(options);
         if (tracks.IsDefault || tracks.Any(track => track is null))
         {
-            throw new JsonException("动画轨道集合包含空项。");
+            throw new JsonException("The animation track collection contains a null item.");
         }
 
         var result = LegacyAnimationTrackMigration.Merge(tracks, AnimationProperty.POSITION, transform.Position);

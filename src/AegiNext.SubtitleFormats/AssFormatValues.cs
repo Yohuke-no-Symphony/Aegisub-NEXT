@@ -10,7 +10,7 @@ internal static class AssFormatValues
     {
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) || !double.IsFinite(number))
         {
-            throw new InvalidDataException("ASS 数值无效。");
+            throw new InvalidDataException("Invalid ASS numeric value.");
         }
         return number;
     }
@@ -19,7 +19,7 @@ internal static class AssFormatValues
     {
         if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
         {
-            throw new InvalidDataException("ASS 整数无效。");
+            throw new InvalidDataException("Invalid ASS integer.");
         }
         return number;
     }
@@ -30,7 +30,7 @@ internal static class AssFormatValues
     {
         if (value is < 1 or > 9)
         {
-            throw new InvalidDataException("ASS 对齐须位于 1 至 9。");
+            throw new InvalidDataException("ASS alignment must be between 1 and 9.");
         }
         return (TextAlignment)((2 - (value - 1) / 3) * 3 + (value - 1) % 3);
     }
@@ -50,7 +50,7 @@ internal static class AssFormatValues
             9 => TextAlignment.MIDDLE_LEFT,
             10 => TextAlignment.MIDDLE_CENTER,
             11 => TextAlignment.MIDDLE_RIGHT,
-            _ => throw new InvalidDataException("SSA 对齐须为 1、2、3、5、6、7、9、10 或 11。")
+            _ => throw new InvalidDataException("SSA alignment must be 1, 2, 3, 5, 6, 7, 9, 10, or 11.")
         };
     }
 
@@ -62,7 +62,7 @@ internal static class AssFormatValues
         {
             if (!uint.TryParse(token.AsSpan(2), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out bits))
             {
-                throw new InvalidDataException("ASS 颜色无效。");
+                throw new InvalidDataException("Invalid ASS color.");
             }
         }
         else if (long.TryParse(token, CultureInfo.InvariantCulture, out var signed))
@@ -71,7 +71,7 @@ internal static class AssFormatValues
         }
         else
         {
-            throw new InvalidDataException("ASS 颜色无效。");
+            throw new InvalidDataException("Invalid ASS color.");
         }
         return new(Linear((bits & 255) / 255.0), Linear((bits >> 8 & 255) / 255.0),
             Linear((bits >> 16 & 255) / 255.0), previous?.Alpha ?? 1 - (bits >> 24) / 255.0);
@@ -86,7 +86,7 @@ internal static class AssFormatValues
         }
         if (!byte.TryParse(token, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var alpha))
         {
-            throw new InvalidDataException("ASS 透明度无效。");
+            throw new InvalidDataException("Invalid ASS alpha value.");
         }
         return 1 - alpha / 255.0;
     }
@@ -112,7 +112,7 @@ internal static class AssFormatValues
             !int.TryParse(parts[2], NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) || seconds >= 60 ||
             !int.TryParse(parts[3], NumberStyles.None, CultureInfo.InvariantCulture, out var fraction))
         {
-            throw new InvalidDataException("ASS 时间必须为 H:MM:SS.cc。");
+            throw new InvalidDataException("ASS times must use H:MM:SS.cc format.");
         }
         try
         {
@@ -120,7 +120,7 @@ internal static class AssFormatValues
         }
         catch (OverflowException exception)
         {
-            throw new InvalidDataException("ASS 时间超出范围。", exception);
+            throw new InvalidDataException("ASS time is out of range.", exception);
         }
     }
 

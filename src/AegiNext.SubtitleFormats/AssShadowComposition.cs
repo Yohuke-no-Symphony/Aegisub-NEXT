@@ -82,7 +82,7 @@ internal static class AssShadowComposition
     private static void Report(Guid id, ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
         diagnostics.Add(new("Ass.ShadowComposition",
-            "ASS 阴影包含描边轮廓，原生阴影由填充字形生成；零位移且无模糊的 ASS 阴影不绘制，原生仍参与合成。当前外观条件可能改变阴影边界或透明填充的合成结果，参数已保留但画面不能无损互换。",
+            "ASS shadows include stroke contours, while native shadows are generated from filled glyphs. ASS shadows with zero translation and no blur are not drawn, while native shadows still participate in compositing. Current appearance settings may change shadow bounds or the compositing result for transparent fills. Parameters were preserved, but the rendered image cannot be exchanged losslessly.",
             SubtitleId: id));
     }
 }

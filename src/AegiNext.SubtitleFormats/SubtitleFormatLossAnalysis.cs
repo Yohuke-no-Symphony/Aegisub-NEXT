@@ -15,24 +15,24 @@ public static class SubtitleFormatLossAnalysis
         {
             if (!line.InlineSpans.IsEmpty || !line.Karaoke.IsEmpty || line.Style != new SubtitleStyle())
             {
-                diagnostics.Add(new("Srt.Appearance", "SRT 仅保留文字和时间，局部样式、卡拉 OK 与排版将被舍弃。", SubtitleId: line.Id));
+                diagnostics.Add(new("Srt.Appearance", "SRT preserves only text and timing. Local styles, karaoke, and layout will be discarded.", SubtitleId: line.Id));
             }
         }
         foreach (var layer in document.Layers)
         {
             if (layer.Blur > 0)
             {
-                diagnostics.Add(new("Srt.Blur", "SRT 不支持整层模糊，导出时模糊将被舍弃。", SubtitleId: layer.SubtitleId,
+                diagnostics.Add(new("Srt.Blur", "SRT does not support whole-layer blur. Blur will be discarded during export.", SubtitleId: layer.SubtitleId,
                     LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
             if (layer.Mask is not null)
             {
-                diagnostics.Add(new("Srt.Mask", "SRT 不支持裁切蒙版，导出时蒙版几何将被舍弃。", SubtitleId: layer.SubtitleId,
+                diagnostics.Add(new("Srt.Mask", "SRT does not support clipping masks. Mask geometry will be discarded during export.", SubtitleId: layer.SubtitleId,
                     LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
             if (!layer.Tracks.IsEmpty)
             {
-                diagnostics.Add(new("Srt.Animation", "SRT 不支持片段及蒙版动画，导出时动画轨道将被舍弃。", SubtitleId: layer.SubtitleId,
+                diagnostics.Add(new("Srt.Animation", "SRT does not support clip or mask animation. Animation tracks will be discarded during export.", SubtitleId: layer.SubtitleId,
                     LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
         }
@@ -48,7 +48,7 @@ public static class SubtitleFormatLossAnalysis
                 layer.Tracks.Any(track => !supportsMasks || !AnimationPropertyMetadata.IsMaskProperty(track.Property)) || layer.MotionPath is not null || !supportsMasks && layer.Mask is not null ||
                 layer.Transform != new LayerTransform() || !layer.Opacity.Equals(1d) || layer.Blend != BlendMode.NORMAL)
             {
-                diagnostics.Add(new("Subtitle.Composition", "字幕格式不能保留项目合成、动画或图形图层。", SubtitleId: layer.SubtitleId,
+                diagnostics.Add(new("Subtitle.Composition", "Subtitle formats cannot preserve project compositing, animation, or shape layers.", SubtitleId: layer.SubtitleId,
                     LayerId: layer.SubtitleId is null ? layer.Id : null));
             }
         }
@@ -58,7 +58,7 @@ public static class SubtitleFormatLossAnalysis
     {
         if (!line.InactiveKaraoke.IsEmpty)
         {
-            diagnostics.Add(new("Ass.InactiveKaraoke", "ASS 无法保存停用演唱组的缓存时间、模式和默认高亮颜色；这些文字按普通正文导出。", SubtitleId: line.Id));
+            diagnostics.Add(new("Ass.InactiveKaraoke", "ASS cannot store cached timing, modes, and default highlight colors for disabled karaoke groups. This text was exported as ordinary text.", SubtitleId: line.Id));
         }
         if (line.KaraokeStyleSpans.IsEmpty && line.KaraokeStyle is null)
         {
@@ -107,7 +107,7 @@ public static class SubtitleFormatLossAnalysis
                 KaraokeVisualStyleResolver.RangeStyleAt(line, offset, KaraokeVisualState.INACTIVE));
             if (active != defaultActive || inactive != ordinary)
             {
-                diagnostics.Add(new("Ass.DormantKaraokeStyle", "未计时文字保存的 ACTIVE/INACTIVE 外观无法写入 ASS；已按普通正文导出，保留项目中的高亮样式范围。", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.DormantKaraokeStyle", "Stored ACTIVE/INACTIVE appearance for untimed text cannot be written to ASS. The text was exported as ordinary text; highlight style ranges in the project were preserved.", SubtitleId: line.Id));
                 return;
             }
         }

@@ -14,7 +14,7 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
             !element.TryGetProperty("numerator", out var numerator) || !numerator.TryGetInt64(out var n) ||
             !element.TryGetProperty("denominator", out var denominator) || !denominator.TryGetInt64(out var d) || d <= 0)
         {
-            throw new JsonException("时间必须由 int64 numerator 与正 denominator 表示。");
+            throw new JsonException("Time must be represented by an Int64 numerator and a positive denominator.");
         }
 
         return new(n, d);

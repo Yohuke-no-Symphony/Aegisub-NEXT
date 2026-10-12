@@ -18,7 +18,7 @@ internal sealed class NamedInstanceTextShaper : IDisposable
         ArgumentOutOfRangeException.ThrowIfNegative(collectionIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(collectionIndex, 0xFFFF);
         using var stream = typeface.OpenStream()
-            ?? throw new InvalidDataException("无法读取可变字体实例的数据。");
+            ?? throw new InvalidDataException("The variable font instance data could not be read.");
         using var blob = stream.ToHarfBuzzBlob();
         var faceIndex = (namedInstanceIndex << 16) | collectionIndex;
         using var face = new Face(blob, collectionIndex) { Index = faceIndex, UnitsPerEm = typeface.UnitsPerEm };

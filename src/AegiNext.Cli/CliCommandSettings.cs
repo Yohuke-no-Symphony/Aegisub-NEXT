@@ -7,14 +7,14 @@ namespace AegiNext.Cli;
 public abstract class CliCommandSettings : CommandSettings
 {
     [CommandOption("-i|--input <PATH>")]
-    [Description("输入文件路径。")]
+    [Description("Input file path.")]
     public string? Input { get; set; }
 
     [CommandOption("-o|--output <PATH>")]
-    [Description("输出文件或目录；省略时使用命令的默认位置。")]
+    [Description("Output file or directory; defaults to the command output location.")]
     public string? Output { get; set; }
 
     [CommandOption("--non-interactive")]
-    [Description("禁止交互询问；缺少必需参数时直接报错。")]
+    [Description("Disable interactive prompts; fail if required options are missing.")]
     public bool NonInteractive { get; set; }
 }

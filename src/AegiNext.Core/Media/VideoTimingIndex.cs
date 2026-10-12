@@ -19,24 +19,24 @@ public sealed class VideoTimingIndex
     {
         if (frameTimes.IsDefaultOrEmpty)
         {
-            throw new ArgumentException("视频帧时间索引不能为空。", nameof(frameTimes));
+            throw new ArgumentException("The video frame timing index cannot be empty.", nameof(frameTimes));
         }
 
         if (frameTimes.Length > MAX_FRAME_COUNT)
         {
-            throw new ArgumentOutOfRangeException(nameof(frameTimes), $"视频帧索引最多支持 {MAX_FRAME_COUNT} 帧。");
+            throw new ArgumentOutOfRangeException(nameof(frameTimes), $"The video frame index supports at most {MAX_FRAME_COUNT} frames.");
         }
 
         if (keyframes.IsDefault)
         {
-            throw new ArgumentException("关键帧索引必须初始化。", nameof(keyframes));
+            throw new ArgumentException("The keyframe index must be initialized.", nameof(keyframes));
         }
 
         for (var index = 1; index < frameTimes.Length; index++)
         {
             if (frameTimes[index] <= frameTimes[index - 1])
             {
-                throw new ArgumentException($"视频第 {index} 帧的 PTS 未严格递增。", nameof(frameTimes));
+                throw new ArgumentException($"The PTS of video frame {index} is not strictly increasing.", nameof(frameTimes));
             }
         }
 
@@ -45,7 +45,7 @@ public sealed class VideoTimingIndex
             var frame = keyframes[index];
             if (frame < 0 || frame >= frameTimes.Length || (index > 0 && frame <= keyframes[index - 1]))
             {
-                throw new ArgumentException("关键帧索引必须严格递增且位于视频帧范围内。", nameof(keyframes));
+                throw new ArgumentException("Keyframe indices must be strictly increasing and within the video frame range.", nameof(keyframes));
             }
         }
 
@@ -88,7 +88,7 @@ public sealed class VideoTimingIndex
         ValidateFrame(frame);
         if (Keyframes.IsEmpty)
         {
-            throw new InvalidOperationException("视频没有关键帧候选。");
+            throw new InvalidOperationException("The video has no candidate keyframes.");
         }
 
         var low = 0;

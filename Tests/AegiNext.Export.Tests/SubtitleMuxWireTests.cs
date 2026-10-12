@@ -49,7 +49,7 @@ public sealed class SubtitleMuxWireTests
         Assert.False(loaded);
         var receipt = JsonSerializer.Deserialize<ExportWorkerMessage>(output.ToString(), ExportWire.Options)!;
         Assert.Equal("error", receipt.Type);
-        Assert.Contains("协议", receipt.Error, StringComparison.Ordinal);
+        Assert.Contains("protocol", receipt.Error, StringComparison.Ordinal);
     }
 
     [Theory]

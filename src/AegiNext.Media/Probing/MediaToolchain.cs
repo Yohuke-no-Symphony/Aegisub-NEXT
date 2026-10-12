@@ -18,13 +18,13 @@ public static class MediaToolchain
         var identity = await MediaToolProcess.RunAsync(executablePath, ["-version"], TimeSpan.FromSeconds(10),
             65536, 65536, cancellationToken).ConfigureAwait(false);
         using var resource = typeof(MediaToolchain).Assembly.GetManifestResourceStream("AegiNext.Media.Probing.ffmpeg-toolchain.json")
-            ?? throw new InvalidOperationException("缺少内嵌 FFmpeg 工具版本契约。");
+            ?? throw new InvalidOperationException("The embedded FFmpeg tool version contract is missing.");
         using var manifest = JsonDocument.Parse(resource);
         var first = identity.StandardOutput.Split('\n', 2)[0];
         if (identity.ExitCode != 0 || !manifest.RootElement.GetProperty("acceptedVersionStrings").EnumerateArray()
                 .Any(version => first.StartsWith($"ffmpeg version {version.GetString()} ", StringComparison.Ordinal)))
         {
-            throw new NotSupportedException("复用音轨所需 FFmpeg 版本不匹配。");
+            throw new NotSupportedException("The FFmpeg version required for audio-track reuse does not match.");
         }
     }
 
@@ -58,14 +58,14 @@ public static class MediaToolchain
             }
         }
 
-        throw new FileNotFoundException($"未找到 {name}；发布包需要 tools/{executable}，开发运行可指定 AEGINEXT_{name.ToUpperInvariant()}_PATH。", executable);
+        throw new FileNotFoundException($"{name} was not found; the release package requires tools/{executable}. Development runs can set AEGINEXT_{name.ToUpperInvariant()}_PATH.", executable);
     }
 
     private static string Require(string path, string name)
     {
         if (!Path.IsPathFullyQualified(path) || !File.Exists(path))
         {
-            throw new FileNotFoundException($"需要存在的 {name} 完整路径；请检查应用媒体运行时是否完整。", path);
+            throw new FileNotFoundException($"An absolute path to an existing {name} executable is required; check that the application's media runtime is complete.", path);
         }
 
         return Path.GetFullPath(path);

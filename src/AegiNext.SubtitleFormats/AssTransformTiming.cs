@@ -8,7 +8,7 @@ internal sealed record AssTransformTiming(MediaTime Start, MediaTime End, double
     {
         if (arguments.Length is < 1 or > 4 || !arguments[^1].StartsWith('\\'))
         {
-            throw new InvalidDataException("ASS t 参数数量或标签列表非法。");
+            throw new InvalidDataException("The ASS t argument count or tag list is invalid.");
         }
         var start = arguments.Length >= 3 ? Milliseconds(arguments[0]) : MediaTime.Zero;
         var end = arguments.Length >= 3 ? Milliseconds(arguments[1]) : duration;
@@ -21,7 +21,7 @@ internal sealed record AssTransformTiming(MediaTime Start, MediaTime End, double
         var number = AssFormatValues.Number(value);
         if (number < int.MinValue || number > int.MaxValue)
         {
-            throw new InvalidDataException("ASS 变换时间超出 32 位毫秒范围。");
+            throw new InvalidDataException("ASS transform times exceed the 32-bit millisecond range.");
         }
         return new((long)number, 1000);
     }

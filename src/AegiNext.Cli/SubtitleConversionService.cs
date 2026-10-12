@@ -48,7 +48,7 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
             }
             else
             {
-                throw new CliUsageException("转换输入仅支持 .aeginext、.ass 和 .srt。");
+                throw new CliUsageException("Conversion input must be .aeginext, .ass, or .srt.");
             }
         }
         cancellationToken.ThrowIfCancellationRequested();
@@ -56,7 +56,7 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
         var timeOffset = mapping?.Origin ?? MediaTime.Zero;
         if (!mapping.HasValue)
         {
-            diagnostics = diagnostics.Add(new("Subtitle.PlaybackOriginUnknown", "工程媒体未确认播放零点；接受诊断后按零偏移导出字幕。"));
+            diagnostics = diagnostics.Add(new("Subtitle.PlaybackOriginUnknown", "The project media playback origin is unconfirmed; accepting this diagnostic exports subtitles with zero offset."));
         }
         SubtitleFormatWriteResult result;
         if (target.Equals("ass", StringComparison.OrdinalIgnoreCase))
@@ -71,7 +71,7 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
         }
         else
         {
-            throw new CliUsageException("--target 仅支持 ass 或 srt。");
+            throw new CliUsageException("--target must be ass or srt.");
         }
         cancellationToken.ThrowIfCancellationRequested();
         return result with { Diagnostics = diagnostics.AddRange(result.Diagnostics) };

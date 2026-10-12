@@ -19,8 +19,8 @@ internal static class NativeExportAbi
             return;
         }
 
-        throw new NotSupportedException($"原生导出与预览媒体核心不匹配：导出 {exportVersion}，解码 {decodeVersion}，" +
-            $"导出能力 {exportCapabilities}，解码能力 {decodeCapabilities}；加载路径 {libraryPath}。请重新构建同配置 Workbench 与 worker。");
+        throw new NotSupportedException($"The native export and preview media cores do not match: export {exportVersion}, decode {decodeVersion}," +
+            $" export capabilities {exportCapabilities}, decode capabilities {decodeCapabilities}; load path: {libraryPath}. Rebuild Workbench and the worker with the same configuration.");
     }
 
     internal static void Validate(uint nativeVersion, string libraryPath)
@@ -33,11 +33,11 @@ internal static class NativeExportAbi
             return;
         }
 
-        throw new NotSupportedException($"原生导出 ABI 不匹配：需要 ABI {VERSION}，实际 ABI {nativeVersion}；" +
-            $"请求结构需要 {REQUEST_SIZE} 字节，实际 {requestSize} 字节；进程架构 {RuntimeInformation.ProcessArchitecture}；" +
-            $"结果结构需要 {RESULT_SIZE} 字节，实际 {resultSize} 字节；" +
-            $"前景结构需要 {OVERLAY_SIZE} 字节，实际 {overlaySize} 字节；" +
-            $"加载路径 {libraryPath}。请按当前 Debug/Release 配置运行 " +
-            "pwsh -NoProfile -File ./build.ps1 -Target Workbench -Configuration Debug（或 Release），使用完整的同配置应用与 worker。");
+        throw new NotSupportedException($"Native export ABI mismatch: required ABI {VERSION}, actual ABI {nativeVersion};" +
+            $" request structure requires {REQUEST_SIZE} bytes, actual {requestSize} bytes; process architecture: {RuntimeInformation.ProcessArchitecture};" +
+            $" result structure requires {RESULT_SIZE} bytes, actual {resultSize} bytes;" +
+            $" overlay structure requires {OVERLAY_SIZE} bytes, actual {overlaySize} bytes;" +
+            $" load path: {libraryPath}. Run the following command for the current Debug/Release configuration: " +
+            "pwsh -NoProfile -File ./build.ps1 -Target Workbench -Configuration Debug (or Release), and use the complete application and worker from the same configuration.");
     }
 }

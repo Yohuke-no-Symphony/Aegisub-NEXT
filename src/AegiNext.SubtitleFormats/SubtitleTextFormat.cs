@@ -27,20 +27,20 @@ public static partial class SubtitleTextFormat
 
             if (!int.TryParse(lines[index++], NumberStyles.None, CultureInfo.InvariantCulture, out var number) || number <= 0 || index >= lines.Length)
             {
-                throw new InvalidDataException($"SRT 第 {index} 行缺少正整数序号。");
+                throw new InvalidDataException($"SRT line {index} is missing a positive integer sequence number.");
             }
 
             var match = TimestampLine().Match(lines[index++]);
             if (!match.Success)
             {
-                throw new InvalidDataException($"SRT 第 {index} 行时间格式无效。");
+                throw new InvalidDataException($"SRT line {index} has an invalid time format.");
             }
 
             var start = ParseTime(match.Groups[1].Value);
             var end = ParseTime(match.Groups[2].Value);
             if (start >= end)
             {
-                throw new InvalidDataException("SRT 结束时间必须晚于开始时间。");
+                throw new InvalidDataException("SRT end times must be later than start times.");
             }
 
             var content = new List<string>();
@@ -51,7 +51,7 @@ public static partial class SubtitleTextFormat
 
             if (content.Count == 0 || result.Count >= 100000)
             {
-                throw new InvalidDataException("SRT 条目为空或数量过大。");
+                throw new InvalidDataException("SRT entries are empty or exceed the count limit.");
             }
 
             result.Add(new() { Start = start, End = end, Text = string.Join('\n', content), Style = style ?? new() });
@@ -73,12 +73,12 @@ public static partial class SubtitleTextFormat
             var end = line.End + timeOffset;
             if (start < MediaTime.Zero)
             {
-                throw new InvalidDataException($"SRT 字幕 {line.Id} 的外部开始时间 {start} 为负；请调整区间或播放零点，不会自动裁剪。");
+                throw new InvalidDataException($"SRT subtitle {line.Id} has a negative external start time of {start}. Adjust the interval or playback origin; it will not be clipped automatically.");
             }
             if (start >= end || string.IsNullOrWhiteSpace(line.Text) ||
                 Normalize(line.Text).Split('\n').Any(string.IsNullOrWhiteSpace))
             {
-                throw new InvalidDataException("SRT 不支持负时间、空行文本或无效区间。");
+                throw new InvalidDataException("SRT does not support negative times, blank text lines, or invalid intervals.");
             }
 
             result.AppendLine((++index).ToString(CultureInfo.InvariantCulture));
@@ -87,7 +87,7 @@ public static partial class SubtitleTextFormat
             result.AppendLine(Normalize(line.Text)).AppendLine();
             if (index > 100000)
             {
-                throw new InvalidDataException("字幕交换内容过大。");
+                throw new InvalidDataException("Subtitle exchange content exceeds the size limit.");
             }
         }
 
@@ -116,7 +116,7 @@ public static partial class SubtitleTextFormat
 
             if (result.Count >= 100000)
             {
-                throw new InvalidDataException("文本行数量过大。");
+                throw new InvalidDataException("The text line count exceeds the limit.");
             }
 
             result.Add(new() { Start = position, End = position + duration, Text = content, Style = style ?? new() });
@@ -162,7 +162,7 @@ public static partial class SubtitleTextFormat
         ArgumentNullException.ThrowIfNull(text);
         if (text.Contains('\0'))
         {
-            throw new InvalidDataException("字幕交换内容包含空字符。");
+            throw new InvalidDataException("Subtitle exchange content contains null characters.");
         }
 
         ProjectValidator.ValidateText(text);

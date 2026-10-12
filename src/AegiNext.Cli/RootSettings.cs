@@ -7,6 +7,6 @@ namespace AegiNext.Cli;
 public sealed class RootSettings : CommandSettings
 {
     [CommandOption("--non-interactive")]
-    [Description("禁止交互询问。请显式指定子命令和必需参数。")]
+    [Description("Disable interactive prompts. Specify a command and all required options.")]
     public bool NonInteractive { get; set; }
 }

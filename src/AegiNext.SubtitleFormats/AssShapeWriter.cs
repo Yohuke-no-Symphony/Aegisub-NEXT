@@ -30,24 +30,24 @@ internal static class AssShapeWriter
         if (layer.Kind == LayerKind.IMAGE)
         {
             diagnostics.Add(layer.Image!.Playback is null
-                ? new("Ass.Image", "ASS 不支持嵌入图片，此图片片段未导出。", LayerId: layer.Id)
-                : new("Ass.AnimatedImage", "ASS 不支持嵌入动图，此动图片段及其播放设置未导出。", LayerId: layer.Id));
+                ? new("Ass.Image", "ASS does not support embedded images. This image clip was not exported.", LayerId: layer.Id)
+                : new("Ass.AnimatedImage", "ASS does not support embedded animated images. This animated image clip and its playback settings were not exported.", LayerId: layer.Id));
             return null;
         }
         var unsupported = false;
         if (!layer.Tracks.IsEmpty || layer.MotionPath is not null)
         {
-            diagnostics.Add(new("Ass.ShapeAnimation", "ASS 图形导出暂不支持片段关键帧或运动路径，此形状片段未导出。", LayerId: layer.Id));
+            diagnostics.Add(new("Ass.ShapeAnimation", "ASS shape export does not yet support clip keyframes or motion paths. This shape clip was not exported.", LayerId: layer.Id));
             unsupported = true;
         }
         if (layer.Blend != BlendMode.NORMAL)
         {
-            diagnostics.Add(new("Ass.ShapeBlend", "ASS 不支持此形状片段的混合模式，此形状片段未导出。", LayerId: layer.Id));
+            diagnostics.Add(new("Ass.ShapeBlend", "ASS does not support the blend mode of this shape clip. This shape clip was not exported.", LayerId: layer.Id));
             unsupported = true;
         }
         if (layer.Blur > 0)
         {
-            diagnostics.Add(new("Ass.ShapeBlur", "ASS 边缘模糊无法保留此形状的整层模糊，此形状片段未导出。", LayerId: layer.Id));
+            diagnostics.Add(new("Ass.ShapeBlur", "ASS edge blur cannot preserve whole-layer blur for this shape. This shape clip was not exported.", LayerId: layer.Id));
             unsupported = true;
         }
         if (unsupported)
@@ -56,7 +56,7 @@ internal static class AssShapeWriter
         }
         if (layer.Start + timeOffset < MediaTime.Zero)
         {
-            throw new InvalidDataException($"ASS 图形片段 {layer.Id} 的外部开始时间 {layer.Start + timeOffset} 为负；请调整区间或播放零点，不会自动裁剪。");
+            throw new InvalidDataException($"ASS shape clip {layer.Id} has a negative external start time of {layer.Start + timeOffset}. Adjust the interval or playback origin; it will not be clipped automatically.");
         }
         if (layer.Opacity == 0 || layer.Transform.ScaleX == 0 || layer.Transform.ScaleY == 0)
         {
@@ -81,7 +81,7 @@ internal static class AssShapeWriter
         {
             if (!path.Closed)
             {
-                diagnostics.Add(new("Ass.ShapeOpenStroke", "ASS 绘图会闭合轮廓，不能保留此开放路径的描边，此形状片段未导出。", LayerId: layer.Id));
+                diagnostics.Add(new("Ass.ShapeOpenStroke", "ASS drawing closes contours and cannot preserve the stroke of this open path. This shape clip was not exported.", LayerId: layer.Id));
                 return null;
             }
             else
@@ -89,10 +89,10 @@ internal static class AssShapeWriter
                 var scaleX = Math.Abs(layer.Transform.ScaleX);
                 var scaleY = Math.Abs(layer.Transform.ScaleY);
                 border = layer.StrokeWidth / 2 * (scaleX + scaleY) / 2;
-                diagnostics.Add(new("Ass.ShapeStrokePlacement", "ASS 绘图采用外扩轮廓，原生形状采用居中描边；已按半描边宽度近似导出，内侧边界及填充与描边重叠处的透明度可能不同。", LayerId: layer.Id));
+                diagnostics.Add(new("Ass.ShapeStrokePlacement", "ASS drawing uses outward contours, while native shapes use centered strokes. Export used an approximation with half the stroke width; inner boundaries and alpha where fill and stroke overlap may differ.", LayerId: layer.Id));
                 if (scaleX != scaleY)
                 {
-                    diagnostics.Add(new("Ass.ShapeStrokeScale", "此形状的横纵缩放不一致，ASS 描边宽度已按两个缩放绝对值的平均值近似导出。", LayerId: layer.Id));
+                    diagnostics.Add(new("Ass.ShapeStrokeScale", "This shape has different horizontal and vertical scales. ASS stroke width was approximated using the average of their absolute values.", LayerId: layer.Id));
                 }
             }
         }
@@ -121,7 +121,7 @@ internal static class AssShapeWriter
         if (!double.IsFinite(border) || border > MAX_DRAWING_COORDINATE ||
             values.Any(value => !double.IsFinite(value) || Math.Abs(value) > MAX_DRAWING_COORDINATE))
         {
-            diagnostics.Add(new("Ass.ShapeGeometryRange", "变换后的形状坐标或描边超出 ASS 绘图的安全数值范围，此形状片段未导出。", LayerId: layer.Id));
+            diagnostics.Add(new("Ass.ShapeGeometryRange", "Transformed shape coordinates or stroke exceed the safe ASS drawing numeric range. This shape clip was not exported.", LayerId: layer.Id));
             return null;
         }
         var precision = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
@@ -135,11 +135,11 @@ internal static class AssShapeWriter
         diagnostics.AddRange(precision.Select(item => item with { SubtitleId = null, LayerId = layer.Id }));
         if (fill.Red > 1 || fill.Green > 1 || fill.Blue > 1 || border > 0 && (stroke.Red > 1 || stroke.Green > 1 || stroke.Blue > 1))
         {
-            diagnostics.Add(new("Ass.ColorRange", "ASS 不支持 HDR 颜色，形状颜色已裁剪至 SDR 范围。", LayerId: layer.Id));
+            diagnostics.Add(new("Ass.ColorRange", "ASS does not support HDR colors. Shape colors were clipped to the SDR range.", LayerId: layer.Id));
         }
         if (values.Any(value => Math.Abs(value * 64 - Math.Round(value * 64)) > 1e-8))
         {
-            diagnostics.Add(new("Ass.DrawingPrecision", "ASS 播放器的绘图坐标采用有限亚像素精度，曲线或变换后的形状可能出现细微取整差异。", LayerId: layer.Id));
+            diagnostics.Add(new("Ass.DrawingPrecision", "ASS player drawing coordinates use limited subpixel precision. Curves or transformed shapes may have slight rounding differences.", LayerId: layer.Id));
         }
         var result = new StringBuilder("{\\an7\\pos(0,0)\\fscx100\\fscy100\\frz0\\shad0\\blur0");
         result.Append("\\1c").Append(AssFormatValues.Color(fill, false)).Append("\\1a").Append(AssFormatValues.Alpha(fill))

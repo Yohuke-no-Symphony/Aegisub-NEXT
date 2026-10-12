@@ -29,7 +29,7 @@ public sealed class FfprobeMediaProbe
         var sourcePath = Path.GetFullPath(filePath);
         if (!File.Exists(sourcePath))
         {
-            throw new FileNotFoundException("媒体文件不存在。", sourcePath);
+            throw new FileNotFoundException("The media file does not exist.", sourcePath);
         }
 
         var hash = await HashToolAsync(cancellationToken).ConfigureAwait(false);
@@ -44,7 +44,7 @@ public sealed class FfprobeMediaProbe
             observed.LibraryVersions.Any(pair => !identity.LibraryVersions.TryGetValue(pair.Key, out var expected) || pair.Value != expected) ||
             await HashToolAsync(cancellationToken).ConfigureAwait(false) != hash)
         {
-            throw new InvalidDataException("探测期间媒体工具发生变化，请重新执行。");
+            throw new InvalidDataException("The media tool changed during probing; run the operation again.");
         }
 
         return new(sourcePath, FfprobeJsonReader.Read(mediaOutput.StandardOutput), identity,
@@ -57,7 +57,7 @@ public sealed class FfprobeMediaProbe
             options.MaximumOutputCharacters, options.MaximumErrorCharacters, cancellationToken).ConfigureAwait(false);
         if (result.ExitCode != 0)
         {
-            throw new InvalidDataException($"ffprobe 退出码 {result.ExitCode}：{result.StandardError}");
+            throw new InvalidDataException($"ffprobe exited with code {result.ExitCode}: {result.StandardError}");
         }
 
         return result;

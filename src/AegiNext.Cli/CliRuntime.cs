@@ -19,7 +19,7 @@ public sealed class CliRuntime(IAnsiConsole console, bool isInteractive)
     {
         if (!isInteractive || !Console.Profile.Capabilities.Interactive || nonInteractive)
         {
-            throw new CliUsageException("当前环境禁止交互询问；请指定子命令和所有必需参数。使用 --help 查看用法。");
+            throw new CliUsageException("Interactive prompts are disabled in this environment. Specify a command and all required options. Use --help for usage.");
         }
     }
 

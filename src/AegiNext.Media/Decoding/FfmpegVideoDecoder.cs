@@ -37,7 +37,7 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
     {
         if (NativeDecodeMethods.AbiVersion() != NativeDecodeMethods.ABI_VERSION)
         {
-            throw new InvalidOperationException("原生视频解码 ABI 版本不匹配。");
+            throw new InvalidOperationException("The native video decoder ABI version does not match.");
         }
 
         RequireCore();
@@ -51,7 +51,7 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
 
         if (info.compileAvformat != info.runtimeAvformat || info.compileAvcodec != info.runtimeAvcodec || info.compileAvutil != info.runtimeAvutil)
         {
-            throw new InvalidOperationException("原生解码库编译与运行版本不一致。");
+            throw new InvalidOperationException("The native decoder library has mismatched compile-time and runtime versions.");
         }
 
         return new(NativeDecodeError.ReadText(new(info.releaseVersion, 32)), ReadVersion(info.runtimeAvformat), ReadVersion(info.runtimeAvcodec), ReadVersion(info.runtimeAvutil));
@@ -79,7 +79,7 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
         var path = Path.GetFullPath(filePath);
         if (!File.Exists(path))
         {
-            throw new FileNotFoundException("视频文件不存在。", path);
+            throw new FileNotFoundException("The video file does not exist.", path);
         }
 
         _ = GetBackendInfo();
@@ -100,7 +100,7 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
                 NativeDecodeError.ThrowIfFailed(code, error, cancellationToken);
                 if (handle.IsInvalid)
                 {
-                    throw new InvalidDataException("原生解码器没有返回有效句柄。");
+                    throw new InvalidDataException("The native decoder did not return a valid handle.");
                 }
 
                 using var registration = cancellationToken.UnsafeRegister(static state => NativeDecodeMethods.Cancel((VideoDecoderHandle)state!), handle);
@@ -132,7 +132,7 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
         var timestamp = target.ToTimestamp(StreamTimeBase, MediaTimeRounding.FLOOR).Value;
         if (timestamp == long.MinValue)
         {
-            throw new ArgumentOutOfRangeException(nameof(target), "定位时间不能使用未定义时间戳哨兵。");
+            throw new ArgumentOutOfRangeException(nameof(target), "The seek time cannot use the undefined timestamp sentinel.");
         }
 
         lock (gate)
@@ -204,7 +204,7 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
                     {
                         if (!frameHandle.IsInvalid)
                         {
-                            throw new InvalidDataException("原生解码器在 EOF 返回了帧句柄。");
+                            throw new InvalidDataException("The native decoder returned a frame handle at EOF.");
                         }
 
                         frameHandle.Dispose();
@@ -214,7 +214,7 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
                     NativeDecodeError.ThrowIfFailed(code, error, cancellationToken);
                     if (frameHandle.IsInvalid)
                     {
-                        throw new InvalidDataException("原生解码器返回了空帧。");
+                        throw new InvalidDataException("The native decoder returned an empty frame.");
                     }
 
                     return new(frameHandle);
@@ -282,12 +282,12 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
                 NativeDecodeMethods.CoreVersion() != NativeDecodeMethods.CORE_VERSION ||
                 (NativeDecodeMethods.CoreCapabilities() & NativeDecodeMethods.CORE_CAPABILITIES) != NativeDecodeMethods.CORE_CAPABILITIES)
             {
-                throw new NotSupportedException("原生解码库缺少当前共享媒体核心，请重新构建 Decoder。");
+                throw new NotSupportedException("The native decoder library is missing the current shared media core; rebuild Decoder.");
             }
         }
         catch (EntryPointNotFoundException exception)
         {
-            throw new NotSupportedException("原生解码库缺少共享媒体核心版本查询，请重新构建 Decoder。", exception);
+            throw new NotSupportedException("The native decoder library is missing the shared media core version query; rebuild Decoder.", exception);
         }
     }
 
@@ -319,12 +319,12 @@ public sealed class FfmpegVideoDecoder : IVideoDecoder
                 NativeDecodeMethods.SEEK_SUPERSESSION_FEATURE;
             if ((NativeDecodeMethods.Features() & REQUIRED_FEATURES) != REQUIRED_FEATURES)
             {
-                throw new NotSupportedException("原生解码库未提供定位、显示时间或可恢复定位中止能力，请重新构建 Decoder。");
+                throw new NotSupportedException("The native decoder library does not provide seeking, display timing, or recoverable seek interruption; rebuild Decoder.");
             }
         }
         catch (EntryPointNotFoundException exception)
         {
-            throw new NotSupportedException("原生解码库缺少定位能力查询，请重新构建 Decoder。", exception);
+            throw new NotSupportedException("The native decoder library is missing the seeking capability query; rebuild Decoder.", exception);
         }
     }
 }

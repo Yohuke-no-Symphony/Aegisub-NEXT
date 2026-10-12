@@ -10,7 +10,7 @@ public static class ProjectAssetLocation
         ArgumentException.ThrowIfNullOrWhiteSpace(projectDirectory);
         if (IsAbsoluteReference(path) && !Path.IsPathFullyQualified(path))
         {
-            throw new NotSupportedException("外部媒体路径属于其他平台，请重新绑定媒体。");
+            throw new NotSupportedException("The external media path belongs to another platform; relink the media.");
         }
 
         return Path.GetFullPath(path, Path.GetFullPath(projectDirectory));
@@ -45,12 +45,12 @@ public static class ProjectAssetLocation
             if (!(asset.Kind == ProjectAssetKind.MEDIA || asset.Kind == ProjectAssetKind.IMAGE && asset.Storage == ProjectAssetStorage.LINKED) ||
                 asset.RelativePath != string.Empty || !IsAbsoluteReference(external))
             {
-                throw new InvalidDataException("非法外部资源引用。");
+                throw new InvalidDataException("Invalid external asset reference.");
             }
 
             if (!Path.IsPathFullyQualified(external))
             {
-                throw new NotSupportedException("外部资源路径属于其他平台，请重新定位资源。");
+                throw new NotSupportedException("The external asset path belongs to another platform; relocate the asset.");
             }
 
             return Path.GetFullPath(external);

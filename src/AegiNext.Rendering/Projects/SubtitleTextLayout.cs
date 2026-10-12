@@ -89,7 +89,7 @@ public sealed class SubtitleTextLayout
         {
             return Graphemes.IsEmpty ? emptyCaret : Graphemes[^1].TrailingCaret;
         }
-        throw new ArgumentOutOfRangeException(nameof(utf16Offset), "光标不能拆开字素。");
+        throw new ArgumentOutOfRangeException(nameof(utf16Offset), "The caret cannot split a grapheme.");
     }
 
     /// <summary>获取字素安全选区的逐行矩形，不合并不同排版行。</summary>

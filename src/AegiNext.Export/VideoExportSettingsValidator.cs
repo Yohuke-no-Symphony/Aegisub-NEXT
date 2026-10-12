@@ -29,7 +29,7 @@ public static class VideoExportSettingsValidator
         ValidateCommon(settings);
         if (settings.RateControlMode == VideoRateControlMode.AUTOMATIC)
         {
-            throw new ArgumentException("压制预设必须保存明确的 RateControlMode，不能使用 AUTOMATIC。", nameof(settings));
+            throw new ArgumentException("Video export presets must store an explicit RateControlMode; AUTOMATIC is not allowed.", nameof(settings));
         }
 
         ValidateQuality(settings);
@@ -55,7 +55,7 @@ public static class VideoExportSettingsValidator
         ArgumentNullException.ThrowIfNull(settings);
         if (!Enum.IsDefined(settings.EncodingMode) || !Enum.IsDefined(settings.RateControlMode))
         {
-            throw new ArgumentException("不支持的 EncodingMode 或 RateControlMode。", nameof(settings));
+            throw new ArgumentException("Unsupported EncodingMode or RateControlMode.", nameof(settings));
         }
 
         if (settings.RateControlMode != VideoRateControlMode.AUTOMATIC)
@@ -73,25 +73,25 @@ public static class VideoExportSettingsValidator
         var rateControlMode = ResolveRateControlMode(settings);
         if (!Enum.IsDefined(settings.Codec) || !Enum.IsDefined(settings.AudioMode))
         {
-            throw new ArgumentException("不支持的 Codec 或 AudioMode。", nameof(settings));
+            throw new ArgumentException("Unsupported Codec or AudioMode.", nameof(settings));
         }
 
         if (settings.Preset is not ("ultrafast" or "superfast" or "veryfast" or "faster" or "fast" or
             "medium" or "slow" or "slower" or "veryslow"))
         {
-            throw new ArgumentException("不支持的编码速度 Preset。", nameof(settings));
+            throw new ArgumentException("Unsupported encoding speed Preset.", nameof(settings));
         }
 
         var capability = VideoExportCapabilities.Get(settings.Codec);
         if (settings.EncodingMode == VideoEncodingMode.HARDWARE &&
             (!capability.SupportsHardware || rateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ))
         {
-            throw new ArgumentException("该格式或质量模式不支持硬件编码；请选择可用后端的 VBR 或 CBR。", nameof(settings));
+            throw new ArgumentException("This codec or quality mode does not support hardware encoding; select VBR or CBR with an available backend.", nameof(settings));
         }
 
         if (rateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ && rateControlMode != capability.QualityMode)
         {
-            throw new ArgumentException("质量模式与编码器不匹配。", nameof(settings));
+            throw new ArgumentException("The quality mode does not match the codec.", nameof(settings));
         }
 
         return rateControlMode;
@@ -102,7 +102,7 @@ public static class VideoExportSettingsValidator
         var capability = VideoExportCapabilities.Get(settings.Codec);
         if (settings.Quality < capability.QualityMinimum || settings.Quality > capability.QualityMaximum)
         {
-            throw new ArgumentException($"Quality 必须为 {capability.QualityMinimum} 至 {capability.QualityMaximum}。", nameof(settings));
+            throw new ArgumentException($"Quality must be between {capability.QualityMinimum} and {capability.QualityMaximum}.", nameof(settings));
         }
     }
 
@@ -110,7 +110,7 @@ public static class VideoExportSettingsValidator
     {
         if (settings.VideoBitrate is < 100000 or > 200000000)
         {
-            throw new ArgumentException("VideoBitrate 必须为 100000 至 200000000 比特每秒。", nameof(settings));
+            throw new ArgumentException("VideoBitrate must be between 100000 and 200000000 bits per second.", nameof(settings));
         }
     }
 
@@ -118,7 +118,7 @@ public static class VideoExportSettingsValidator
     {
         if (settings.AudioBitrate is < 32000 or > 512000)
         {
-            throw new ArgumentException("AudioBitrate 必须为 32000 至 512000 比特每秒。", nameof(settings));
+            throw new ArgumentException("AudioBitrate must be between 32000 and 512000 bits per second.", nameof(settings));
         }
     }
 }

@@ -45,7 +45,7 @@ public static class ShapeGeometry
             ShapeKind.ELLIPSE => Ellipse(width, height),
             ShapeKind.LINE => Polygon([new(0, height / 2), new(width, height / 2)], false),
             ShapeKind.ARROW => Arrow(shape),
-            _ => throw new InvalidDataException("未知形状。")
+            _ => throw new InvalidDataException("Unknown shape kind.")
         };
     }
 
