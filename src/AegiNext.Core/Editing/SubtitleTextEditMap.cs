@@ -1,10 +1,12 @@
 using AegiNext.Core.Projects;
 
-namespace AegiNext.Application;
+namespace AegiNext.Core.Editing;
 
-internal sealed class SubtitleTextEditMap
+/// <summary>以完整字素边界映射文字替换前后的偏移，供编辑和格式交换共享。</summary>
+public sealed class SubtitleTextEditMap
 {
-    internal SubtitleTextEditMap(string text, int start, int length, string replacement)
+    /// <summary>为指定 UTF-16 区间的替换创建映射；拒绝不完整字素范围及无效替换文字。</summary>
+    public SubtitleTextEditMap(string text, int start, int length, string replacement)
     {
         ArgumentNullException.ThrowIfNull(replacement);
         OldBoundaries = Boundaries(text);
@@ -43,23 +45,24 @@ internal sealed class SubtitleTextEditMap
         NewCount = NewBoundaries.IndexOf(NewEnd) - NewStartIndex;
     }
 
-    internal string Text { get; }
-    internal SubtitleTextBoundaries OldBoundaries { get; }
-    internal SubtitleTextBoundaries NewBoundaries { get; }
-    internal int Delta { get; }
-    internal int OldStart { get; }
-    internal int OldEnd { get; }
-    internal int NewStart { get; }
-    internal int NewEnd { get; }
-    internal int OldCount { get; }
-    internal int NewCount { get; }
-    internal int OriginalStart { get; }
-    internal int OriginalEnd { get; }
-    internal int OriginalNewEnd { get; }
+    public string Text { get; }
+    public SubtitleTextBoundaries OldBoundaries { get; }
+    public SubtitleTextBoundaries NewBoundaries { get; }
+    public int Delta { get; }
+    public int OldStart { get; }
+    public int OldEnd { get; }
+    public int NewStart { get; }
+    public int NewEnd { get; }
+    public int OldCount { get; }
+    public int NewCount { get; }
+    public int OriginalStart { get; }
+    public int OriginalEnd { get; }
+    public int OriginalNewEnd { get; }
     private int OldStartIndex { get; }
     private int NewStartIndex { get; }
 
-    internal int MapBoundary(int offset)
+    /// <summary>映射旧字素边界；受影响范围内部只有字素数量相等时才能保留索引。</summary>
+    public int MapBoundary(int offset)
     {
         if (offset <= OldStart)
         {
@@ -76,7 +79,8 @@ internal sealed class SubtitleTextEditMap
         return NewBoundaries[NewStartIndex + OldBoundaries.IndexOf(offset) - OldStartIndex];
     }
 
-    internal int StyleSourceOffset(int offset)
+    /// <summary>查找新字素继承样式的旧文字偏移，末尾插入继承最后一个字素。</summary>
+    public int StyleSourceOffset(int offset)
     {
         if (offset < NewStart)
         {
@@ -101,12 +105,14 @@ internal sealed class SubtitleTextEditMap
         return OriginalStart == OldBoundaries[^1] && OriginalStart > 0 ? OldBoundaries[^2] : OriginalStart;
     }
 
-    internal static SubtitleTextBoundaries Boundaries(string text)
+    /// <summary>构建包含末尾偏移的完整字素边界。</summary>
+    public static SubtitleTextBoundaries Boundaries(string text)
     {
         return new(text);
     }
 
-    internal static SubtitleTextEditMap Between(string original, string edited)
+    /// <summary>保留共同字素前后缀，为两份文字之间的变化创建单一区间映射。</summary>
+    public static SubtitleTextEditMap Between(string original, string edited)
     {
         var previous = Boundaries(original);
         var next = Boundaries(edited);
@@ -131,7 +137,8 @@ internal sealed class SubtitleTextEditMap
         return new(original, previous[prefix], previous[previousEnd] - previous[prefix], edited[next[prefix]..next[nextEnd]]);
     }
 
-    internal static void ValidateRange(string text, SubtitleTextBoundaries boundaries, int start, int length)
+    /// <summary>验证 UTF-16 范围位于文字内，并以完整字素边界开始和结束。</summary>
+    public static void ValidateRange(string text, SubtitleTextBoundaries boundaries, int start, int length)
     {
         if (start < 0 || length < 0 || (long)start + length > text.Length ||
             !boundaries.Contains(start) || !boundaries.Contains(start + length))

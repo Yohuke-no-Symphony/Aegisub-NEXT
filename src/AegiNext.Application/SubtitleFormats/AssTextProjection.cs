@@ -185,7 +185,7 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
             if (!inactive.IsEmpty)
             {
                 var saved = original with { Karaoke = [], InactiveKaraoke = inactive };
-                inactive = SubtitleContentEditing.RemapKaraoke(saved, map).InactiveKaraoke;
+                inactive = SubtitleKaraokeRemapping.Remap(saved, map).InactiveKaraoke;
             }
         }
         return PreserveInactiveKaraoke(inactive, active);

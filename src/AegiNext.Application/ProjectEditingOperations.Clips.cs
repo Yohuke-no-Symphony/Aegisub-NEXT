@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 

@@ -1,3 +1,4 @@
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 
 namespace AegiNext.Application;

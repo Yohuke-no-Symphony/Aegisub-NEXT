@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 
 namespace AegiNext.Application;

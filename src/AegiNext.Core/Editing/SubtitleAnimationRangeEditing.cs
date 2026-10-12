@@ -1,11 +1,13 @@
 using System.Collections.Immutable;
 using AegiNext.Core.Projects;
 
-namespace AegiNext.Application;
+namespace AegiNext.Core.Editing;
 
-internal static class SubtitleAnimationRangeEditing
+/// <summary>文字动画范围的字素重映射、身份复制与来源清理，不提交编辑事务。</summary>
+public static class SubtitleAnimationRangeEditing
 {
-    internal static ImmutableArray<SubtitleAnimationRange> Remap(ImmutableArray<SubtitleAnimationRange> ranges, SubtitleTextEditMap map)
+    /// <summary>按文字变化重映射范围，保留覆盖顺序和身份，并清理失去父范围的生成来源。</summary>
+    public static ImmutableArray<SubtitleAnimationRange> Remap(ImmutableArray<SubtitleAnimationRange> ranges, SubtitleTextEditMap map)
     {
         if (ranges.IsEmpty)
         {
@@ -37,7 +39,8 @@ internal static class SubtitleAnimationRangeEditing
         return remapped.SequenceEqual(ranges) ? ranges : remapped;
     }
 
-    internal static SubtitleLine RemapTextChange(SubtitleLine original, SubtitleLine edited)
+    /// <summary>文字变化且调用方未改写动画范围时，按原字素样式归属更新范围。</summary>
+    public static SubtitleLine RemapTextChange(SubtitleLine original, SubtitleLine edited)
     {
         if (original.Text == edited.Text || original.AnimationRanges.IsEmpty ||
             !original.AnimationRanges.SequenceEqual(edited.AnimationRanges))
@@ -48,7 +51,8 @@ internal static class SubtitleAnimationRangeEditing
         return edited with { AnimationRanges = Remap(original.AnimationRanges, SubtitleTextEditMap.Between(original.Text, edited.Text)) };
     }
 
-    internal static ImmutableArray<SubtitleAnimationRange> Split(ImmutableArray<SubtitleAnimationRange> ranges, int offset,
+    /// <summary>截取分割点一侧的范围；右侧通过 rangeIds 映射范围与生成父来源的身份。</summary>
+    public static ImmutableArray<SubtitleAnimationRange> Split(ImmutableArray<SubtitleAnimationRange> ranges, int offset,
         bool right, IReadOnlyDictionary<Guid, Guid>? rangeIds = null)
     {
         var result = ImmutableArray.CreateBuilder<SubtitleAnimationRange>();
@@ -71,7 +75,8 @@ internal static class SubtitleAnimationRangeEditing
         return PruneOrphanedOrigins(result.ToImmutable());
     }
 
-    internal static ImmutableArray<SubtitleAnimationRange> Clone(ImmutableArray<SubtitleAnimationRange> ranges,
+    /// <summary>按指定身份映射复制范围及其父来源，并平移文字偏移。</summary>
+    public static ImmutableArray<SubtitleAnimationRange> Clone(ImmutableArray<SubtitleAnimationRange> ranges,
         IReadOnlyDictionary<Guid, Guid> rangeIds, int textOffset = 0)
     {
         return ranges.Select(range => range with
@@ -82,7 +87,8 @@ internal static class SubtitleAnimationRangeEditing
         }).ToImmutableArray();
     }
 
-    internal static ImmutableArray<SubtitleAnimationRange> PruneOrphanedOrigins(ImmutableArray<SubtitleAnimationRange> ranges)
+    /// <summary>递归移除缺少父范围的生成范围，保留其余范围的顺序。</summary>
+    public static ImmutableArray<SubtitleAnimationRange> PruneOrphanedOrigins(ImmutableArray<SubtitleAnimationRange> ranges)
     {
         var current = ranges;
         while (!current.IsEmpty)
@@ -106,7 +112,8 @@ internal static class SubtitleAnimationRangeEditing
             ? origin with { ParentRangeId = replacement } : origin;
     }
 
-    internal static ProjectLayer PruneTargets(ProjectLayer layer, SubtitleLine line)
+    /// <summary>清除引用已删除文字范围的动画轨道，保留整句轨道和有效范围的轨道。</summary>
+    public static ProjectLayer PruneTargets(ProjectLayer layer, SubtitleLine line)
     {
         if (!layer.Tracks.Any(track => track.Target.TextRangeId.HasValue))
         {
