@@ -14,6 +14,7 @@
 | `src/AegiNext.Export` | Export capabilities/settings, presets, worker protocol, native burn-in sessions, and independent subtitle muxing |
 | `src/AegiNext.Desktop` | Avalonia workspace, panels, controls, menus, preferences, and platform hosts |
 | `src/AegiNext.ExportWorker` | Independent `aegn-exporter` host using Application to read snapshots and calling Export |
+| `src/AegiNext.Cli` | Spectre.Console aegnc host composing Application, SubtitleFormats, Rendering, and Export without a Desktop reference |
 | `native/decoder`, `native/audio`, `native/export` | Separate FFmpeg/SDL3 C ABIs |
 | `native/` | Optional macOS HDR diagnostic backend |
 | `Tests/`, `scripts/` | Focused verification, build, and packaging tools |

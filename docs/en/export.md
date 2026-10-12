@@ -94,3 +94,7 @@ Editing previews are SDR. PQ/HLG export reads original high-precision frames and
 - Rotation, stereo, ICC, interlace, corrupt/dynamic formats, and negative timestamps unsupported by the muxing path report errors.
 
 For ASS/SRT files, use [Subtitle editing](subtitle-editing.md). Package requirements and verification are in [Publishing](publishing.md).
+
+## Command-line export
+
+The bundled `aegnc export` burns saved projects into video. See the [command-line guide](cli.md) for options, interactive steps, and script exit codes.

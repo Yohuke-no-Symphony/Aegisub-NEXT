@@ -317,12 +317,12 @@ Describe 'Build plans are pure and preserve target boundaries' {
         $plan[6].Arguments | Should -Contain 'Release'
     }
 
-    It 'defaults RunTests to all seven managed projects including standalone subtitle formats' {
+    It 'defaults RunTests to all eight managed projects including CLI and standalone subtitle formats' {
         $parameters.Target = 'Managed'
         $plan = @(Get-AegiNextBuildPlan @parameters -RunTests)
 
-        $plan.Count | Should -Be 16
-        foreach ($name in @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop'))
+        $plan.Count | Should -Be 18
+        foreach ($name in @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop'))
         {
             @($plan | Where-Object { $_.Arguments -contains (Join-Path $repository "Tests/AegiNext.$name.Tests/AegiNext.$name.Tests.csproj") }).Count |
                 Should -Be 2
@@ -389,8 +389,9 @@ Describe 'Build plans are pure and preserve target boundaries' {
     }
 }
 
-Describe 'Build entry point accepts standalone subtitle format tests' {
-    It 'passes the explicit selection to build orchestration without installing tools' {
+Describe 'Build entry point accepts standalone format and CLI tests' {
+    It 'passes <Project> to build orchestration without installing tools' -TestCases @(@{ Project = 'SubtitleFormats' }, @{ Project = 'Cli' }) {
+        param($Project)
         $repository = Join-Path $TestDrive 'repository with spaces [entry]'
         $moduleDirectory = Join-Path $repository 'scripts/build'
         [IO.Directory]::CreateDirectory($moduleDirectory) | Out-Null
@@ -407,12 +408,12 @@ function Invoke-AegiNextBuild
 Export-ModuleMember -Function Invoke-AegiNextBuild
 '@
         $pwsh = (Get-Process -Id $PID).Path
-        $output = & $pwsh -NoProfile -File (Join-Path $repository 'build.ps1') -RunTests -TestProjects SubtitleFormats 2>&1
+        $output = & $pwsh -NoProfile -File (Join-Path $repository 'build.ps1') -RunTests -TestProjects $Project 2>&1
 
         $LASTEXITCODE | Should -Be 0 -Because ($output | Out-String)
         $actual = Get-Content -LiteralPath (Join-Path $repository 'actual.json') -Raw | ConvertFrom-Json
         $actual.RunTests | Should -BeTrue
-        @($actual.TestProjects) | Should -Be @('SubtitleFormats')
+        @($actual.TestProjects) | Should -Be @($Project)
     }
 }
 
@@ -667,6 +668,7 @@ Describe 'Build orchestration fails closed and rechecks installed dependencies' 
     It 'passes <Project> test selection configuration and isolated command arguments unchanged' -TestCases @(
         @{ Project = 'Media' }
         @{ Project = 'SubtitleFormats' }
+        @{ Project = 'Cli' }
     ) {
         param($Project)
 

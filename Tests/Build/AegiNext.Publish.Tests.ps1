@@ -66,13 +66,13 @@ Describe 'Platform publishing boundaries' {
         }
     }
 
-    It 'publishes desktop and worker, including an installer when requested (<CreateInstaller>)' -TestCases @(
+    It 'publishes desktop, CLI and worker, including an installer when requested (<CreateInstaller>)' -TestCases @(
         @{ CreateInstaller = $false; ReleaseVersion = $null; ExpectedVersion = '0.1.0'; ExpectedAssemblyVersion = '0.1.0.0' }
         @{ CreateInstaller = $true; ReleaseVersion = '2.7.3'; ExpectedVersion = '2.7.3'; ExpectedAssemblyVersion = '2.7.3.0' }
     ) {
         param($CreateInstaller, $ReleaseVersion, $ExpectedVersion, $ExpectedAssemblyVersion)
-        InModuleScope AegiNext.Publish -Parameters @{ Fixture = (Join-Path $TestDrive "windows publish $ExpectedVersion"); CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; ExpectedVersion = $ExpectedVersion; ExpectedAssemblyVersion = $ExpectedAssemblyVersion } {
-            param($Fixture, $CreateInstaller, $ReleaseVersion, $ExpectedVersion, $ExpectedAssemblyVersion)
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = (Join-Path $TestDrive "windows publish $ExpectedVersion"); CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; ExpectedVersion = $ExpectedVersion; ExpectedAssemblyVersion = $ExpectedAssemblyVersion; Repository = $repository } {
+            param($Fixture, $CreateInstaller, $ReleaseVersion, $ExpectedVersion, $ExpectedAssemblyVersion, $Repository)
             $root = Join-Path $Fixture 'publish command repository'
             $ffmpeg = Join-Path $root 'sdk/ffmpeg'
             $sdl = Join-Path $root 'sdk/sdl'
@@ -85,7 +85,15 @@ Describe 'Platform publishing boundaries' {
                 [IO.Directory]::CreateDirectory($directory) | Out-Null
             }
             Set-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Value '<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>'
-            Set-Content -LiteralPath (Join-Path $assets 'project.assets.json') -Value '{"libraries":{},"packageFolders":{}}'
+            $spectreLicenses = Join-Path $root 'scripts/publish/licenses/spectre-console-0.57.2'
+            [IO.Directory]::CreateDirectory($spectreLicenses) | Out-Null
+            Copy-Item -Path (Join-Path $Repository 'scripts/publish/licenses/spectre-console-0.57.2/*') -Destination $spectreLicenses
+            foreach ($project in @('AegiNext.Desktop', 'AegiNext.ExportWorker', 'AegiNext.Cli'))
+            {
+                $inventory = Join-Path $root "src/$project/obj/win-x64"
+                [IO.Directory]::CreateDirectory($inventory) | Out-Null
+                Set-Content -LiteralPath (Join-Path $inventory 'project.assets.json') -Value '{"libraries":{},"packageFolders":{}}'
+            }
             Set-Content -LiteralPath $compiler -Value 'validated compiler fixture'
             Set-Content -LiteralPath (Join-Path $compilerPrefix 'licenses/gcc/COPYING.RUNTIME') -Value 'original compiler runtime notice'
             foreach ($directory in @($ffmpeg, $sdl))
@@ -104,12 +112,19 @@ Describe 'Platform publishing boundaries' {
             Mock Get-AegiNextEnvironment { [pscustomobject]@{ Ready = $true; NativePrefixes = @{ ffmpeg = $ffmpeg; sdl3 = $sdl; cxx = $compiler } } }
             Mock Get-AegiNextSourceIdentity { [pscustomobject]@{ GitSha = ('a' * 40); WorkingTreeDirty = $true; Status = 'Recorded' } }
             Mock Find-AegiNextCommand { 'fixture-dotnet' }
+            $script:managedPublishDirectories = [Collections.Generic.List[string]]::new()
+            Mock Test-AegiNextPublishedCli {}
             Mock Invoke-AegiNextPublishCommand {
                 param($FilePath, $Arguments)
                 if ($Arguments[0] -eq 'publish')
                 {
                     $FilePath | Should -Be 'fixture-dotnet'
-                    $name = if ($Arguments[1].EndsWith('AegiNext.Desktop.csproj')) { 'aegi-next' } else { 'aegn-exporter' }
+                    $script:managedPublishDirectories.Add($Arguments[3])
+                    $name = switch ([IO.Path]::GetFileName($Arguments[1])) { 'AegiNext.Desktop.csproj' { 'aegi-next' }; 'AegiNext.ExportWorker.csproj' { 'aegn-exporter' }; 'AegiNext.Cli.csproj' { 'aegnc' }; default { throw 'Unexpected project.' } }
+                    foreach ($filename in @("$name$(if ($Arguments -contains 'win-x64') { '.exe' })", "$name.dll", "$name.deps.json", 'shared-runtime.dll'))
+                    {
+                        Set-Content -LiteralPath (Join-Path $Arguments[3] $filename) -Value 'fixture entry point'
+                    }
                     Set-Content -LiteralPath (Join-Path $Arguments[3] "$name.runtimeconfig.json") -Value '{"runtimeOptions":{"tfm":"net10.0","includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.12"}]}}'
                     if ($name -eq 'aegi-next')
                     {
@@ -145,14 +160,20 @@ Describe 'Platform publishing boundaries' {
             $assemblyVersionArgument = "-p:AssemblyVersion=$ExpectedAssemblyVersion"
             $fileVersionArgument = "-p:FileVersion=$ExpectedAssemblyVersion"
             Invoke-AegiNextPublish -RepositoryRoot $root -RuntimeIdentifier win-x64 -SkipBuild -CreateInstaller:$CreateInstaller -OutputDirectory (Join-Path $Fixture 'published command fixture') @versionArguments
-            Should -Invoke Invoke-AegiNextPublishCommand -Times 2 -Exactly -ParameterFilter {
+            $script:managedPublishDirectories.Count | Should -Be 3
+            @($script:managedPublishDirectories | Select-Object -Unique).Count | Should -Be 3
+            foreach ($staging in $script:managedPublishDirectories)
+            {
+                Test-Path -LiteralPath $staging | Should -BeFalse
+            }
+            Should -Invoke Invoke-AegiNextPublishCommand -Times 3 -Exactly -ParameterFilter {
                 $FilePath -eq 'fixture-dotnet' -and $Arguments[0] -eq 'publish' -and
                 $Arguments -contains 'win-x64' -and $Arguments -contains '-p:AegiNextRuntimeIdentifier=win-x64' -and
-                $Arguments -notcontains '-p:RestoreLockedMode=true' -and $Arguments -contains '--self-contained' -and
+                $Arguments -contains '-p:AegiNextPublishCompanionsSeparately=true' -and $Arguments -notcontains '-p:RestoreLockedMode=true' -and $Arguments -contains '--self-contained' -and
                 $Arguments -contains "-p:Version=$ExpectedVersion" -and $Arguments -contains "-p:InformationalVersion=$ExpectedVersion" -and
                 $Arguments -contains $assemblyVersionArgument -and $Arguments -contains $fileVersionArgument
             }
-            foreach ($project in @('AegiNext.Desktop', 'AegiNext.ExportWorker'))
+            foreach ($project in @('AegiNext.Desktop', 'AegiNext.ExportWorker', 'AegiNext.Cli'))
             {
                 Should -Invoke Invoke-AegiNextPublishCommand -Times 1 -Exactly -ParameterFilter {
                     $Arguments[0] -eq 'publish' -and $Arguments[1] -eq (Join-Path $root "src/$project/$project.csproj")
@@ -163,6 +184,13 @@ Describe 'Platform publishing boundaries' {
             }
             $manifest = Get-Content -LiteralPath (Join-Path $Fixture 'published command fixture/package-manifest.json') -Raw | ConvertFrom-Json
             $manifest.ProductVersion | Should -Be $ExpectedVersion
+            $spectreRecords = @($manifest.Licenses | Where-Object { [IO.Path]::GetFullPath($_.PackageRoot) -eq $spectreLicenses })
+            $spectreRecords.Count | Should -Be 2
+            @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 | Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
+            foreach ($record in $spectreRecords)
+            {
+                Test-Path -LiteralPath (Join-Path $Fixture "published command fixture/AegiNext/licenses/$($record.File)") -PathType Leaf | Should -BeTrue
+            }
             $manifest.ProductVersion | Should -BeOfType string
             (Test-AegiNextPublishedPackage (Join-Path $Fixture 'published command fixture')).ProductVersion | Should -Be $ExpectedVersion
             $manifest.GitSha | Should -Be ('a' * 40)
@@ -170,7 +198,10 @@ Describe 'Platform publishing boundaries' {
             $manifest.ToolVersions.Count | Should -Be 2
             $manifest.ToolVersions[0].VersionLine | Should -Be 'ffmpeg version 9.0.2 fixture'
             $manifest.ToolVersions[1].VersionLine | Should -Be 'ffprobe version 9.0.2 fixture'
-            $manifest.RuntimeFrameworks.Count | Should -Be 2
+            $manifest.SchemaVersion | Should -Be 2
+            @($manifest.EntryPoints) | Should -Be @('aegi-next', 'aegn-exporter', 'aegnc')
+            $manifest.RuntimeFrameworks.Count | Should -Be 3
+            Should -Invoke Test-AegiNextPublishedCli -Times 1 -Exactly -ParameterFilter { $RuntimeIdentifier -eq 'win-x64' -and $ProductVersion -eq $ExpectedVersion }
             $manifest.RuntimeFrameworks[0].IncludedFrameworks[0].Version | Should -Be '10.0.12'
             @($manifest.Licenses | Where-Object PackageRoot -eq $compilerPrefix).Count | Should -Be 1
             $manifest.OperatingSystemPolicy.ProductMinimumOSVerified | Should -BeFalse
@@ -384,8 +415,8 @@ Describe 'macOS app icon and disk image publishing' {
         @{ CreateDmg = $false; RelativeRepository = $true }
     ) {
         param($CreateDmg, $RelativeRepository)
-        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; CreateDmg = $CreateDmg; RelativeRepository = $RelativeRepository } {
-            param($Fixture, $CreateDmg, $RelativeRepository)
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; CreateDmg = $CreateDmg; RelativeRepository = $RelativeRepository; Repository = $repository } {
+            param($Fixture, $CreateDmg, $RelativeRepository, $Repository)
             $root = Join-Path $Fixture "mac publish repository $CreateDmg"
             $ffmpeg = Join-Path $root 'sdk/ffmpeg'
             $sdl = Join-Path $root 'sdk/sdl'
@@ -397,6 +428,9 @@ Describe 'macOS app icon and disk image publishing' {
                 [IO.Directory]::CreateDirectory($directory) | Out-Null
             }
             Set-Content -LiteralPath (Join-Path $root 'Directory.Build.props') -Value '<Project><PropertyGroup><Version>0.1.0</Version></PropertyGroup></Project>'
+            $spectreLicenses = Join-Path $root 'scripts/publish/licenses/spectre-console-0.57.2'
+            [IO.Directory]::CreateDirectory($spectreLicenses) | Out-Null
+            Copy-Item -Path (Join-Path $Repository 'scripts/publish/licenses/spectre-console-0.57.2/*') -Destination $spectreLicenses
             [IO.File]::WriteAllBytes((Join-Path $assets 'AppIcon.icns'), [byte[]](105, 99, 110, 115, 0, 0, 0, 8))
             foreach ($directory in @($ffmpeg, $sdl))
             {
@@ -416,12 +450,19 @@ Describe 'macOS app icon and disk image publishing' {
             Mock Get-AegiNextNugetLicenseRoot { @() }
             Mock Get-AegiNextSourceIdentity { [pscustomobject]@{ GitSha = ('a' * 40); WorkingTreeDirty = $true; Status = 'Recorded' } }
             Mock Find-AegiNextCommand { 'fixture-dotnet' }
+            $script:managedPublishDirectories = [Collections.Generic.List[string]]::new()
+            Mock Test-AegiNextPublishedCli {}
             Mock Copy-AegiNextMacDependencyClosure { [pscustomobject]@{ Dependencies = @(); MinimumOSVersion = '14.0'; PackageRoots = @() } }
             Mock Invoke-AegiNextPublishCommand {
                 param($FilePath, $Arguments)
                 if ($Arguments[0] -eq 'publish')
                 {
-                    $name = if ($Arguments[1].EndsWith('AegiNext.Desktop.csproj')) { 'aegi-next' } else { 'aegn-exporter' }
+                    $script:managedPublishDirectories.Add($Arguments[3])
+                    $name = switch ([IO.Path]::GetFileName($Arguments[1])) { 'AegiNext.Desktop.csproj' { 'aegi-next' }; 'AegiNext.ExportWorker.csproj' { 'aegn-exporter' }; 'AegiNext.Cli.csproj' { 'aegnc' }; default { throw 'Unexpected project.' } }
+                    foreach ($filename in @("$name$(if ($Arguments -contains 'win-x64') { '.exe' })", "$name.dll", "$name.deps.json", 'shared-runtime.dll'))
+                    {
+                        Set-Content -LiteralPath (Join-Path $Arguments[3] $filename) -Value 'fixture entry point'
+                    }
                     Set-Content -LiteralPath (Join-Path $Arguments[3] "$name.runtimeconfig.json") -Value '{"runtimeOptions":{"tfm":"net10.0","includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.12"}]}}'
                     if ($name -eq 'aegi-next')
                     {
@@ -437,6 +478,11 @@ Describe 'macOS app icon and disk image publishing' {
                 }
                 if ($FilePath -eq '/usr/bin/codesign')
                 {
+                    if ([IO.Path]::GetFileName($Arguments[-1]) -eq 'aegnc')
+                    {
+                        $script:macPublishStages.Add($(if ($Arguments -contains '--sign') { 'cli-sign' } else { 'cli-verify' }))
+                        return ''
+                    }
                     $contents = Join-Path $Arguments[-1] 'Contents'
                     Test-Path -LiteralPath (Join-Path $contents 'Resources/AppIcon.icns') -PathType Leaf | Should -BeTrue
                     Get-Content -LiteralPath (Join-Path $contents 'Info.plist') -Raw | Should -Match '<key>CFBundleIconFile</key><string>AppIcon.icns</string>'
@@ -452,7 +498,7 @@ Describe 'macOS app icon and disk image publishing' {
                 $PublishDirectory | Should -Be $output
                 $ProductVersion.ToString() | Should -Be '0.1.0'
                 $RuntimeIdentifier | Should -Be 'osx-arm64'
-                ($script:macPublishStages -join '|') | Should -Be 'sign|verify'
+                ($script:macPublishStages -join '|') | Should -Be 'cli-sign|cli-verify|sign|verify'
                 Test-Path -LiteralPath (Join-Path $output 'package-manifest.json') | Should -BeFalse
                 $script:macPublishStages.Add('dmg')
                 $image = Join-Path $output 'AegiNext-0.1.0-osx-arm64.dmg'
@@ -470,6 +516,12 @@ Describe 'macOS app icon and disk image publishing' {
                 $publishArguments.OutputDirectory = $output
             }
             Invoke-AegiNextPublish @publishArguments
+            $script:managedPublishDirectories.Count | Should -Be 3
+            @($script:managedPublishDirectories | Select-Object -Unique).Count | Should -Be 3
+            foreach ($staging in $script:managedPublishDirectories)
+            {
+                Test-Path -LiteralPath $staging | Should -BeFalse
+            }
 
             Should -Invoke Copy-AegiNextMacDependencyClosure -Times 1 -Exactly -ParameterFilter {
                 $payloadPath = [IO.Path]::GetFullPath($Payload)
@@ -485,18 +537,26 @@ Describe 'macOS app icon and disk image publishing' {
             $manifest = Get-Content -LiteralPath (Join-Path $output 'package-manifest.json') -Raw | ConvertFrom-Json
             $paths = @($manifest.Files | ForEach-Object { $_.Path.Replace('\', '/') })
             $paths | Should -Contain 'AegiNext.app/Contents/Resources/AppIcon.icns'
+            $spectreRecords = @($manifest.Licenses | Where-Object { [IO.Path]::GetFullPath($_.PackageRoot) -eq $spectreLicenses })
+            $spectreRecords.Count | Should -Be 2
+            @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 | Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
+            foreach ($record in $spectreRecords)
+            {
+                $paths | Should -Contain "AegiNext.app/Contents/MacOS/licenses/$($record.File)"
+            }
             if ($CreateDmg)
             {
                 $paths | Should -Contain 'AegiNext-0.1.0-osx-arm64.dmg'
-                ($script:macPublishStages -join '|') | Should -Be 'sign|verify|dmg'
+                ($script:macPublishStages -join '|') | Should -Be 'cli-sign|cli-verify|sign|verify|dmg'
                 Should -Invoke New-AegiNextMacDiskImage -Times 1 -Exactly
             }
             else
             {
                 $paths | Should -Not -Contain 'AegiNext-0.1.0-osx-arm64.dmg'
-                ($script:macPublishStages -join '|') | Should -Be 'sign|verify'
+                ($script:macPublishStages -join '|') | Should -Be 'cli-sign|cli-verify|sign|verify'
                 Should -Invoke New-AegiNextMacDiskImage -Times 0 -Exactly
             }
+            Should -Invoke Test-AegiNextPublishedCli -Times 1 -Exactly -ParameterFilter { $RuntimeIdentifier -eq 'osx-arm64' -and $ProductVersion -eq '0.1.0' }
             (Test-AegiNextPublishedPackage -PackageDirectory $output).HashesVerified | Should -BeTrue
         }
     }
@@ -759,5 +819,139 @@ Describe 'Mac closure correctness' {
             }
             (Get-AegiNextMacBinaryInfo '/fixture/native.dylib').MinimumOSVersion | Should -Be ([version]'27.0')
         }
+    }
+}
+
+Describe 'Three entry package contracts' {
+    It 'verifies schema 2 and rejects <Missing> independently of listed file hashes' -TestCases @(
+        @{ Missing = 'Nothing' }
+        @{ Missing = 'EntryPoint' }
+        @{ Missing = 'Executable' }
+        @{ Missing = 'Sidecar' }
+        @{ Missing = 'RuntimeMetadata' }
+    ) {
+        param($Missing)
+        $root = Join-Path $TestDrive "schema2 $Missing"
+        $payload = Join-Path $root 'AegiNext'
+        $languages = Join-Path $payload 'i18n'
+        [IO.Directory]::CreateDirectory($languages) | Out-Null
+        Copy-Item -Path (Join-Path $repository 'src/AegiNext.Desktop/I18n/Languages/*.json') -Destination $languages
+        foreach ($name in @('aegi-next', 'aegn-exporter', 'aegnc'))
+        {
+            foreach ($filename in @("$name.exe", "$name.dll", "$name.deps.json", "$name.runtimeconfig.json"))
+            {
+                $text = if ($filename.EndsWith('.runtimeconfig.json')) { '{"runtimeOptions":{"tfm":"net10.0","includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.12"}]}}' } else { 'entry fixture' }
+                Set-Content -LiteralPath (Join-Path $payload $filename) -Value $text
+            }
+        }
+        if ($Missing -eq 'Executable') { Remove-Item -LiteralPath (Join-Path $payload 'aegnc.exe') }
+        if ($Missing -eq 'Sidecar') { Remove-Item -LiteralPath (Join-Path $payload 'aegnc.deps.json') }
+        $entries = @('aegi-next', 'aegn-exporter', 'aegnc')
+        $runtime = @($entries | ForEach-Object { @{ Application = $_ } })
+        if ($Missing -eq 'EntryPoint') { $entries = @('aegi-next', 'aegn-exporter') }
+        if ($Missing -eq 'RuntimeMetadata') { $runtime = @($runtime | Where-Object Application -ne 'aegnc') }
+        $files = @(foreach ($file in Get-ChildItem -LiteralPath $root -File -Recurse)
+        {
+            @{ Path = [IO.Path]::GetRelativePath($root, $file.FullName); Sha256 = (Get-FileHash -LiteralPath $file.FullName).Hash.ToLowerInvariant(); Bytes = $file.Length }
+        })
+        @{ SchemaVersion = 2; EntryPoints = $entries; RuntimeFrameworks = $runtime; ProductVersion = '0.1.0'; RuntimeIdentifier = 'win-x64'; SelfContained = $true; Files = $files } |
+            ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $root 'package-manifest.json')
+        if ($Missing -eq 'Nothing') { (Test-AegiNextPublishedPackage $root).HashesVerified | Should -BeTrue }
+        elseif ($Missing -eq 'EntryPoint') { { Test-AegiNextPublishedPackage $root } | Should -Throw '*complete desktop, exporter and CLI entry points*' }
+        elseif ($Missing -eq 'RuntimeMetadata') { { Test-AegiNextPublishedPackage $root } | Should -Throw '*runtime metadata for all three*' }
+        else { { Test-AegiNextPublishedPackage $root } | Should -Throw '*Missing package entry point or sidecar: aegnc*' }
+    }
+
+    It 'collects CLI-only NuGet notices and deduplicates packages shared by the three projects' {
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive } {
+            param($Fixture)
+            $packages = Join-Path $Fixture 'packages'
+            foreach ($package in @('shared/1.0.0', 'cli-only/1.0.0'))
+            {
+                [IO.Directory]::CreateDirectory((Join-Path $packages $package)) | Out-Null
+            }
+            foreach ($project in @('AegiNext.Desktop', 'AegiNext.ExportWorker', 'AegiNext.Cli'))
+            {
+                $assets = Join-Path $Fixture "src/$project/obj/win-x64"
+                [IO.Directory]::CreateDirectory($assets) | Out-Null
+                $libraries = @{ 'shared/1.0.0' = @{ type = 'package'; path = 'shared/1.0.0' } }
+                if ($project -eq 'AegiNext.Cli') { $libraries['cli-only/1.0.0'] = @{ type = 'package'; path = 'cli-only/1.0.0' } }
+                @{ libraries = $libraries; packageFolders = @{ $packages = @{} } } |
+                    ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $assets 'project.assets.json')
+            }
+            $roots = @(Get-AegiNextNugetLicenseRoot $Fixture 'win-x64')
+            $roots.Count | Should -Be 2
+            $roots | Should -Contain (Join-Path $packages 'shared/1.0.0')
+            $roots | Should -Contain (Join-Path $packages 'cli-only/1.0.0')
+            Remove-Item -LiteralPath (Join-Path $Fixture 'src/AegiNext.Cli/obj/win-x64/project.assets.json')
+            { Get-AegiNextNugetLicenseRoot $Fixture 'win-x64' } | Should -Throw '*Missing restored dependency inventory*AegiNext.Cli*'
+        }
+    }
+
+    It 'rejects a framework-dependent <Application> beside self-contained peers' -TestCases @(
+        @{ Application = 'aegn-exporter' }
+        @{ Application = 'aegnc' }
+    ) {
+        param($Application)
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; Application = $Application } {
+            param($Fixture, $Application)
+            foreach ($name in @('aegi-next', 'aegn-exporter', 'aegnc'))
+            {
+                $frameworks = if ($name -eq $Application) { '"framework":{"name":"Microsoft.NETCore.App","version":"10.0.12"}' } else { '"includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.12"}]' }
+                Set-Content -LiteralPath (Join-Path $Fixture "$name.runtimeconfig.json") -Value "{`"runtimeOptions`":{`"tfm`":`"net10.0`",$frameworks}}"
+            }
+            { Get-AegiNextPublishedRuntimeFramework $Fixture } | Should -Throw "*$Application.runtimeconfig.json is not a self-contained*"
+        }
+    }
+}
+
+Describe 'Managed publish closure merging' {
+    It 'preserves nested CLI dependencies and only merges identical shared files' {
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive } {
+            param($Fixture)
+            $payload = Join-Path $Fixture 'payload'
+            $first = Join-Path $Fixture 'desktop staging'
+            $second = Join-Path $Fixture 'cli staging'
+            foreach ($directory in @($first, $second, (Join-Path $second 'nested/resources')))
+            {
+                [IO.Directory]::CreateDirectory($directory) | Out-Null
+            }
+            foreach ($directory in @($first, $second))
+            {
+                [IO.File]::WriteAllText((Join-Path $directory 'shared.dll'), 'identical dependency')
+            }
+            [IO.File]::WriteAllText((Join-Path $second 'nested/resources/cli.txt'), 'CLI dependency')
+            Copy-AegiNextManagedPublish $first $payload
+            Copy-AegiNextManagedPublish $second $payload
+            @(Get-ChildItem -LiteralPath $payload -File -Recurse).Count | Should -Be 2
+            Get-Content -LiteralPath (Join-Path $payload 'shared.dll') -Raw | Should -Be 'identical dependency'
+            Get-Content -LiteralPath (Join-Path $payload 'nested/resources/cli.txt') -Raw | Should -Be 'CLI dependency'
+            [IO.File]::WriteAllText((Join-Path $second 'shared.dll'), 'different dependency')
+            { Copy-AegiNextManagedPublish $second $payload } | Should -Throw '*Managed publish dependency collision*shared.dll*'
+            Get-Content -LiteralPath (Join-Path $payload 'shared.dll') -Raw | Should -Be 'identical dependency'
+        }
+    }
+}
+
+Describe 'Fixed Spectre dependency notices' {
+    It 'keeps the licensed version aligned with central package pins and all three runtime package notices' {
+        $directories = @(Get-ChildItem -LiteralPath (Join-Path $repository 'scripts/publish/licenses') -Directory | Where-Object Name -like 'spectre-console-*')
+        $directories.Count | Should -Be 1
+        $licensedVersion = $directories[0].Name.Substring('spectre-console-'.Length)
+        $versions = [xml](Get-Content -LiteralPath (Join-Path $repository 'Directory.Packages.props') -Raw)
+        $packages = @($versions.Project.ItemGroup.PackageVersion | Where-Object Include -like 'Spectre.Console*')
+        $packages.Count | Should -BeGreaterOrEqual 2
+        foreach ($package in $packages)
+        {
+            $package.Version | Should -Be $licensedVersion -Because "$($package.Include) must update its bundled license when upgraded"
+        }
+        $notice = Get-Content -LiteralPath (Join-Path $directories[0].FullName 'NOTICE-Spectre.Console.txt') -Raw
+        $notice | Should -Match "(?m)^Spectre\.Console / Spectre\.Console\.Ansi / Spectre\.Console\.Cli $([regex]::Escape($licensedVersion))\s*$"
+        $license = Join-Path $directories[0].FullName 'LICENSE-Spectre.Console.md'
+        (Get-FileHash -LiteralPath $license).Hash.ToLowerInvariant() | Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
+        $records = @(Copy-AegiNextLicenseFile -Roots $directories[0].FullName -Destination (Join-Path $TestDrive 'spectre licenses'))
+        $records.Count | Should -Be 2
+        @($records | Where-Object File -like '*LICENSE-Spectre.Console.md').Count | Should -Be 1
+        @($records | Where-Object File -like '*NOTICE-Spectre.Console.txt').Count | Should -Be 1
     }
 }

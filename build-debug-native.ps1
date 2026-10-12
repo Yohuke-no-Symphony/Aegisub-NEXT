@@ -21,8 +21,8 @@ param(
     [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')]
     [string] $RuntimeIdentifier,
     [switch] $RunTests,
-    [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Desktop', 'Desktop.Ui')]
-    [string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Desktop'),
+    [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Cli', 'Desktop', 'Desktop.Ui')]
+    [string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Cli', 'Desktop'),
     [ValidateRange(1, 128)]
     [int] $Jobs = 2,
     [string] $ReportPath

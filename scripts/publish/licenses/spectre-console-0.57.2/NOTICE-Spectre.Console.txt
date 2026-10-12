@@ -1,0 +1,16 @@
+Spectre.Console / Spectre.Console.Ansi / Spectre.Console.Cli 0.57.2
+License: MIT
+
+Spectre.Console and Spectre.Console.Ansi package copyright:
+Patrik Svensson, Phil Scott, Nils Andresen, Cédric Luthi
+Spectre.Console.Cli package copyright:
+Patrik Svensson, Phil Scott, Nils Andresen, Cédric Luthi, Frank Ray
+
+The accompanying LICENSE-Spectre.Console.md is the identical upstream
+license in both repositories at the commits recorded in the NuGet packages:
+https://github.com/spectreconsole/spectre.console/blob/bbbb5729dde27b58deee44f447a788eea46ee451/LICENSE.md
+https://github.com/spectreconsole/spectre.console.cli/blob/9c88a343b8ce622e9fda4e4334b2057d773d90c9/LICENSE.md
+SHA-256: 3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91
+
+When upgrading these packages, verify the license against their recorded
+repository commits and update this notice and the license file together.

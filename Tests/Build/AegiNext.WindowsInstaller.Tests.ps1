@@ -101,6 +101,23 @@ Describe 'NSIS compiler discovery' {
 }
 
 Describe 'NSIS package compilation' {
+    It 'requires the CLI executable before invoking the installer compiler' {
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; Repository = $repository } {
+            param($Fixture, $Repository)
+            $payload = Join-Path $Fixture 'missing CLI payload'
+            [IO.Directory]::CreateDirectory($payload) | Out-Null
+            foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe'))
+            {
+                Set-Content -LiteralPath (Join-Path $payload $name) -Value 'fixture'
+            }
+            Mock Invoke-AegiNextPublishCommand { throw 'Compiler must not be invoked.' }
+            $arguments = @{ RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $Fixture; ProductVersion = '0.1.0'; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture' }
+            { New-AegiNextWindowsInstaller @arguments } |
+                Should -Throw '*aegnc.exe*'
+            Should -Invoke Invoke-AegiNextPublishCommand -Times 0 -Exactly
+        }
+    }
+
     It 'compiles explicit file ownership lists and cleans staging (<Outcome>)' -TestCases @(
         @{ Outcome = 'Success' }
         @{ Outcome = 'CompilerFailure' }
@@ -113,7 +130,7 @@ Describe 'NSIS package compilation' {
             $publish = Join-Path $Fixture "publish with spaces $Outcome"
             $payload = Join-Path $publish 'AegiNext'
             [IO.Directory]::CreateDirectory((Join-Path $payload 'tools/nested')) | Out-Null
-            foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe', 'tools/nested/dollar$sign.txt', "tools/nested/quote's.txt"))
+            foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe', 'aegnc.exe', 'tools/nested/dollar$sign.txt', "tools/nested/quote's.txt"))
             {
                 Set-Content -LiteralPath (Join-Path $payload $name) -Value 'published fixture'
             }
@@ -156,6 +173,7 @@ Describe 'NSIS package compilation' {
             Test-Path -LiteralPath $script:installerStaging | Should -BeFalse
             $script:installerIncludes | Should -Match 'Delete "\$INSTDIR\\tools\\nested\\dollar\$\$sign.txt"'
             $script:installerIncludes | Should -Match 'AegiNextCheckFile "\$INSTDIR\\aegn-exporter.exe"'
+            $script:installerIncludes | Should -Match 'AegiNextCheckFile "\$INSTDIR\\aegnc.exe"'
             $script:installerIncludes | Should -Not -Match 'package-manifest.json|RMDir /r'
             $script:installerIncludes.IndexOf('RMDir "$INSTDIR\tools\nested"') | Should -BeLessThan $script:installerIncludes.IndexOf('RMDir "$INSTDIR\tools"')
         }
@@ -166,7 +184,7 @@ Describe 'NSIS package compilation' {
             param($Fixture, $Repository)
             $payload = Join-Path $Fixture 'reserved payload'
             [IO.Directory]::CreateDirectory($payload) | Out-Null
-            foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe', 'install-state.ini'))
+            foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe', 'aegnc.exe', 'install-state.ini'))
             {
                 Set-Content -LiteralPath (Join-Path $payload $name) -Value 'fixture'
             }

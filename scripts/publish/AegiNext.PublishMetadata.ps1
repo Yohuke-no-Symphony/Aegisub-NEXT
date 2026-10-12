@@ -32,7 +32,7 @@ function Get-AegiNextPublishedToolVersion
 function Get-AegiNextPublishedRuntimeFramework
 {
     param([string] $Payload)
-    foreach ($name in @('aegi-next', 'aegn-exporter'))
+    foreach ($name in @('aegi-next', 'aegn-exporter', 'aegnc'))
     {
         $filename = "$name.runtimeconfig.json"
         $configuration = Get-Content -LiteralPath (Join-Path $Payload $filename) -Raw | ConvertFrom-Json -AsHashtable
@@ -48,6 +48,34 @@ function Get-AegiNextPublishedRuntimeFramework
         }
         [pscustomobject]@{ Application = $name; RuntimeConfig = $filename; TargetFramework = $options.tfm; IncludedFrameworks = $frameworks }
     }
+}
+
+function Test-AegiNextPublishedCli
+{
+    param([string] $Payload, [string] $RuntimeIdentifier, [string] $ProductVersion)
+    $executable = Join-Path $Payload $(if ($RuntimeIdentifier -eq 'win-x64') { 'aegnc.exe' } else { 'aegnc' })
+    $help = Invoke-AegiNextPublishCommand $executable @('--help') $Payload
+    if ($help -notmatch '\bconvert\b' -or $help -notmatch '\bexport\b')
+    {
+        throw 'Packaged aegnc help does not expose convert and export commands.'
+    }
+    $version = Invoke-AegiNextPublishCommand $executable @('--version') $Payload
+    if ($version.Trim() -cne $ProductVersion) { throw "Packaged aegnc version differs from $ProductVersion`: $version" }
+    $directory = [IO.Directory]::CreateTempSubdirectory('aeginext-cli-smoke-').FullName
+    try
+    {
+        $inputPath = Join-Path $directory 'smoke.srt'
+        $outputPath = Join-Path $directory 'smoke.ass'
+        [IO.File]::WriteAllText($inputPath, "1`n00:00:00,000 --> 00:00:01,000`nSmoke subtitle`n`n", [Text.UTF8Encoding]::new($false))
+        $null = Invoke-AegiNextPublishCommand $executable @('convert', '-i', $inputPath, '--target', 'ass', '-o', $outputPath, '--accept-loss', '--non-interactive') $Payload
+        if (!(Test-Path -LiteralPath $outputPath -PathType Leaf)) { throw 'Packaged aegnc did not create the ASS smoke output.' }
+        $text = [IO.File]::ReadAllText($outputPath)
+        if ($text -notmatch '\[Events\]' -or $text -notmatch 'Dialogue:' -or $text -notmatch 'Smoke subtitle')
+        {
+            throw 'Packaged aegnc did not preserve the SRT smoke subtitle in ASS output.'
+        }
+    }
+    finally { Remove-Item -LiteralPath $directory -Recurse -Force }
 }
 
 function Get-AegiNextRuntimeOperatingSystemPolicy

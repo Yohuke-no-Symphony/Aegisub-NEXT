@@ -36,7 +36,7 @@ Describe 'Native optional desktop shortcut lifecycle' -Tag InstallerIntegration 
         $source = $source.Replace('$DESKTOP\AegiNEXT.lnk', (Join-Path $desktop 'AegiNEXT.lnk'))
         [IO.File]::WriteAllText((Join-Path $fixtureRepository 'scripts/publish/AegiNext.WindowsInstaller.nsi'), $source, [Text.UTF8Encoding]::new($false))
         Copy-Item -LiteralPath (Join-Path $repository 'src/AegiNext.Desktop/Assets/AppIcon.ico') -Destination (Join-Path $fixtureRepository 'src/AegiNext.Desktop/Assets')
-        foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe'))
+        foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe', 'aegnc.exe'))
         {
             Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32/cmd.exe') -Destination (Join-Path $fixturePayload $name)
         }
@@ -124,6 +124,7 @@ Describe 'Native optional desktop shortcut lifecycle' -Tag InstallerIntegration 
         Test-Path -LiteralPath $shortcut | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $installation 'aegi-next.exe') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $installation 'aegn-exporter.exe') | Should -BeFalse
+        Test-Path -LiteralPath (Join-Path $installation 'aegnc.exe') | Should -BeFalse
         Test-Path -LiteralPath (Join-Path $installation 'install-state.ini') | Should -BeFalse
     }
 

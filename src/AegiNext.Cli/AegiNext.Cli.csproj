@@ -12,4 +12,5 @@
     <ProjectReference Include="../AegiNext.Export/AegiNext.Export.csproj" />
     <ProjectReference Include="../AegiNext.Rendering/AegiNext.Rendering.csproj" />
   </ItemGroup>
+  <Import Project="../../scripts/build/AegiNext.Companions.targets" />
 </Project>

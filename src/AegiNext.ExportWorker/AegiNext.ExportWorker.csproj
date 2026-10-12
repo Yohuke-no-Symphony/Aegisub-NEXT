@@ -8,4 +8,5 @@
     <ProjectReference Include="../AegiNext.Application/AegiNext.Application.csproj" />
     <ProjectReference Include="../AegiNext.Export/AegiNext.Export.csproj" />
   </ItemGroup>
+  <Import Project="../../scripts/build/AegiNext.CompanionFiles.targets" />
 </Project>

@@ -64,6 +64,8 @@ Imports create independent tracks; overlapping cues keep their times on addition
 
 Supported ASS `\move`, `\fad`, and `\fade` animation converts to editable native tracks. Unsupported tags or animation require confirmation before import conversion. SRT export reports loss of rich styling, karaoke, masks, and animation. See [subtitle import and export](docs/en/subtitle-editing.md#import-and-export) for the full supported scope.
 
+`aegnc` ships with the application to convert ASS/SRT/project subtitles and export project video, with interactive wizards and script options. See the [command-line guide](docs/en/cli.md).
+
 ## Run from source
 
 Install the .NET SDK and PowerShell required by the repository. Run the following commands from its root.

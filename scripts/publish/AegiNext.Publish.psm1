@@ -80,17 +80,45 @@ function Copy-AegiNextLicenseFile
 function Get-AegiNextNugetLicenseRoot
 {
     param([string] $RepositoryRoot, [string] $RuntimeIdentifier)
-    $assets = Join-Path $RepositoryRoot "src/AegiNext.Desktop/obj/$RuntimeIdentifier/project.assets.json"
-    if (!(Test-Path -LiteralPath $assets)) { throw "Missing restored dependency inventory: $assets" }
-    $document = Get-Content -LiteralPath $assets -Raw | ConvertFrom-Json -AsHashtable
-    foreach ($library in $document.libraries.Values)
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($project in @('AegiNext.Desktop', 'AegiNext.ExportWorker', 'AegiNext.Cli'))
     {
-        if ($library.type -ne 'package') { continue }
-        foreach ($folder in $document.packageFolders.Keys)
+        $assets = Join-Path $RepositoryRoot "src/$project/obj/$RuntimeIdentifier/project.assets.json"
+        if (!(Test-Path -LiteralPath $assets)) { throw "Missing restored dependency inventory: $assets" }
+        $document = Get-Content -LiteralPath $assets -Raw | ConvertFrom-Json -AsHashtable
+        foreach ($library in $document.libraries.Values)
         {
-            $path = Join-Path $folder $library.path
-            if (Test-Path -LiteralPath $path -PathType Container) { $path; break }
+            if ($library.type -ne 'package') { continue }
+            foreach ($folder in $document.packageFolders.Keys)
+            {
+                $path = Join-Path $folder $library.path
+                if (Test-Path -LiteralPath $path -PathType Container)
+                {
+                    if ($seen.Add([IO.Path]::GetFullPath($path))) { $path }
+                    break
+                }
+            }
         }
+    }
+}
+
+function Copy-AegiNextManagedPublish
+{
+    param([string] $Source, [string] $Destination)
+    foreach ($file in Get-ChildItem -LiteralPath $Source -File -Recurse)
+    {
+        $relative = [IO.Path]::GetRelativePath($Source, $file.FullName)
+        $target = Join-Path $Destination $relative
+        if (Test-Path -LiteralPath $target -PathType Leaf)
+        {
+            if ((Get-FileHash -LiteralPath $target).Hash -cne (Get-FileHash -LiteralPath $file.FullName).Hash)
+            {
+                throw "Managed publish dependency collision for '$relative': $target differs from $($file.FullName)."
+            }
+            continue
+        }
+        [IO.Directory]::CreateDirectory((Split-Path $target)) | Out-Null
+        Copy-Item -LiteralPath $file.FullName -Destination $target
     }
 }
 
@@ -169,7 +197,7 @@ function Test-AegiNextPublishedPackage
     $root = [IO.Path]::GetFullPath($PackageDirectory)
     $manifestPath = Join-Path $root 'package-manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    if ($manifest.SchemaVersion -ne 1 -or !$manifest.SelfContained) { throw 'Unsupported or incomplete package manifest.' }
+    if ($manifest.SchemaVersion -notin @(1, 2) -or !$manifest.SelfContained) { throw 'Unsupported or incomplete package manifest.' }
     $null = ConvertTo-AegiNextProductVersion -Value $manifest.ProductVersion
     $prefix = $root.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
     $comparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
@@ -192,6 +220,33 @@ function Test-AegiNextPublishedPackage
         default { throw "Unsupported package runtime identifier: $($manifest.RuntimeIdentifier)." }
     }
     $languages = @(Test-AegiNextPublishedLocalization -PayloadDirectory $payload)
+    if ($manifest.SchemaVersion -eq 2)
+    {
+        $entries = @('aegi-next', 'aegn-exporter', 'aegnc')
+        if (@($manifest.EntryPoints).Count -ne 3 -or @($manifest.EntryPoints | Sort-Object -Unique).Count -ne 3 -or
+            @($entries | Where-Object { $_ -notin $manifest.EntryPoints }).Count)
+        {
+            throw 'Schema 2 requires the complete desktop, exporter and CLI entry points.'
+        }
+        $suffix = if ($manifest.RuntimeIdentifier -eq 'win-x64') { '.exe' } else { '' }
+        foreach ($name in $entries)
+        {
+            foreach ($filename in @("$name$suffix", "$name.dll", "$name.deps.json", "$name.runtimeconfig.json"))
+            {
+                $path = Join-Path $payload $filename
+                if (!$expected.Contains($path) -or !(Test-Path -LiteralPath $path -PathType Leaf))
+                {
+                    throw "Missing package entry point or sidecar: $filename"
+                }
+            }
+        }
+        $null = Get-AegiNextPublishedRuntimeFramework $payload
+        if (@($manifest.RuntimeFrameworks).Count -ne 3 -or
+            @($entries | Where-Object { $_ -notin $manifest.RuntimeFrameworks.Application }).Count)
+        {
+            throw 'Schema 2 requires runtime metadata for all three entry points.'
+        }
+    }
     return [pscustomobject]@{ RuntimeIdentifier = $manifest.RuntimeIdentifier; ProductVersion = $manifest.ProductVersion; FileCount = $expected.Count; HashesVerified = $true; LocalizationVerified = $true; LanguageIDs = @($languages.LanguageID) }
 }
 
@@ -234,13 +289,21 @@ function Invoke-AegiNextPublish
     $payload = if ($hostInfo.Platform -eq 'MacOS') { Join-Path $publishRoot 'AegiNext.app/Contents/MacOS' } else { Join-Path $publishRoot 'AegiNext' }
     [IO.Directory]::CreateDirectory($payload) | Out-Null
     $dotnet = Find-AegiNextCommand 'dotnet'
-    $common = @('-c', $Configuration, '-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid", '--self-contained', 'true', '-p:PublishSingleFile=false', '-p:PublishTrimmed=false', '-p:UseAppHost=true', '-p:AegiNextPublishWorkerSeparately=true')
+    $common = @('-c', $Configuration, '-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid", '--self-contained', 'true', '-p:PublishSingleFile=false', '-p:PublishTrimmed=false', '-p:UseAppHost=true', '-p:AegiNextPublishCompanionsSeparately=true')
     $common += @("-p:Version=$versionText", "-p:InformationalVersion=$versionText", "-p:AssemblyVersion=$assemblyVersion", "-p:FileVersion=$assemblyVersion")
-    foreach ($project in @('AegiNext.Desktop', 'AegiNext.ExportWorker'))
+    $managedStaging = [IO.Directory]::CreateTempSubdirectory('aeginext-managed-publish-').FullName
+    try
     {
-        Write-Information -InformationAction Continue -MessageData "[publish] Publishing $project (self-contained, $rid)..."
-        $null = Invoke-AegiNextPublishCommand $dotnet (@('publish', (Join-Path $RepositoryRoot "src/$project/$project.csproj"), '-o', $payload) + $common) $RepositoryRoot -StreamOutput
+        foreach ($project in @('AegiNext.Desktop', 'AegiNext.ExportWorker', 'AegiNext.Cli'))
+        {
+            Write-Information -InformationAction Continue -MessageData "[publish] Publishing $project (self-contained, $rid)..."
+            $staging = Join-Path $managedStaging $project
+            [IO.Directory]::CreateDirectory($staging) | Out-Null
+            $null = Invoke-AegiNextPublishCommand $dotnet (@('publish', (Join-Path $RepositoryRoot "src/$project/$project.csproj"), '-o', $staging) + $common) $RepositoryRoot -StreamOutput
+            Copy-AegiNextManagedPublish -Source $staging -Destination $payload
+        }
     }
+    finally { Remove-Item -LiteralPath $managedStaging -Recurse -Force }
     Write-Information -InformationAction Continue -MessageData '[publish] Copying native modules and FFmpeg tools...'
     $nativeRoot = Join-Path $RepositoryRoot "artifacts/native/$rid/$Configuration"
     $sourcePaths = @{}
@@ -266,9 +329,10 @@ function Invoke-AegiNextPublish
     }
     $toolSuffix = if ($hostInfo.Platform -eq 'Windows') { '.exe' } else { '' }
     $sourceIdentity = Get-AegiNextSourceIdentity $RepositoryRoot
-    $manifest = [ordered]@{ SchemaVersion = 1; ProductVersion = $versionText; RuntimeIdentifier = $rid; SelfContained = $true; BuildTimeUtc = [DateTime]::UtcNow.ToString('O'); GitSha = $sourceIdentity.GitSha; WorkingTreeDirty = $sourceIdentity.WorkingTreeDirty; GitMetadataStatus = $sourceIdentity.Status; Tools = @("tools/ffmpeg$toolSuffix", "tools/ffprobe$toolSuffix"); ToolVersions = @(); RuntimeFrameworks = @(Get-AegiNextPublishedRuntimeFramework $payload); CompilerRuntime = $compilerRuntime; OperatingSystemPolicy = (Get-AegiNextRuntimeOperatingSystemPolicy $hostInfo); Dependencies = @(); MinimumOSVersion = $null; Licenses = @(); Files = @() }
-    $licenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $payload, $LicenseDirectory) + $RuntimeDependencyDirectory + @(Get-AegiNextNugetLicenseRoot $RepositoryRoot $rid)
-    $requiredLicenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3)
+    $manifest = [ordered]@{ SchemaVersion = 2; EntryPoints = @('aegi-next', 'aegn-exporter', 'aegnc'); ProductVersion = $versionText; RuntimeIdentifier = $rid; SelfContained = $true; BuildTimeUtc = [DateTime]::UtcNow.ToString('O'); GitSha = $sourceIdentity.GitSha; WorkingTreeDirty = $sourceIdentity.WorkingTreeDirty; GitMetadataStatus = $sourceIdentity.Status; Tools = @("tools/ffmpeg$toolSuffix", "tools/ffprobe$toolSuffix"); ToolVersions = @(); RuntimeFrameworks = @(Get-AegiNextPublishedRuntimeFramework $payload); CompilerRuntime = $compilerRuntime; OperatingSystemPolicy = (Get-AegiNextRuntimeOperatingSystemPolicy $hostInfo); Dependencies = @(); MinimumOSVersion = $null; Licenses = @(); Files = @() }
+    $spectreLicenseRoot = Join-Path $RepositoryRoot 'scripts/publish/licenses/spectre-console-0.57.2'
+    $licenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot, $payload, $LicenseDirectory) + $RuntimeDependencyDirectory + @(Get-AegiNextNugetLicenseRoot $RepositoryRoot $rid)
+    $requiredLicenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot)
     if ($hostInfo.Platform -eq 'MacOS')
     {
         Write-Information -InformationAction Continue -MessageData '[publish] Resolving macOS runtime dependencies and bundle metadata...'
@@ -299,7 +363,7 @@ function Invoke-AegiNextPublish
             $packageName = if ($leaf -eq 'current' -or $leaf -match '^\d+\.\d+') { Split-Path (Split-Path $packageRoot) -Leaf } else { $leaf }
             $supplement = if ($LicenseDirectory) { Join-Path $LicenseDirectory $packageName } else { $null }
             $supplementalNotices = if ($supplement) { @(Copy-AegiNextLicenseFile @($supplement) (Join-Path $payload 'licenses')) } else { @() }
-            if (!$supplementalNotices.Count) { throw "Missing notices for native package $packageRoot. Supply -LicenseDirectory with a $packageName subdirectory containing the original notices." }
+            if (!$supplementalNotices.Count) { throw "Missing notices for package $packageRoot. Supply -LicenseDirectory with a $packageName subdirectory containing the original notices." }
             foreach ($notice in $supplementalNotices) { $notice.PackageRoot = $packageRoot }
             $manifest.Licenses += $supplementalNotices
         }
@@ -309,6 +373,8 @@ function Invoke-AegiNextPublish
     {
         $app = Split-Path (Split-Path $payload)
         Write-Information -InformationAction Continue -MessageData '[publish] Signing and verifying the macOS app...'
+        $null = Invoke-AegiNextPublishCommand '/usr/bin/codesign' @('--force', '--sign', $SigningIdentity, (Join-Path $payload 'aegnc')) $RepositoryRoot -StreamOutput
+        $null = Invoke-AegiNextPublishCommand '/usr/bin/codesign' @('--verify', '--strict', '--verbose=2', (Join-Path $payload 'aegnc')) $RepositoryRoot -StreamOutput
         $null = Invoke-AegiNextPublishCommand '/usr/bin/codesign' @('--force', '--deep', '--sign', $SigningIdentity, $app) $RepositoryRoot -StreamOutput
         $null = Invoke-AegiNextPublishCommand '/usr/bin/codesign' @('--verify', '--deep', '--strict', '--verbose=2', $app) $RepositoryRoot -StreamOutput
         if ($CreateDmg)
@@ -319,6 +385,8 @@ function Invoke-AegiNextPublish
     }
     Write-Information -InformationAction Continue -MessageData '[publish] Checking packaged FFmpeg and FFprobe versions...'
     $manifest.ToolVersions = @(Get-AegiNextPublishedToolVersion $payload $rid)
+    Write-Information -InformationAction Continue -MessageData '[publish] Checking packaged CLI help, version and subtitle conversion...'
+    Test-AegiNextPublishedCli -Payload $payload -RuntimeIdentifier $rid -ProductVersion $versionText
     if ($CreateInstaller)
     {
         $null = Test-AegiNextPublishedLocalization -PayloadDirectory $payload

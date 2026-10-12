@@ -14,6 +14,7 @@
 | `src/AegiNext.Export` | 导出能力与参数、预设、worker 协议、原生烧录会话和独立字幕封装 |
 | `src/AegiNext.Desktop` | Avalonia 工作区、面板、控件、菜单、偏好和平台宿主 |
 | `src/AegiNext.ExportWorker` | 使用 Application 读取快照、调用 Export 的独立 `aegn-exporter` 宿主 |
+| `src/AegiNext.Cli` | Spectre.Console 的 aegnc 主机，组合 Application、SubtitleFormats、Rendering 与 Export；不引用 Desktop |
 | `native/decoder`、`native/audio`、`native/export` | 独立 FFmpeg/SDL3 C ABI |
 | `native/` | 可选 macOS HDR 诊断后端 |
 | `Tests/`、`scripts/` | 定向验证、构建和打包工具 |

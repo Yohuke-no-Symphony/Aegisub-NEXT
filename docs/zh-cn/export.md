@@ -94,3 +94,7 @@ WebM 音轨只支持 Opus 或 Vorbis：复制这两种源音轨可用，AAC 或�
 - 旋转、立体、ICC、交错、损坏/动态格式，以及封装链路不支持的负时间戳会报告错误。
 
 ASS/SRT 文件见[字幕编辑](subtitle-editing.md)，应用包要求与校验见[发布](publishing.md)。
+
+## 命令行导出
+
+随应用分发的 `aegnc export` 可从已保存工程烧录视频；参数、逐步向导及脚本退出码见[命令行指南](cli.md)。

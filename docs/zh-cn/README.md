@@ -16,6 +16,7 @@
 | [时间后处理](timing-post-processor.md) | 保存样式关联并处理时间线选中片段 |
 | [特效脚本](effect-dsl.md) | 应用 `.aegifx` 特效，编写整句或逐组文字动画 |
 | [视频导出](export.md) | CPU/GPU 编码、音频与 HDR |
+| [命令行](cli.md) | aegnc 字幕转换、视频导出与逐步向导 |
 
 ## 开发 AegiNext
 

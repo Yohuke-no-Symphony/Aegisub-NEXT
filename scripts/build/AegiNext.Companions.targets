@@ -1,0 +1,119 @@
+<Project>
+  <Import Project="$(MSBuildThisFileDirectory)AegiNext.CompanionFiles.targets" />
+  <PropertyGroup>
+    <AegiNextWorkerProject Condition="'$(AegiNextWorkerProject)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../src/AegiNext.ExportWorker/AegiNext.ExportWorker.csproj'))</AegiNextWorkerProject>
+    <AegiNextCliProject Condition="'$(AegiNextCliProject)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../src/AegiNext.Cli/AegiNext.Cli.csproj'))</AegiNextCliProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(AegiNextWorkerProject)" ReferenceOutputAssembly="false" Private="false" />
+    <_AegiNextCompanionProject Include="$(AegiNextWorkerProject)" />
+    <ProjectReference Include="$(AegiNextCliProject)" ReferenceOutputAssembly="false" Private="false" Condition="'$(AssemblyName)' == 'aegi-next'" />
+    <_AegiNextCompanionProject Include="$(AegiNextCliProject)" Condition="'$(AssemblyName)' == 'aegi-next'" />
+  </ItemGroup>
+  <UsingTask TaskName="AegiNextMergeCompanionFiles" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <SourceFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+      <ExistingFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
+      <DestinationDirectory ParameterType="System.String" Required="true" />
+      <CopyFiles ParameterType="System.Boolean" />
+      <MergedFiles ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Security.Cryptography" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var known = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var merged = new List<Microsoft.Build.Framework.ITaskItem>();
+        try
+        {
+            foreach (var existing in ExistingFiles ?? Array.Empty<Microsoft.Build.Framework.ITaskItem>())
+            {
+                known[existing.GetMetadata("RelativePath").Replace('\\', '/')] = existing.ItemSpec;
+            }
+            foreach (var source in SourceFiles)
+            {
+                var root = Path.GetFullPath(source.GetMetadata("CompanionDirectory")).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                var fullPath = Path.GetFullPath(source.ItemSpec);
+                var comparison = Environment.OSVersion.Platform == PlatformID.Win32NT ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+                if (!fullPath.StartsWith(root, comparison))
+                {
+                    Log.LogError("Companion file is outside its source directory: '{0}'.", source.ItemSpec);
+                    return false;
+                }
+                var relative = fullPath.Substring(root.Length).Replace('\\', '/');
+                var destination = Path.GetFullPath(Path.Combine(DestinationDirectory, relative));
+                var previous = known.TryGetValue(relative, out var selected) ? selected : null;
+                if (previous != null)
+                {
+                    using (var first = File.OpenRead(previous))
+                    using (var second = File.OpenRead(source.ItemSpec))
+                    using (var hash = SHA256.Create())
+                    {
+                        if (!hash.ComputeHash(first).SequenceEqual(hash.ComputeHash(second)))
+                        {
+                            Log.LogError("Companion dependency collision for '{0}': '{1}' differs from '{2}'.", relative, previous, source.ItemSpec);
+                            return false;
+                        }
+                    }
+                    continue;
+                }
+                known.Add(relative, source.ItemSpec);
+                if (CopyFiles)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                    File.Copy(source.ItemSpec, destination, true);
+                }
+                var item = new Microsoft.Build.Utilities.TaskItem(source.ItemSpec);
+                item.SetMetadata("RelativePath", relative);
+                item.SetMetadata("CopyToPublishDirectory", "PreserveNewest");
+                merged.Add(item);
+            }
+            MergedFiles = merged.ToArray();
+        }
+        catch (Exception error)
+        {
+            Log.LogErrorFromException(error, true);
+            return false;
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+  <Target Name="CopyAegiNextCompanions" AfterTargets="Build">
+    <PropertyGroup>
+      <_AegiNextBuildDestination>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(OutDir)'))</_AegiNextBuildDestination>
+    </PropertyGroup>
+    <CallTarget Targets="GetAegiNextCompanionBuildFiles">
+      <Output TaskParameter="TargetOutputs" ItemName="_AegiNextBuildExisting" />
+    </CallTarget>
+    <MSBuild Projects="@(_AegiNextCompanionProject)" Targets="GetAegiNextCompanionBuildFiles"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained)">
+      <Output TaskParameter="TargetOutputs" ItemName="_AegiNextCompanionBuildFile" />
+    </MSBuild>
+    <AegiNextMergeCompanionFiles SourceFiles="@(_AegiNextCompanionBuildFile)" ExistingFiles="@(_AegiNextBuildExisting)" DestinationDirectory="$(_AegiNextBuildDestination)" CopyFiles="true" />
+  </Target>
+  <Target Name="PublishAegiNextCompanions" AfterTargets="ComputeFilesToPublish"
+          Condition="'$(AegiNextPublishCompanionsSeparately)' != 'true'">
+    <PropertyGroup>
+      <_AegiNextCompanionStaging>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/$(BaseIntermediateOutputPath)companion-publish/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)'))/</_AegiNextCompanionStaging>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AegiNextCompanionPublishProject Include="@(_AegiNextCompanionProject)">
+        <StagingDirectory>$(_AegiNextCompanionStaging)%(Filename)/</StagingDirectory>
+      </_AegiNextCompanionPublishProject>
+    </ItemGroup>
+    <RemoveDir Directories="@(_AegiNextCompanionPublishProject->'%(StagingDirectory)')" />
+    <MSBuild Projects="%(_AegiNextCompanionPublishProject.Identity)" Targets="Publish"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier);SelfContained=$(SelfContained);PublishSingleFile=false;PublishTrimmed=false;UseAppHost=true;PublishDir=%(_AegiNextCompanionPublishProject.StagingDirectory);AegiNextPublishCompanionsSeparately=true">
+    </MSBuild>
+    <ItemGroup>
+      <_AegiNextCompanionPublishFile Include="%(_AegiNextCompanionPublishProject.StagingDirectory)**/*">
+        <CompanionDirectory>%(_AegiNextCompanionPublishProject.StagingDirectory)</CompanionDirectory>
+      </_AegiNextCompanionPublishFile>
+    </ItemGroup>
+    <AegiNextMergeCompanionFiles SourceFiles="@(_AegiNextCompanionPublishFile)" ExistingFiles="@(ResolvedFileToPublish)" DestinationDirectory="$(PublishDir)">
+      <Output TaskParameter="MergedFiles" ItemName="ResolvedFileToPublish" />
+    </AegiNextMergeCompanionFiles>
+  </Target>
+</Project>

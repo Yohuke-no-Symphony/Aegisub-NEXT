@@ -16,6 +16,7 @@ Start with [Quickstart](quick-start.md): create a project, time a subtitle, and 
 | [Timing post-processor](timing-post-processor.md) | Associate timing options with styles and process selected timeline clips |
 | [Effect scripts](effect-dsl.md) | Apply `.aegifx` effects; write whole-subtitle or grouped text animation |
 | [Video export](export.md) | CPU/GPU encoding, audio, and HDR |
+| [Command line](cli.md) | aegnc conversion, video export, and interactive wizards |
 
 ## Develop AegiNext
 

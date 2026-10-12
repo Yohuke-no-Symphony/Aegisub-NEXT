@@ -1,0 +1,16 @@
+<Project>
+  <Target Name="GetAegiNextCompanionBuildFiles"
+          DependsOnTargets="ResolveReferences;GetCopyToOutputDirectoryItems;BuiltProjectOutputGroup;DebugSymbolsProjectOutputGroup;SatelliteDllsProjectOutputGroup"
+          Returns="@(_AegiNextCompanionClosure)">
+    <ItemGroup>
+      <_AegiNextCompanionClosure Include="@(BuiltProjectOutputGroupOutput->'%(FinalOutputPath)');@(DebugSymbolsProjectOutputGroupOutput->'%(FinalOutputPath)');@(SatelliteDllsProjectOutputGroupOutput->'%(FinalOutputPath)')" />
+      <_AegiNextCompanionClosure Include="@(ReferenceCopyLocalPaths->'$(TargetDir)%(DestinationSubDirectory)%(Filename)%(Extension)')" />
+      <_AegiNextCompanionClosure Include="@(AllItemsFullPathWithTargetPath->'$(TargetDir)%(TargetPath)')" />
+      <_AegiNextCompanionClosure Remove="@(_AegiNextCompanionClosure)" Condition="!Exists('%(_AegiNextCompanionClosure.Identity)')" />
+      <_AegiNextCompanionClosure>
+        <CompanionDirectory>$(TargetDir)</CompanionDirectory>
+        <RelativePath>$([MSBuild]::MakeRelative('$(TargetDir)', '%(_AegiNextCompanionClosure.Identity)'))</RelativePath>
+      </_AegiNextCompanionClosure>
+    </ItemGroup>
+  </Target>
+</Project>

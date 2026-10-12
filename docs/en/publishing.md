@@ -16,7 +16,7 @@ This builds Release and creates a macOS DMG for the host architecture or a Windo
 pwsh -NoProfile -File ./release.ps1 -Version 1.2.3 -SkipBuild
 ```
 
-Version defaults to `Directory.Build.props`. `-SkipBuild` reuses matching native output and still publishes both managed apps. Use explicit `-FfmpegRoot`, `-SdlRoot`, or `-NsisPath` when needed; output must be a new directory. Publishing does not install dependencies.
+Version defaults to `Directory.Build.props`. `-SkipBuild` reuses matching native output and still publishes the desktop app, export worker, and CLI. Use explicit `-FfmpegRoot`, `-SdlRoot`, or `-NsisPath` when needed; output must be a new directory. Publishing does not install dependencies.
 
 ## Create a portable package
 
@@ -38,7 +38,9 @@ scoop install nsis
 
 ## Package contents
 
-The complete payload includes self-contained .NET, the desktop app, `AegiNext.Export`, `aegn-exporter`, FFmpeg/FFprobe, native modules, recursive runtime dependencies, original license/patent notices, and the entire `i18n/` language-resource directory copied from the publish output. The export assembly, worker, and native export library must share a configuration and matching ABI contract fingerprint. Replacing only one can fail contract validation.
+The complete payload includes self-contained .NET, the desktop app, `AegiNext.Export`, `aegn-exporter`, `aegnc` and its complete Spectre dependencies, FFmpeg/FFprobe, native modules, recursive runtime dependencies, original license/patent notices, and the entire `i18n/` language-resource directory copied from the publish output. The export assembly, worker, and native export library must share a configuration and matching ABI contract fingerprint. Replacing only one can fail contract validation.
+
+Spectre's pinned upstream license and package notice are stored in `scripts/publish/licenses/`; update them together when upgrading the packages in `Directory.Packages.props`.
 
 - `media-runtime.json` selects package-local tools.
 - `package-manifest.json` records version, RID, Git identity/dirty state, runtime/tool versions, dependency/license origins, actual OS requirements, and file hashes.
@@ -49,7 +51,7 @@ The selected FFmpeg SDK must provide H.264, HEVC, VP8, VP9, SVT-AV1, AAC/Opus, a
 
 ## Installers and icons
 
-The Windows wizard supports current-user and all-users scopes; current-user installation defaults to `%LOCALAPPDATA%\Programs\AegiNext`. Desktop shortcut creation is optional. Close the app and worker before reinstalling/uninstalling. Reinstallation removes obsolete owned files; uninstall preserves extra files and personal preferences.
+The Windows wizard supports current-user and all-users scopes; current-user installation defaults to `%LOCALAPPDATA%\Programs\AegiNext`. Desktop shortcut creation is optional. Close the app, worker, and CLI before reinstalling/uninstalling. Reinstallation removes obsolete owned files; uninstall preserves extra files and personal preferences.
 
 Silent install accepts `/S /CurrentUser` or `/S /AllUsers`; add `/DesktopShortcut` if desired and place an unquoted `/D=...` last. Synchronous automated uninstall uses the matching scope and `_?=...` last.
 
@@ -65,7 +67,7 @@ pwsh -NoProfile -File ./scripts/assets/export-app-icons.ps1 -SourcePng ./src/Aeg
 pwsh -NoProfile -File ./scripts/publish/verify-package.ps1 -PackageDirectory ./artifacts/releases/mac-local
 ```
 
-Verification checks complete file hashes and language-pack structure/encoding. Move the entire package; macOS copies/archives must retain extended attributes for signing. Use Finder or `ditto`, then verify the moved bundle's signature.
+Verification checks complete file hashes and language-pack structure/encoding. New packages use manifest schema 2, additionally requiring desktop, worker, and CLI entry points with a self-contained .NET 10 runtime; schema 1 retains its existing verification contract. Publishing directly runs the packaged CLI help, version, and an SRT-to-ASS conversion on the host. Move the entire package; macOS copies/archives must retain extended attributes for signing. Use Finder or `ditto`, then verify the moved bundle's signature.
 
 On each target OS, check startup, media opening, audible playback, subtitle editing, actual export/cancel, and relocated operation without developer tools on PATH. Use the packaged worker and tools for export checks, covering at least these distinct capabilities:
 

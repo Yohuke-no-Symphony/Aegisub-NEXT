@@ -53,7 +53,7 @@ function New-AegiNextWindowsInstaller
     {
         if (!(Test-Path -LiteralPath $path -PathType Leaf)) { throw "Missing Windows installer asset: $path" }
     }
-    foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe'))
+    foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe', 'aegnc.exe'))
     {
         if (!(Test-Path -LiteralPath (Join-Path $payload $name) -PathType Leaf)) { throw "Missing published Windows executable: $name" }
     }

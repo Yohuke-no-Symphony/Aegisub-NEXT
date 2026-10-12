@@ -221,6 +221,7 @@ Section "AegiNext" SEC_APP
         ${EndIf}
         IfFileExists "$previousDirectory\aegi-next.exe" previous_uninstall_failed
         IfFileExists "$previousDirectory\aegn-exporter.exe" previous_uninstall_failed
+        IfFileExists "$previousDirectory\aegnc.exe" previous_uninstall_failed
         ClearErrors
         Delete "$previousUninstaller"
         ${If} ${Errors}
