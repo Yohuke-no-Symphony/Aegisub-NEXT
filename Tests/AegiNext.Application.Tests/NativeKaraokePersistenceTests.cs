@@ -73,6 +73,7 @@ public sealed class NativeKaraokePersistenceTests
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
         root = JsonNode.Parse(ProjectStore.Serialize(Document()))!.AsObject();
         root["version"] = 10;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
     }
 

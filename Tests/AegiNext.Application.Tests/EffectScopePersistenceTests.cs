@@ -31,7 +31,7 @@ public sealed class EffectScopePersistenceTests
         var bytes = ProjectStore.Serialize(document);
         var restored = ProjectStore.Deserialize(bytes);
 
-        Assert.Equal(13, restored.Version);
+        Assert.Equal(ProjectDocument.CURRENT_VERSION, restored.Version);
         Assert.Equal(bytes, ProjectStore.Serialize(restored));
         Assert.Equal(child, restored.Subtitles[0].AnimationRanges[1]);
         var restoredFrame = restored.Layers[0].Tracks[0].Keyframes[0];
@@ -54,6 +54,7 @@ public sealed class EffectScopePersistenceTests
                 Tracks = [new(AnimationProperty.POSITION, [new(new(0), new ScenePoint(1, 2))])] }]
         }))!.AsObject();
         root["version"] = 12;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
 
         var restored = ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString()));
 
@@ -80,6 +81,7 @@ public sealed class EffectScopePersistenceTests
         };
         var root = JsonNode.Parse(ProjectStore.Serialize(document))!.AsObject();
         root["version"] = 12;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
         var serializedRange = root["subtitles"]![0]!["animationRanges"]![0]!.AsObject();
         var track = root["layers"]![0]!["tracks"]![0]!.AsObject();
         var frame = track["keyframes"]![0]!.AsObject();

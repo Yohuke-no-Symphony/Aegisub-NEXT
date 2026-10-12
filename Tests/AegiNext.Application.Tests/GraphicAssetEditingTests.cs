@@ -129,6 +129,7 @@ public sealed class GraphicAssetEditingTests
         var image = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.IMAGE, "assets/legacy.png");
         var json = JsonNode.Parse(ProjectStore.Serialize(new() { Assets = [image] }))!.AsObject();
         json["version"] = 13;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(json);
         json.Remove("assetLibrary");
         json["assets"]![0]!.AsObject().Remove("storage");
         var document = ProjectStore.Deserialize(System.Text.Encoding.UTF8.GetBytes(json.ToJsonString()));

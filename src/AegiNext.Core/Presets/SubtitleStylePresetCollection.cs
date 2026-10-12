@@ -8,7 +8,7 @@ namespace AegiNext.Core.Presets;
 public sealed record SubtitleStylePresetCollection
 {
     [SuppressMessage("Naming", "CA1707:Identifiers should not contain underscores", Justification = "项目要求常量使用 ALL_UPPER。")]
-    public const int CURRENT_VERSION = 6;
+    public const int CURRENT_VERSION = 7;
     public int Version { get; init; } = CURRENT_VERSION;
     public ImmutableArray<SubtitleStylePreset> Presets { get; init; } = [];
 }

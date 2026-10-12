@@ -152,9 +152,9 @@ public static class ProjectStore
         if (root.ValueKind != JsonValueKind.Object ||
             !root.TryGetProperty("version", out var version) ||
             version.ValueKind != JsonValueKind.Number ||
-            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or ProjectDocument.CURRENT_VERSION))
+            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or ProjectDocument.CURRENT_VERSION))
         {
-            throw new InvalidDataException($"只支持项目版本 3、4、5、6、7、8、9、10、11、12、13 和 {ProjectDocument.CURRENT_VERSION}，更旧项目需要使用对应版本打开。");
+            throw new InvalidDataException($"只支持项目版本 3、4、5、6、7、8、9、10、11、12、13、14 和 {ProjectDocument.CURRENT_VERSION}，更旧项目需要使用对应版本打开。");
         }
 
         if (number >= 5)
@@ -181,6 +181,7 @@ public static class ProjectStore
         }
         SubtitleAppearanceJsonMigration.UpgradeProject(content, number);
         SubtitleMarginsJsonMigration.UpgradeProject(content, number);
+        SubtitleScalingJsonMigration.UpgradeProject(content, number);
         if (number is 3 or 4)
         {
             SubtitleContentJsonMigration.UpgradeProject(content, number);

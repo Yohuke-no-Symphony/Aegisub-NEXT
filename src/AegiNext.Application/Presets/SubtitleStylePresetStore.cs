@@ -92,13 +92,14 @@ public static class SubtitleStylePresetStore
             var upgraded = SubtitlePositionJsonMigration.UpgradeVersionOne(parsed.RootElement, "presets");
             var content = upgraded ?? JsonNode.Parse(parsed.RootElement.GetRawText())!.AsObject();
             if (!parsed.RootElement.TryGetProperty("version", out var version) || !version.TryGetInt32(out var number) ||
-                number is not (1 or 2 or 3 or 4 or 5 or SubtitleStylePresetCollection.CURRENT_VERSION))
+                number is not (1 or 2 or 3 or 4 or 5 or 6 or SubtitleStylePresetCollection.CURRENT_VERSION))
             {
                 throw new JsonException("样式库版本无效。");
             }
             SubtitleContentJsonMigration.UpgradeStyleLibrary(content, number);
             SubtitleMarginsJsonMigration.UpgradeStyleLibrary(content, number);
             SubtitleAppearanceJsonMigration.UpgradeStyleLibrary(content, number);
+            SubtitleScalingJsonMigration.UpgradeStyleLibrary(content, number);
             var collection = content.Deserialize<SubtitleStylePresetCollection>(options) ??
                 throw new JsonException("样式库不能为 null。");
             SubtitleStylePresetValidator.Validate(collection);

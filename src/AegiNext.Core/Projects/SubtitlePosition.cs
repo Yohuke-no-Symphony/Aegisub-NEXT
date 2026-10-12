@@ -1,6 +1,6 @@
 namespace AegiNext.Core.Projects;
 
-/// <summary>以画布归一化锚点、字形包围盒归一化轴心和像素偏移定位字幕；不拉伸文字。</summary>
+/// <summary>以画布归一化锚点、字形包围盒归一化轴心和样式参考单位偏移定位字幕；不拉伸文字。</summary>
 public sealed record SubtitlePosition : LayerPosition
 {
     /// <summary>保留字幕的默认底部居中定位；持久化字段与通用图层位置一致。</summary>

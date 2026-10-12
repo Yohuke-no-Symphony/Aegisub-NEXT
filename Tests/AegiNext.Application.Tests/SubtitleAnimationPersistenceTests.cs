@@ -60,6 +60,7 @@ public sealed class SubtitleAnimationPersistenceTests
     {
         var root = JsonNode.Parse(ProjectStore.Serialize(new ProjectDocument()))!.AsObject();
         root["version"] = version;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
 
         var document = ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString()));
 
@@ -83,6 +84,7 @@ public sealed class SubtitleAnimationPersistenceTests
         };
         var root = JsonNode.Parse(ProjectStore.Serialize(document))!.AsObject();
         root["version"] = 11;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
         root["layers"]![0]!["tracks"]![0]!["target"]!["property"] = property;
 
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
@@ -102,6 +104,7 @@ public sealed class SubtitleAnimationPersistenceTests
         };
         var root = JsonNode.Parse(ProjectStore.Serialize(document))!.AsObject();
         root["version"] = 11;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
         root["layers"]![0]!["tracks"]![0]!["target"]![name] = JsonNode.Parse(json);
 
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));

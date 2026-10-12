@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -149,9 +150,9 @@ public sealed class SubtitleStylePresetTests
     }
 
     [Theory]
-    [InlineData("\"version\": 6", "\"version\": 99")]
-    [InlineData("\"version\": 6,", "\"version\": 6, \"version\": 6,")]
-    [InlineData("\"version\": 6,", "\"version\": 6, \"unknown\": true,")]
+    [InlineData("\"version\": {version}", "\"version\": 99")]
+    [InlineData("\"version\": {version},", "\"version\": {version}, \"version\": {version},")]
+    [InlineData("\"version\": {version},", "\"version\": {version}, \"unknown\": true,")]
     [InlineData("\"fontSize\": 64,", "\"fontSize\": 0,")]
     [InlineData("\"fontSize\": 64,", "")]
     [InlineData("\"font\": null", "\"font\": null, \"unrecognized\": 1")]
@@ -160,6 +161,9 @@ public sealed class SubtitleStylePresetTests
     public void UnsupportedDuplicateUnknownMissingAndInvalidFieldsAreRejected(string old, string replacement)
     {
         var json = Encoding.UTF8.GetString(SubtitleStylePresetStore.Serialize(new() { Presets = [SystemPreset("Valid")] }));
+        var currentVersion = SubtitleStylePresetCollection.CURRENT_VERSION.ToString(CultureInfo.InvariantCulture);
+        old = old.Replace("{version}", currentVersion, StringComparison.Ordinal);
+        replacement = replacement.Replace("{version}", currentVersion, StringComparison.Ordinal);
         Assert.Contains(old, json, StringComparison.Ordinal);
         Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(json.Replace(old, replacement, StringComparison.Ordinal))));
     }

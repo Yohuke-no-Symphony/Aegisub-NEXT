@@ -89,6 +89,7 @@ public sealed class VersionThirteenAnimationMigrationTests
     {
         var root = JsonNode.Parse(ProjectStore.Serialize(document))!.AsObject();
         root["version"] = version;
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
         root.Remove("assetLibrary");
         root["timelineViewState"]!.AsObject().Remove("expandedAnimationClips");
         return root;

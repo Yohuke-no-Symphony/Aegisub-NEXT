@@ -2,9 +2,10 @@ using System.Text.Json.Serialization;
 
 namespace AegiNext.Core.Projects;
 
-/// <summary>与渲染器无关的字幕排版及线性颜色样式。</summary>
+/// <summary>与渲染器无关的字幕排版及线性颜色样式；尺寸值使用 Scaling 指定的参考单位。</summary>
 public sealed record SubtitleStyle
 {
+    public SubtitleScalingSettings Scaling { get; init; } = new();
     public string FontFamily { get; init; } = "sans-serif";
     public Guid? FontAssetId { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

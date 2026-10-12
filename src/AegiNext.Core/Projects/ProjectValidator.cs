@@ -379,6 +379,7 @@ public static partial class ProjectValidator
         Require(style is not null && style.FontFamily is { Length: > 0 and <= 512 } && Enum.IsDefined(style.Alignment), "字幕样式无效。");
         Require(style.TextAlign is null || Enum.IsDefined(style.TextAlign.Value), "字幕文字对齐无效。");
         Require(Enum.IsDefined(style.WrapMode), "字幕换行模式无效。");
+        ValidateSubtitleScaling(style.Scaling);
         ValidateText(style.FontFamily);
         if (style.FontVariant is { } variant)
         {
@@ -411,6 +412,15 @@ public static partial class ProjectValidator
         Color(style.Fill);
         Color(style.Stroke);
         Color(style.ShadowColor);
+    }
+
+    /// <summary>验证字幕参考分辨率与宽高匹配权重；参考尺寸不分配渲染表面。</summary>
+    public static void ValidateSubtitleScaling([NotNull] SubtitleScalingSettings? settings)
+    {
+        Require(settings is not null, "字幕参考尺寸不能为空。");
+        Require(settings.ReferenceWidth is > 0 and <= 32768 && settings.ReferenceHeight is > 0 and <= 32768,
+            "字幕参考尺寸必须为 1 至 32768 的整数。");
+        Number(settings.MatchWidthOrHeight, 0, 1, "字幕宽高匹配权重");
     }
 
     private static void Position(LayerPosition position)

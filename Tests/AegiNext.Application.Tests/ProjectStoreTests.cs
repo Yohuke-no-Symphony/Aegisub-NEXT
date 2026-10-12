@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
 using AegiNext.Core.Projects;
@@ -121,14 +122,17 @@ public sealed class ProjectStoreTests
     }
 
     [Theory]
-    [InlineData("\"version\": 14", "\"version\": 99")]
-    [InlineData("\"version\": 14,", "")]
-    [InlineData("\"version\": 14,", "\"version\": 14, \"version\": 14,")]
-    [InlineData("\"version\": 14,", "\"version\": 14, \"unknown\": 0,")]
+    [InlineData("\"version\": {version}", "\"version\": 99")]
+    [InlineData("\"version\": {version},", "")]
+    [InlineData("\"version\": {version},", "\"version\": {version}, \"version\": {version},")]
+    [InlineData("\"version\": {version},", "\"version\": {version}, \"unknown\": 0,")]
     [InlineData("\"width\": 1920", "\"width\": 0")]
     public void UnsupportedMissingDuplicateAndUnknownDataIsRejected(string find, string replacement)
     {
         var json = Encoding.UTF8.GetString(ProjectStore.Serialize(new()));
+        var currentVersion = ProjectDocument.CURRENT_VERSION.ToString(CultureInfo.InvariantCulture);
+        find = find.Replace("{version}", currentVersion, StringComparison.Ordinal);
+        replacement = replacement.Replace("{version}", currentVersion, StringComparison.Ordinal);
         var modified = json.Replace(find, replacement, StringComparison.Ordinal);
         Assert.NotEqual(json, modified);
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(modified)));

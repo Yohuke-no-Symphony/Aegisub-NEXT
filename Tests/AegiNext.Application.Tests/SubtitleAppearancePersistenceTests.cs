@@ -69,7 +69,7 @@ public sealed class SubtitleAppearancePersistenceTests
         var stored = SubtitleStylePresetStore.Serialize(collection);
         Assert.Equal(stored, SubtitleStylePresetStore.Serialize(SubtitleStylePresetStore.Deserialize(stored)));
         Assert.Equal(ProjectDocument.CURRENT_VERSION, ProjectStore.Deserialize(bytes).Version);
-        Assert.Equal(6, SubtitleStylePresetStore.Deserialize(stored).Version);
+        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, SubtitleStylePresetStore.Deserialize(stored).Version);
     }
 
     [Theory]

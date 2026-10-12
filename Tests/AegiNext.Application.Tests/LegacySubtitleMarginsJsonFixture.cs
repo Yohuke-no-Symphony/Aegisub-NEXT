@@ -6,6 +6,7 @@ internal static class LegacySubtitleMarginsJsonFixture
 {
     internal static void DowngradeProject(JsonObject root)
     {
+        LegacySubtitleScalingJsonFixture.DowngradeProject(root);
         LegacyKaraokeStyleJsonFixture.Downgrade(root);
         LegacyTrackJsonFixture.DowngradeProject(root);
         if (root["version"]!.GetValue<int>() >= 8)
@@ -28,6 +29,7 @@ internal static class LegacySubtitleMarginsJsonFixture
 
     internal static void DowngradeLibrary(JsonObject root)
     {
+        LegacySubtitleScalingJsonFixture.DowngradeLibrary(root);
         if (root["version"]!.GetValue<int>() < 6)
         {
             LegacySubtitleAppearanceJsonFixture.Downgrade(root);
