@@ -21,6 +21,7 @@ internal sealed partial class WorkbenchSession
         vm.LoadCanvasSize(document.Width, document.Height);
         vm.HasCue = true;
         vm.RefreshAppearanceEditing();
+        vm.Scaling.Load(style.Scaling, InterfaceCulture);
         vm.LoadFont(style);
         vm.FontSize = (decimal)style.FontSize;
         vm.FontSizeText = vm.FontSize.Value.ToString(InterfaceCulture);

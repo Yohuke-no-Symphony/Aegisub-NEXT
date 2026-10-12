@@ -128,6 +128,7 @@ internal sealed partial class SubtitleStyleView : UserControl, IWorkbenchPanelVi
             }
         }, RoutingStrategies.Bubble);
         BindNumericDrags();
+        BindScalingSlider();
         session.ViewModel.GesturesCancelled += OnGesturesCancelled;
         session.Fonts.Changed += OnFontsChanged;
     }
@@ -287,6 +288,8 @@ internal sealed partial class SubtitleStyleView : UserControl, IWorkbenchPanelVi
 
     public void Dispose()
     {
+        CancelNumericDrags();
+        ReleaseScalingBindings();
         disposed = true;
         focusCommitRevision++;
         viewModel.ShadowDraft.Committed -= OnShadowCommitted;

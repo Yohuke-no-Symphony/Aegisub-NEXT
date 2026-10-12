@@ -1,6 +1,5 @@
 using System.Windows.Input;
 using System.Globalization;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using AegiNext.Desktop.Workspace;
 using AegiNext.Desktop.Editing;
@@ -49,6 +48,7 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
     internal SubtitleStyleViewModel(WorkbenchSession session) : base(session)
     {
         this.session = session;
+        Scaling.Changed += (_, _) => NotifyDraftChanged();
         FillDraft.Changed += (_, _) => OnPropertyChanged(nameof(FillDraft));
         StrokeDraft.Changed += (_, _) => OnPropertyChanged(nameof(StrokeDraft));
         ShadowDraft.Changed += (_, _) => OnPropertyChanged(nameof(ShadowDraft));
@@ -436,6 +436,7 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
     public Task RestoreAutomaticPositionAsync() => IsActive ? session.RunCommandAsync(() => session.EditAsync(session.ResetAutomaticPosition)) : Task.CompletedTask;
 
     public ICommand ApplyStyleCommand { get; }
+    public SubtitleScalingDraft Scaling { get; } = new();
     public SubtitlePositionDraft Position { get; } = new();
     public SubtitleMarginsDraft Margins { get; } = new();
     public int CanvasWidth

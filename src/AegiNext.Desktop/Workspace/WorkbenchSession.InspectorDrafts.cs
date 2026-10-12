@@ -18,6 +18,11 @@ internal sealed partial class WorkbenchSession
         var selection = preview ? vm.CurrentFont : Fonts.Resolve(vm.FontDraft, line.Style);
         var family = selection.FamilyName;
         var parsesFontDraft = !preview && (family != vm.FontFamily || selection.Variant != vm.FontVariant);
+        if (vm.Scaling.Validate() is { } scalingKey)
+        {
+            ViewModel.InvalidFieldKey = scalingKey;
+            throw new InvalidDataException(Localization.Get("Workbench.ReferenceResolution"));
+        }
         var fontSize = ReadNumber(vm.FontSizeText, line.Style.FontSize, "Size", "FontSizeInput");
         var lineHeight = ReadNumber(vm.LineHeightText, line.Style.LineHeight, "LineHeight", "LineHeightInput");
         var strokeWidth = PrepareStrokeWidth(ref prepared, selected, line.Style.StrokeWidth, vm.StrokeWidthText);
@@ -51,6 +56,7 @@ internal sealed partial class WorkbenchSession
         }
         var style = line.Style with
         {
+            Scaling = vm.Scaling.CreateSettings(),
             FontFamily = family,
             FontVariant = selection.Variant,
             FontAssetId = fontChanged ? null : line.Style.FontAssetId,

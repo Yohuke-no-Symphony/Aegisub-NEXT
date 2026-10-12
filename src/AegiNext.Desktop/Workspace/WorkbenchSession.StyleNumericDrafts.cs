@@ -12,6 +12,9 @@ internal sealed partial class WorkbenchSession
         }
         var value = fieldKey switch
         {
+            "ReferenceWidthInput" => cue.Style.Scaling.ReferenceWidth,
+            "ReferenceHeightInput" => cue.Style.Scaling.ReferenceHeight,
+            "MatchWidthOrHeightInput" => cue.Style.Scaling.MatchWidthOrHeight,
             "LetterSpacingInput" => InspectorValue(SelectedLayer, AnimationProperty.LETTER_SPACING, cue.Style.LetterSpacing),
             "FillBlurInput" => InspectorValue(SelectedLayer, AnimationProperty.FILL_BLUR, cue.Style.FillBlur),
             "StrokeBlurInput" => InspectorValue(SelectedLayer, AnimationProperty.STROKE_BLUR, cue.Style.StrokeBlur),
@@ -32,7 +35,14 @@ internal sealed partial class WorkbenchSession
         using var updateLease = BeginWorkbenchUpdate();
         try
         {
-            vm.LoadStyleNumber(fieldKey, number, InterfaceCulture);
+            if (fieldKey is "ReferenceWidthInput" or "ReferenceHeightInput" or "MatchWidthOrHeightInput")
+            {
+                vm.Scaling.LoadField(fieldKey, number, InterfaceCulture);
+            }
+            else
+            {
+                vm.LoadStyleNumber(fieldKey, number, InterfaceCulture);
+            }
             draftRevision++;
             if (ViewModel.InvalidPanelId == "styles" && ViewModel.InvalidFieldKey == fieldKey)
             {

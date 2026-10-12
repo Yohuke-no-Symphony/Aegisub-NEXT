@@ -41,6 +41,7 @@ internal sealed partial class SubtitleStyleView
 
     private void CancelNumericDrags()
     {
+        CancelScalingGesture();
         foreach (var label in this.GetVisualDescendants().OfType<NumericDragLabel>())
         {
             label.CancelDrag();

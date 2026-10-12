@@ -65,6 +65,7 @@ public sealed partial class StyleSettingsView : UserControl, IDisposable
         this.FindControl<FontFamilyPicker>("FontInput")!.PropertyChanged += OnFontPickerChanged;
         this.FindControl<SubtitleAlignmentPicker>("AlignmentPicker")!.AlignmentCommitted +=
             (_, value) => model?.CommitAlignment(value.Alignment);
+        BindScalingSlider();
     }
 
     private void ChangeModel()
@@ -221,6 +222,7 @@ public sealed partial class StyleSettingsView : UserControl, IDisposable
 
     private void CancelNumericDrags()
     {
+        CancelScalingGesture();
         foreach (var title in this.GetVisualDescendants().OfType<NumericDragLabel>())
         {
             title.CancelDrag();
@@ -376,6 +378,7 @@ public sealed partial class StyleSettingsView : UserControl, IDisposable
             return;
         }
         CancelNumericDrags();
+        ReleaseScalingBindings();
         disposed = true;
         previewRevision++;
         this.FindControl<PreviewViewportControl>("StylePreviewViewport")!.CancelInteraction();

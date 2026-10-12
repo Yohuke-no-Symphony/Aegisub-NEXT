@@ -70,6 +70,15 @@ public sealed class StyleSettingsViewModel : ObservableObject
     /// <summary>创建样式命令；工程和存储操作交由会话处理。</summary>
     public StyleSettingsViewModel()
     {
+        Scaling.Changed += (_, _) =>
+        {
+            if (Scaling.Validate() is null)
+            {
+                ChangeStyle(style => style with { Scaling = Scaling.CreateSettings() });
+            }
+            OnPropertyChanged(nameof(IsDirty));
+            InvalidatePreview();
+        };
         FillDraft.Committed += (_, args) => Fill = args.Value;
         StrokeDraft.Committed += (_, args) => Stroke = args.Value;
         ShadowDraft.Committed += (_, args) => ShadowColor = args.Value;
@@ -134,6 +143,7 @@ public sealed class StyleSettingsViewModel : ObservableObject
     public ImmutableArray<SubtitleStylePreset> Styles => styles;
     public SubtitlePositionDraft Position { get; } = new();
     public SubtitleMarginsDraft Margins { get; } = new();
+    public SubtitleScalingDraft Scaling { get; } = new();
     public ColorDraft FillDraft { get; } = new();
     public ColorDraft StrokeDraft { get; } = new(SceneColor.Black);
     public ColorDraft ShadowDraft { get; } = new(SceneColor.Black);
@@ -146,7 +156,7 @@ public sealed class StyleSettingsViewModel : ObservableObject
     public bool IsEmpty => styles.IsEmpty;
     public ImmutableArray<Guid> SelectedIds => selectedIds;
     public bool IsDirty => HasDraft && (draft!.Preset != styles.FirstOrDefault(value => value.Id == draft.Preset.Id) ||
-        FillDraft.IsDirty || StrokeDraft.IsDirty || ShadowDraft.IsDirty || Position.Validate() is not null || Margins.Validate() is not null ||
+        FillDraft.IsDirty || StrokeDraft.IsDirty || ShadowDraft.IsDirty || Scaling.IsDirty || Position.Validate() is not null || Margins.Validate() is not null ||
         new[] { LetterSpacingText, FillBlurText, StrokeBlurText, FontSizeText, StrokeWidthText, LineHeightText, ShadowBlurText, ShadowXText, ShadowYText }
             .Any(value => ParseNumber(value) is null) || HasPendingInputs?.Invoke() == true);
     public bool CanDelete => !IsBusy && !switching && (!selectedIds.IsEmpty ||
@@ -185,7 +195,7 @@ public sealed class StyleSettingsViewModel : ObservableObject
     internal bool TryCreatePreviewPreset(out SubtitleStylePreset? preset)
     {
         preset = null;
-        if (!HasPreview || Position.Validate() is not null || Margins.Validate() is not null || FillDraft.HasError || StrokeDraft.HasError || ShadowDraft.HasError ||
+        if (!HasPreview || Position.Validate() is not null || Margins.Validate() is not null || Scaling.Validate() is not null || FillDraft.HasError || StrokeDraft.HasError || ShadowDraft.HasError ||
             NumericFields().Any(field => field.Value is null || field.Value < field.Minimum || field.Value > field.Maximum))
         {
             return false;
@@ -193,6 +203,7 @@ public sealed class StyleSettingsViewModel : ObservableObject
         var source = draft!.Preset.Style;
         var style = source with
         {
+            Scaling = Scaling.CreateSettings(),
             LetterSpacing = ReadPreviewNumber(LetterSpacingText, source.LetterSpacing),
             FillBlur = ReadPreviewNumber(FillBlurText, source.FillBlur),
             StrokeBlur = ReadPreviewNumber(StrokeBlurText, source.StrokeBlur),
@@ -334,6 +345,16 @@ public sealed class StyleSettingsViewModel : ObservableObject
 
     internal bool RestoreAppearanceField(string fieldKey)
     {
+        if (Scaling.RestoreField(fieldKey))
+        {
+            if (InvalidFieldKey == fieldKey)
+            {
+                InvalidFieldKey = null;
+                errorKey = null;
+                Error = null;
+            }
+            return true;
+        }
         switch (fieldKey)
         {
             case "LetterSpacingInput":
@@ -920,6 +941,7 @@ public sealed class StyleSettingsViewModel : ObservableObject
         {
             var style = draft?.Preset.Style ?? new();
             appearanceOriginal = style;
+            Scaling.Load(style.Scaling, CultureInfo.CurrentCulture);
             Name = draft?.Preset.Name ?? string.Empty;
             LetterSpacingText = FormatNumber((decimal)style.LetterSpacing);
             FillBlurText = FormatNumber((decimal)style.FillBlur);
@@ -1014,6 +1036,13 @@ public sealed class StyleSettingsViewModel : ObservableObject
         }
 
         var preset = draft.Preset;
+        if (Scaling.Validate() is { } scalingKey)
+        {
+            InvalidFieldKey = scalingKey;
+            SetError("StyleValidation");
+            return null;
+        }
+        preset = preset with { Style = preset.Style with { Scaling = Scaling.CreateSettings() } };
         if (Margins.Validate() is { } marginKey)
         {
             InvalidFieldKey = marginKey;
