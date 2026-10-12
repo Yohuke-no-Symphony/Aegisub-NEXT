@@ -17,7 +17,11 @@ internal static class Program
         {
             var interactive = !System.Console.IsInputRedirected && !System.Console.IsOutputRedirected;
             var console = AnsiConsole.Create(new() { Interactive = interactive ? InteractionSupport.Yes : InteractionSupport.No });
-            var application = new CliApplication(new(console, interactive));
+            var runtime = new CliRuntime(console, interactive);
+            var application = new CliApplication(runtime);
+            var exporter = new ExportRunner(runtime, new VideoExportService());
+            application.RegisterInstance(exporter);
+            application.RegisterCommand<ExportCommand>("export", "工程烧录视频导出", token => exporter.RunAsync(new(), token));
             return await application.RunAsync(args, cancellation.Token).ConfigureAwait(false);
         }
         finally
