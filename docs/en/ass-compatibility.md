@@ -75,4 +75,4 @@ Conversion results include diagnostics associated with subtitles, source tags, o
 
 Text-animation sampling uses at most 4096 points per track on a 1 ms grid, and export allows at most 100,000 events. These are exchange budgets. The limit of 256 animated text ranges per subtitle is also a native project validation constraint.
 
-Implementation resides in [Application/SubtitleFormats](../../src/AegiNext.Application/SubtitleFormats/). [Core/Projects](../../src/AegiNext.Core/Projects/) defines native capabilities, and [Rendering](../../src/AegiNext.Rendering/) evaluates and composites the scene.
+Implementation resides in [SubtitleFormats](../../src/AegiNext.SubtitleFormats/). [Core/Projects](../../src/AegiNext.Core/Projects/) defines native capabilities, and [Rendering](../../src/AegiNext.Rendering/) evaluates and composites the scene.

@@ -6,7 +6,7 @@
 
 `src/AegiNext.Rendering` provides UI-independent shaping and scene rendering. Evaluate an immutable project, prepare its resources, and use `ProjectSceneRenderer` for preview/export. Each thread owns its renderer and disposable surfaces; Core remains free of graphics dependencies.
 
-The scene supports subtitles, retained shapes/images/groups, keyframes, cubic paths, karaoke, Clip masks, blur, and extended blending. The workbench edits subtitles/masks; general shape/image/group tools are not exposed there.
+The scene supports subtitles, shapes, images, keyframes, cubic paths, karaoke, Clip masks, blur, and extended blending. The workbench exposes image import and placement through Project assets, plus shape creation, path editing, and image cropping through Drawing tools. Legacy group structures remain subject to the migration limits in [Architecture](architecture.md#time-and-storage).
 
 ## Pixel contract
 
@@ -19,7 +19,7 @@ The scene supports subtitles, retained shapes/images/groups, keyframes, cubic pa
 | Coordinates | Top-left origin, X right/Y down, target pixels |
 | Composition | Linear source-over; surfaces must agree on reference white |
 
-Copy pixels into caller-owned storage; do not expose borrowed native memory. Preview converts only the final composed image to SDR BGRA8. HDR export composites original frames with F16 overlays; display pixels never feed encoding.
+Copy pixels into caller-owned storage; do not expose borrowed native memory. Preview converts only the final composed image to SDR BGRA8. Rendering retains F16 internally; export copies premultiplied linear RGBA F32 into the native compositor, which combines it with original media frames. Display pixels never feed encoding.
 
 ## Text and editing geometry
 

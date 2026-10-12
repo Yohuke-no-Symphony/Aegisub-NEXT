@@ -75,13 +75,14 @@ FFmpeg SDK 按显式路径 → 项目 SDK → `FFMPEG_DIR` → 包管理器前�
 ## 定向测试
 
 ```powershell
+pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects SubtitleFormats
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects Application
 pwsh -NoProfile -File ./build.ps1 -Target Workbench -RunTests -TestProjects Export
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects 'Desktop.Ui'
 dotnet test Tests/AegiNext.Core.Tests/AegiNext.Core.Tests.csproj -c Release --filter 'FullyQualifiedName~EffectScript'
 ```
 
-项目筛选支持 Core、Application、Rendering、Media、Export、Desktop、Desktop.Ui。未指定 `-RunTests` 不运行测试；Workbench 测试也执行对应的原生 CTest 套件。Release 仅还原选中的测试项目。导出参数、预设、ABI 与 worker 合同测试位于 `Tests/AegiNext.Export.Tests`，桌面入口与控件行为留在 Desktop/Desktop.Ui 测试。
+项目筛选支持 Core、Application、SubtitleFormats、Rendering、Media、Export、Desktop、Desktop.Ui。未指定 `-RunTests` 不运行测试；Workbench 测试也执行对应的原生 CTest 套件。Release 仅还原选中的测试项目。独立字幕转换测试位于 `Tests/AegiNext.SubtitleFormats.Tests`，编辑器集成测试留在 Application。导出参数、预设、ABI 与 worker 合同测试位于 `Tests/AegiNext.Export.Tests`，桌面入口与控件行为留在 Desktop/Desktop.Ui 测试。
 
 真实媒体/设备测试需要匹配原生产物、实际工具路径和显式开关：`AEGINEXT_RUN_DECODER_TESTS=1`、`AEGINEXT_RUN_AUDIO_TESTS=1`；系统设备额外需要 `AEGINEXT_RUN_SYSTEM_AUDIO_TESTS=1`。否则原生用例跳过，详见[媒体](media.md)。
 

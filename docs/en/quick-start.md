@@ -31,7 +31,7 @@ Use **View** to reopen a hidden panel and **Layout → Standard** to restore the
 ## Save and export
 
 1. Press **Cmd/Ctrl + S** to save the project. Video remains an external reference.
-2. Open **Export**, select codec and audio options, and choose a new destination file.
+2. Open **Encoding**, select codec and audio options, and choose a new destination file.
 3. Wait for completion and review the exported picture, subtitles, and audio. **Cancel** stops the job.
 
 Use **Format → Aegisub/SRT → Export** for subtitle files. See [Video export](export.md) for HDR and GPU options, and [Workbench](workbench.md) for autosave and backup recovery.

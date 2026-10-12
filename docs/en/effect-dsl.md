@@ -213,7 +213,7 @@ IDs, scope names, and segment names use lowercase ASCII letters, digits, `.` and
 
 ## Native project and ASS exchange
 
-Project format 13 stores local Offset, reversed curves, and generated-block origins. Versions 3–12 migrate through the normal project loader; version 12 ranges retain their identities, with new Offset `(0, 0)`, Reverse `false`, and no generated origin. Older files cannot declare version-13 fields while claiming an older schema.
+Projects save as v14. Local Offset, reversed curves, and generated-block origins were introduced in v13 and remain supported. Versions v3–v13 migrate through the normal project loader; v12 ranges retain their identities, with new Offset `(0, 0)`, Reverse `false`, and no generated origin. Files claiming a schema before v13 cannot declare these v13 fields. See [storage compatibility](architecture.md#time-and-storage).
 
 ASS cannot represent independent range translation; export reports `Ass.RangeTranslation` and omits that movement. Range scale/pivots have the existing layout differences, and reversed nonlinear curves use sampling or explicit approximation diagnostics. Advanced ASS source edits retain native Offset, generated ownership, and unrepresentable reversed tracks. Save `.aeginext` to preserve the complete editable result; see [ASS interoperability](ass-compatibility.md).
 

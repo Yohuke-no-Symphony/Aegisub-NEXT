@@ -75,13 +75,14 @@ Native output is `artifacts/native/<RID>/<Configuration>/`; intermediate managed
 ## Run focused tests
 
 ```powershell
+pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects SubtitleFormats
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects Application
 pwsh -NoProfile -File ./build.ps1 -Target Workbench -RunTests -TestProjects Export
 pwsh -NoProfile -File ./build.ps1 -RunTests -TestProjects 'Desktop.Ui'
 dotnet test Tests/AegiNext.Core.Tests/AegiNext.Core.Tests.csproj -c Release --filter 'FullyQualifiedName~EffectScript'
 ```
 
-Valid project filters: Core, Application, Rendering, Media, Export, Desktop, Desktop.Ui. No tests run without `-RunTests`; Workbench testing also runs the corresponding native CTest suites. Release restores only selected test projects. Export settings, presets, ABI, and worker contracts belong in `Tests/AegiNext.Export.Tests`; desktop entry points and controls remain in Desktop/Desktop.Ui tests.
+Valid project filters: Core, Application, SubtitleFormats, Rendering, Media, Export, Desktop, Desktop.Ui. No tests run without `-RunTests`; Workbench testing also runs the corresponding native CTest suites. Release restores only selected test projects. Independent subtitle conversion tests belong in `Tests/AegiNext.SubtitleFormats.Tests`; editor integration tests remain in Application. Export settings, presets, ABI, and worker contracts belong in `Tests/AegiNext.Export.Tests`; desktop entry points and controls remain in Desktop/Desktop.Ui tests.
 
 Real media/device tests require matching native output and explicit switches: `AEGINEXT_RUN_DECODER_TESTS=1`, `AEGINEXT_RUN_AUDIO_TESTS=1`, and for the actual system device `AEGINEXT_RUN_SYSTEM_AUDIO_TESTS=1`, plus real tool paths. Otherwise native cases skip. See [Media](media.md).
 

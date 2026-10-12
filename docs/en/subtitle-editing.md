@@ -34,7 +34,7 @@ Valid text and style drafts commit on Enter or blur. Leaving the current input c
 
 Text edits preserve unaffected group identities and times. Insertion inside a group shares its whole timing; insertion at a group boundary is untimed. Deletion leaves a time gap rather than transferring duration to a neighbor. Cross-group replacement follows the existing text mapping; new text without an existing owner stays untimed. Combining characters and emoji must remain complete graphemes with one timing owner; edits violating that boundary are rejected. Explicitly split a group before splitting a cue through its interior.
 
-Projects save as v12. Reading v3–10 performs the legacy per-grapheme division once in memory to preserve earlier playback, moving legacy segment ACTIVE/INACTIVE appearances to independent text ranges. Reading v11 or v12 never divides groups automatically or repeats the range-style migration. Opening an older file does not rewrite it; saving writes v12.
+Projects save as v14 and read v3–v14. Reading v3–v10 performs the legacy per-grapheme division once in memory to preserve earlier playback, moving legacy segment ACTIVE/INACTIVE appearances to independent text ranges. Reading v11–v14 never divides groups automatically or repeats the range-style migration. Opening an older file does not rewrite it; saving writes the current format. See [storage compatibility](architecture.md#time-and-storage).
 
 Set alignment in the **Styles** panel using two groups of icon buttons: left/center/right and top/middle/bottom. Changing one direction preserves the other, and the same control is available in the style library. The combined value matches ASS `\an1`–`\an9`. Explicit position stays controlled by the position editor. Older projects retain their independent text alignment until you actively choose an alignment, which clears that legacy override.
 
@@ -89,7 +89,7 @@ The merge preserves source times and adds independent “project name / track na
 
 The main project keeps its video, canvas, frame rate, reference white, and timeline view. Sources must have matching canvas dimensions and reference white; differing frame rates do not change exact subtitle times. This workflow expects projects already aligned to the full original video and does not infer or shift segment times.
 
-Referenced fonts and images are copied into the main project's `assets/`, reusing identical content; videos are not copied. Deliver the source project's managed fonts and images together with its project file. System fonts still need to be installed on the merging computer. Missing resources, hash mismatches, invalid projects, or exceeded budgets reject the entire batch. Copy backups back into their source project root before importing them.
+Managed fonts and images are copied into the main project's `assets/` or `sources/`, reusing identical content. Linked images retain their source references with paths rebased for the main project; videos are not copied. Asset-library images are included even when no clip uses them. Deliver the source project with its managed resources and keep linked image files accessible; system fonts still need to be installed on the merging computer. Missing resources, hash mismatches, invalid projects, or exceeded budgets reject the entire batch. Copy backups back into their source project root before importing them.
 
 One Undo removes the entire selected batch, and Redo restores it. Resource files remain available for history. Save the main project after review to retain the merged content when reopening it.
 

@@ -1,5 +1,5 @@
-# 自定义组合样板：固定滑入/弹入，自由保持，固定滑出/淡出。
-# 可将 short-clip 改成 reject，明确拒绝不足 600ms 的 Clip。
+# Composition template: fixed slide/pop entry, flexible hold, and fixed slide/fade exit.
+# Set short-clip to reject to explicitly reject clips shorter than 600ms.
 effect "slide-pop" version 1
 short-clip compress
 

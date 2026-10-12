@@ -1,7 +1,7 @@
 effect "color-cycle" version 1
 short-clip compress
 
-# rgba 是直通线性值；HEX 输入属于界面的 sRGB 表示。
+# rgba uses straight linear values; the UI's HEX input represents sRGB.
 segment enter fixed 400ms
     at 0 fill base ease-out
     at 1 fill rgba(1, 0.08, 0.02, 1) linear

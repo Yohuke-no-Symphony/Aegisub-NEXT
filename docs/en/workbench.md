@@ -4,16 +4,16 @@
 
 ## Panels and layouts
 
-The nine panels are Preview, Timeline, Subtitles, Styles, Effects, Subtitle Details, Masks, Export, and Log. Drag their headings to dock, split, tab, or float. **View** reopens hidden panels; **Layout** selects Standard, Timing, Effects, Export, or a personal preset. The current layout saves automatically; named presets update only when explicitly saved.
+The workbench has eleven panels: Video preview, Timeline, Subtitles, Styles, Effects, Subtitle details, Masks, Encoding, Log, Project assets, and Drawing. Drag their headings to dock, split, tab, or float. **View** reopens hidden panels, including **Project assets** and **Drawing tools**; **Layout** selects Standard, Timing, Effects, Encoding, or a personal preset. The current layout saves automatically; named presets update only when explicitly saved.
 
 ## Tracks and navigation
 
 - Click a track heading or empty track area to select the destination for new subtitles and timing. Track context menus create, rename, reorder, and delete empty tracks.
 - Drag a clip to move it; drag an edge to trim, or Ctrl + edge to stretch its content time. Same-track overlaps reject the edit.
-- **Snap** aligns with other clip boundaries; **Step** aligns with ruler divisions. Alt temporarily bypasses both. Without Step, dragging uses project-frame precision.
+- **Snap** aligns with other clip boundaries; **Step** aligns with ruler divisions. Alt temporarily bypasses both. Without Step, dragging uses millisecond precision.
 - Wheel scrolls tracks, Shift + wheel pans, and Cmd/Ctrl + wheel zooms around the pointer. Touchpads support pinch and horizontal scrolling. The minimap changes the viewport without seeking playback.
 - With Timeline focused, **Cmd/Ctrl + C/V** copies clips and pastes at the pointer. Multi-track copies retain their spacing relative to the track selected when copied; missing destination tracks or collisions reject the whole paste.
-- Expanding a track shows keyframe properties. Track collapse and individual property collapse save with the project, including autosave, without entering content Undo. The left toolbar expands or collapses all tracks while retaining individual property states.
+- Expanding a track shows each clip's effect blocks. Expand a block to edit its keyframes and curves; blocks start collapsed. Track collapse and individual block expansion save with the project, including autosave, without entering content Undo. The left toolbar expands or collapses all tracks while retaining individual block states.
 - The **S** button in a subtitle track heading shows only that track in the timeline. Toggle it off, or select another track in the subtitle list, to show all tracks again.
 
 Subtitle list selection centers the primary clip without changing zoom. Enter commits the current text and advances; at the last row, it can create the next cue from that row's end to the playhead. Shift + Enter inserts a newline. Invalid inputs and IME confirmation retain editing focus.
@@ -42,7 +42,7 @@ Settings → Subtitle Styles renders editable sample text. Cmd/Ctrl + wheel zoom
 
 Select a clip to edit Effects, or a keyframe to seek and edit its value/interpolation. Drag Preview text, motion-path nodes, or mask handles for visual editing. Motion-path curves and handles also remain visible and draggable in the preview letterbox. In motion-path and vector-mask editing, Shift + left-click a curve to insert a node, or Ctrl + left-click an anchor to delete it; motion paths retain at least two endpoints. Insertion preserves the curve shape, while motion-path playback continues to use its existing progress mapping across segments. Node morph animation locks mask topology until those tracks are cleared. See [Subtitle editing](subtitle-editing.md) and [Effect scripts](effect-dsl.md).
 
-The clip context menu clears all animation tracks from selected clips. Right-click a keyframe or curve to clear that clip's animation of the clicked type; right-click the property heading or empty property row to clear that type across the whole track. Clearing preserves static styles, base placement, masks, motion paths, and karaoke, and forms one undo operation.
+The clip context menu clears all animation tracks from selected clips. Right-click an effect block, keyframe, or curve to clear that block's animation, including its keyframes and ordered transforms. A keyframe's menu also deletes that individual keyframe. Clearing preserves static styles, base placement, masks, motion paths, and karaoke, and forms one undo operation.
 
 Valid numeric/color drafts preview immediately and commit on Enter or blur; invalid text remains editable. Esc restores the current field. A completed gesture or committed edit forms one undo operation.
 

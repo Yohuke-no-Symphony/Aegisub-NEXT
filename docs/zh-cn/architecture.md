@@ -7,7 +7,8 @@
 | 位置 | 职责 |
 |---|---|
 | `src/AegiNext.Core` | 有理时间、不可变工程/场景模型、验证、动画、蒙版和特效 DSL |
-| `src/AegiNext.Application` | 编辑事务、Undo/Redo、存储/资源和字幕格式交换 |
+| `src/AegiNext.Application` | 编辑事务、Undo/Redo、存储/资源，以及提交字幕导入和投影编辑 |
+| `src/AegiNext.SubtitleFormats` | ASS/SRT/TXT 转换、格式诊断、ASS 文本投影和字幕时间轴映射 |
 | `src/AegiNext.Rendering` | 独立于 UI 的 Skia/HarfBuzz 排版、场景几何和线性 F16 合成 |
 | `src/AegiNext.Media` | 探测、帧所有权、原生适配、播放/分析与预览 |
 | `src/AegiNext.Export` | 导出能力与参数、预设、worker 协议、原生导出会话和最终封装编排 |
@@ -18,6 +19,8 @@
 | `Tests/`、`scripts/` | 定向验证、构建和打包工具 |
 
 Core 不依赖 Avalonia、Dock、FFmpeg、Skia 或文件系统。Application 负责业务修改，Desktop 组合服务；Rendering 和 Media 使用显式契约与资源所有权。Export 依赖 Core、Media 与 Rendering，Desktop 和 worker 调用 Export；Media 不反向依赖 Export，也不拥有导出动态库或预设。业务 ViewModel 不持有控件、Dock 对象或 Bitmap。
+
+SubtitleFormats 仅依赖 Core，返回转换数据与诊断。Application 通过编辑事务提交导入结果和高级 ASS 文本编辑。Desktop 负责文件导入导出流程及转换确认，并通过格式库的接口提供字重和排版适配器。
 
 ## 视频导出边界
 
@@ -47,7 +50,9 @@ Desktop 捕获不可变工程和参数，再启动独立 worker；Application �
 
 时间采用有理数 `MediaTime`，Clip 可见范围为 `[Start, End)`。解码与 VFR 使用真实呈现时间戳；字幕格式交换只在边界映射已确认的播放原点，保留动画/卡拉 OK 相对时间。
 
-新 `.aeginext` 文件使用 **v12**，可读取 v3–v11。迁移将旧单值边距等值映射为左、右、垂直，保留原有排版位置和字幕／图层时间；未知播放原点保持未知直到确认。兼容缺失/null 的旧蒙版，不支持的非空旧局部蒙版会标明所属对象并拒绝读取；不支持 v1/v2。样式库使用 **v6**，可读取 v1–v5 并采用相同边距迁移。旧应用无法读取新保存的 v12 工程或 v6 样式库。
+新 `.aeginext` 文件使用 **v14**；`ProjectStore` 同时读取 v3–v13 并在内存中升级。迁移将旧单值边距等值映射为左、右、垂直，保留原有排版位置和字幕／图层时间；未知播放原点保持未知直到确认。兼容缺失/null 的旧蒙版，不支持的非空旧局部蒙版会标明所属对象并拒绝读取；不支持 v1/v2。样式库使用 **v6**，可读取 v1–v5 并采用相同边距迁移。仅支持旧格式的应用无法读取新保存的 v14 工程或 v6 样式库。
+
+版本 14 保存工程素材库、项目内或外部链接的素材存储方式、图片裁剪／播放设置和图形参数。旧图片保留为项目内素材，并成为素材库根文件夹中的条目；迁移补齐全图裁剪和空的显式播放设置。素材库文件夹组织工程元数据，不改变源文件的磁盘目录。
 
 平面 Track → Clip 模型允许同一轨道容纳字幕、图片和形状。同轨片段不能重叠；轨道数组是唯一叠覆顺序，最上方轨道最后绘制。迁移尽量保留原轨道；跨轨片段在旧图层列表中交错不会导致拆轨，只有保持同时活动片段的前后关系或解决同轨重叠确实需要时才派生轨道。旧无效果组仅在时间与合成结果均可保留时展开；含变换、动画、透明度、蒙版、模糊或隔离混合的组会拒绝迁移并标明组名和标识。保存前不修改原文件。
 
@@ -87,6 +92,7 @@ Desktop 捕获不可变工程和参数，再启动独立 worker；Application �
 | `Workspace` 字幕交换／创建 | `ImportSubtitlesTask`、`ExportSubtitlesTask`、`CreateSubtitleClipsTask`、`BeginTimingCueTask` |
 | `Workspace` 视频导出 | `VideoExportTask`；导出面板和任务列表取消同一句柄 |
 | `Workspace` 字体／样式／效果准备 | `ImportSubtitleFontTask`、`PrepareSubtitleStyleTask`、`ApplySubtitleStyleTask`、`ApplySubtitleTrackStyleTask`、`CaptureSubtitleStyleTask`、`ApplyEffectScriptTask` |
+| `Workspace` 图片素材 | `AssetLibraryTask`；协调器先准备导入、放置、刷新、重新定位与收集，再提交工程修改 |
 | `Workspace` 个人资源交换 | `ImportStylePresetsTask`、`ExportStylePresetsTask`、`ImportEffectScriptsTask`、`ExportEffectScriptTask` |
 | `Workspace` 音频分析／设备 | `AudioAnalysisBatchTask`、`AudioCacheMigrationTask`、`ApplyAudioCalibrationTask`、`RebuildAudioOutputTask` |
 | `Workspace` 自动持久化 | `AutomaticProjectPersistenceTask`；备份清理通过 `ProjectPersistenceTask` 或父任务阶段执行 |
@@ -95,7 +101,7 @@ Desktop 捕获不可变工程和参数，再启动独立 worker；Application �
 | `Settings/Presets`／`Settings/Export` | `SettingsStyleImportTask`、`SettingsStyleExportTask`、`SettingsEffectImportTask`、`SettingsEffectExportTask`、`SettingsExportPresetExportTask`；库增删改使用 `PersonalLibraryTask` |
 | `Settings/Transfer` | `UserSettingsLayoutCaptureTask`、`UserSettingsExportTask`、`UserSettingsImportTask`、`UserSettingsRestoreStageTask`、`UserSettingsRestoreCancelTask` |
 
-目前没有独立图片导入命令或工程备份恢复入口；已有工程中的图片资源随打开、合并和资源迁移处理，设置恢复遵守上述恢复任务边界。播放循环、单帧解码、拖动定位、音频时钟与实时预览继续走内部实时管线，其所属耗时业务任务负责取消和完成。分析视口请求及每个分析块不会各自产生任务记录。
+图片可通过“文件 → 导入图片”或项目素材面板导入。工程备份按[工作台](workbench.md#保存与恢复)中的手动文件流程恢复，设置恢复遵守上述恢复任务边界。播放循环、单帧解码、拖动定位、音频时钟与实时预览继续走内部实时管线，其所属耗时业务任务负责取消和完成。分析视口请求及每个分析块不会各自产生任务记录。
 
 连续写入合并保留原任务身份、句柄与排队位置，不替换已运行请求，也不跨越屏障或中间的冲突写入。自动保存仅捕获已提交内容和视图状态，不提交草稿、不改变焦点或 Undo。另存为分别重定位保存快照和最新编辑状态，跨目录迁移清除会恢复旧路径的历史，保留无效输入草稿。
 
@@ -115,7 +121,9 @@ Desktop 捕获不可变工程和参数，再启动独立 worker；Application �
 
 特效 DSL 版本 2 在 Core 解析命名作用域和字素安全的文字组，由 `CompileTarget`／`ComposeTarget` 同时返回准备后的字幕范围与动画轨道，Application 一次事务应用完整冻结结果。生成块以脚本 ID、作用域名、父范围 ID 匹配，稳定分组签名与文字跨度决定是否复用身份；重新应用替换该块结果。Rendering 与 Desktop 消费原生范围和轨道，不在播放时解释脚本，详见[特效脚本](effect-dsl.md)。
 
-工程格式 13 保存范围 Offset、主曲线／分量曲线的 Reverse 和生成来源。`ProjectStore` 严格迁移版本 3–12；新可选字段默认为零 Offset、false Reverse、无生成来源，版本 12 保留既有文字动画字段。旧版本按字段所属对象拒绝新能力，已有字幕位置 Offset 仍合法。生成父引用必须属于同一句字幕且不形成环；手工编辑或文字映射后不要求子范围跨度包含于父范围。
+范围 Offset、主曲线／分量曲线的 Reverse 和生成来源从工程格式 13 开始支持，并保留在 v14 中。读取 v13 之前的格式时，这些可选字段默认为零 Offset、false Reverse、无生成来源；v12 保留既有文字动画字段。旧版本按字段所属对象拒绝新能力，已有字幕位置 Offset 仍合法。生成父引用必须属于同一句字幕且不形成环；手工编辑或文字映射后不要求子范围跨度包含于父范围。
+
+原生样式保存字距、独立填充/描边模糊和换行模式；从旧版本迁移时新增数值为零、换行模式为按字素换行，保留原有外观。新版本要求这些字段完整，旧版本夹带新增字段会被拒绝。字距及双模糊可作为仅适用于字幕的动画轨道和 DSL 属性；整层模糊与阴影模糊保留独立含义。
 
 预览复用编辑/导出的场景几何，显示 SDR 派生图；渲染器在显示/编码前保持线性 F16，worker 导出读取原始媒体帧。异步结果交付前检查时间、修订、请求身份和所有权。
 
@@ -123,8 +131,14 @@ Desktop 捕获不可变工程和参数，再启动独立 worker；Application �
 
 C# 使用 Allman 花括号、文件级命名空间、单文件单顶层类型，适当使用 `var` 和目标类型 `new()`。开启可空检查、分析器和警告视为错误，公开/受保护 API 文档描述契约。
 
+界面标签与错误提示使用现有语言包；字幕内容、Unicode 测试数据、用户命名、路径和序列化标识保持其业务含义。
+
 测试放在所属 Tests 项目并定向运行。修改原生契约时同步托管绑定、worker 协议、能力/版本检查与布局测试。提交围绕明确范围，采用简短英文 `feat:`、`fix:` 或 `chore:` 标题；排除生成产物，执行 `git diff --check` 和受影响测试。
 
-继续阅读[工作区集成](composable-workspace.md)、[媒体](media.md)、[渲染](rendering.md)或[构建](building.md)。
+### 维护文档
 
-原生样式保存字距、独立填充/描边模糊和换行模式；从旧版本迁移时新增数值为零、换行模式为按字素换行，保留原有外观。新版本要求这些字段完整，旧版本夹带新增字段会被拒绝。字距及双模糊可作为仅适用于字幕的动画轨道和 DSL 属性；整层模糊与阴影模糊保留独立含义。
+用户操作放在快速开始和专题指南中，模块契约放在本页及集成指南中，可执行的构建／发布命令放在构建与发布指南中。优先更新已有主题，再考虑新增指南。`docs/en/` 与 `docs/zh-cn/` 保持相同文件名和行为说明，并维护语言切换与相对链接。版本号以所属常量为准，命令以实际脚本为准。
+
+`docs/assets/` 只保存被维护指南引用的最终图片，`docs/en/examples/effects/` 保存两种语言共用的可运行特效示例。生成产物、日志、临时验证报告和 AI 会话材料不进入维护文档。编辑后检查链接、锚点、图片引用、双语对应和 `git diff --check`；修改可执行示例或记录需要验证的行为时，定向运行相关测试。
+
+继续阅读[工作区集成](composable-workspace.md)、[媒体](media.md)、[渲染](rendering.md)或[构建](building.md)。

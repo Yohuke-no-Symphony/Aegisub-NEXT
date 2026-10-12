@@ -4,10 +4,10 @@
 
 ## Export a video
 
-1. Open **Export** and choose Automatic, H.264, HEVC, VP8, VP9, or AV1.
+1. Open **Encoding** and choose Automatic, H.264, HEVC, VP8, VP9, or AV1.
 2. Select CPU or GPU encoding and speed. CPU quality mode shows CRF or CQ for the selected format, or Mbps with VBR/CBR. GPU uses VBR/CBR.
 3. Choose source-audio copy, AAC, Opus, or no audio. AAC/Opus have a separate bitrate control.
-4. Click **Export**, select a supported container, and choose a new destination file.
+4. Click **Encode**, select a supported container, and choose a new destination file.
 5. Follow progress, cancel if needed, and inspect the finished output.
 
 Automatic chooses H.264 for SDR and HEVC for PQ/HLG. Saved projects default to `project directory/output/project name-yyyyMMdd-HHmmss.extension`, creating `output` when needed. Automatic, H.264, and HEVC default to MP4; VP8, VP9, and AV1 default to MKV. The save dialog lets you change location, filename, and compatible container. Unsaved projects require choosing an output location.
@@ -61,7 +61,9 @@ In **Settings → Encoding presets**, add or duplicate a preset, edit its name a
 
 The list supports multiple selection. **Export** writes selected saved presets into one `.aegiexports` file. **Import** accepts multiple exchange files, each of which may contain multiple presets. New files use version 2; version 1 presets migrate with their existing settings preserved. Older applications cannot read the new format. Invalid versions, parameters, or conflicting identities/names reject the whole import without partial changes. Exchange files contain no project, media, output, or tool paths.
 
-Select a preset in the **Export** panel to apply it directly. Library edits and imports refresh the list while keeping current parameters and unfinished inputs until you explicitly select a preset. Preset management does not commit project drafts or change Undo.
+Select a preset in the **Encoding** panel to apply it directly. Library edits and imports refresh the list while keeping current parameters and unfinished inputs until you explicitly select a preset. Preset management does not commit project drafts or change Undo.
+
+If a saved GPU preset uses a format with no GPU backend on this platform, loading it shows CPU encoding while retaining its bitrate mode and other parameters. Loading, refreshing, or leaving the editor keeps the saved preset unchanged; saving explicit edits stores the settings shown in the editor.
 
 ## HDR and input requirements
 

@@ -118,12 +118,12 @@
 
 | 内容 | 实现 |
 |---|---|
-| 文件结构、样式、分辨率与总体损失 | [AssSubtitleFormat](../../src/AegiNext.Application/SubtitleFormats/AssSubtitleFormat.cs) |
-| 正文、样式重置与卡拉 OK | [AssTextParser](../../src/AegiNext.Application/SubtitleFormats/AssTextParser.cs)、[AssTextWriter](../../src/AegiNext.Application/SubtitleFormats/AssTextWriter.cs) |
-| 文字动画、投影保留与源约束 | [导入](../../src/AegiNext.Application/SubtitleFormats/AssTextAnimationImport.cs)、[导出](../../src/AegiNext.Application/SubtitleFormats/AssTextAnimationExport.cs)、[投影恢复](../../src/AegiNext.Application/SubtitleFormats/AssTextAnimationProjection.cs)、[源求值](../../src/AegiNext.Application/SubtitleFormats/AssSourceAnimationEvaluator.cs) |
-| 放置、移动、透明度及外观补偿 | [AssEventConversionContext](../../src/AegiNext.Application/SubtitleFormats/AssEventConversionContext.cs) |
-| 裁切几何与事件展开 | [AssMaskDrawing](../../src/AegiNext.Application/SubtitleFormats/AssMaskDrawing.cs)、[AssMaskWriter](../../src/AegiNext.Application/SubtitleFormats/AssMaskWriter.cs)、[AssMaskSampling](../../src/AegiNext.Application/SubtitleFormats/AssMaskSampling.cs) |
-| 实际输出精度、阴影与模糊语义 | [AssExportPrecision](../../src/AegiNext.Application/SubtitleFormats/AssExportPrecision.cs)、[AssShadowComposition](../../src/AegiNext.Application/SubtitleFormats/AssShadowComposition.cs)、[AssBlurConversion](../../src/AegiNext.Application/SubtitleFormats/AssBlurConversion.cs) |
+| 文件结构、样式、分辨率与总体损失 | [AssSubtitleFormat](../../src/AegiNext.SubtitleFormats/AssSubtitleFormat.cs) |
+| 正文、样式重置与卡拉 OK | [AssTextParser](../../src/AegiNext.SubtitleFormats/AssTextParser.cs)、[AssTextWriter](../../src/AegiNext.SubtitleFormats/AssTextWriter.cs) |
+| 文字动画、投影保留与源约束 | [导入](../../src/AegiNext.SubtitleFormats/AssTextAnimationImport.cs)、[导出](../../src/AegiNext.SubtitleFormats/AssTextAnimationExport.cs)、[投影恢复](../../src/AegiNext.SubtitleFormats/AssTextAnimationProjection.cs)、[源求值](../../src/AegiNext.SubtitleFormats/AssSourceAnimationEvaluator.cs) |
+| 放置、移动、透明度及外观补偿 | [AssEventConversionContext](../../src/AegiNext.SubtitleFormats/AssEventConversionContext.cs) |
+| 裁切几何与事件展开 | [AssMaskDrawing](../../src/AegiNext.SubtitleFormats/AssMaskDrawing.cs)、[AssMaskWriter](../../src/AegiNext.SubtitleFormats/AssMaskWriter.cs)、[AssMaskSampling](../../src/AegiNext.SubtitleFormats/AssMaskSampling.cs) |
+| 实际输出精度、阴影与模糊语义 | [AssExportPrecision](../../src/AegiNext.SubtitleFormats/AssExportPrecision.cs)、[AssShadowComposition](../../src/AegiNext.SubtitleFormats/AssShadowComposition.cs)、[AssBlurConversion](../../src/AegiNext.SubtitleFormats/AssBlurConversion.cs) |
 | 原生自由度 | [SubtitleStyle](../../src/AegiNext.Core/Projects/SubtitleStyle.cs)、[LayerTransform](../../src/AegiNext.Core/Projects/LayerTransform.cs)、[AnimationProperty](../../src/AegiNext.Core/Projects/AnimationProperty.cs) |
 
 标签目录用于核对功能范围。解析边界还依据 [libass 的版本化解析器](https://github.com/libass/libass/blob/0.17.5/libass/ass_parse.c)、[样式读取](https://github.com/libass/libass/blob/0.17.5/libass/ass.c) 与 [绘图状态机](https://github.com/libass/libass/blob/0.17.5/libass/ass_drawing.c)；其他播放器和 Aegisub 内部工具可能支持不同扩展，尤其是 kt 和 fsc。独立渲染对照的方法与已知有损特征见 [Reference 测试说明](../../Tests/AegiNext.Rendering.Tests/Reference/README.md)，不能把测试通过解释为所有 ASS 组合均无损。

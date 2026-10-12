@@ -7,7 +7,8 @@
 | Location | Responsibility |
 |---|---|
 | `src/AegiNext.Core` | Rational time, immutable project/scene models, validation, animation, masks, and effect DSL |
-| `src/AegiNext.Application` | Editing transactions, Undo/Redo, storage/resources, and subtitle format exchange |
+| `src/AegiNext.Application` | Editing transactions, Undo/Redo, storage/resources, and applying subtitle imports and projection edits |
+| `src/AegiNext.SubtitleFormats` | ASS/SRT/TXT conversion, format diagnostics, ASS text projection, and subtitle timeline mapping |
 | `src/AegiNext.Rendering` | UI-independent Skia/HarfBuzz shaping, scene geometry, and linear F16 composition |
 | `src/AegiNext.Media` | Probing, frame ownership, native adapters, playback/analysis, and preview |
 | `src/AegiNext.Export` | Export capabilities/settings, presets, worker protocol, native export sessions, and final muxing orchestration |
@@ -18,6 +19,8 @@
 | `Tests/`, `scripts/` | Focused verification, build, and packaging tools |
 
 Core has no Avalonia, Dock, FFmpeg, Skia, or filesystem dependency. Application owns business edits; Desktop composes services. Rendering and Media use explicit contracts and resources. Export depends on Core, Media, and Rendering; Desktop and the worker call Export. Media has no reverse dependency on Export and owns neither its native library nor its presets. Business view models do not hold controls, Dock objects, or bitmaps.
+
+SubtitleFormats depends only on Core and returns converted data and diagnostics. Application commits imports and advanced ASS text edits through its editing transactions. Desktop owns file import/export workflows and conversion confirmation, and supplies font-weight and placement adapters through the format library's interfaces.
 
 ## Video export boundaries
 
@@ -47,7 +50,9 @@ Shared speed names have explicit CPU mappings. x264/x265 use their named presets
 
 Time is rational `MediaTime`; Clip visibility is `[Start, End)`. Decoding and VFR use actual presentation timestamps. Subtitle-format exchange maps confirmed playback origin only at the boundary; relative animation/karaoke time is retained.
 
-New `.aeginext` files use **v12** and read v3–v11. Migration maps the old scalar margin equally to Left, Right, and Vertical, preserving existing placement and subtitle/layer times; an unknown playback origin remains unknown until confirmed. Missing/null legacy masks are accepted, but unsupported nonempty legacy local masks reject loading with the affected object identified. v1/v2 are unsupported. Style libraries use **v6** and read v1–v5 with the same margin migration. Older applications cannot read newly saved v12 projects or v6 style libraries.
+New `.aeginext` files use **v14**; `ProjectStore` also reads v3–v13 and upgrades them in memory. Migration maps the old scalar margin equally to Left, Right, and Vertical, preserving existing placement and subtitle/layer times; an unknown playback origin remains unknown until confirmed. Missing/null legacy masks are accepted, but unsupported nonempty legacy local masks reject loading with the affected object identified. v1/v2 are unsupported. Style libraries use **v6** and read v1–v5 with the same margin migration. Applications supporting only older schemas cannot read newly saved v14 projects or v6 style libraries.
+
+Version 14 stores the project asset library, managed or linked asset storage, image crop/playback settings, and shape parameters. Legacy images remain managed assets and become library items in the root folder; migration supplies a full-image crop and no explicit playback settings. Library folders organize project metadata rather than changing the source files' directories.
 
 The flat Track → Clip model permits subtitles, images, and shapes on the same track. Clips cannot overlap within a track, and the track array is the sole compositing order: the top track is drawn last. Migration retains existing tracks where possible; interleaving clips in the legacy layer list does not split tracks. Derived tracks are created only when needed to preserve the order of simultaneously active clips or resolve overlap within a track. Legacy neutral groups can be flattened only when their timing and compositing are preserved; groups with transforms, animation, opacity, masks, blur, or blend isolation reject migration with the affected group identified. Original files remain unchanged until saving.
 
@@ -87,6 +92,7 @@ Use this entry inventory when checking that new business operations use the serv
 | `Workspace` subtitle exchange / creation | `ImportSubtitlesTask`, `ExportSubtitlesTask`, `CreateSubtitleClipsTask`, `BeginTimingCueTask` |
 | `Workspace` video export | `VideoExportTask`; the export panel and task list cancel the same handle |
 | `Workspace` font / style / effect preparation | `ImportSubtitleFontTask`, `PrepareSubtitleStyleTask`, `ApplySubtitleStyleTask`, `ApplySubtitleTrackStyleTask`, `CaptureSubtitleStyleTask`, `ApplyEffectScriptTask` |
+| `Workspace` image assets | `AssetLibraryTask`; the coordinator prepares imports, placement, refresh, relocation, and collection before committing project changes |
 | `Workspace` personal resource exchange | `ImportStylePresetsTask`, `ExportStylePresetsTask`, `ImportEffectScriptsTask`, `ExportEffectScriptTask` |
 | `Workspace` audio analysis / devices | `AudioAnalysisBatchTask`, `AudioCacheMigrationTask`, `ApplyAudioCalibrationTask`, `RebuildAudioOutputTask` |
 | `Workspace` automatic persistence | `AutomaticProjectPersistenceTask`; backup pruning uses `ProjectPersistenceTask` or a parent stage |
@@ -95,7 +101,7 @@ Use this entry inventory when checking that new business operations use the serv
 | `Settings/Presets` / `Settings/Export` | `SettingsStyleImportTask`, `SettingsStyleExportTask`, `SettingsEffectImportTask`, `SettingsEffectExportTask`, `SettingsExportPresetExportTask`; library mutations use `PersonalLibraryTask` |
 | `Settings/Transfer` | `UserSettingsLayoutCaptureTask`, `UserSettingsExportTask`, `UserSettingsImportTask`, `UserSettingsRestoreStageTask`, `UserSettingsRestoreCancelTask` |
 
-There is currently no separate image import command or project backup restoration entry; images already in projects follow open, merge, and resource relocation workflows, while settings recovery follows the restoration tasks above. Playback loops, single-frame decoding, drag seeking, the audio clock, and live preview remain internal real-time pipelines whose owning business tasks manage cancellation and completion. Viewport requests and individual analysis blocks do not create separate task records.
+Image import is available through File → Import images and the Project assets panel. Project backup recovery uses the manual file workflow described in [Workbench](workbench.md#save-and-recover); settings recovery follows the restoration tasks above. Playback loops, single-frame decoding, drag seeking, the audio clock, and live preview remain internal real-time pipelines whose owning business tasks manage cancellation and completion. Viewport requests and individual analysis blocks do not create separate task records.
 
 Coalescing preserves the original identity, handle, and queue position. It never replaces running work or crosses a barrier or intervening conflicting write. Autosave reads committed content and view state without committing drafts, changing focus, or modifying Undo. Save As separately relocates the frozen save and current editor snapshots; obsolete-path history is cleared while invalid raw input remains editable.
 
@@ -115,7 +121,9 @@ Native macOS/Windows title-bar dragging, scaling, and platform-button hit testin
 
 Effect DSL version 2 resolves named scopes and grapheme-safe groups in Core, then `CompileTarget` / `ComposeTarget` returns both prepared subtitle ranges and animation tracks. Application applies the complete frozen result in one transaction. A generated family matches effect ID, scope name, and parent range ID; its stable grouping signature and text span determine identity reuse. Reapplication replaces that family's results. Renderer and Desktop consume native ranges and tracks rather than interpreting scripts during playback. See [Effect scripts](effect-dsl.md).
 
-Project format 13 persists range Offset, reversed main/component curves, and generated origins. `ProjectStore` accepts versions 3–12 through strict migrations; the new optional values default to zero Offset, false Reverse, and no origin. Version 12 keeps its existing text-animation fields. Older schemas reject the new fields by their owning object, allowing existing subtitle-position Offset fields. Generated parent references must stay within one subtitle and form no cycle; validation does not require child-span containment after manual edits or text remapping.
+Range Offset, reversed main/component curves, and generated origins were introduced in project format 13 and remain part of v14. When loading a schema before v13, these optional values default to zero Offset, false Reverse, and no origin; v12 retains its existing text-animation fields. Older schemas reject the new fields by their owning object, allowing existing subtitle-position Offset fields. Generated parent references must stay within one subtitle and form no cycle; validation does not require child-span containment after manual edits or text remapping.
+
+Native styles store letter spacing, independent fill/outline blur, and wrap mode. Older files migrate with zero for the new numeric values and grapheme wrapping, preserving their existing appearance. Current files require the complete fields; legacy files containing the new fields are rejected. Letter spacing and both blur values are subtitle-only animation and DSL properties. Layer blur and shadow blur retain their independent meanings.
 
 Preview uses the same scene geometry as editing/export and presents SDR derivatives. The renderer retains linear F16 until display/encoding; worker export reads original media frames. Every asynchronous result checks time, revision, request identity, and ownership before delivery.
 
@@ -123,8 +131,14 @@ Preview uses the same scene geometry as editing/export and presents SDR derivati
 
 Use Allman braces, file-scoped namespaces, one top-level type per file, `var`, and target-typed `new()` where suitable. Nullable checking, analyzers, and warnings-as-errors are enabled. Public/protected API docs describe the contract.
 
+UI labels and error prompts use the existing language packs. Subtitle content, Unicode test fixtures, user names, paths, and serialized identifiers retain their business meaning.
+
 Put focused tests in the owning Tests project. Change a native contract together with managed bindings, worker protocol, capability/version checks, and layout tests. Keep commits scoped with short English `feat:`, `fix:`, or `chore:` titles. Exclude generated artifacts and run `git diff --check` plus affected tests.
 
-Continue with [Workspace integration](composable-workspace.md), [Media](media.md), [Rendering](rendering.md), or [Building](building.md).
+### Maintain documentation
 
-Native styles store letter spacing, independent fill/outline blur, and wrap mode. Older files migrate with zero for the new numeric values and grapheme wrapping, preserving their existing appearance. Current files require the complete fields; legacy files containing the new fields are rejected. Letter spacing and both blur values are subtitle-only animation and DSL properties. Layer blur and shadow blur retain their independent meanings.
+Keep user workflows in the Quickstart and topic guides, module contracts here and in the integration guides, and executable build/release commands in Building and Publishing. Update existing topics before adding another guide. Keep matching filenames and behavior descriptions in `docs/en/` and `docs/zh-cn/`, with language switches and relative links intact. Verify version numbers against their owning constants and commands against the actual scripts.
+
+Use `docs/assets/` for final images referenced by maintained guides and `docs/en/examples/effects/` for shared runnable effect examples. Keep generated output, logs, temporary verification reports, and AI session artifacts out of the maintained documentation. Check links, anchors, image references, bilingual correspondence, and `git diff --check` after editing; run focused tests when changing executable examples or documenting behavior that needs verification.
+
+Continue with [Workspace integration](composable-workspace.md), [Media](media.md), [Rendering](rendering.md), or [Building](building.md).

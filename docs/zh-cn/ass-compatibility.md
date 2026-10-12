@@ -75,4 +75,4 @@ ASS 的 3D 旋转、剪切、独立横纵描边、重复盒式边缘模糊、字
 
 文字动画采样限制为每轨道 4096 点、1 毫秒时间网格，导出最多 100,000 条事件，均属于交换预算。每字幕最多 256 个动画文字范围同时是原生工程校验约束。
 
-实现集中在 [Application/SubtitleFormats](../../src/AegiNext.Application/SubtitleFormats/)；原生能力由 [Core/Projects](../../src/AegiNext.Core/Projects/) 定义，画面由 [Rendering](../../src/AegiNext.Rendering/) 求值与合成。
+实现集中在 [SubtitleFormats](../../src/AegiNext.SubtitleFormats/)；原生能力由 [Core/Projects](../../src/AegiNext.Core/Projects/) 定义，画面由 [Rendering](../../src/AegiNext.Rendering/) 求值与合成。

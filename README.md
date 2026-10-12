@@ -18,7 +18,7 @@
 
 AegiNext makes subtitle creation easier to learn, supports Aegisub file standards, and runs natively on macOS and Windows. Its goal is to succeed the original Aegisub after its author stopped maintaining it, carrying the subtitle creation workflow forward.
 
-![](docs/assets/screenshot.jpg)
+![AegiNext subtitle workbench](docs/assets/screenshot.jpg)
 
 ## Features
 
@@ -31,7 +31,7 @@ AegiNext makes subtitle creation easier to learn, supports Aegisub file standard
 
 1. Open the app, create a project, and load media with **File → Open Video**.
 2. Select a track, press **F8 / F9** to mark subtitle start and end, then enter the text.
-3. Adjust its style, save with **Cmd/Ctrl + S**, and export subtitles through **Format** or video through **Export**.
+3. Adjust its style, save with **Cmd/Ctrl + S**, and export subtitles through **Format** or video through **Encoding**.
 
 For broad video compatibility, select **Settings → Media → Auto** decoding. macOS negotiates VideoToolbox support for the actual codec/profile, including HEVC 4:2:2/4:4:4, AV1, VP9, and ProRes 422/4444 on capable devices, while preserving source precision, chroma, and Alpha. Unsupported hardware inputs fall back to CPU. ProRes Alpha composites onto black; **GPU (strict)** requires confirmed hardware acceleration without fallback. See [media compatibility](docs/en/media.md).
 
@@ -62,7 +62,7 @@ For mouse timing, select a subtitle and enable **Classic Aegisub timing** using 
 
 Imports create independent tracks; overlapping cues keep their times on additional tracks. Exports include all subtitle tracks. Save an `.aeginext` project to continue editing.
 
-Unsupported ASS tags or animation require confirmation before import conversion; `\move` is not converted into a project motion effect. SRT export reports loss of rich styling, karaoke, masks, and animation. See [subtitle import and export](docs/en/subtitle-editing.md#import-and-export) for the full supported scope.
+Supported ASS `\move`, `\fad`, and `\fade` animation converts to editable native tracks. Unsupported tags or animation require confirmation before import conversion. SRT export reports loss of rich styling, karaoke, masks, and animation. See [subtitle import and export](docs/en/subtitle-editing.md#import-and-export) for the full supported scope.
 
 ## Run from source
 

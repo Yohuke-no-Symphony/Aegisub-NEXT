@@ -18,7 +18,7 @@
 
 AegiNext 致力于提供更易上手的字幕制作体验，兼容 Aegisub 文件标准，原生支持 macOS 与 Windows。开发目标是在 Aegisub 原作者停止维护后，接替旧版 Aegisub，延续字幕制作工作流。
 
-![](docs/assets/screenshot.jpg)
+![AegiNext 字幕工作台](docs/assets/screenshot.jpg)
 
 ## 功能
 
@@ -62,7 +62,7 @@ Q/W/E/R 在时间线或字幕行获得焦点、且未编辑文本时生效。短
 
 字幕导入创建独立轨道，重叠字幕保留原时间并分配到额外轨道；导出包含所有字幕轨道。继续编辑请保存 `.aeginext` 工程。
 
-ASS 中不支持的标签或动画会在导入时提示转换确认，`\move` 暂不转换为工程运动特效。SRT 导出会提示富样式、卡拉 OK、蒙版和动画的损失。完整支持范围见[字幕导入与导出](docs/zh-cn/subtitle-editing.md#导入与导出)。
+受支持的 ASS `\move`、`\fad` 和 `\fade` 动画会转换为可编辑的原生轨道；不支持的标签或动画会在导入时提示转换确认。SRT 导出会提示富样式、卡拉 OK、蒙版和动画的损失。完整支持范围见[字幕导入与导出](docs/zh-cn/subtitle-editing.md#导入与导出)。
 
 ## 从源码运行
 
