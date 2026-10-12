@@ -1,14 +1,14 @@
 using System.Collections.Immutable;
 using System.Text;
-using AegiNext.Application;
 using AegiNext.Application.Tasks;
-using AegiNext.Application.SubtitleFormats;
+using AegiNext.Application;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controllers;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Rendering;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Desktop.Workspace;
 

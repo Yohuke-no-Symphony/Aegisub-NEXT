@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application;
 
@@ -31,8 +31,8 @@ public static partial class ProjectEditingOperations
         {
             next = next with
             {
-                Tracks = next.Tracks.Where(track => !AssTextAnimationProjection.IsTextTrack(track)).ToImmutableArray()
-                    .AddRange(textTracks.Where(AssTextAnimationProjection.IsTextTrack))
+                Tracks = next.Tracks.Where(track => !AssTextProjection.IsTextAnimationTrack(track)).ToImmutableArray()
+                    .AddRange(textTracks.Where(AssTextProjection.IsTextAnimationTrack))
             };
         }
         var line = SubtitleAnimationRangeEditing.RemapTextChange(document.Subtitles[index], edited.Line);

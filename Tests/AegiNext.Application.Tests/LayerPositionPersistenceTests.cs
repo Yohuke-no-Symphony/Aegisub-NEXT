@@ -1,7 +1,7 @@
-using System.Text;
 using System.Text.Json.Nodes;
-using AegiNext.Application.SubtitleFormats;
+using System.Text;
 using AegiNext.Core.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application.Tests;
 

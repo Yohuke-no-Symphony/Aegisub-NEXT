@@ -11,6 +11,7 @@
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <ProjectReference Include="../../src/AegiNext.Rendering/AegiNext.Rendering.csproj" />
     <ProjectReference Include="../../src/AegiNext.Application/AegiNext.Application.csproj" />
+    <ProjectReference Include="../../src/AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <Using Include="Xunit" />
     <None Update="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

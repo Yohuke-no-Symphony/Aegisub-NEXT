@@ -12,6 +12,7 @@
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <PackageReference Include="Avalonia.Headless.XUnit" />
     <ProjectReference Include="../../src/AegiNext.Desktop/AegiNext.Desktop.csproj" />
+    <ProjectReference Include="../../src/AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>

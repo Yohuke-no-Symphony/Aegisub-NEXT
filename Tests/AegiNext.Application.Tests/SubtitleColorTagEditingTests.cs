@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json.Nodes;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application.Tests;
 
@@ -68,7 +68,7 @@ public sealed class SubtitleColorTagEditingTests
     }
 
     [Fact]
-    public void EmptyMetadataIsOmittedAndVersionTenMissingMetadataDefaults()
+    public void EmptyMetadataIsOmittedAndRoundTripUsesCurrentProjectVersion()
     {
         var editor = CreateEditor();
         var before = editor.Snapshot;
@@ -78,7 +78,7 @@ public sealed class SubtitleColorTagEditingTests
         var id = editor.Snapshot.Subtitles[0].Id;
         editor.ApplySubtitleColorTag([id], Tag("Review", "#112233"));
         var restored = ProjectStore.Deserialize(ProjectStore.Serialize(editor.Snapshot));
-        Assert.Equal(10, restored.Version);
+        Assert.Equal(ProjectDocument.CURRENT_VERSION, restored.Version);
         Assert.Equal<SubtitleColorTag>(editor.Snapshot.ColorTags, restored.ColorTags);
         Assert.Equal(editor.Snapshot.Subtitles[0].ColorTagId, restored.Subtitles[0].ColorTagId);
         Assert.NotEqual(ProjectStore.ComputeFingerprint(before), ProjectStore.ComputeFingerprint(restored));

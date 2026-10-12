@@ -37,6 +37,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AegiNext.Export", "src\Aegi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AegiNext.Export.Tests", "Tests\AegiNext.Export.Tests\AegiNext.Export.Tests.csproj", "{C0DB3A15-B893-4C25-BA60-4B71636DE3A7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AegiNext.SubtitleFormats", "src\AegiNext.SubtitleFormats\AegiNext.SubtitleFormats.csproj", "{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AegiNext.SubtitleFormats.Tests", "Tests\AegiNext.SubtitleFormats.Tests\AegiNext.SubtitleFormats.Tests.csproj", "{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -47,6 +51,30 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Debug|x64.Build.0 = Debug|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Debug|x86.Build.0 = Debug|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Release|x64.ActiveCfg = Release|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Release|x64.Build.0 = Release|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Release|x86.ActiveCfg = Release|Any CPU
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5}.Release|x86.Build.0 = Release|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Debug|x64.Build.0 = Debug|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Debug|x86.Build.0 = Debug|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Release|x64.ActiveCfg = Release|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Release|x64.Build.0 = Release|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Release|x86.ActiveCfg = Release|Any CPU
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239}.Release|x86.Build.0 = Release|Any CPU
 		{C0DB3A15-B893-4C25-BA60-4B71636DE3A7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C0DB3A15-B893-4C25-BA60-4B71636DE3A7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C0DB3A15-B893-4C25-BA60-4B71636DE3A7}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -226,6 +254,8 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{C9F47BD6-A1A6-4406-B047-AF58CAAB10A5} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{DFAA5DEE-30C7-4281-AB2F-0AEF5B006239} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{C0DB3A15-B893-4C25-BA60-4B71636DE3A7} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{7786E4B5-9ABF-45EF-9831-DEF58D3794EB} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{D73CF2E3-AD7E-487D-B4D3-6BF7D20DEA5A} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}

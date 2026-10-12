@@ -2,6 +2,7 @@ using AegiNext.Desktop.Shortcuts;
 using AegiNext.Application;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Workspace;
+using AegiNext.SubtitleFormats;
 using System.Text;
 
 namespace AegiNext.Desktop.Tests.Workspace;

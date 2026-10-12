@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Views;
 using AegiNext.Desktop.Workspace;
+using AegiNext.SubtitleFormats;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;

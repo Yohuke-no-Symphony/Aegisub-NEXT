@@ -236,7 +236,7 @@ function Get-AegiNextEnvironment
         [string] $FfmpegRoot,
         [string] $SdlRoot,
         [switch] $RunTests,
-        [ValidateSet('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop')
+        [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop')
     )
     $checks = [System.Collections.Generic.List[object]]::new()
     $prefixes = @{}
@@ -525,7 +525,7 @@ function Get-AegiNextBuildPlan
         [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release',
         [object] $HostInfo = (Get-AegiNextHost),
         [switch] $RunTests,
-        [ValidateSet('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop'),
+        [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop'),
         [ValidateRange(1, 128)][int] $Jobs = 2,
         [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
         [hashtable] $NativePrefixes = @{}
@@ -650,7 +650,7 @@ function Invoke-AegiNextBuild
         [string] $FfmpegRoot,
         [string] $SdlRoot,
         [switch] $RunTests,
-        [ValidateSet('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop'),
+        [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop'),
         [ValidateRange(1, 128)][int] $Jobs = 2,
         [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
         [string] $ReportPath

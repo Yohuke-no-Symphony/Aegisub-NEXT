@@ -5,5 +5,6 @@
   <ItemGroup>
     <InternalsVisibleTo Include="AegiNext.Application.Tests" />
     <ProjectReference Include="../AegiNext.Core/AegiNext.Core.csproj" />
+    <ProjectReference Include="../AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
   </ItemGroup>
 </Project>

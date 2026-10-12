@@ -9,6 +9,8 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <ProjectReference Include="../../src/AegiNext.Application/AegiNext.Application.csproj" />
+    <ProjectReference Include="../../src/AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>
+  <Import Project="../Shared/SubtitleFormats/SubtitleFormatFixtures.props" />
 </Project>

@@ -1,9 +1,9 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
 using AegiNext.Application;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Rendering.Tests.Reference;
 

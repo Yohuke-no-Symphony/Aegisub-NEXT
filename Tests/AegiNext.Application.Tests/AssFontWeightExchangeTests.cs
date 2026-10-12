@@ -1,8 +1,9 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
+using AegiNext.SubtitleFormats;
+using AegiNext.Testing.SubtitleFormats;
 
 namespace AegiNext.Application.Tests;
 
@@ -250,7 +251,7 @@ public sealed class AssFontWeightExchangeTests
             InlineSpans = [new(1, 1, new() { FontVariant = black, Bold = true })],
             Karaoke = [new(0, 3, MediaTime.Zero, new(1), SceneColor.White), new(3, 1, new(1), new(2), SceneColor.White)]
         };
-        var written = AssSubtitleFormat.Write(AssSubtitleFormatTests.Document(line));
+        var written = AssSubtitleFormat.Write(SubtitleFormatTestDocument.Create(line));
         var body = written.Text.Split('\n').Single(value => value.StartsWith("Dialogue:", StringComparison.Ordinal)).Split(',', 10)[9];
         var resetWeights = Regex.Matches(body, @"\{\\r[^}]*\\b(\d+)\\i")
             .Select(match => int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture)).ToArray();

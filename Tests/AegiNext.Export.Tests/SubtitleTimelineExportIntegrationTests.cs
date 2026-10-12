@@ -1,6 +1,6 @@
 using AegiNext.Media.Processes;
 using System.Text.Json;
-using AegiNext.Application.SubtitleFormats;
+using AegiNext.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Media.Audio;

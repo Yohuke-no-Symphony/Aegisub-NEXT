@@ -1,8 +1,9 @@
 using System.Collections.Immutable;
-using AegiNext.Application.SubtitleFormats;
-using AegiNext.Core.Projects;
 using AegiNext.Core.Editing;
+using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
+using AegiNext.SubtitleFormats;
+using AegiNext.Testing.SubtitleFormats;
 
 namespace AegiNext.Application.Tests;
 
@@ -291,7 +292,7 @@ public sealed class AssClipMaskTests
     public void AdvancedTextAndMaskCommitUseOneUndoAndMissingTargetsFailAtomically()
     {
         var line = new SubtitleLine { Text = "a" };
-        var editor = new ProjectEditor(AssSubtitleFormatTests.Document(line));
+        var editor = new ProjectEditor(SubtitleFormatTestDocument.Create(line));
         var original = editor.Snapshot;
         var edited = AssTextProjection.Apply(line, "{\\clip(0,0,100,100)}b");
         editor.ApplyAssTextEdit(line.Id, edited);

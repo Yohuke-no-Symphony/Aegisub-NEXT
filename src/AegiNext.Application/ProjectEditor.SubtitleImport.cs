@@ -1,5 +1,5 @@
 using AegiNext.Core.Projects;
-using AegiNext.Application.SubtitleFormats;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application;
 

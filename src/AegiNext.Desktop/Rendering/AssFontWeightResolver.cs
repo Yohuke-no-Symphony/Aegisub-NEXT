@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Rendering.Fonts;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Desktop.Rendering;
 

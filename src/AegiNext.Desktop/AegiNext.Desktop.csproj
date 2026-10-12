@@ -17,6 +17,7 @@
     <ProjectReference Include="../AegiNext.Export/AegiNext.Export.csproj" />
     <ProjectReference Include="../AegiNext.Rendering/AegiNext.Rendering.csproj" />
     <ProjectReference Include="../AegiNext.Application/AegiNext.Application.csproj" />
+    <ProjectReference Include="../AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <ProjectReference Include="../AegiNext.ExportWorker/AegiNext.ExportWorker.csproj" ReferenceOutputAssembly="false" Private="false" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Desktop" />

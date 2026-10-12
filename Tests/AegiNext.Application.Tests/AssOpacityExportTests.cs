@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text.RegularExpressions;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application.Tests;
 

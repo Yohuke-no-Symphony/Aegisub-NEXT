@@ -178,6 +178,25 @@ Describe 'Build plans are pure and preserve target boundaries' {
         @($plan | Where-Object { $_.Arguments -contains (Join-Path $repository 'Tests/AegiNext.Desktop.Tests/AegiNext.Desktop.Tests.csproj') }).Count | Should -Be 0
     }
 
+    It 'runs only subtitle format tests for <Configuration> without native dependencies' -TestCases @(
+        @{ Configuration = 'Debug'; ExpectedLabels = @('Restore managed', 'Build managed', 'Test SubtitleFormats') }
+        @{ Configuration = 'Release'; ExpectedLabels = @('Restore managed', 'Build managed', 'Restore test SubtitleFormats', 'Test SubtitleFormats') }
+    ) {
+        param($Configuration, $ExpectedLabels)
+
+        $plan = @(Get-AegiNextBuildPlan -RepositoryRoot $repository -Target Managed -Configuration $Configuration -HostInfo (New-BuildTestHost 'Linux' 'X64') -RunTests -TestProjects SubtitleFormats,SubtitleFormats)
+        $testProject = Join-Path $repository 'Tests/AegiNext.SubtitleFormats.Tests/AegiNext.SubtitleFormats.Tests.csproj'
+
+        @($plan.Label) | Should -Be $ExpectedLabels
+        $plan[-1].Arguments | Should -Contain $testProject
+        $plan[-1].Arguments | Should -Contain '--no-restore'
+        $plan[-1].Arguments | Should -Contain $Configuration
+        $plan[-1].Environment.Count | Should -Be 0
+        @(@(foreach ($step in $plan) { Get-BuildTestExecutableName $step }) | Select-Object -Unique) | Should -Be @('dotnet')
+        Test-Path -LiteralPath $repository | Should -BeFalse
+        Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Build -Times 0 -Exactly
+    }
+
     It 'rejects an empty explicit test selection for <Configuration>' -TestCases @(
         @{ Configuration = 'Debug' }
         @{ Configuration = 'Release' }
@@ -298,12 +317,12 @@ Describe 'Build plans are pure and preserve target boundaries' {
         $plan[6].Arguments | Should -Contain 'Release'
     }
 
-    It 'defaults RunTests to the six managed projects including export and desktop lifecycle tests' {
+    It 'defaults RunTests to all seven managed projects including standalone subtitle formats' {
         $parameters.Target = 'Managed'
         $plan = @(Get-AegiNextBuildPlan @parameters -RunTests)
 
-        $plan.Count | Should -Be 14
-        foreach ($name in @('Core', 'Application', 'Rendering', 'Media', 'Export', 'Desktop'))
+        $plan.Count | Should -Be 16
+        foreach ($name in @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Desktop'))
         {
             @($plan | Where-Object { $_.Arguments -contains (Join-Path $repository "Tests/AegiNext.$name.Tests/AegiNext.$name.Tests.csproj") }).Count |
                 Should -Be 2
@@ -370,6 +389,33 @@ Describe 'Build plans are pure and preserve target boundaries' {
     }
 }
 
+Describe 'Build entry point accepts standalone subtitle format tests' {
+    It 'passes the explicit selection to build orchestration without installing tools' {
+        $repository = Join-Path $TestDrive 'repository with spaces [entry]'
+        $moduleDirectory = Join-Path $repository 'scripts/build'
+        [IO.Directory]::CreateDirectory($moduleDirectory) | Out-Null
+        Copy-Item -LiteralPath (Join-Path $sourceRoot 'build.ps1') -Destination $repository
+        Set-Content -LiteralPath (Join-Path $moduleDirectory 'AegiNext.Build.psm1') -Value @'
+function Invoke-AegiNextBuild
+{
+    param([string] $RepositoryRoot, [switch] $RunTests, [string[]] $TestProjects)
+
+    @{ RunTests = [bool]$RunTests; TestProjects = $TestProjects } | ConvertTo-Json |
+        Set-Content -LiteralPath (Join-Path $RepositoryRoot 'actual.json')
+    return 0
+}
+Export-ModuleMember -Function Invoke-AegiNextBuild
+'@
+        $pwsh = (Get-Process -Id $PID).Path
+        $output = & $pwsh -NoProfile -File (Join-Path $repository 'build.ps1') -RunTests -TestProjects SubtitleFormats 2>&1
+
+        $LASTEXITCODE | Should -Be 0 -Because ($output | Out-String)
+        $actual = Get-Content -LiteralPath (Join-Path $repository 'actual.json') -Raw | ConvertFrom-Json
+        $actual.RunTests | Should -BeTrue
+        @($actual.TestProjects) | Should -Be @('SubtitleFormats')
+    }
+}
+
 Describe 'Product solution filter preserves the production dependency graph' {
     It 'includes every source project exactly once and excludes test projects' {
         $filter = Get-Content -LiteralPath (Join-Path $sourceRoot 'AegiNext.Product.slnf') -Raw | ConvertFrom-Json
@@ -425,6 +471,14 @@ Describe 'Environment diagnosis resolves the SDK inside the repository' {
             $FilePath -eq 'dotnet' -and $Arguments -contains '--version' -and $WorkingDirectory -eq $repository
         }
         Test-Path -LiteralPath (Join-Path $repository 'artifacts') | Should -BeFalse
+    }
+
+    It 'allows standalone subtitle format tests on Linux without native tools' {
+        $report = Get-AegiNextEnvironment -RepositoryRoot $repository -Target Managed -HostInfo (New-BuildTestHost 'Linux' 'X64') -RunTests -TestProjects SubtitleFormats
+
+        $report.Ready | Should -BeTrue
+        @($report.Checks | Where-Object Status -eq 'Unsupported').Count | Should -Be 0
+        Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Build -Times 1 -Exactly
     }
 
     It 'reports a missing SDK command without trying to install it' {
@@ -610,13 +664,21 @@ Describe 'Build orchestration fails closed and rechecks installed dependencies' 
         Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Build -Times 0 -Exactly -ParameterFilter { $FilePath -eq 'second' }
     }
 
-    It 'passes test selection, configuration and isolated command arguments unchanged' {
-        Invoke-AegiNextBuild -RepositoryRoot $repository -Target Managed -Configuration Debug -RunTests -TestProjects @('Media') -Jobs 3 |
+    It 'passes <Project> test selection configuration and isolated command arguments unchanged' -TestCases @(
+        @{ Project = 'Media' }
+        @{ Project = 'SubtitleFormats' }
+    ) {
+        param($Project)
+
+        Invoke-AegiNextBuild -RepositoryRoot $repository -Target Managed -Configuration Debug -RunTests -TestProjects @($Project) -Jobs 3 |
             Should -Be 0
 
+        Should -Invoke Get-AegiNextEnvironment -ModuleName AegiNext.Build -Times 1 -Exactly -ParameterFilter {
+            $RunTests -and $TestProjects.Count -eq 1 -and $TestProjects[0] -eq $Project
+        }
         Should -Invoke Get-AegiNextBuildPlan -ModuleName AegiNext.Build -Times 1 -Exactly -ParameterFilter {
             $Target -eq 'Managed' -and $Configuration -eq 'Debug' -and $RunTests -and
-            $TestProjects.Count -eq 1 -and $TestProjects[0] -eq 'Media' -and $Jobs -eq 3
+            $TestProjects.Count -eq 1 -and $TestProjects[0] -eq $Project -and $Jobs -eq 3
         }
         Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Build -Times 1 -Exactly -ParameterFilter {
             $FilePath -eq 'first' -and $Arguments.Count -eq 1 -and $Arguments[0] -eq 'argument with spaces' -and

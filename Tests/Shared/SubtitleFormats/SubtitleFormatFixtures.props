@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)AssBoundarySource.cs" Link="Shared/SubtitleFormats/AssBoundarySource.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)FixedSubtitlePlacementMeasurer.cs" Link="Shared/SubtitleFormats/FixedSubtitlePlacementMeasurer.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)SubtitleFormatTestDocument.cs" Link="Shared/SubtitleFormats/SubtitleFormatTestDocument.cs" />
+  </ItemGroup>
+</Project>

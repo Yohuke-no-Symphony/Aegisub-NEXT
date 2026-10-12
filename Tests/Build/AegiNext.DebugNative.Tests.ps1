@@ -51,7 +51,7 @@ param(
     [string] $SdlRoot,
     [string] $RuntimeIdentifier,
     [switch] $RunTests,
-    [string[]] $TestProjects = @('Core', 'Application', 'Rendering', 'Media', 'Desktop'),
+    [string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Desktop'),
     [int] $Jobs = 2,
     [string] $ReportPath
 )
@@ -95,6 +95,16 @@ exit ([int](Get-Content -LiteralPath (Join-Path $PSScriptRoot 'exit-code.txt')))
             $result.Actual.$name | Should -Be $parameters[$name]
         }
         $result.Actual.TestProjects | Should -Be @('Media', 'Desktop')
+    }
+
+    It 'forwards only standalone subtitle format tests to the Debug workbench' {
+        $result = Invoke-DebugNativeFixture -Parameters @{ RunTests = $true; TestProjects = @('SubtitleFormats') }
+
+        $result.ExitCode | Should -Be 0 -Because $result.Output
+        $result.Actual.Target | Should -Be 'Workbench'
+        $result.Actual.Configuration | Should -Be 'Debug'
+        $result.Actual.RunTests | Should -BeTrue
+        @($result.Actual.TestProjects) | Should -Be @('SubtitleFormats')
     }
 
     It 'forwards environment-only checks without enabling installation or tests' {

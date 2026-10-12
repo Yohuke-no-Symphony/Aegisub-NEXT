@@ -1,8 +1,8 @@
 using System.Collections.Immutable;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Rendering.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Rendering.Tests.Reference;
 

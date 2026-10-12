@@ -1,7 +1,7 @@
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Rendering;
 using AegiNext.Rendering.Fonts;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Desktop.Tests;
 

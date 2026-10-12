@@ -10,6 +10,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <ProjectReference Include="../../src/AegiNext.Desktop/AegiNext.Desktop.csproj" />
+    <ProjectReference Include="../../src/AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>

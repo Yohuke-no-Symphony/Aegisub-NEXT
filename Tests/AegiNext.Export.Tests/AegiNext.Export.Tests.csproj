@@ -11,6 +11,7 @@
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
     <ProjectReference Include="../../src/AegiNext.Export/AegiNext.Export.csproj" />
     <ProjectReference Include="../../src/AegiNext.Application/AegiNext.Application.csproj" />
+    <ProjectReference Include="../../src/AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <ProjectReference Include="../../src/AegiNext.Media/AegiNext.Media.csproj" />
     <Using Include="Xunit" />
     <None Include="../AegiNext.Rendering.Tests/Fixtures/NotoSans.ttf" Link="Fixtures/NotoSans.ttf" CopyToOutputDirectory="PreserveNewest" />

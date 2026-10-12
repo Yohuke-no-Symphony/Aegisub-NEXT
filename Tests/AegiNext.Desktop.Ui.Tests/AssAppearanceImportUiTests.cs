@@ -1,8 +1,8 @@
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Panels.Styles;
 using AegiNext.Desktop.Shortcuts;
+using AegiNext.SubtitleFormats;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -113,7 +113,11 @@ public sealed class AssAppearanceImportUiTests
     {
         context.Session.Editor.Apply("ASS appearance canvas fixture", document => document with { Width = 640, Height = 360 });
         var imported = AssSubtitleFormat.Parse(Source(border, wrap), 640, 360);
-        Assert.Equal("Ass.BlurAppearance", Assert.Single(imported.Diagnostics).Code);
+        var expectedDiagnosticCodes = border == 0
+            ? new[] { "Ass.BlurAppearance" }
+            : new[] { "Ass.BlurAppearance", "Ass.ShadowComposition" };
+        Assert.Equal(expectedDiagnosticCodes.Order(StringComparer.Ordinal),
+            imported.Diagnostics.Select(diagnostic => diagnostic.Code).Order(StringComparer.Ordinal));
         context.Session.Editor.ImportSubtitleLines(imported, "ASS appearance");
         context.Session.SelectCue(imported.Lines[0].Id);
         Dispatcher.UIThread.RunJobs();

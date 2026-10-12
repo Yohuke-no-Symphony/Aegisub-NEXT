@@ -1,9 +1,9 @@
 using AegiNext.Application;
-using AegiNext.Application.SubtitleFormats;
-using AegiNext.Core.Effects;
 using AegiNext.Core.Editing;
+using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
 using AegiNext.Rendering.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Rendering.Tests;
 

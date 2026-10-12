@@ -1,8 +1,8 @@
 using System.Globalization;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
+using AegiNext.SubtitleFormats;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -222,7 +222,7 @@ public sealed class AssTransformAnimationImportUiTests
             "[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n" +
             $"Dialogue: 0,0:00:00.00,0:00:04.00,Default,,0,0,0,,{{\\pos(320,180){tags}}}Transform 中文\n";
         var imported = AssSubtitleFormat.Parse(source, 640, 360);
-        Assert.Equal(expectedDiagnosticCodes.Order(StringComparer.Ordinal),
+        Assert.Equal(expectedDiagnosticCodes.Append("Ass.ShadowComposition").Order(StringComparer.Ordinal),
             imported.Diagnostics.Select(diagnostic => diagnostic.Code).Distinct().Order(StringComparer.Ordinal));
         context.Session.Editor.ImportSubtitleLines(imported, "ASS numeric transform");
         context.Session.SelectCue(imported.Lines[0].Id);

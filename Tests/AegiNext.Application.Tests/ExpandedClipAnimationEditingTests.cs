@@ -2,7 +2,7 @@ using AegiNext.Core.Editing;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
-using AegiNext.Application.SubtitleFormats;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application.Tests;
 

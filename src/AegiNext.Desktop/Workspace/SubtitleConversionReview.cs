@@ -1,10 +1,10 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using System.Text;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Desktop.Workspace;
 

@@ -1,5 +1,4 @@
 using AegiNext.Application;
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controllers;
@@ -7,6 +6,7 @@ using AegiNext.Desktop.Settings.Media;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Media.Audio;
 using AegiNext.Media.Playback;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Desktop.Tests.Workspace;
 

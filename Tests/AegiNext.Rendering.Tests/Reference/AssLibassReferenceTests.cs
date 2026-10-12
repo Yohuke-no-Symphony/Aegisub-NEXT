@@ -1,5 +1,5 @@
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Projects;
+using AegiNext.SubtitleFormats;
 using Xunit.Abstractions;
 
 namespace AegiNext.Rendering.Tests.Reference;

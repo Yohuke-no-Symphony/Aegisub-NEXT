@@ -1,9 +1,9 @@
-using AegiNext.Application.SubtitleFormats;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
+using AegiNext.SubtitleFormats;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;

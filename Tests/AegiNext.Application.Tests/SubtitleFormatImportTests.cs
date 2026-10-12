@@ -1,4 +1,5 @@
 using AegiNext.Core.Projects;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application.Tests;
 
@@ -89,8 +90,8 @@ public sealed class SubtitleFormatImportTests
         Assert.Equal(firstOverlap, first.Select(clip => clip.Subtitle!.Text));
         Assert.Equal(secondOverlap, second.Select(clip => clip.Subtitle!.Text));
         Assert.Equal(4, imported.Tracks.Length);
-        var ass = SubtitleFormats.AssSubtitleFormat.Write(imported);
-        var reopened = ProjectEditingOperations.ImportSubtitleLines(new(), SubtitleFormats.AssSubtitleFormat.Parse(ass.Text), "ASS");
+        var ass = AssSubtitleFormat.Write(imported);
+        var reopened = ProjectEditingOperations.ImportSubtitleLines(new(), AssSubtitleFormat.Parse(ass.Text), "ASS");
         Assert.Equal(first.Select(clip => clip.Subtitle!.Text),
             AegiNext.Core.Editing.SceneEvaluator.Evaluate(reopened, new(3, 2)).Select(clip => clip.Subtitle!.Text));
         Assert.Equal(second.Select(clip => clip.Subtitle!.Text),
