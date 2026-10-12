@@ -38,7 +38,8 @@ internal sealed partial class WorkbenchSession
             WorkbenchCommand.DELETE_SUBTITLE or WorkbenchCommand.SPLIT_SUBTITLE or WorkbenchCommand.OPEN_SUBTITLE_DETAILS => SelectedCue is not null,
             WorkbenchCommand.MERGE_SUBTITLE => CanMergeSubtitleSelection(),
             WorkbenchCommand.ADD_SUBTITLE => CurrentTrackId.HasValue,
-            WorkbenchCommand.EXPORT_VIDEO => editor.Snapshot.Media is not null && export.CanStart,
+            WorkbenchCommand.EXPORT_VIDEO => editor.Snapshot.Media is not null && export.CanStart &&
+                (ViewModel.Export.IsBurnIn || !editor.Snapshot.Subtitles.IsEmpty),
             _ => true
         };
     }

@@ -11,14 +11,14 @@
 | `src/AegiNext.SubtitleFormats` | ASS/SRT/TXT 转换、格式诊断、ASS 文本投影和字幕时间轴映射 |
 | `src/AegiNext.Rendering` | 独立于 UI 的 Skia/HarfBuzz 排版、场景几何和线性 F16 合成 |
 | `src/AegiNext.Media` | 探测、帧所有权、原生适配、播放/分析与预览 |
-| `src/AegiNext.Export` | 导出能力与参数、预设、worker 协议、原生导出会话和最终封装编排 |
+| `src/AegiNext.Export` | 导出能力与参数、预设、worker 协议、原生烧录会话和独立字幕封装 |
 | `src/AegiNext.Desktop` | Avalonia 工作区、面板、控件、菜单、偏好和平台宿主 |
 | `src/AegiNext.ExportWorker` | 使用 Application 读取快照、调用 Export 的独立 `aegn-exporter` 宿主 |
 | `native/decoder`、`native/audio`、`native/export` | 独立 FFmpeg/SDL3 C ABI |
 | `native/` | 可选 macOS HDR 诊断后端 |
 | `Tests/`、`scripts/` | 定向验证、构建和打包工具 |
 
-Core 不依赖 Avalonia、Dock、FFmpeg、Skia 或文件系统。Application 负责业务修改，Desktop 组合服务；Rendering 和 Media 使用显式契约与资源所有权。Export 依赖 Core、Media 与 Rendering，Desktop 和 worker 调用 Export；Media 不反向依赖 Export，也不拥有导出动态库或预设。业务 ViewModel 不持有控件、Dock 对象或 Bitmap。
+Core 不依赖 Avalonia、Dock、FFmpeg、Skia 或文件系统。Application 负责业务修改，Desktop 组合服务；Rendering 和 Media 使用显式契约与资源所有权。Export 依赖 Core、Media、SubtitleFormats 与 Rendering，Desktop 和 worker 调用 Export；Media 不反向依赖 Export，也不拥有导出动态库或预设。业务 ViewModel 不持有控件、Dock 对象或 Bitmap。
 
 SubtitleFormats 仅依赖 Core，返回转换数据与诊断。Application 通过编辑事务提交导入结果和高级 ASS 文本编辑。Desktop 负责文件导入导出流程及转换确认，并通过格式库的接口提供字重和排版适配器。
 
@@ -26,11 +26,19 @@ SubtitleFormats 仅依赖 Core，返回转换数据与诊断。Application 通�
 
 `AegiNext.Export` 是独立托管模块，集中定义格式、品质范围、容器与硬件候选，供设置校验、桌面参数草稿和完成回执共同使用。CPU 使用 libx264、libx265、libvpx、libvpx-vp9 或 libsvtav1；VP8 的 CQ 同时保存质量与码率，其他格式的 CRF 只使用质量，VBR/CBR 使用明确的目标码率。用户范围、默认值及平台矩阵见[视频导出](export.md)。
 
-Desktop 捕获不可变工程和参数，再启动独立 worker；Application 继续拥有任务、编辑事务和持久化。worker 在视频编码前检查源音轨与容器兼容性，调用原生导出进行线性合成和编码，并在同一原生会话中封装最终 MP4、MKV 或 WebM。中间 NUT 保留源呈现时间戳；静态 HDR 字段通过显式结构传递到最终封装，不能从临时容器的缺失字段推断它们不存在。AAC/Opus 音轨准备由外部工具完成，复制音轨由原生封装保留音频包。
+Desktop 捕获不可变工程和参数，再启动独立 worker；Application 继续拥有任务、编辑事务和持久化。烧录路径在视频编码前检查源音轨与容器兼容性，调用原生导出进行线性合成和编码，并在同一原生会话中封装最终 MP4、MKV 或 WebM。中间 NUT 保留源呈现时间戳；静态 HDR 字段通过显式结构传递到最终封装，不能从临时容器的缺失字段推断它们不存在。AAC/Opus 音轨准备由外部工具完成，复制音轨由原生封装保留音频包。
+
+仅封装由独立的 `SubtitleMuxRequest` 与 `SubtitleMuxExporter` 服务承接，不读取烧录编码参数，也不进入视频解码、渲染或原生编码会话。Desktop 沿用 SRT 损失分析与转换确认；worker 通过 SubtitleFormats 合并工程全部字幕，以媒体绑定的 `MediaOrigin` 映射到原始媒体呈现时间，再调用锁定 FFmpeg 复制源媒体流、保留章节并追加新轨。MKV 保留 SRT，MP4 仅将新轨转换为 `mov_text`；原有轨道保持编码与播放偏好，新轨从不强制显示。MP4 仅在所有映射视频流的色彩范围均已声明为 `tv` 或 `pc` 时启用 `+write_colr`；任何范围未知时均不推断或补齐色彩信息，最终仍严格读回核验完整色彩字段。
+
+新增轨始终请求 `disposition=0`；最终核验仅在输出为 `mov_text` 且源中完全没有字幕轨时，允许唯一新轨读回 `default=1`，`forced` 及其他标志仍必须为零。MKV 与已有原字幕的 MP4 要求新轨全部标志为零，原轨播放偏好始终严格保留。锁定 FFmpeg 会启用 MP4 的唯一字幕轨以保证 QuickTime 字幕菜单可用，启用并不表示默认渲染；实际初始显示由播放器决定，详见 [FFmpeg n9.0.2 `enable_tracks`](https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0.2/libavformat/movenc.c)。
+
+MP4/MOV 的章节可能由专用 `bin_data` 轨承载。仅当源中存在章节、容器属于 MOV 系列，且该轨为 `data/bin_data`、handler 为 `SubtitleHandler`、codec tag 为 `text`、帧数等于章节数，并且探测不到数据包时，才将其识别为章节载体。章节通过映射在目标容器重建，源载体不直接复制为普通数据轨；其他源流仍逐一映射。输出章节的起止时间与标签必须匹配，额外输出流也必须通过同样的章节载体识别。
+
+提交前读回全部源流的编码与参数、视频色彩、音轨格式、播放偏好、语言与名称，并核验首包呈现时间和章节。每条音轨还通过有界缓存的流式扫描比较包数量、最大包结束时间、`initial_padding`，以及逐包 `skip_samples` 与 `discard_padding` 的总量；包结束时间允许 1 ms 加源和输出各一个时间基单位的量化容差，其余数值必须一致。新增字幕抽回 SRT，逐条核对文字及起止时间，容差为 1 ms。容器不能保留源流、音频采样裁剪变化或 MP4 截断重叠字幕时拒绝提交；源容器元数据会尝试复制，但不声明任意标签跨容器无损。烧录与仅封装共享 worker 进程管理、取消和原子输出事务，只有通过对应操作的完成回执校验后才提交新文件。
 
 原生结果在编码后和最终封装后读回核验实际编码、位深、色彩及静态 HDR。父进程同时校验请求对应的解码后端、编码器、码控、参数精度与输出证据，确认后才原子提交文件。码控证据区分 `ConfiguredAndInitialized` 与 `RuntimeQueried`；当前 QSV 使用前者。锁定 Windows FFmpeg 的 oneVPL dispatcher 为静态链接，不能把它的 session 交给独立 dispatcher 或依赖私有布局来声称运行时查询成功。
 
-当前 native export **ABI 6** 的请求结构为 **88 字节**、结果结构 **488 字节**、HDR 结构 **96 字节**、封装请求 **32 字节**，字幕前景结构仍为 **24 字节**。worker 协议为 **3**；应用、worker、原生库及契约指纹必须同配置重建和部署。导出预设版本为 **2**，版本 1 在严格校验后将旧 `crf` 迁移为 `quality`，保留参数与身份；未知、缺失、重复字段及整批冲突仍会拒绝读取或导入。
+当前 native export **ABI 6** 的请求结构为 **88 字节**、结果结构 **488 字节**、HDR 结构 **96 字节**、封装请求 **32 字节**，字幕前景结构仍为 **24 字节**。worker 协议为 **4**，显式区分烧录与仅封装操作，烧录专属参数不能随仅封装请求传入；应用、worker、原生库及契约指纹必须同配置重建和部署。导出预设版本为 **2**，版本 1 在严格校验后将旧 `crf` 迁移为 `quality`，保留参数与身份；未知、缺失、重复字段及整批冲突仍会拒绝读取或导入。
 
 统一速度名称在不同 CPU 编码器中有明确映射：x264/x265 使用同名预设，libvpx/VP9 使用 `cpu-used`，SVT-AV1 使用数字预设。硬件后端映射到其支持的档位。
 
@@ -90,7 +98,7 @@ Desktop 捕获不可变工程和参数，再启动独立 worker；Application �
 | `Workspace` 媒体上下文 | `SwitchProjectMediaTask`、`SynchronizeProjectMediaTask`、`SwitchPreviewDecodeModeTask` |
 | `Workspace` 时间后处理 | `TimingPostProcessingTask`；关键帧索引与缓存是同一任务的内部阶段 |
 | `Workspace` 字幕交换／创建 | `ImportSubtitlesTask`、`ExportSubtitlesTask`、`CreateSubtitleClipsTask`、`BeginTimingCueTask` |
-| `Workspace` 视频导出 | `VideoExportTask`；导出面板和任务列表取消同一句柄 |
+| `Workspace` 视频导出 | 烧录使用 `VideoExportTask`，仅封装使用 `SubtitleMuxTask`；导出面板和任务列表取消同一句柄 |
 | `Workspace` 字体／样式／效果准备 | `ImportSubtitleFontTask`、`PrepareSubtitleStyleTask`、`ApplySubtitleStyleTask`、`ApplySubtitleTrackStyleTask`、`CaptureSubtitleStyleTask`、`ApplyEffectScriptTask` |
 | `Workspace` 图片素材 | `AssetLibraryTask`；协调器先准备导入、放置、刷新、重新定位与收集，再提交工程修改 |
 | `Workspace` 个人资源交换 | `ImportStylePresetsTask`、`ExportStylePresetsTask`、`ImportEffectScriptsTask`、`ExportEffectScriptTask` |

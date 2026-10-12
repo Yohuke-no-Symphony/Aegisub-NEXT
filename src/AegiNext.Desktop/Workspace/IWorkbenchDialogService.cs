@@ -22,7 +22,8 @@ internal interface IWorkbenchDialogService
         CancellationToken cancellationToken = default) => Task.FromResult(false);
     Task<int> ConfirmUnsavedAsync();
     Task<bool> ConfirmUnavailableMediaAsync(string mediaPath, string reason, CancellationToken cancellationToken);
-    Task<bool> ConfirmSubtitleConversionAsync(SubtitleConversionReview review) => Task.FromResult(false);
+    Task<bool> ConfirmSubtitleConversionAsync(SubtitleConversionReview review, CancellationToken cancellationToken = default)
+        => Task.FromResult(false);
     Task<TrackStyleUpdateDecision> ConfirmTrackStyleChangeAsync(string trackName, string presetName, int subtitleCount);
     Task<bool> ConfirmTrackDeletionAsync(string trackName, int subtitleCount, CancellationToken cancellationToken)
         => Task.FromResult(false);

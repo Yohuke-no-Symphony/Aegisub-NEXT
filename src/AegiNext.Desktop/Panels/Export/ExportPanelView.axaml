@@ -5,58 +5,71 @@
              x:Class="AegiNext.Desktop.Panels.Export.ExportPanelView" Classes="business-surface">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="4" Spacing="8">
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.ExportPreset}" />
-      <ComboBox Name="ExportPresetCombo" ItemsSource="{Binding Presets}" HorizontalAlignment="Stretch"
-                IsEnabled="{Binding CanManagePresets}" SelectedItem="{Binding SelectedPreset, Mode=TwoWay}">
+      <TextBlock Classes="field" Text="{Loc Key=Workbench.ExportMethod}" />
+      <ComboBox Name="ExportMethodCombo" ItemsSource="{Binding Methods}" HorizontalAlignment="Stretch"
+                IsEnabled="{Binding CanSelectMethod}" SelectedItem="{Binding SelectedMethodChoice, Mode=TwoWay}">
         <ComboBox.ItemTemplate>
-          <DataTemplate x:DataType="vm:ExportPresetListItem">
-            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-          </DataTemplate>
-        </ComboBox.ItemTemplate>
-      </ComboBox>
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.Codec}" />
-      <ComboBox Name="CodecCombo" ItemsSource="{Binding Codecs}" HorizontalAlignment="Stretch"
-                SelectedItem="{Binding SelectedCodecChoice, Mode=TwoWay}">
-        <ComboBox.ItemTemplate>
-          <DataTemplate x:DataType="editing:VideoCodecChoice">
+          <DataTemplate x:DataType="vm:ExportMethodChoice">
             <TextBlock Text="{Binding Label}" />
           </DataTemplate>
         </ComboBox.ItemTemplate>
       </ComboBox>
-      <CheckBox Name="HardwareEncoderToggle"
-                IsEnabled="{Binding CanUseHardwareEncoder}" ToolTip.Tip="{Loc Key=Workbench.HardwareEncoderHint}"
-                IsChecked="{Binding UseHardwareEncoder, Mode=TwoWay}" Content="{Loc Key=Workbench.HardwareEncoder}" />
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.Speed}" />
-      <ComboBox Name="SpeedCombo" ItemsSource="{Binding Speeds}" HorizontalAlignment="Stretch"
-                SelectedIndex="{Binding Speed, Mode=TwoWay}" />
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.QualityMode}" />
-      <ComboBox Name="QualityModeCombo" ItemsSource="{Binding QualityModes}" HorizontalAlignment="Stretch"
-                IsEnabled="{Binding CanSelectQualityMode}" SelectedIndex="{Binding QualityMode, Mode=TwoWay}" />
-      <StackPanel IsVisible="{Binding IsQualityMode}" Spacing="8">
-        <controls:NumericDragLabel Input="{Binding #QualityInput}" Classes="field" Text="{Loc Key=Workbench.Quality}" />
-        <controls:NumericDraftInput Name="QualityInput" RawText="{Binding QualityText, Mode=TwoWay}" Minimum="{Binding QualityMinimum}" Maximum="{Binding QualityMaximum}"
-                                    Value="{Binding Quality, Mode=TwoWay}" />
-      </StackPanel>
-      <StackPanel IsVisible="{Binding IsVideoBitrateActive}" Spacing="8">
-        <TextBlock IsVisible="{Binding IsBitrateMode}" Classes="field" Text="{Loc Key=Workbench.RateControlMode}" />
-        <ComboBox IsVisible="{Binding IsBitrateMode}" Name="BitrateModeCombo" ItemsSource="{Binding BitrateModes}" HorizontalAlignment="Stretch"
-                  SelectedIndex="{Binding BitrateMode, Mode=TwoWay}" />
-        <controls:NumericDragLabel Input="{Binding #VideoBitrateInput}" Classes="field" Text="{Loc Key=Workbench.VideoBitrate}" />
-        <controls:NumericDraftInput Name="VideoBitrateInput" RawText="{Binding VideoBitrateText, Mode=TwoWay}"
-                                    Minimum="0.1" Maximum="200" Increment="0.001" Value="{Binding VideoBitrate, Mode=TwoWay}" />
-      </StackPanel>
-      <TextBlock IsVisible="{Binding SupportsWebM}" Classes="field" TextWrapping="Wrap" Text="{Loc Key=Workbench.WebMAudioHint}" />
-      <TextBlock Classes="field" Text="{Loc Key=Workbench.Audio}" />
-      <ComboBox Name="AudioModeCombo" ItemsSource="{Binding AudioModes}" HorizontalAlignment="Stretch"
-                SelectedIndex="{Binding AudioMode, Mode=TwoWay}" />
-      <StackPanel IsVisible="{Binding IsEncodedAudio}" Spacing="8">
-        <controls:NumericDragLabel Input="{Binding #AudioBitrateInput}" Classes="field" Text="{Loc Key=Workbench.AudioBitrate}" />
-        <controls:NumericDraftInput Name="AudioBitrateInput" RawText="{Binding AudioBitrateText, Mode=TwoWay}"
-                                    Minimum="32" Maximum="512" Value="{Binding AudioBitrate, Mode=TwoWay}" Increment="16" />
+      <TextBlock Name="SubtitleMuxHint" IsVisible="{Binding IsSubtitleMux}" Classes="field" TextWrapping="Wrap"
+                 Text="{Loc Key=Workbench.SubtitleMuxHint}" />
+      <StackPanel Name="BurnInSettings" IsVisible="{Binding IsBurnIn}" Spacing="8">
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.ExportPreset}" />
+        <ComboBox Name="ExportPresetCombo" ItemsSource="{Binding Presets}" HorizontalAlignment="Stretch"
+                  IsEnabled="{Binding CanManagePresets}" SelectedItem="{Binding SelectedPreset, Mode=TwoWay}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ExportPresetListItem">
+              <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.Codec}" />
+        <ComboBox Name="CodecCombo" ItemsSource="{Binding Codecs}" HorizontalAlignment="Stretch"
+                  SelectedItem="{Binding SelectedCodecChoice, Mode=TwoWay}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="editing:VideoCodecChoice">
+              <TextBlock Text="{Binding Label}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <CheckBox Name="HardwareEncoderToggle"
+                  IsEnabled="{Binding CanUseHardwareEncoder}" ToolTip.Tip="{Loc Key=Workbench.HardwareEncoderHint}"
+                  IsChecked="{Binding UseHardwareEncoder, Mode=TwoWay}" Content="{Loc Key=Workbench.HardwareEncoder}" />
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.Speed}" />
+        <ComboBox Name="SpeedCombo" ItemsSource="{Binding Speeds}" HorizontalAlignment="Stretch"
+                  SelectedIndex="{Binding Speed, Mode=TwoWay}" />
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.QualityMode}" />
+        <ComboBox Name="QualityModeCombo" ItemsSource="{Binding QualityModes}" HorizontalAlignment="Stretch"
+                  IsEnabled="{Binding CanSelectQualityMode}" SelectedIndex="{Binding QualityMode, Mode=TwoWay}" />
+        <StackPanel IsVisible="{Binding IsQualityMode}" Spacing="8">
+          <controls:NumericDragLabel Input="{Binding #QualityInput}" Classes="field" Text="{Loc Key=Workbench.Quality}" />
+          <controls:NumericDraftInput Name="QualityInput" RawText="{Binding QualityText, Mode=TwoWay}" Minimum="{Binding QualityMinimum}" Maximum="{Binding QualityMaximum}"
+                                      Value="{Binding Quality, Mode=TwoWay}" />
+        </StackPanel>
+        <StackPanel IsVisible="{Binding IsVideoBitrateActive}" Spacing="8">
+          <TextBlock IsVisible="{Binding IsBitrateMode}" Classes="field" Text="{Loc Key=Workbench.RateControlMode}" />
+          <ComboBox IsVisible="{Binding IsBitrateMode}" Name="BitrateModeCombo" ItemsSource="{Binding BitrateModes}" HorizontalAlignment="Stretch"
+                    SelectedIndex="{Binding BitrateMode, Mode=TwoWay}" />
+          <controls:NumericDragLabel Input="{Binding #VideoBitrateInput}" Classes="field" Text="{Loc Key=Workbench.VideoBitrate}" />
+          <controls:NumericDraftInput Name="VideoBitrateInput" RawText="{Binding VideoBitrateText, Mode=TwoWay}"
+                                      Minimum="0.1" Maximum="200" Increment="0.001" Value="{Binding VideoBitrate, Mode=TwoWay}" />
+        </StackPanel>
+        <TextBlock IsVisible="{Binding SupportsWebM}" Classes="field" TextWrapping="Wrap" Text="{Loc Key=Workbench.WebMAudioHint}" />
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.Audio}" />
+        <ComboBox Name="AudioModeCombo" ItemsSource="{Binding AudioModes}" HorizontalAlignment="Stretch"
+                  SelectedIndex="{Binding AudioMode, Mode=TwoWay}" />
+        <StackPanel IsVisible="{Binding IsEncodedAudio}" Spacing="8">
+          <controls:NumericDragLabel Input="{Binding #AudioBitrateInput}" Classes="field" Text="{Loc Key=Workbench.AudioBitrate}" />
+          <controls:NumericDraftInput Name="AudioBitrateInput" RawText="{Binding AudioBitrateText, Mode=TwoWay}"
+                                      Minimum="32" Maximum="512" Value="{Binding AudioBitrate, Mode=TwoWay}" Increment="16" />
+        </StackPanel>
       </StackPanel>
       <WrapPanel Orientation="Horizontal">
         <Button Name="EncodeButton" Classes="accent" Command="{Binding EncodeCommand}">
-          <controlsCommon:IconText IconKey="Export" Text="{Loc Key=Workbench.Export}" />
+          <controlsCommon:IconText IconKey="Export" Text="{Binding ExportButtonLabel}" />
         </Button>
         <Button Name="CancelEncodeButton" IsEnabled="{Binding CanCancel}"
                 Command="{Binding CancelEncodeCommand}">

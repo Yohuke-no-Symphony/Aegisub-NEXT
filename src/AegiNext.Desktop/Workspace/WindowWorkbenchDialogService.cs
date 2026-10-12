@@ -205,12 +205,15 @@ internal sealed class WindowWorkbenchDialogService : IWorkbenchDialogService
         return accepted || model.WasCreated;
     }
 
-    /// <summary>展示具体字幕转换损失，并等待用户明确继续或取消。</summary>
-    public Task<bool> ConfirmSubtitleConversionAsync(SubtitleConversionReview review)
+    /// <summary>展示具体字幕转换损失；取消请求会关闭确认窗口。</summary>
+    public async Task<bool> ConfirmSubtitleConversionAsync(SubtitleConversionReview review, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var dialog = new SubtitleConversionDialog(review);
         registerWindow?.Invoke(dialog);
-        return dialog.ShowDialog<bool>(ownerProvider());
+        var answer = dialog.ShowDialog<bool>(ownerProvider());
+        using var registration = cancellationToken.Register(() => Dispatcher.UIThread.Post(() => dialog.Close(false)));
+        return await answer;
     }
 
     /// <summary>等待用户决定如何处理项目的未保存修改。</summary>

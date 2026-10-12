@@ -31,10 +31,10 @@ Use **View** to reopen a hidden panel and **Layout → Standard** to restore the
 ## Save and export
 
 1. Press **Cmd/Ctrl + S** to save the project. Video remains an external reference.
-2. Open **Encoding**, select codec and audio options, and choose a new destination file.
+2. Open **Encoding** and choose **Burn in subtitles** with codec and audio settings, or **Embed subtitles (stream copy)** for a track the player can turn on or off. Click **Encode** or **Export** and choose a new destination file.
 3. Wait for completion and review the exported picture, subtitles, and audio. **Cancel** stops the job.
 
-Use **Format → Aegisub/SRT → Export** for subtitle files. See [Video export](export.md) for HDR and GPU options, and [Workbench](workbench.md) for autosave and backup recovery.
+Use **Format → Aegisub/SRT → Export** for subtitle files. Embedding defaults to MKV, copies source audio/video, and retains only text and timing in the new subtitle track. See [Video export](export.md) for containers, conversion limits, HDR, and GPU options, and [Workbench](workbench.md) for autosave and backup recovery.
 
 ## Essential shortcuts
 

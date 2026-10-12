@@ -1,3 +1,4 @@
+using AegiNext.Export.Worker;
 using System.Text.Json;
 using AegiNext.Core.Projects;
 using AegiNext.Export;
@@ -22,9 +23,9 @@ public sealed class ExportWireFontVariantTests
             Layers = [new() { Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, Start = line.Start, End = line.End }]
         };
         ProjectValidator.Validate(document);
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(document, ExportWire.Options), Path.GetTempPath(),
-            Path.GetTempPath(), ".mkv", VideoCodec.H264, "medium", 18, AudioExportMode.None, 192000, "ffmpeg",
-            RateControlMode: VideoRateControlMode.CRF, ProtocolVersion: ExportWire.VERSION);
+        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(document, ExportWire.Options), Path.GetTempPath(), Path.GetTempPath(), ".mkv",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.H264, "medium", 18, AudioExportMode.None, 192000, RateControlMode: VideoRateControlMode.CRF),
+            ProtocolVersion: ExportWire.VERSION);
         var received = JsonSerializer.Deserialize<ExportWorkerJob>(JsonSerializer.Serialize(job, ExportWire.Options), ExportWire.Options)!;
         ExportWire.ValidateJob(received);
         Assert.Equal(style, received.Project.GetProperty("tracks")[0].GetProperty("defaultStyle").Deserialize<SubtitleStyle>(ExportWire.Options));

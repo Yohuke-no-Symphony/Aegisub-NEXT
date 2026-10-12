@@ -1,3 +1,4 @@
+using AegiNext.Export.Worker;
 using System.Text.Json;
 using AegiNext.Application;
 using AegiNext.Core.Editing;
@@ -72,9 +73,9 @@ public sealed class ExportWireMaskTests
             Presets = [new(Guid.NewGuid(), "position", [track])]
         };
         ProjectValidator.Validate(project);
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(project, ExportWire.Options), Path.GetTempPath(),
-            Path.GetTempPath(), ".mkv", VideoCodec.H264, "medium", 18, AudioExportMode.None, 192000, "ffmpeg",
-            RateControlMode: VideoRateControlMode.CRF, ProtocolVersion: ExportWire.VERSION);
+        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(project, ExportWire.Options), Path.GetTempPath(), Path.GetTempPath(), ".mkv",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.H264, "medium", 18, AudioExportMode.None, 192000, RateControlMode: VideoRateControlMode.CRF),
+            ProtocolVersion: ExportWire.VERSION);
         var transmitted = JsonSerializer.Deserialize<ExportWorkerJob>(JsonSerializer.Serialize(job, ExportWire.Options), ExportWire.Options)!;
         ExportWire.ValidateJob(transmitted);
         var layer = transmitted.Project.GetProperty("layers")[0];

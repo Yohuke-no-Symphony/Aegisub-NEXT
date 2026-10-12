@@ -4,15 +4,32 @@
 
 ## Export a video
 
-1. Open **Encoding** and choose Automatic, H.264, HEVC, VP8, VP9, or AV1.
-2. Select CPU or GPU encoding and speed. CPU quality mode shows CRF or CQ for the selected format, or Mbps with VBR/CBR. GPU uses VBR/CBR.
-3. Choose source-audio copy, AAC, Opus, or no audio. AAC/Opus have a separate bitrate control.
-4. Click **Encode**, select a supported container, and choose a new destination file.
+1. Open **Encoding** and choose **Burn in subtitles** or **Embed subtitles (stream copy)** under **Export method**.
+2. For burned-in subtitles, choose Automatic, H.264, HEVC, VP8, VP9, or AV1, then CPU/GPU, speed, and quality. CPU shows CRF/CQ or Mbps with VBR/CBR; GPU uses VBR/CBR.
+3. For burned-in subtitles, choose source-audio copy, AAC, Opus, or no audio. AAC/Opus have a separate bitrate control. Embedding subtitles needs no encoding settings; review and confirm any SRT conversion losses beyond text and timing.
+4. Click **Encode** or **Export**, select a supported container, and choose a new destination file.
 5. Follow progress, cancel if needed, and inspect the finished output.
 
-Automatic chooses H.264 for SDR and HEVC for PQ/HLG. Saved projects default to `project directory/output/project name-yyyyMMdd-HHmmss.extension`, creating `output` when needed. Automatic, H.264, and HEVC default to MP4; VP8, VP9, and AV1 default to MKV. The save dialog lets you change location, filename, and compatible container. Unsaved projects require choosing an output location.
+Saved projects default to `project directory/output/project name-yyyyMMdd-HHmmss.extension`, creating `output` when needed. For burned-in subtitles, Automatic chooses H.264 for SDR and HEVC for PQ/HLG; Automatic, H.264, and HEVC default to MP4, while VP8, VP9, and AV1 default to MKV. Embedded subtitles default to MKV. The save dialog lets you change location, filename, and compatible container. Unsaved projects require choosing an output location.
 
-Export captures the project when started and runs in an independent `aegn-exporter` process. Later edits do not affect the job. Success atomically commits the new file; failure/cancellation cleans only its own temporary output. Existing destinations are rejected. Invalid input, output selection failures, task startup failures, and encoding failures show an error dialog and record full details in the log. Correct the settings after acknowledging the error and retry. Cancelling an export does not show an error dialog.
+Export captures the project when started and runs in an independent `aegn-exporter` process. Later edits do not affect the job. Success atomically commits the new file; failure/cancellation cleans only its own temporary output. Existing destinations are rejected. Invalid input, output selection failures, task startup failures, and encoding or muxing failures show an error dialog and record full details in the log. Correct the settings after acknowledging the error and retry. Cancelling an export does not show an error dialog.
+
+## Embed subtitles (stream copy)
+
+Embedding combines all project subtitles into one new track that the player can turn on or off. The source video, all audio tracks, and existing subtitle tracks are copied without re-encoding audio or video, preserving picture quality. Existing subtitles keep their default and forced flags. The new track is never forced and is not default in MKV. An MP4 without existing subtitles enables its sole new subtitle track at the container level; its initial display depends on the player, and it can still be turned on or off.
+
+| Container | Added subtitle track | When to choose it |
+|---|---|---|
+| MKV | Native SRT (`subrip`) | Default; usually better for retaining existing tracks |
+| MP4 | SRT converted to `mov_text` | When MP4 is needed; existing tracks must also be compatible with MP4 |
+
+Stream copy retains source video, all audio and existing subtitles, track languages and titles, playback flags, and chapters. If the target container cannot preserve them, export fails with a diagnostic instead of automatically removing tracks or re-encoding them. Choose MKV when needed. MP4 also rejects output if it cannot retain the complete text and timing of overlapping subtitles. This method does not support WebM.
+
+Even when the target container supports the audio codec, copying between containers can lose sample-trimming information at either end. Export fails without committing a file if audio packet counts, end times, or sample trimming cannot be retained. Use a compatible container; MP4/MKV conversion is not guaranteed in every direction.
+
+The added track contains text and start/end times. It cannot preserve project styling, positioning, karaoke, masks, animation, images, or shapes. Export uses the existing [SRT conversion review](subtitle-editing.md#import-and-export); choose **Burn in subtitles** to retain the complete project appearance. Switching methods retains encoding settings and unfinished inputs for when you switch back.
+
+The encoding, audio, preset, and HDR composition options below apply to **Burn in subtitles**.
 
 ## Choose format and quality
 

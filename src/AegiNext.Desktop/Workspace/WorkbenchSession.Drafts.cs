@@ -94,7 +94,10 @@ internal sealed partial class WorkbenchSession
             ViewModel.InvalidPanelId = "export";
             try
             {
-                ViewModel.Export.AcceptSettings(ViewModel.Export.CaptureSettings());
+                if (ViewModel.Export.IsBurnIn)
+                {
+                    ViewModel.Export.AcceptSettings(ViewModel.Export.CaptureSettings());
+                }
             }
             catch (ExportSettingsValidationException error)
             {

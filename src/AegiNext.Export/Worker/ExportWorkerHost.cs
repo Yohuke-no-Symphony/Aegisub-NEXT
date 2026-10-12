@@ -1,3 +1,4 @@
+using AegiNext.Export.Muxing;
 using System.Text.Json;
 using AegiNext.Core.Projects;
 
@@ -26,20 +27,31 @@ public static class ExportWorkerHost
             var job = JsonSerializer.Deserialize<ExportWorkerJob>(line, ExportWire.Options)
                 ?? throw new InvalidDataException("缺少导出请求。");
             ExportWire.ValidateJob(job);
+            writer.Operation = job.Operation;
             var document = deserializeProject(job.Project);
             var outputPath = Path.Combine(job.TemporaryDirectory, "output" + job.Extension);
+            if (job.Operation == ExportWorkerOperation.SUBTITLE_MUX)
+            {
+                var muxRequest = new SubtitleMuxRequest(document, job.ProjectDirectory, outputPath) { FfmpegPath = job.FfmpegPath };
+                var muxProgress = new SubtitleMuxWorkerProgress(writer);
+                var receipt = await SubtitleMuxer.RunAsync(muxRequest, muxProgress, cancellationToken).ConfigureAwait(false);
+                writer.Send(new("complete", SubtitleMux: receipt));
+                return 0;
+            }
+
+            var video = job.Video!;
             var request = new VideoExportRequest(document, job.ProjectDirectory, outputPath)
             {
-                Codec = job.Codec,
-                Preset = job.Preset,
-                Quality = job.Quality,
-                AudioMode = job.AudioMode,
-                AudioBitrate = job.AudioBitrate,
+                Codec = video.Codec,
+                Preset = video.Preset,
+                Quality = video.Quality,
+                AudioMode = video.AudioMode,
+                AudioBitrate = video.AudioBitrate,
                 FfmpegPath = job.FfmpegPath,
-                EncodingMode = job.EncodingMode,
-                VideoBitrate = job.VideoBitrate,
-                DecodeMode = job.DecodeMode,
-                RateControlMode = job.RateControlMode
+                EncodingMode = video.EncodingMode,
+                VideoBitrate = video.VideoBitrate,
+                DecodeMode = video.DecodeMode,
+                RateControlMode = video.RateControlMode
             };
             var progress = new ExportWorkerProgress(writer);
             var videoPath = Path.Combine(job.TemporaryDirectory, "video.nut");

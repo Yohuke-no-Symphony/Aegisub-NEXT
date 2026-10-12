@@ -9,4 +9,7 @@ internal interface IWorkbenchExportService : IDisposable
 
     Task<VideoExportResult> ExportAsync(VideoExportRequest request, IProgress<VideoExportProgress> progress,
         CancellationToken cancellationToken);
+
+    Task<SubtitleMuxResult> SubtitleMuxWithCommitAsync(SubtitleMuxRequest request, IProgress<SubtitleMuxProgress> progress,
+        Action beforeCommit, CancellationToken cancellationToken);
 }

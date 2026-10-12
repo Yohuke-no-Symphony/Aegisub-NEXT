@@ -120,7 +120,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         Details = new(this);
         Details.Changed += OnSubtitleDetailsChanged;
         analysis = new(this, analysisSessionFactory);
-        export = new(this, dialogs, exportService ?? new VideoWorkbenchExportService(new AegiNext.Export.VideoExporter()));
+        export = new(this, dialogs, exportService ?? new VideoWorkbenchExportService(new AegiNext.Export.VideoExporter(), new AegiNext.Export.SubtitleMuxExporter()));
         exportPresets = new(this);
         styles = new(this, dialogs);
         styles.BusyChanged += OnTimingLibrariesBusyChanged;

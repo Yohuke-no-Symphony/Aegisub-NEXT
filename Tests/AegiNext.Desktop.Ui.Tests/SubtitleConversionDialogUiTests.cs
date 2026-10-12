@@ -104,6 +104,40 @@ public sealed class SubtitleConversionDialogUiTests
         }
     }
 
+    /// <summary>工程生命周期取消关闭转换确认，已取消的请求不会创建或注册窗口。</summary>
+    [AvaloniaFact]
+    public async Task CancellationClosesPendingReviewAndPrecancelledRequestDoesNotCreateWindow()
+    {
+        await using var context = new MainWindowTestContext();
+        using var cancellation = new CancellationTokenSource();
+        var registeredWindows = new List<Window>();
+        var service = new WindowWorkbenchDialogService(context.Window, registerWindow: window =>
+        {
+            registeredWindows.Add(window);
+            context.WindowRegistry.RegisterAuxiliary(window);
+        });
+        var review = new SubtitleConversionReview([new("Ass.Note", "Note")], []);
+        var answer = service.ConfirmSubtitleConversionAsync(review, cancellation.Token);
+        var dialog = Assert.Single(context.Window.OwnedWindows.OfType<SubtitleConversionDialog>());
+        try
+        {
+            await cancellation.CancelAsync();
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(await answer.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.False(dialog.IsVisible);
+            Assert.Empty(context.Window.OwnedWindows.OfType<SubtitleConversionDialog>());
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                service.ConfirmSubtitleConversionAsync(review, cancellation.Token));
+            Assert.Same(dialog, Assert.Single(registeredWindows));
+            Assert.Empty(context.Window.OwnedWindows.OfType<SubtitleConversionDialog>());
+        }
+        finally
+        {
+            dialog.Close(false);
+        }
+    }
+
     [AvaloniaFact]
     public async Task EscapeCancelsWithoutLeavingAWindow()
     {

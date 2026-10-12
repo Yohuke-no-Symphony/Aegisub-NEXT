@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using AegiNext.Desktop.Editing;
+using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Desktop.Workspace;
 using AegiNext.Export.Presets;
@@ -10,6 +11,8 @@ namespace AegiNext.Desktop.Panels.Export;
 internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
 {
     private readonly WorkbenchSession session;
+    private readonly ExportMethodChoice[] methods = [new(ExportMethod.BURN_IN), new(ExportMethod.SUBTITLE_MUX)];
+    private ExportMethod selectedMethod;
     private IReadOnlyList<ExportPresetListItem> presets = [];
     private ExportPresetListItem? selectedPreset;
     private bool refreshingPresets;
@@ -23,6 +26,58 @@ internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
     {
         this.session = session;
         CancelEncodeCommand = new AsyncRelayCommand(() => session.RunCommandAsync(session.CancelExportAsync));
+        RefreshLanguage();
+    }
+
+    public IReadOnlyList<ExportMethodChoice> Methods => methods;
+    public bool CanSelectMethod => !session.IsClosing && session.Export.CanStart && !IsRunning;
+    public bool IsBurnIn => SelectedMethod == ExportMethod.BURN_IN;
+    public bool IsSubtitleMux => SelectedMethod == ExportMethod.SUBTITLE_MUX;
+    public string ExportButtonLabel => Localization.Get(IsSubtitleMux ? "Workbench.SubtitleMuxExport" : "Workbench.Export");
+
+    public ExportMethod SelectedMethod
+    {
+        get => selectedMethod;
+        set
+        {
+            if (!Enum.IsDefined(value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value));
+            }
+            if (!CanSelectMethod || !SetProperty(ref selectedMethod, value))
+            {
+                return;
+            }
+            OnPropertyChanged(nameof(SelectedMethodChoice));
+            OnPropertyChanged(nameof(IsBurnIn));
+            OnPropertyChanged(nameof(IsSubtitleMux));
+            OnPropertyChanged(nameof(ExportButtonLabel));
+            RefreshPresetCommands();
+            session.ViewModel.RefreshCommands();
+        }
+    }
+
+    public ExportMethodChoice? SelectedMethodChoice
+    {
+        get => methods.Single(value => value.Method == SelectedMethod);
+        set
+        {
+            if (value is not null && methods.Contains(value))
+            {
+                SelectedMethod = value.Method;
+            }
+        }
+    }
+
+    /// <summary>刷新导出方式与编码选项文案，保留稳定选择和全部草稿。</summary>
+    public new void RefreshLanguage()
+    {
+        base.RefreshLanguage();
+        foreach (var method in methods)
+        {
+            method.RefreshLanguage();
+        }
+        OnPropertyChanged(nameof(ExportButtonLabel));
     }
 
     public IReadOnlyList<ExportPresetListItem> Presets
@@ -31,7 +86,7 @@ internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
         private set => SetProperty(ref presets, value);
     }
 
-    public bool CanManagePresets => !session.IsClosing && !session.ApplicationContext.ExportPresetsBusy;
+    public bool CanManagePresets => IsBurnIn && !session.IsClosing && !session.ApplicationContext.ExportPresetsBusy;
 
     public ExportPresetListItem? SelectedPreset
     {
@@ -52,7 +107,13 @@ internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
     public bool IsRunning
     {
         get => isRunning;
-        set => SetProperty(ref isRunning, value);
+        set
+        {
+            if (SetProperty(ref isRunning, value))
+            {
+                OnPropertyChanged(nameof(CanSelectMethod));
+            }
+        }
     }
 
     public bool CanCancel => session.Export.CanCancel;
@@ -106,5 +167,9 @@ internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
         OnPropertyChanged(nameof(CanManagePresets));
     }
 
-    internal void RefreshTaskState() => OnPropertyChanged(nameof(CanCancel));
+    internal void RefreshTaskState()
+    {
+        OnPropertyChanged(nameof(CanCancel));
+        OnPropertyChanged(nameof(CanSelectMethod));
+    }
 }

@@ -18,7 +18,7 @@ internal static class WorkbenchCompositionRoot
     {
         var editor = new ProjectEditor();
         return new(dialogs, controllerFactory, editor: editor, preferencesStore: startup?.Store,
-            exportService: exportService ?? new VideoWorkbenchExportService(new VideoExporter()),
+            exportService: exportService ?? new VideoWorkbenchExportService(new VideoExporter(), new SubtitleMuxExporter()),
             initialPreferences: startup?.Preferences, applicationContext: applicationContext);
     }
 

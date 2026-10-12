@@ -119,8 +119,9 @@ internal sealed class WorkspaceDialogStub : IWorkbenchDialogService
         return Task.CompletedTask;
     }
 
-    public Task<bool> ConfirmSubtitleConversionAsync(SubtitleConversionReview review)
+    public Task<bool> ConfirmSubtitleConversionAsync(SubtitleConversionReview review, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ConversionReview = review;
         ConversionDiagnostics = review.Diagnostics.Select(item => $"{item.Code}: {item.Message}").ToArray();
         return Task.FromResult(ConversionChoice);

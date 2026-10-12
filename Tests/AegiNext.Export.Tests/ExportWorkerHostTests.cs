@@ -37,9 +37,9 @@ public sealed class ExportWorkerHostTests
     [InlineData(ExportWire.VERSION, true)]
     public async Task ProtocolValidationPrecedesTheApplicationProjectLoader(int version, bool expectedLoad)
     {
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options),
-            Path.GetTempPath(), Path.GetTempPath(), ".mkv", VideoCodec.H264, "medium", 20, AudioExportMode.None,
-            192000, "ffmpeg", RateControlMode: VideoRateControlMode.CRF, ProtocolVersion: version);
+        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options), Path.GetTempPath(), Path.GetTempPath(), ".mkv",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.H264, "medium", 20, AudioExportMode.None, 192000, RateControlMode: VideoRateControlMode.CRF),
+            ProtocolVersion: version);
         using var input = new StringReader(JsonSerializer.Serialize(job, ExportWire.Options));
         using var output = new StringWriter(CultureInfo.InvariantCulture);
         using var errors = new StringWriter(CultureInfo.InvariantCulture);

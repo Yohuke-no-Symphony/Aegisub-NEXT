@@ -1,3 +1,4 @@
+using AegiNext.Export.Worker;
 using System.Text.Json;
 using AegiNext.Core.Projects;
 using AegiNext.Export;
@@ -21,9 +22,9 @@ public sealed class ExportWireAnimationTests
             Layers = [new() { Id = line.Id, Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, Start = line.Start, End = line.End }]
         };
         ProjectValidator.Validate(project);
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(project, ExportWire.Options), Path.GetTempPath(),
-            Path.GetTempPath(), ".mkv", VideoCodec.H264, "medium", 18, AudioExportMode.None, 192000, "ffmpeg",
-            RateControlMode: VideoRateControlMode.CRF, ProtocolVersion: ExportWire.VERSION);
+        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(project, ExportWire.Options), Path.GetTempPath(), Path.GetTempPath(), ".mkv",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.H264, "medium", 18, AudioExportMode.None, 192000, RateControlMode: VideoRateControlMode.CRF),
+            ProtocolVersion: ExportWire.VERSION);
         var restoredJob = JsonSerializer.Deserialize<ExportWorkerJob>(JsonSerializer.Serialize(job, ExportWire.Options), ExportWire.Options)!;
         ExportWire.ValidateJob(restoredJob);
         var restoredLine = restoredJob.Project.GetProperty("subtitles")[0];
@@ -65,9 +66,9 @@ public sealed class ExportWireAnimationTests
         };
         ProjectValidator.Validate(project);
         var element = JsonSerializer.SerializeToElement(project, ExportWire.Options);
-        var job = new ExportWorkerJob(element, Path.GetTempPath(), Path.GetTempPath(), ".mkv", VideoCodec.H264,
-            "medium", 18, AudioExportMode.None, 192000, "ffmpeg",
-            RateControlMode: VideoRateControlMode.CRF, ProtocolVersion: ExportWire.VERSION);
+        var job = new ExportWorkerJob(element, Path.GetTempPath(), Path.GetTempPath(), ".mkv",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.H264, "medium", 18, AudioExportMode.None, 192000, RateControlMode: VideoRateControlMode.CRF),
+            ProtocolVersion: ExportWire.VERSION);
         var encoded = JsonSerializer.Serialize(job, ExportWire.Options);
         var restored = Assert.IsType<ExportWorkerJob>(JsonSerializer.Deserialize<ExportWorkerJob>(encoded, ExportWire.Options));
         ExportWire.ValidateJob(restored);

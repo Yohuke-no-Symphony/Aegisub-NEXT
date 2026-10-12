@@ -25,7 +25,7 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
 {
     private readonly UiTestEnvironment environment = new();
     private readonly PreviewTestSource source = new(1, 0, 5000, 10000, 15000, 20000);
-    internal ExportWorkspaceTestContext()
+    internal ExportWorkspaceTestContext(SubtitleLine? subtitle = null)
     {
         try
         {
@@ -34,7 +34,13 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
             {
                 Name = "Export boundary",
                 Assets = [new(assetId, ProjectAssetKind.MEDIA, string.Empty, ExternalPath: Path.Combine(environment.DirectoryPath, "controlled.mkv"))],
-                Media = new(assetId, 0, null, MediaTime.Zero)
+                Media = new(assetId, 0, null, MediaTime.Zero),
+                Subtitles = subtitle is null ? [] : [subtitle],
+                Layers = subtitle is null ? [] : [new()
+                {
+                    Id = subtitle.Id, Kind = LayerKind.SUBTITLE, SubtitleId = subtitle.Id,
+                    Start = subtitle.Start, End = subtitle.End
+                }]
             });
             Session = new(Dialogs,
                 update => new VideoPreviewController((_, _) => Task.FromResult(new VideoPreviewMedia(0, MediaTime.Zero, new(20), VideoWidth: 1, VideoHeight: 1)),

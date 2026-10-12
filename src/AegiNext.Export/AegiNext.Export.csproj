@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../AegiNext.Core/AegiNext.Core.csproj" />
     <ProjectReference Include="../AegiNext.Media/AegiNext.Media.csproj" />
+    <ProjectReference Include="../AegiNext.SubtitleFormats/AegiNext.SubtitleFormats.csproj" />
     <ProjectReference Include="../AegiNext.Rendering/AegiNext.Rendering.csproj" />
     <InternalsVisibleTo Include="AegiNext.Export.Tests" />
     <None Include="$(AegiNextNativeDirectory)/libaeginext_export.dylib" Link="libaeginext_export.dylib"

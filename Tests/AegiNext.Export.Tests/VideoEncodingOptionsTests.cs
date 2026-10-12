@@ -1,3 +1,4 @@
+using AegiNext.Export.Worker;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using AegiNext.Core.Projects;
@@ -48,17 +49,16 @@ public sealed class VideoEncodingOptionsTests
     [Fact]
     public void WorkerWireCarriesHardwareModeBitrateAndActualEncoderIdentity()
     {
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options),
-            Path.GetTempPath(), Path.GetTempPath(), ".mp4", VideoCodec.Hevc, "slow", 20, AudioExportMode.None,
-            192000, "ffmpeg", VideoEncodingMode.HARDWARE, 12000000, VideoDecodeMode.Software,
-            VideoRateControlMode.CBR, ExportWire.VERSION);
+        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options), Path.GetTempPath(), Path.GetTempPath(), ".mp4",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.Hevc, "slow", 20, AudioExportMode.None, 192000, VideoEncodingMode.HARDWARE, 12000000, VideoDecodeMode.Software, VideoRateControlMode.CBR),
+            ProtocolVersion: ExportWire.VERSION);
         var serialized = JsonSerializer.Serialize(job, ExportWire.Options);
         var restored = Assert.IsType<ExportWorkerJob>(JsonSerializer.Deserialize<ExportWorkerJob>(serialized, ExportWire.Options));
-        Assert.Equal(VideoEncodingMode.HARDWARE, restored.EncodingMode);
-        Assert.Equal(12000000, restored.VideoBitrate);
-        Assert.Equal(VideoDecodeMode.Software, restored.DecodeMode);
-        Assert.Equal(VideoRateControlMode.CBR, restored.RateControlMode);
-        Assert.Equal(3, restored.ProtocolVersion);
+        Assert.Equal(VideoEncodingMode.HARDWARE, restored.Video!.EncodingMode);
+        Assert.Equal(12000000, restored.Video!.VideoBitrate);
+        Assert.Equal(VideoDecodeMode.Software, restored.Video!.DecodeMode);
+        Assert.Equal(VideoRateControlMode.CBR, restored.Video!.RateControlMode);
+        Assert.Equal(ExportWire.VERSION, restored.ProtocolVersion);
         Assert.Contains("\"rate_mode\":\"CBR\"", serialized, StringComparison.Ordinal);
         ExportWire.ValidateJob(restored);
         var message = new ExportWorkerMessage("complete", 42, Encoder: "hevc_videotoolbox",
@@ -204,13 +204,13 @@ public sealed class VideoEncodingOptionsTests
     [InlineData(0, VideoRateControlMode.CRF)]
     [InlineData(1, VideoRateControlMode.CRF)]
     [InlineData(2, VideoRateControlMode.CRF)]
-    [InlineData(3, VideoRateControlMode.AUTOMATIC)]
-    [InlineData(3, (VideoRateControlMode)9)]
+    [InlineData(ExportWire.VERSION, VideoRateControlMode.AUTOMATIC)]
+    [InlineData(ExportWire.VERSION, (VideoRateControlMode)9)]
     public void WorkerRejectsMismatchedProtocolAndUnresolvedModes(int version, VideoRateControlMode mode)
     {
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options),
-            Path.GetTempPath(), Path.GetTempPath(), ".mp4", VideoCodec.H264, "medium", 20, AudioExportMode.None,
-            192000, "ffmpeg", RateControlMode: mode, ProtocolVersion: version);
+        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options), Path.GetTempPath(), Path.GetTempPath(), ".mp4",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.H264, "medium", 20, AudioExportMode.None, 192000, RateControlMode: mode),
+            ProtocolVersion: version);
 
         Assert.Throws<InvalidDataException>(() => ExportWire.ValidateJob(job));
     }
@@ -219,11 +219,11 @@ public sealed class VideoEncodingOptionsTests
     [Fact]
     public void MissingProtocolVersionInLegacyJsonIsRejected()
     {
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options),
-            Path.GetTempPath(), Path.GetTempPath(), ".mp4", VideoCodec.H264, "medium", 20, AudioExportMode.None,
-            192000, "ffmpeg", RateControlMode: VideoRateControlMode.CRF, ProtocolVersion: ExportWire.VERSION);
+        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(new ProjectDocument(), ExportWire.Options), Path.GetTempPath(), Path.GetTempPath(), ".mp4",
+            "ffmpeg", ExportWorkerOperation.BURN_IN, new(VideoCodec.H264, "medium", 20, AudioExportMode.None, 192000, RateControlMode: VideoRateControlMode.CRF),
+            ProtocolVersion: ExportWire.VERSION);
         var json = JsonSerializer.Serialize(job, ExportWire.Options).Replace(
-            ",\"protocolVersion\":3", string.Empty, StringComparison.Ordinal);
+             $",\"protocolVersion\":{ExportWire.VERSION}", string.Empty, StringComparison.Ordinal);
         var legacy = JsonSerializer.Deserialize<ExportWorkerJob>(json, ExportWire.Options)!;
 
         Assert.Equal(0, legacy.ProtocolVersion);

@@ -15,6 +15,13 @@ internal sealed class ControlledExportDialogService : IWorkbenchDialogService
     internal Exception? PickerError { get; set; }
     internal TaskCompletionSource? PendingErrorAcknowledgement { get; set; }
     internal TaskCompletionSource ErrorShown { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal TaskCompletionSource SaveShown { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal TaskCompletionSource ConversionShown { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal TaskCompletionSource ConversionCancellationObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal TaskCompletionSource<bool>? PendingConversion { get; set; }
+    internal bool ConversionChoice { get; set; }
+    internal int ConversionRequests { get; private set; }
+    internal SubtitleConversionReview? ConversionReview { get; private set; }
     internal void ResolveOutput(string? path) => output.TrySetResult(path);
 
     /// <summary>本上下文不选择输入资源。</summary>
@@ -39,6 +46,7 @@ internal sealed class ControlledExportDialogService : IWorkbenchDialogService
         SuggestedDirectory = suggestedDirectory;
         Patterns = patterns;
         DefaultExtension = extension;
+        SaveShown.TrySetResult();
         if (PickerError is { } error)
         {
             return Task.FromException<string?>(error);
@@ -66,6 +74,17 @@ internal sealed class ControlledExportDialogService : IWorkbenchDialogService
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(false);
+    }
+
+    /// <summary>记录纯文本转换损失，并等待测试选择或工程生命周期取消。</summary>
+    public async Task<bool> ConfirmSubtitleConversionAsync(SubtitleConversionReview review, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ConversionRequests++;
+        ConversionReview = review;
+        ConversionShown.TrySetResult();
+        using var registration = cancellationToken.Register(() => ConversionCancellationObserved.TrySetResult());
+        return PendingConversion is { } pending ? await pending.Task.WaitAsync(cancellationToken) : ConversionChoice;
     }
 
     public Task<TrackStyleUpdateDecision> ConfirmTrackStyleChangeAsync(string trackName, string presetName, int subtitleCount)
