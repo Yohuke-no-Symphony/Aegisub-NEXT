@@ -126,6 +126,24 @@ public sealed class GoogleCodecExportIntegrationTests
         fixture.AssertCleanOutput(true);
     }
 
+    /// <summary>MKV 的毫秒时间基与 MP4 的采样时间基可用不同字段表达同一组 AAC 首尾填充。</summary>
+    [ExportTheory]
+    [InlineData(VideoCodec.H264)]
+    public async Task Mp4AudioCopyAcceptsEquivalentAacPaddingRepresentation(VideoCodec codec)
+    {
+        using var fixture = await GoogleCodecExportFixture.CreateAsync();
+        var request = fixture.CreateRequest(codec, ".mp4", AudioExportMode.Copy);
+
+        var result = await new VideoExporter().ExportAsync(request);
+
+        var before = await GoogleCodecExportFixture.ProbeAudioAsync(fixture.MediaPath);
+        var after = await GoogleCodecExportFixture.ProbeAudioAsync(result.OutputPath);
+        Assert.Equal(PacketHashes(before), PacketHashes(after));
+        AssertPacketBoundaries(before, after, exactPadding: false);
+        AssertEquivalentAacPadding(before, after);
+        fixture.AssertCleanOutput(true);
+    }
+
     private static async Task<JsonElement> AssertVideoAsync(GoogleCodecExportFixture fixture, VideoExportResult result,
         VideoCodec codec, string extension, string transfer, int depth)
     {
@@ -225,7 +243,7 @@ public sealed class GoogleCodecExportIntegrationTests
     private static string[] PacketHashes(JsonElement probe) => probe.GetProperty("packets").EnumerateArray()
         .Select(packet => packet.GetProperty("data_hash").GetString()!).ToArray();
 
-    private static void AssertPacketBoundaries(JsonElement before, JsonElement after)
+    private static void AssertPacketBoundaries(JsonElement before, JsonElement after, bool exactPadding = true)
     {
         var expected = before.GetProperty("packets").EnumerateArray().ToArray();
         var actual = after.GetProperty("packets").EnumerateArray().ToArray();
@@ -234,10 +252,44 @@ public sealed class GoogleCodecExportIntegrationTests
         foreach (var index in new[] { 0, expected.Length - 1 })
         {
             Assert.InRange(Math.Abs(Number(expected[index].GetProperty("pts_time")) - Number(actual[index].GetProperty("pts_time"))), 0, 0.002);
-            Assert.Equal(SkipSamples(expected[index], "skip_samples"), SkipSamples(actual[index], "skip_samples"));
-            Assert.Equal(SkipSamples(expected[index], "discard_padding"), SkipSamples(actual[index], "discard_padding"));
+            if (exactPadding)
+            {
+                Assert.Equal(SkipSamples(expected[index], "skip_samples"), SkipSamples(actual[index], "skip_samples"));
+                Assert.Equal(SkipSamples(expected[index], "discard_padding"), SkipSamples(actual[index], "discard_padding"));
+            }
         }
     }
+
+    private static void AssertEquivalentAacPadding(JsonElement before, JsonElement after)
+    {
+        var beforeStream = Assert.Single(before.GetProperty("streams").EnumerateArray());
+        var afterStream = Assert.Single(after.GetProperty("streams").EnumerateArray());
+        Assert.Equal("aac", beforeStream.GetProperty("codec_name").GetString());
+        Assert.Equal("aac", afterStream.GetProperty("codec_name").GetString());
+        var sampleRate = int.Parse(beforeStream.GetProperty("sample_rate").GetString()!, CultureInfo.InvariantCulture);
+        Assert.Equal(sampleRate.ToString(CultureInfo.InvariantCulture), afterStream.GetProperty("sample_rate").GetString());
+        var beforePackets = before.GetProperty("packets").EnumerateArray().ToArray();
+        var afterPackets = after.GetProperty("packets").EnumerateArray().ToArray();
+        var beforeLeading = Math.Max(StreamPadding(beforeStream, "initial_padding"), SkipSamples(beforePackets[0], "skip_samples"));
+        var afterLeading = Math.Max(StreamPadding(afterStream, "initial_padding"), SkipSamples(afterPackets[0], "skip_samples"));
+        var beforeStart = Number(beforePackets[0].GetProperty("pts_time")) + (double)beforeLeading / sampleRate;
+        var afterStart = Number(afterPackets[0].GetProperty("pts_time")) + (double)afterLeading / sampleRate;
+        var tolerance = Math.Max(Number(beforeStream.GetProperty("time_base")), Number(afterStream.GetProperty("time_base")));
+        Assert.InRange(Math.Abs(beforeStart - afterStart), 0, tolerance);
+        Assert.InRange(Math.Abs(EffectiveAacTrailingPadding(beforeStream, beforePackets[^1], sampleRate) -
+            EffectiveAacTrailingPadding(afterStream, afterPackets[^1], sampleRate)), 0, (long)Math.Ceiling(tolerance * sampleRate));
+    }
+
+    private static long EffectiveAacTrailingPadding(JsonElement stream, JsonElement packet, int sampleRate)
+    {
+        var duration = (long)Math.Round(Number(packet.GetProperty("duration_time")) * sampleRate);
+        var implicitPadding = Math.Max(0, 1024 - duration);
+        return Math.Max(StreamPadding(stream, "trailing_padding"),
+            Math.Max(implicitPadding, SkipSamples(packet, "discard_padding")));
+    }
+
+    private static long StreamPadding(JsonElement stream, string name) =>
+        stream.TryGetProperty(name, out var value) ? value.GetInt64() : 0;
 
     private static long SkipSamples(JsonElement packet, string name)
     {

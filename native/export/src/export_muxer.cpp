@@ -23,7 +23,7 @@ struct Input
     int selected = -1;
     bool ended = false;
     uint64_t packetCount = 0;
-    int64_t firstPts = AV_NOPTS_VALUE, lastEnd = AV_NOPTS_VALUE;
+    int64_t firstPts = AV_NOPTS_VALUE, lastEnd = AV_NOPTS_VALUE, lastDuration = 0;
     uint64_t skipSamples = 0, discardSamples = 0;
     uint64_t presentationHash = 14695981039346656037ull;
     AVRational comparisonTimeBase{0,1};
@@ -49,6 +49,7 @@ struct Input
             {
                 if (!packetCount) firstPts = packet->pts;
                 ++packetCount;
+                lastDuration = packet->duration;
                 const bool video = format->streams[selected]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO;
                 if (packet->pts != AV_NOPTS_VALUE) lastEnd = std::max(lastEnd, packet->pts + (video ? 0 : packet->duration));
                 if (video && comparisonTimeBase.num > 0)
@@ -106,6 +107,35 @@ AVStream *AddStream(AVFormatContext *output, const AVStream *source)
     CheckAv(av_dict_copy(&stream->metadata, source->metadata, 0), "copy mux stream metadata");
     return stream;
 }
+uint64_t TimeBaseSamples(const AVStream *stream)
+{
+    if (stream->codecpar->sample_rate <= 0) return 0;
+    return static_cast<uint64_t>(std::max<int64_t>(1,
+        av_rescale_q_rnd(1, stream->time_base, AVRational{1, stream->codecpar->sample_rate}, AV_ROUND_UP)));
+}
+uint64_t EffectiveLeadingPadding(const Input &input, const AVStream *stream)
+{
+    return std::max(input.skipSamples,
+        static_cast<uint64_t>(std::max(0, stream->codecpar->initial_padding)));
+}
+uint64_t EffectiveTrailingPadding(const Input &input, const AVStream *stream)
+{
+    uint64_t implicitPadding = 0;
+    const auto *parameters = stream->codecpar;
+    if (parameters->sample_rate > 0 && parameters->frame_size > 0 && input.lastDuration > 0)
+    {
+        const auto duration = av_rescale_q_rnd(input.lastDuration, stream->time_base,
+            AVRational{1, parameters->sample_rate}, AV_ROUND_NEAR_INF);
+        if (duration >= 0 && duration < parameters->frame_size)
+            implicitPadding = static_cast<uint64_t>(parameters->frame_size - duration);
+    }
+    return std::max({input.discardSamples, implicitPadding,
+        static_cast<uint64_t>(std::max(0, parameters->trailing_padding))});
+}
+uint64_t Difference(uint64_t left, uint64_t right)
+{
+    return left > right ? left - right : right - left;
+}
 void VerifyPackets(const Input &source, const char *path, AVMediaType type, const std::atomic<bool> &cancelled)
 {
     Input actual;
@@ -117,7 +147,8 @@ void VerifyPackets(const Input &source, const char *path, AVMediaType type, cons
     const auto *before = source.format->streams[source.selected]; const auto *after = actual.format->streams[actual.selected];
     Require(before->codecpar->codec_id == after->codecpar->codec_id && source.packetCount == actual.packetCount,
         "Final container changed the selected codec or packet count");
-    const int64_t quantum = std::max<int64_t>(1, av_rescale_q(1, after->time_base, AV_TIME_BASE_Q));
+    const int64_t quantum = std::max({int64_t{1}, av_rescale_q(1, before->time_base, AV_TIME_BASE_Q),
+        av_rescale_q(1, after->time_base, AV_TIME_BASE_Q)});
     const auto difference = [&](int64_t left, int64_t right)
     {
         if (left == AV_NOPTS_VALUE || right == AV_NOPTS_VALUE) return left == right ? int64_t{0} : INT64_MAX;
@@ -134,9 +165,26 @@ void VerifyPackets(const Input &source, const char *path, AVMediaType type, cons
         Require(source.presentationHash == actual.presentationHash,
             "Final container changed one or more video presentation timestamps");
     if (type == AVMEDIA_TYPE_AUDIO)
-        Require(before->codecpar->initial_padding == after->codecpar->initial_padding &&
-            source.skipSamples == actual.skipSamples && source.discardSamples == actual.discardSamples,
-            "Final container did not preserve audio priming or discard padding");
+    {
+        Require(before->codecpar->sample_rate == after->codecpar->sample_rate,
+            "Final container changed the selected audio sample rate");
+        const auto sourceLeading = EffectiveLeadingPadding(source, before);
+        const auto actualLeading = EffectiveLeadingPadding(actual, after);
+        const auto sourceTrailing = EffectiveTrailingPadding(source, before);
+        const auto actualTrailing = EffectiveTrailingPadding(actual, after);
+        const auto sampleTolerance = std::max(TimeBaseSamples(before), TimeBaseSamples(after));
+        if (Difference(sourceLeading, actualLeading) > sampleTolerance ||
+            Difference(sourceTrailing, actualTrailing) > sampleTolerance)
+            throw ExportFailure(2, "Final container did not preserve audio priming or discard padding: source initial/skip/discard=" +
+                std::to_string(before->codecpar->initial_padding) + "/" + std::to_string(source.skipSamples) + "/" +
+                std::to_string(source.discardSamples) + " frame/duration=" + std::to_string(before->codecpar->frame_size) + "/" +
+                std::to_string(source.lastDuration) + "; output=" + std::to_string(after->codecpar->initial_padding) + "/" +
+                std::to_string(actual.skipSamples) + "/" + std::to_string(actual.discardSamples) + " frame/duration=" +
+                std::to_string(after->codecpar->frame_size) + "/" + std::to_string(actual.lastDuration) +
+                "; effective leading/trailing=" + std::to_string(sourceLeading) + "/" + std::to_string(sourceTrailing) +
+                " -> " + std::to_string(actualLeading) + "/" + std::to_string(actualTrailing) +
+                "; tolerance=" + std::to_string(sampleTolerance) + " samples");
+    }
 }
 void VerifyChapters(const AVFormatContext *source, const char *path, const std::atomic<bool> &cancelled)
 {
