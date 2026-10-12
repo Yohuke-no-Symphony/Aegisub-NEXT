@@ -3,13 +3,58 @@ using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Export;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class ExportCodecUiTests
 {
+    /// <summary>切换到无平台后端的编码器取消并禁用 GPU，禁用控件拒绝真实鼠标勾选。</summary>
+    [AvaloniaTheory]
+    [InlineData(VideoCodec.Vp9)]
+    [InlineData(VideoCodec.Av1)]
+    public async Task HardwareToggleFollowsPlatformWhenCodecChanges(VideoCodec codec)
+    {
+        await using var context = new ExportWorkspaceTestContext();
+        await context.InitializeAsync();
+        context.Layouts.Activate(WorkbenchPanelIds.EXPORT);
+        context.Flush();
+        var view = context.Panels[WorkbenchPanelIds.EXPORT];
+        var vm = context.Session.ViewModel.Export;
+        var toggle = view.FindControl<CheckBox>("HardwareEncoderToggle")!;
+        var selector = view.FindControl<ComboBox>("CodecCombo")!;
+        toggle.IsChecked = true;
+        selector.SelectedItem = Assert.Single(vm.Codecs, value => value.Codec == codec);
+        context.Flush();
+
+        var supported = OperatingSystem.IsWindows();
+        Assert.Equal(supported, toggle.IsEnabled);
+        Assert.Equal(supported, toggle.IsChecked);
+        Assert.Equal(supported, vm.UseHardwareEncoder);
+        if (!supported)
+        {
+            toggle.BringIntoView();
+            context.Flush();
+            var point = toggle.TranslatePoint(new Point(toggle.Bounds.Width / 2, toggle.Bounds.Height / 2), context.Owner)!.Value;
+            context.Owner.MouseDown(point, MouseButton.Left);
+            context.Owner.MouseUp(point, MouseButton.Left);
+            context.Flush();
+            Assert.False(toggle.IsChecked);
+            Assert.False(vm.UseHardwareEncoder);
+        }
+
+        selector.SelectedItem = Assert.Single(vm.Codecs, value => value.Codec == VideoCodec.H264);
+        context.Flush();
+
+        Assert.Equal(OperatingSystem.IsMacOS() || OperatingSystem.IsWindows(), toggle.IsEnabled);
+        Assert.Equal(supported, toggle.IsChecked);
+        Assert.False(context.Editor.CanUndo);
+    }
+
     /// <summary>VP8 显示 CQ 两参数并禁用硬件；Opus 码率与稳定选择跨语言保留。</summary>
     [AvaloniaFact]
     public async Task Vp8ShowsQualityAndBitrateWithOpusAndStableCodecIdentity()

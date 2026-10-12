@@ -70,6 +70,74 @@ public sealed class VideoExportCodecSettingsTests
         Assert.Equal(VideoRateControlMode.CQ, model.CaptureSettings(true).RateControlMode);
     }
 
+    /// <summary>切换格式按当前平台取消不可用硬件，保留质量模式和未完成草稿。</summary>
+    [Theory]
+    [InlineData(VideoCodec.Vp9)]
+    [InlineData(VideoCodec.Av1)]
+    public void CodecSwitchHonorsPlatformAndPreservesDrafts(VideoCodec codec)
+    {
+        var model = new VideoExportSettingsViewModel
+        {
+            SelectedCodec = VideoCodec.H264,
+            QualityText = "7e-",
+            VideoBitrateText = "unfinished bitrate",
+            UseHardwareEncoder = true
+        };
+        var changes = new List<string?>();
+        model.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+
+        model.SelectedCodec = codec;
+        model.UseHardwareEncoder = true;
+        model.RefreshLanguage();
+
+        var supported = OperatingSystem.IsWindows();
+        Assert.Equal(supported, model.CanUseHardwareEncoder);
+        Assert.Equal(supported, model.UseHardwareEncoder);
+        Assert.Equal(supported ? 1 : 0, model.QualityMode);
+        Assert.Equal(!supported, model.CanSelectQualityMode);
+        Assert.Equal("7e-", model.QualityText);
+        Assert.Equal("unfinished bitrate", model.VideoBitrateText);
+        Assert.Contains(nameof(model.CanUseHardwareEncoder), changes);
+
+        model.SelectedCodec = VideoCodec.H264;
+
+        Assert.Equal(OperatingSystem.IsMacOS() || OperatingSystem.IsWindows(), model.CanUseHardwareEncoder);
+        Assert.Equal(supported, model.UseHardwareEncoder);
+    }
+
+    /// <summary>跨平台硬件预设取消不可用勾选，同时保留完整的码率和编码参数。</summary>
+    [Theory]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.CBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.CBR)]
+    public void ApplyingHardwarePresetHonorsPlatformAndPreservesBitrateSettings(VideoCodec codec, VideoRateControlMode mode)
+    {
+        var settings = VideoExportCapabilities.CreateDefaultSettings(codec) with
+        {
+            EncodingMode = VideoEncodingMode.HARDWARE,
+            RateControlMode = mode,
+            Preset = "slow",
+            Quality = 27,
+            VideoBitrate = 12345000,
+            AudioMode = AudioExportMode.Opus,
+            AudioBitrate = 96000
+        };
+        var model = new VideoExportSettingsViewModel();
+
+        model.ApplySettings(settings);
+        model.RefreshLanguage();
+
+        var supported = OperatingSystem.IsWindows();
+        Assert.Equal(supported, model.CanUseHardwareEncoder);
+        Assert.Equal(supported, model.UseHardwareEncoder);
+        Assert.Equal(settings with
+        {
+            EncodingMode = supported ? VideoEncodingMode.HARDWARE : VideoEncodingMode.SOFTWARE
+        }, model.CaptureSettings(true));
+        Assert.Equal(VideoEncodingMode.HARDWARE, settings.EncodingMode);
+    }
+
     /// <summary>CQ 的质量与目标码率均为活动字段。</summary>
     [Theory]
     [InlineData("invalid", "8", "QualityInput")]

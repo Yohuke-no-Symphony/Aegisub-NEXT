@@ -83,7 +83,7 @@ public sealed class ExportSettingsViewModel : VideoExportSettingsViewModel
             }
             try
             {
-                return CaptureSettings(true) != draft.Settings;
+                return CaptureSettings(true) != VideoExportCapabilities.ProjectPresetToCurrentPlatform(draft.Settings);
             }
             catch (ExportSettingsValidationException)
             {

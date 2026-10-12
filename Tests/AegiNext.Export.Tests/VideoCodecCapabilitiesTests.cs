@@ -1,9 +1,76 @@
+using System.Runtime.InteropServices;
 using AegiNext.Export;
 
 namespace AegiNext.Export.Tests;
 
 public sealed class VideoCodecCapabilitiesTests
 {
+    /// <summary>平台能力匹配原生后端范围，而非跨平台编码器列表。</summary>
+    [Theory]
+    [InlineData(VideoCodec.Auto, true, true)]
+    [InlineData(VideoCodec.H264, true, true)]
+    [InlineData(VideoCodec.Hevc, true, true)]
+    [InlineData(VideoCodec.Vp8, false, false)]
+    [InlineData(VideoCodec.Vp9, false, true)]
+    [InlineData(VideoCodec.Av1, false, true)]
+    public void HardwarePlatformsMatchNativeEncoderCandidates(VideoCodec codec, bool mac, bool windows)
+    {
+        var capability = VideoExportCapabilities.Get(codec);
+
+        Assert.Equal(mac, capability.SupportsHardwareOn(OSPlatform.OSX));
+        Assert.Equal(windows, capability.SupportsHardwareOn(OSPlatform.Windows));
+        Assert.False(capability.SupportsHardwareOn(OSPlatform.Linux));
+        Assert.False(capability.SupportsHardwareOn(OSPlatform.Create("AEGINEXT_UNSUPPORTED")));
+        Assert.Equal(OperatingSystem.IsMacOS() && mac || OperatingSystem.IsWindows() && windows,
+            capability.SupportsHardwareOnCurrentPlatform);
+        Assert.Equal(windows, capability.SupportsHardware);
+    }
+
+    /// <summary>平台投影仅改变不可用的硬件模式，预设保持可交换且重复投影稳定。</summary>
+    [Theory]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.CBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.CBR)]
+    public void PresetPlatformProjectionPreservesCrossPlatformContract(VideoCodec codec, VideoRateControlMode mode)
+    {
+        var original = VideoExportCapabilities.CreateDefaultSettings(codec) with
+        {
+            EncodingMode = VideoEncodingMode.HARDWARE,
+            RateControlMode = mode,
+            Preset = "slow",
+            Quality = 27,
+            VideoBitrate = 12345678,
+            AudioMode = AudioExportMode.Opus,
+            AudioBitrate = 96000
+        };
+
+        var projected = VideoExportCapabilities.ProjectPresetToCurrentPlatform(original);
+
+        Assert.Equal(original with
+        {
+            EncodingMode = OperatingSystem.IsWindows() ? VideoEncodingMode.HARDWARE : VideoEncodingMode.SOFTWARE
+        }, projected);
+        Assert.Equal(VideoEncodingMode.HARDWARE, original.EncodingMode);
+        VideoExportSettingsValidator.ValidatePreset(original);
+        VideoExportSettingsValidator.ValidatePreset(projected);
+        Assert.Same(projected, VideoExportCapabilities.ProjectPresetToCurrentPlatform(projected));
+    }
+
+    /// <summary>软件预设不因平台投影改变，未指定码控的运行时请求不能作为预设降级。</summary>
+    [Fact]
+    public void PresetPlatformProjectionKeepsSoftwareAndRejectsAutomaticRateControl()
+    {
+        var software = VideoExportCapabilities.CreateDefaultSettings(VideoCodec.Av1);
+
+        Assert.Same(software, VideoExportCapabilities.ProjectPresetToCurrentPlatform(software));
+        Assert.Throws<ArgumentException>(() => VideoExportCapabilities.ProjectPresetToCurrentPlatform(software with
+        {
+            EncodingMode = VideoEncodingMode.HARDWARE,
+            RateControlMode = VideoRateControlMode.AUTOMATIC
+        }));
+    }
+
     [Theory]
     [InlineData(VideoCodec.Vp8, 0, 63, VideoRateControlMode.CQ, "libvpx")]
     [InlineData(VideoCodec.Vp9, 0, 63, VideoRateControlMode.CRF, "libvpx-vp9")]

@@ -15,6 +15,49 @@ namespace AegiNext.Desktop.Ui.Tests;
 /// <summary>验证设置页压制预设编辑、批量交换及窗口和工程草稿的隔离。</summary>
 public sealed class ExportSettingsUiTests
 {
+    /// <summary>预设编辑器禁用当前平台不支持的 GPU，加载、刷新和离开不会改写原始预设。</summary>
+    [AvaloniaTheory]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.CBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.CBR)]
+    public async Task HardwarePresetUsesPlatformToggleWithoutImplicitPersistence(VideoCodec codec, VideoRateControlMode mode)
+    {
+        var settings = VideoExportCapabilities.CreateDefaultSettings(codec) with
+        {
+            EncodingMode = VideoEncodingMode.HARDWARE,
+            RateControlMode = mode,
+            VideoBitrate = 12345000
+        };
+        var original = new VideoExportPreset(Guid.NewGuid(), "Windows GPU", settings);
+        await WithSettingsAsync(async (context, _, window, _, directory) =>
+        {
+            var path = Path.Combine(directory, "export-presets.aegiexports");
+            var bytes = await File.ReadAllBytesAsync(path);
+            var model = window.ViewModel.ExportPresets;
+            var toggle = UiTestActions.Find<CheckBox>(window, "HardwareEncoderToggle");
+            var supported = OperatingSystem.IsWindows();
+
+            Assert.Equal(supported, toggle.IsEnabled);
+            Assert.Equal(supported, toggle.IsChecked);
+            Assert.Equal(supported, model.UseHardwareEncoder);
+            Assert.Equal(1, UiTestActions.Find<ComboBox>(window, "QualityModeCombo").SelectedIndex);
+            Assert.Equal(mode == VideoRateControlMode.CBR ? 1 : 0,
+                UiTestActions.Find<ComboBox>(window, "BitrateModeCombo").SelectedIndex);
+            Assert.Equal("12.345", UiTestActions.Find<NumericDraftInput>(window, "VideoBitrateInput").RawText);
+            Assert.False(model.IsDirty);
+            model.RefreshLanguage();
+            model.UpdatePresets(context.ExportPresetLibrary.Snapshot.Presets);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(model.IsDirty);
+            Assert.True(await model.SavePendingAsync());
+            Assert.Equal(original, Assert.Single(context.ExportPresetLibrary.Snapshot.Presets));
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
+            Assert.False(window.ViewModel.HasError);
+        }, original);
+    }
+
     /// <summary>设置编辑器通过真实控件改名和保存参数，保持预设身份且不新增副本。</summary>
     [AvaloniaFact]
     public async Task EditingAndRenamingPresetPersistsCompleteConfigurationWithOriginalId()

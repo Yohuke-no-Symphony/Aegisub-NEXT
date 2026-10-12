@@ -76,7 +76,7 @@ public class VideoExportSettingsViewModel : ObservableObject
                 IsValidNumber(number, previous.QualityMinimum, previous.QualityMaximum, 1) &&
                 (number == previous.DefaultQuality || !IsValidNumber(number, next.QualityMinimum, next.QualityMaximum, 1));
             selectedCodec = value;
-            if (!next.SupportsHardware && UseHardwareEncoder)
+            if (!CanUseHardwareEncoder && UseHardwareEncoder)
             {
                 UseHardwareEncoder = false;
             }
@@ -115,7 +115,7 @@ public class VideoExportSettingsViewModel : ObservableObject
     private VideoCodecCapabilities Capabilities => VideoExportCapabilities.Get(SelectedCodec);
     public decimal QualityMinimum => Capabilities.QualityMinimum;
     public decimal QualityMaximum => Capabilities.QualityMaximum;
-    public bool CanUseHardwareEncoder => Capabilities.SupportsHardware;
+    public bool CanUseHardwareEncoder => Capabilities.SupportsHardwareOnCurrentPlatform;
     public bool SupportsWebM => Capabilities.Extensions.Contains(".webm");
 
     public bool UseHardwareEncoder
@@ -363,7 +363,7 @@ public class VideoExportSettingsViewModel : ObservableObject
 
     internal void ApplySettings(VideoExportSettings settings)
     {
-        VideoExportSettingsValidator.ValidatePreset(settings);
+        settings = VideoExportCapabilities.ProjectPresetToCurrentPlatform(settings);
         var presetIndex = Array.IndexOf(encodingPresets, settings.Preset);
         refreshingChoices = true;
         try

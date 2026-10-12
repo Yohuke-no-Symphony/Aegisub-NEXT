@@ -34,7 +34,7 @@ public sealed class ExportSettingsTests
         var saved = Assert.Single((await VideoExportPresetStore.LoadAsync(path)).Presets);
         Assert.Equal(stored.Id, saved.Id);
         Assert.Equal("Renamed 字幕", saved.Name);
-        Assert.Equal(settings, saved.Settings);
+        Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(settings), saved.Settings);
         Assert.Equal(saved, model.SelectedPreset);
         Assert.Equal(saved, model.Draft);
         Assert.False(model.IsDirty);
@@ -95,7 +95,7 @@ public sealed class ExportSettingsTests
         Assert.Equal("VideoBitrateInput", model.InvalidFieldKey);
         Assert.True(model.IsDirty);
         model.DiscardDraft();
-        Assert.Equal(saved.Settings, model.CaptureSettings(true));
+        Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(saved.Settings), model.CaptureSettings(true));
         Assert.False(model.IsDirty);
         Assert.Null(model.Error);
     }
@@ -222,7 +222,7 @@ public sealed class ExportSettingsTests
         Assert.NotNull(model.Draft);
         Assert.NotEqual(saved.Id, model.Draft.Id);
         Assert.NotEqual(saved.Name, model.Name);
-        Assert.Equal(saved.Settings, model.CaptureSettings(true));
+        Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(saved.Settings), model.CaptureSettings(true));
         Assert.Equal(saved, Assert.Single(model.ExportPresets));
         Assert.Empty(model.SelectedIds);
         Assert.True(model.IsDirty);
@@ -335,6 +335,61 @@ public sealed class ExportSettingsTests
         Assert.Equal(3, model.ExportPresets.Length);
         Assert.All(model.ExportPresets, VideoExportPresetValidator.Validate);
         Assert.False(model.IsDirty);
+    }
+
+    /// <summary>平台投影不将预设标记为已编辑，也不会在刷新或离开时隐式保存。</summary>
+    [Theory]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Vp9, VideoRateControlMode.CBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.VBR)]
+    [InlineData(VideoCodec.Av1, VideoRateControlMode.CBR)]
+    public async Task LoadingHardwarePresetProjectsPlatformWithoutDirtyingOrSaving(VideoCodec codec, VideoRateControlMode mode)
+    {
+        var settings = VideoExportCapabilities.CreateDefaultSettings(codec) with
+        {
+            EncodingMode = VideoEncodingMode.HARDWARE,
+            RateControlMode = mode,
+            VideoBitrate = 12345000
+        };
+        var original = new VideoExportPreset(Guid.NewGuid(), "Windows GPU", settings);
+        var other = new VideoExportPreset(Guid.NewGuid(), "Other", new());
+        var model = new ExportSettingsViewModel();
+        var saves = 0;
+        var confirmations = 0;
+        model.SaveDraftAsync = _ =>
+        {
+            saves++;
+            return Task.FromResult(true);
+        };
+        model.ConfirmLeaveAsync = () =>
+        {
+            confirmations++;
+            return Task.FromResult(2);
+        };
+
+        model.UpdatePresets([original, other], original.Id);
+        model.RefreshLanguage();
+        model.UpdatePresets([original, other]);
+
+        Assert.Equal(OperatingSystem.IsWindows(), model.UseHardwareEncoder);
+        Assert.False(model.IsDirty);
+        Assert.Same(original, model.Draft);
+        Assert.Equal(settings, Assert.Single(model.ExportPresets, value => value.Id == original.Id).Settings);
+        Assert.True(await model.SavePendingAsync());
+        Assert.True(await model.SelectPresetsAsync(other.Id, [other.Id]));
+        Assert.Equal(0, saves);
+        Assert.Equal(0, confirmations);
+
+        Assert.True(await model.SelectPresetsAsync(original.Id, [original.Id]));
+        model.VideoBitrateText = "18";
+        Assert.True(model.IsDirty);
+        model.DiscardDraft();
+        Assert.False(model.IsDirty);
+        Assert.Equal(OperatingSystem.IsWindows(), model.UseHardwareEncoder);
+        Assert.Equal(settings with
+        {
+            EncodingMode = OperatingSystem.IsWindows() ? VideoEncodingMode.HARDWARE : VideoEncodingMode.SOFTWARE
+        }, model.CaptureSettings(true));
     }
 
     private static VideoExportSettings CreateSettings()
