@@ -10,5 +10,6 @@ internal enum CanvasEditMode
     CROP,
     SHAPE_PATH,
     CREATE_SHAPE,
-    CREATE_PATH
+    CREATE_PATH,
+    SPATIAL_TRANSFORM
 }

@@ -14,7 +14,8 @@ public sealed partial class EffectCanvasControl
 {
     private CanvasTransformGesture? transformGesture;
     private bool graphicGestureActive;
-    private Matrix graphicGestureMatrix;
+    private ProjectLayerGeometry? graphicGestureGeometry;
+    private Matrix graphicGestureFit;
     private Point graphicGestureStart;
     private int graphicHandle = -1;
     private bool graphicTopologyGesture;
@@ -145,7 +146,10 @@ public sealed partial class EffectCanvasControl
                 var evaluated = SceneEvaluator.Evaluate(EditorDocument(), position).FirstOrDefault(item => item.Source.Id == selected!.Id);
                 if (evaluated is not null && selectedGeometry is not null)
                 {
-                    transformGesture = new(selected!, evaluated.Transform, selectedGeometry, layerMatrix * Fit(), point, index);
+                    transformGesture = new(selected!, evaluated.Transform, selectedGeometry, layerMatrix * Fit(), point, index)
+                    {
+                        WorldToScreen = Fit()
+                    };
                     capturedPointer = e.Pointer;
                     e.Pointer.Capture(this);
                     Focusable = true;
@@ -217,11 +221,11 @@ public sealed partial class EffectCanvasControl
             e.Handled = true;
             return true;
         }
-        if (!graphicGestureActive || selected is null || !graphicGestureMatrix.TryInvert(out var inverse))
+        if (!graphicGestureActive || selected is null || graphicGestureGeometry is not { } frozenGeometry ||
+            !TryGraphicUnmap(frozenGeometry, graphicGestureFit, point, out var currentLocal))
         {
             return IsCreationMode;
         }
-        var currentLocal = point * inverse;
         if (EditMode == CanvasEditMode.CROP && selected.Image is { } image)
         {
             draft = selected with { Image = image with { Crop = GraphicCanvasGeometry.Crop(image.Crop,
@@ -291,15 +295,15 @@ public sealed partial class EffectCanvasControl
     private void BeginCropGesture(PointerPressedEventArgs e, Point point)
     {
         var image = selected!.Image!;
-        var matrix = layerMatrix * Fit();
-        if (!matrix.TryInvert(out var inverse))
+        var geometry = selectedGeometry!;
+        var fit = Fit();
+        if (!TryGraphicUnmap(geometry, fit, point, out var local))
         {
             return;
         }
         var crop = image.Crop;
-        var corners = CropCorners(image, matrix);
+        var corners = CropCorners(image).Select(corner => GraphicMap(geometry, fit, corner)).ToArray();
         var index = Array.FindIndex(corners, value => DistanceSquared(value, point) <= 64);
-        var local = point * inverse;
         var normalized = new Point(local.X / image.Width, local.Y / image.Height);
         if (index < 0 && new Rect(crop.X, crop.Y, crop.Width, crop.Height).Contains(normalized))
         {
@@ -309,14 +313,14 @@ public sealed partial class EffectCanvasControl
         {
             return;
         }
-        if (BeginGraphicGesture(e, matrix))
+        if (BeginGraphicGesture(e, geometry, fit))
         {
             graphicGestureStart = normalized;
             graphicHandle = index;
         }
     }
 
-    private bool BeginGraphicGesture(PointerPressedEventArgs e, Matrix matrix)
+    private bool BeginGraphicGesture(PointerPressedEventArgs e, ProjectLayerGeometry geometry, Matrix fit)
     {
         CancelDrag();
         var starting = new CanvasGestureStartingEventArgs();
@@ -327,7 +331,8 @@ public sealed partial class EffectCanvasControl
         }
         graphicGestureActive = true;
         DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
-        graphicGestureMatrix = matrix;
+        graphicGestureGeometry = geometry;
+        graphicGestureFit = fit;
         draft = selected;
         capturedPointer = e.Pointer;
         e.Pointer.Capture(this);
@@ -339,8 +344,9 @@ public sealed partial class EffectCanvasControl
     private void BeginShapePathGesture(PointerPressedEventArgs e, Point point)
     {
         var path = selected!.Shape!.Path!;
-        var matrix = layerMatrix * Fit();
-        if (!matrix.TryInvert(out var inverse))
+        var geometry = selectedGeometry!;
+        var fit = Fit();
+        if (!TryGraphicUnmap(geometry, fit, point, out var local))
         {
             return;
         }
@@ -348,7 +354,7 @@ public sealed partial class EffectCanvasControl
         var pointIndex = -1;
         for (var index = 0; index < points.Length; index += 3)
         {
-            if (DistanceSquared(ToPoint(points[index]) * matrix, point) <= 64)
+            if (DistanceSquared(GraphicMap(geometry, fit, points[index]), point) <= 64)
             {
                 pointIndex = index;
                 break;
@@ -357,7 +363,7 @@ public sealed partial class EffectCanvasControl
         var anchorIndex = pointIndex;
         if (pointIndex < 0)
         {
-            pointIndex = Array.FindIndex(points, value => DistanceSquared(ToPoint(value) * matrix, point) <= 64);
+            pointIndex = Array.FindIndex(points, value => DistanceSquared(GraphicMap(geometry, fit, value), point) <= 64);
         }
         var action = BezierEditingModifiers.GetAction(e.KeyModifiers);
         var segmentIndex = -1;
@@ -367,8 +373,7 @@ public sealed partial class EffectCanvasControl
         {
             var segment = path.Segments[index];
             var start = index == 0 ? path.Start : path.Segments[index - 1].End;
-            var hit = CubicBezierHitTest.FindNearest(ToPoint(start) * matrix, ToPoint(segment.Control1) * matrix,
-                ToPoint(segment.Control2) * matrix, ToPoint(segment.End) * matrix, point, Math.Sqrt(nearest));
+            var hit = ProjectedBezierGeometry.FindNearest(start, segment, geometry.Projection, fit, point, Math.Sqrt(nearest));
             if (hit is { } result && result.Progress is > 0 and < 1)
             {
                 segmentIndex = index;
@@ -393,11 +398,11 @@ public sealed partial class EffectCanvasControl
         {
             return;
         }
-        if (!BeginGraphicGesture(e, matrix))
+        if (!BeginGraphicGesture(e, geometry, fit))
         {
             return;
         }
-        graphicGestureStart = point * inverse;
+        graphicGestureStart = local;
         graphicTopologyGesture = action != BezierEditAction.NONE;
         graphicPressPosition = point;
         graphicHandle = action == BezierEditAction.NONE ? pointIndex : -1;
@@ -532,6 +537,7 @@ public sealed partial class EffectCanvasControl
         var wasCreation = creationActive;
         transformGesture = null;
         graphicGestureActive = false;
+        graphicGestureGeometry = null;
         graphicHandle = -1;
         graphicTopologyGesture = false;
         creationActive = false;
@@ -553,9 +559,22 @@ public sealed partial class EffectCanvasControl
 
     private Point[] TransformHandles()
     {
-        var result = corners.Select(point => point * Fit()).ToList();
-        var midpoint = new Point((result[0].X + result[1].X) / 2, (result[0].Y + result[1].Y) / 2);
-        var center = new Point(result.Average(point => point.X), result.Average(point => point.Y));
+        if (selectedGeometry is not { } geometry)
+        {
+            return [];
+        }
+        var bounds = geometry.LocalBounds;
+        ScenePoint[] localCorners = [new(bounds.Left, bounds.Top), new(bounds.Right, bounds.Top),
+            new(bounds.Right, bounds.Bottom), new(bounds.Left, bounds.Bottom)];
+        var fit = Fit();
+        var result = localCorners.Select(point => GraphicMap(geometry, fit, point)).ToList();
+        var midpoint = GraphicMap(geometry, fit, new(bounds.MidX, bounds.Top));
+        var center = GraphicMap(geometry, fit, new(bounds.MidX, bounds.MidY));
+        if (!double.IsFinite(midpoint.X) || !double.IsFinite(midpoint.Y) || !double.IsFinite(center.X) || !double.IsFinite(center.Y))
+        {
+            result.Add(new(double.NaN, double.NaN));
+            return result.ToArray();
+        }
         var direction = new Vector(midpoint.X - center.X, midpoint.Y - center.Y);
         direction = direction.Length > 0.001 ? direction / direction.Length : new(0, -1);
         result.Add(midpoint + direction * 28);
@@ -565,13 +584,25 @@ public sealed partial class EffectCanvasControl
     private void DrawTransformHandles(DrawingContext context)
     {
         var handles = TransformHandles();
+        if (handles.Length != 5)
+        {
+            return;
+        }
         var pen = new Pen(Brushes.DeepSkyBlue, 1.5);
         for (var index = 0; index < 4; index++)
         {
-            context.DrawRectangle(Brushes.White, pen, new Rect(handles[index] - new Vector(3.5, 3.5), new Size(7, 7)));
+            if (double.IsFinite(handles[index].X) && double.IsFinite(handles[index].Y))
+            {
+                context.DrawRectangle(Brushes.White, pen, new Rect(handles[index] - new Vector(3.5, 3.5), new Size(7, 7)));
+            }
         }
-        context.DrawLine(pen, new((handles[0].X + handles[1].X) / 2, (handles[0].Y + handles[1].Y) / 2), handles[4]);
-        context.DrawEllipse(Brushes.White, pen, handles[4], 4, 4);
+        if (double.IsFinite(handles[4].X) && double.IsFinite(handles[4].Y))
+        {
+            var bounds = selectedGeometry!.LocalBounds;
+            var top = GraphicMap(selectedGeometry, Fit(), new(bounds.MidX, bounds.Top));
+            context.DrawLine(pen, top, handles[4]);
+            context.DrawEllipse(Brushes.White, pen, handles[4], 4, 4);
+        }
     }
 
     private bool DrawGraphicOverlay(DrawingContext context)
@@ -588,7 +619,7 @@ public sealed partial class EffectCanvasControl
             {
                 if (creationNodes.Count > 1)
                 {
-                    DrawShapePath(context, GraphicCanvasGeometry.Path(creationNodes, false, default), Fit());
+                    DrawShapePath(context, GraphicCanvasGeometry.Path(creationNodes, false, default), ProjectionMatrix3x3.Identity, Fit());
                 }
                 foreach (var node in creationNodes)
                 {
@@ -604,56 +635,134 @@ public sealed partial class EffectCanvasControl
         var layer = draft ?? selected;
         if (EditMode == CanvasEditMode.CROP && layer.Image is { } image)
         {
-            var points = CropCorners(image, layerMatrix * Fit());
+            var local = CropCorners(image);
+            var fit = Fit();
+            var points = local.Select(point => GraphicMap(selectedGeometry!, fit, point)).ToArray();
             for (var index = 0; index < 4; index++)
             {
-                context.DrawLine(pen, points[index], points[(index + 1) % 4]);
-                context.DrawRectangle(Brushes.White, pen, new Rect(points[index] - new Vector(4, 4), new Size(8, 8)));
+                if (ProjectedBezierGeometry.TryProjectLine(local[index], local[(index + 1) % 4], selectedGeometry!.Projection,
+                        fit, out var first, out var last))
+                {
+                    context.DrawLine(pen, first, last);
+                }
+                if (double.IsFinite(points[index].X) && double.IsFinite(points[index].Y))
+                {
+                    context.DrawRectangle(Brushes.White, pen, new Rect(points[index] - new Vector(4, 4), new Size(8, 8)));
+                }
             }
         }
         else if (layer.Shape?.Path is { } path)
         {
-            DrawShapePath(context, path, layerMatrix * Fit());
+            DrawShapePath(context, path, selectedGeometry!.Projection, Fit());
         }
         return true;
     }
 
-    private static Point[] CropCorners(LayerImage image, Matrix matrix)
+    private static ScenePoint[] CropCorners(LayerImage image)
     {
         var crop = image.Crop;
         var left = crop.X * image.Width;
         var right = (crop.X + crop.Width) * image.Width;
         var top = crop.Y * image.Height;
         var bottom = (crop.Y + crop.Height) * image.Height;
-        return [new Point(left, top) * matrix, new Point(right, top) * matrix,
-            new Point(right, bottom) * matrix, new Point(left, bottom) * matrix];
+        return [new(left, top), new(right, top), new(right, bottom), new(left, bottom)];
     }
 
-    private static void DrawShapePath(DrawingContext context, PathGeometry path, Matrix matrix)
+    private void DrawShapePath(DrawingContext context, PathGeometry path, ProjectionMatrix3x3 projection, Matrix fit)
     {
         var pen = new Pen(Brushes.DeepSkyBlue, 1.5);
         var geometry = new StreamGeometry();
         using (var drawing = geometry.Open())
         {
-            drawing.BeginFigure(ToPoint(path.Start) * matrix, false);
+            var curveStart = path.Start;
+            var drawingFigure = false;
+            var allVisible = true;
             foreach (var segment in path.Segments)
             {
-                drawing.CubicBezierTo(ToPoint(segment.Control1) * matrix, ToPoint(segment.Control2) * matrix, ToPoint(segment.End) * matrix);
+                var samples = ProjectedBezierGeometry.Sample(curveStart, segment, projection, fit,
+                    new Rect(0, 0, Bounds.Width, Bounds.Height).Inflate(10));
+                foreach (var sample in samples)
+                {
+                    if (sample.Position is not { } point)
+                    {
+                        allVisible = false;
+                        if (drawingFigure)
+                        {
+                            drawing.EndFigure(false);
+                            drawingFigure = false;
+                        }
+                    }
+                    else if (!drawingFigure)
+                    {
+                        drawing.BeginFigure(point, false);
+                        drawingFigure = true;
+                    }
+                    else
+                    {
+                        drawing.LineTo(point);
+                    }
+                }
+                curveStart = segment.End;
             }
-            drawing.EndFigure(path.Closed);
+            if (drawingFigure)
+            {
+                drawing.EndFigure(path.Closed && allVisible);
+            }
+            if (path.Closed && !allVisible && curveStart != path.Start &&
+                ProjectedBezierGeometry.TryProjectLine(curveStart, path.Start, projection, fit, out var first, out var last))
+            {
+                drawing.BeginFigure(first, false);
+                drawing.LineTo(last);
+                drawing.EndFigure(false);
+            }
         }
         context.DrawGeometry(null, pen, geometry);
         var previous = path.Start;
         foreach (var segment in path.Segments)
         {
-            context.DrawLine(new Pen(Brushes.Gray), ToPoint(previous) * matrix, ToPoint(segment.Control1) * matrix);
-            context.DrawLine(new Pen(Brushes.Gray), ToPoint(segment.Control2) * matrix, ToPoint(segment.End) * matrix);
+            if (ProjectedBezierGeometry.TryProjectLine(previous, segment.Control1, projection, fit, out var first, out var last))
+            {
+                context.DrawLine(new Pen(Brushes.Gray), first, last);
+            }
+            if (ProjectedBezierGeometry.TryProjectLine(segment.Control2, segment.End, projection, fit, out first, out last))
+            {
+                context.DrawLine(new Pen(Brushes.Gray), first, last);
+            }
             previous = segment.End;
         }
         var points = Points(path);
         for (var index = 0; index < points.Length; index++)
         {
-            context.DrawEllipse(index % 3 == 0 ? Brushes.DeepSkyBlue : Brushes.White, pen, ToPoint(points[index]) * matrix, 4, 4);
+            if (projection.TryMap(points[index], out var world, SceneProjection.NEAR_PLANE_RATIO))
+            {
+                var point = new Point(world.X, world.Y) * fit;
+                if (double.IsFinite(point.X) && double.IsFinite(point.Y))
+                {
+                    context.DrawEllipse(index % 3 == 0 ? Brushes.DeepSkyBlue : Brushes.White, pen, point, 4, 4);
+                }
+            }
         }
+    }
+
+    private static Point GraphicMap(ProjectLayerGeometry geometry, Matrix fit, ScenePoint local)
+    {
+        return geometry.TryMapLocalPoint(new((float)local.X, (float)local.Y), out var world)
+            ? new Point(world.X, world.Y) * fit : new(double.NaN, double.NaN);
+    }
+
+    private static bool TryGraphicUnmap(ProjectLayerGeometry geometry, Matrix fit, Point point, out Point local)
+    {
+        local = default;
+        if (!fit.TryInvert(out var inverse))
+        {
+            return false;
+        }
+        var world = point * inverse;
+        if (!geometry.TryUnmapWorldPoint(new((float)world.X, (float)world.Y), out var source))
+        {
+            return false;
+        }
+        local = new(source.X, source.Y);
+        return true;
     }
 }

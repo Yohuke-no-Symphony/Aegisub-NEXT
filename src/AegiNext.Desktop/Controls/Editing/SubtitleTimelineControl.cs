@@ -1074,7 +1074,8 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
                     (operation.End, operation.Value, false)
                 })
                 {
-                    var operationMarkers = CreateMarkers(layer, track.Target, new(time, value), curve, range, animation.IsCollapsed);
+                    var operationMarkers = CreateMarkers(layer, track.Target, new(time, value), curve, range,
+                        animation.IsCollapsed, operation.ComponentMask);
                     result.AddRange(operationMarkers.Select(marker => marker with
                     {
                         Identity = marker.Identity with { OperationId = operation.Id, IsOperationStart = isStart }
@@ -1093,7 +1094,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     }
 
     private List<TimelineKeyframeMarker> CreateMarkers(ProjectLayer layer, AnimationTrackTarget target,
-        Keyframe key, Rect curve, (double Minimum, double Maximum) range, bool isCollapsed)
+        Keyframe key, Rect curve, (double Minimum, double Maximum) range, bool isCollapsed, int componentMask = 0)
     {
         var x = X(Seconds(layer.Start + key.Time - layer.AnimationOffset));
         var result = new List<TimelineKeyframeMarker>();
@@ -1103,13 +1104,17 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         }
         if (isCollapsed)
         {
-            var components = (TimelineComponentMask)((1 << key.Value.ComponentCount) - 1);
+            var components = (TimelineComponentMask)(componentMask == 0 ? (1 << key.Value.ComponentCount) - 1 : componentMask);
             result.Add(new(new(layer.Id, target, key.Time), key.Value, components, new(x, curve.Center.Y), curve,
                 range.Minimum, range.Maximum));
             return result;
         }
         for (var component = 0; component < key.Value.ComponentCount; component++)
         {
+            if (componentMask != 0 && (componentMask & (1 << component)) == 0)
+            {
+                continue;
+            }
             var area = ComponentCurve(curve, key.Value, component);
             var limits = ComponentRange(key.Value, component, range);
             var point = new Point(x, ValueY(key.Value.GetComponent(component), limits.Minimum, limits.Maximum, area));

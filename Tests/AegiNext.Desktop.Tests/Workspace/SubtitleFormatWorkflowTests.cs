@@ -102,19 +102,19 @@ public sealed class SubtitleFormatWorkflowTests
     }
 
     [Fact]
-    public async Task AssUnsupportedRotationXRequiresExplicitConversionAndCancelLeavesSnapshotUntouched()
+    public async Task AssUnsupportedShearRequiresExplicitConversionAndCancelLeavesSnapshotUntouched()
     {
         await using var context = new WorkspaceSessionTestContext();
         await context.InitializeAsync();
         var original = context.Editor.Snapshot;
-        var path = Path.Combine(context.DirectoryPath, "rotation-x.ass");
-        await File.WriteAllTextAsync(path, "[Script Info]\nPlayResX: 1920\nPlayResY: 1080\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:02.00,Default,,0,0,0,,{\\frx30}hello\n");
+        var path = Path.Combine(context.DirectoryPath, "shear.ass");
+        await File.WriteAllTextAsync(path, "[Script Info]\nPlayResX: 1920\nPlayResY: 1080\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:02.00,Default,,0,0,0,,{\\fax30}hello\n");
         context.Dialogs.OpenPath = path;
         await context.Session.ExecuteCommandAsync(WorkbenchCommand.IMPORT_ASS);
         Assert.Null(context.Session.LastError);
         Assert.Same(original, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
-        Assert.Contains(context.Dialogs.ConversionDiagnostics, message => message.Contains("frx", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(context.Dialogs.ConversionDiagnostics, message => message.Contains("fax", StringComparison.OrdinalIgnoreCase));
         var review = Assert.IsType<SubtitleConversionReview>(context.Dialogs.ConversionReview);
         var importedLine = Assert.Single(review.Subtitles);
         Assert.Equal("hello", importedLine.Text);

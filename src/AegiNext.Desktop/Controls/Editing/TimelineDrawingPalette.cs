@@ -17,8 +17,8 @@ internal sealed class TimelineDrawingPalette
         ActiveClipBorder = Brush(dark ? "#A5B8FF" : "#365BA8");
         ClipForeground = dark ? Brushes.White : Brush("#16263D");
         Components = dark
-            ? [Brush("#B7C6FF"), Brush("#F5C979")]
-            : [Brush("#284DA6"), Brush("#8E5700")];
+            ? [Brush("#B7C6FF"), Brush("#F5C979"), Brush("#81D5AE")]
+            : [Brush("#284DA6"), Brush("#8E5700"), Brush("#136645")];
         ColorComponents = dark
             ? [Brush("#EE7878"), Brush("#80D99B"), Brush("#81B8FF"), Foreground]
             : [Brush("#A22435"), Brush("#126F39"), Brush("#215EB8"), Foreground];

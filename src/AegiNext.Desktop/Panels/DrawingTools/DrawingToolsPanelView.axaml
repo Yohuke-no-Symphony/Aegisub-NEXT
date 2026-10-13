@@ -15,6 +15,7 @@
                 VerticalAlignment="Top">
     <StackPanel Margin="4" Orientation="Horizontal">
       <common:ToolbarToggleButton Name="SelectGraphicButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.SelectGraphic}" AutomationProperties.Name="{Loc Key=Preview.SelectGraphic}" />
+      <common:ToolbarToggleButton Name="SpatialTransformButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.SpatialTransform}" AutomationProperties.Name="{Loc Key=Preview.SpatialTransform}" />
       <common:ToolbarToggleButton Name="PathToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CreatePath}" AutomationProperties.Name="{Loc Key=Preview.CreatePath}" />
       <common:ToolbarToggleButton Name="CropImageToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.CropImage}" AutomationProperties.Name="{Loc Key=Preview.CropImage}" />
       <common:ToolbarToggleButton Name="EditShapePathToolButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.EditShapePath}" AutomationProperties.Name="{Loc Key=Preview.EditShapePath}" />

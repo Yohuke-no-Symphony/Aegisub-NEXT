@@ -26,6 +26,7 @@ internal sealed partial class DrawingToolsPanelView : UserControl, IWorkbenchPan
         AvaloniaXamlLoader.Load(this);
         DataContext = viewModel;
         AddTool("SelectGraphicButton", "SelectGraphic", CanvasEditMode.POSITION);
+        AddTool("SpatialTransformButton", "SpatialTransform", CanvasEditMode.SPATIAL_TRANSFORM);
         AddTool("PathToolButton", "DrawPath", CanvasEditMode.CREATE_PATH, ShapeKind.PATH);
         AddTool("CropImageToolButton", "CropImage", CanvasEditMode.CROP);
         AddTool("EditShapePathToolButton", "EditShapePath", CanvasEditMode.SHAPE_PATH);
@@ -48,7 +49,7 @@ internal sealed partial class DrawingToolsPanelView : UserControl, IWorkbenchPan
     public bool CanExecuteFocusCommand(WorkbenchCommand command, IInputElement focusedElement)
     {
         return command == WorkbenchCommand.END_TEXT_INPUT && viewModel.ActiveMode is
-            CanvasEditMode.CREATE_SHAPE or CanvasEditMode.CREATE_PATH or CanvasEditMode.CROP or CanvasEditMode.SHAPE_PATH;
+            CanvasEditMode.CREATE_SHAPE or CanvasEditMode.CREATE_PATH or CanvasEditMode.CROP or CanvasEditMode.SHAPE_PATH or CanvasEditMode.SPATIAL_TRANSFORM;
     }
 
     /// <inheritdoc />

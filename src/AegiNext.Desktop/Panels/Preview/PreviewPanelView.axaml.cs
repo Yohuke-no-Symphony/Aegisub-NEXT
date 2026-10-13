@@ -41,6 +41,8 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         videoSurface.AddHandler(DragDrop.DropEvent, OnVideoDrop);
         ApplyTransportIcons();
         canvas.GestureStarting += (_, e) => e.Cancel = !viewModel.BeginCanvasGesture();
+        canvas.SpatialGestureStarting += (_, e) => e.Cancel = !session.BeginSpatialGesture(e);
+        canvas.SpatialEdited += async (_, e) => await session.CommitSpatialAsync(e);
         canvas.LayerSelectionRequested += (_, e) => session.SelectLayer(e.LayerId, [e.LayerId]);
         canvas.GraphicGestureStarting += (_, e) => e.Cancel = !session.Graphics.BeginGesture();
         canvas.GraphicGestureCancelled += (_, _) => session.Graphics.CancelGesture();
@@ -302,6 +304,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         canvas.IsMaskSnapEnabled = viewModel.IsMaskSnapEnabled;
         canvas.EditMode = scene.Mode;
         canvas.MaskSelectedNodeId = session.SceneEditing.MaskNodeId;
+        canvas.SpatialTarget = scene.SpatialTarget;
         canvas.SetScene(scene.Document, scene.SelectedLayer, scene.Position, scene.AssetDirectory, scene.IsEditingPose);
     }
     private void OnSceneGestureCancelled(object? sender, EventArgs e)

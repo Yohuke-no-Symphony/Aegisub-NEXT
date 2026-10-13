@@ -102,11 +102,13 @@ public sealed class EffectCanvasPresentationUiTests
         Assert.Equal(disposeBeforeNotification ? 0 : 1, recoveries);
     }
 
-    [AvaloniaFact]
-    public async Task MissingFontInGeometryAndRenderingReportsOnceAndKeepsVideoVisible()
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingFontInGeometryAndRenderingReportsOnceAndKeepsVideoVisible(bool spatial)
     {
         using var environment = new UiTestEnvironment();
-        using var canvas = new EffectCanvasControl();
+        using var canvas = new EffectCanvasControl { EditMode = spatial ? CanvasEditMode.SPATIAL_TRANSFORM : CanvasEditMode.POSITION };
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "missing.ttf");
         var cue = new SubtitleLine { Text = "Missing font", End = new(3), Style = new() { FontAssetId = font.Id } };
         var layer = new ProjectLayer { Kind = LayerKind.SUBTITLE, SubtitleId = cue.Id, End = cue.End };
@@ -323,6 +325,74 @@ public sealed class EffectCanvasPresentationUiTests
         {
             window.Close();
         }
+    }
+
+    [AvaloniaFact]
+    public async Task WholeLayerPositionPreviewKeepsTheRangeAnimationAtTheFrozenFrame()
+    {
+        var range = new SubtitleAnimationRange(Guid.NewGuid(), 0, 4);
+        var cue = new SubtitleLine
+        {
+            Text = "MMMM", End = new(3), AnimationRanges = [range],
+            Style = new()
+            {
+                FontFamily = "sans-serif", FontSize = 32, Fill = SceneColor.White, StrokeWidth = 0,
+                Position = new() { Anchor = new(0.25, 0.5), Pivot = new(0.5, 0.5) }
+            }
+        };
+        var target = new AnimationTrackTarget(AnimationProperty.POSITION, TextRangeId: range.Id);
+        var layer = new ProjectLayer
+        {
+            SubtitleId = cue.Id, End = cue.End,
+            Tracks = [new(target, [new(MediaTime.Zero, new ScenePoint()), new(new(1), new ScenePoint(80, 0))])]
+        };
+        var document = new ProjectDocument { Width = 400, Height = 400, Subtitles = [cue], Layers = [layer] };
+        using var canvas = new EffectCanvasControl();
+        canvas.SetScene(document, layer, new(1));
+        var window = new Window { Width = 424, Height = 424, Content = canvas };
+        window.Show();
+        try
+        {
+            using var before = await CaptureAsync(window, canvas);
+            var original = WhiteCenter(before);
+            var start = new Point(original.X, original.Y);
+            Assert.True(canvas.BeginDrag(start));
+            window.MouseMove(start + new Vector(30, 0), RawInputModifiers.LeftMouseButton);
+            using var preview = await CaptureAsync(window, canvas);
+            var changed = WhiteCenter(preview);
+
+            Assert.InRange(changed.X - original.X, 28, 32);
+            Assert.InRange(Math.Abs(changed.Y - original.Y), 0, 2);
+            Assert.Same(document.Layers[0].Tracks[0], layer.Tracks[0]);
+            Assert.Equal(new ScenePoint(), range.Offset);
+        }
+        finally
+        {
+            canvas.CancelGesture();
+            window.Close();
+        }
+    }
+
+    private static Point WhiteCenter(SKBitmap bitmap)
+    {
+        var count = 0;
+        var xSum = 0.0;
+        var ySum = 0.0;
+        for (var y = 0; y < bitmap.Height; y++)
+        {
+            for (var x = 0; x < bitmap.Width; x++)
+            {
+                var pixel = bitmap.GetPixel(x, y);
+                if (pixel.Red > 245 && pixel.Green > 245 && pixel.Blue > 245)
+                {
+                    count++;
+                    xSum += x;
+                    ySum += y;
+                }
+            }
+        }
+        Assert.True(count > 100);
+        return new(xSum / count, ySum / count);
     }
 
     [AvaloniaFact]

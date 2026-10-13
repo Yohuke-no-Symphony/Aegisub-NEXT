@@ -14,6 +14,7 @@ internal sealed partial class WorkbenchSession
     {
         CanvasEditMode.CROP => SelectedLayer?.Image is not null,
         CanvasEditMode.SHAPE_PATH => SelectedLayer?.Shape?.Kind == ShapeKind.PATH,
+        CanvasEditMode.SPATIAL_TRANSFORM => SelectedLayer is { Kind: LayerKind.SUBTITLE or LayerKind.IMAGE or LayerKind.SHAPE },
         CanvasEditMode.POSITION or CanvasEditMode.CREATE_SHAPE or CanvasEditMode.CREATE_PATH => true,
         _ => false
     };

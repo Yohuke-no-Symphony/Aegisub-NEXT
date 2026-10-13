@@ -9,20 +9,36 @@ internal static class GraphicCanvasGeometry
     internal static ProjectLayer TransformLayer(CanvasTransformGesture gesture, Point point, bool shift)
     {
         var layer = gesture.Layer;
-        if (gesture.HandleIndex == 4 || layer.Shape is not { Kind: ShapeKind.RECTANGLE or ShapeKind.ROUNDED_RECTANGLE } shape ||
-            !gesture.LocalToScreen.TryInvert(out var inverse))
+        if (gesture.HandleIndex == 4 || layer.Shape is not { Kind: ShapeKind.RECTANGLE or ShapeKind.ROUNDED_RECTANGLE } shape)
         {
             return layer with { Transform = Transform(gesture, point, shift) };
         }
+        if (!gesture.TryUnmap(point, out var local))
+        {
+            return layer;
+        }
 
-        var factors = ResizeFactors(gesture, point * inverse, shift);
+        var factors = ResizeFactors(gesture, local, shift);
         var resized = ShapeGeometry.Resize(shape, Math.Clamp(shape.Width * factors.X, 0.001, 1e6),
             Math.Clamp(shape.Height * factors.Y, 0.001, 1e6));
         var fixedCorner = FixedCorner(gesture);
         var evaluated = gesture.EvaluatedTransform;
         var pivot = layer.Position?.Pivot ?? new ScenePoint();
-        var deltaX = (fixedCorner.X * (1 - resized.Width / shape.Width) + pivot.X * (resized.Width - shape.Width)) * evaluated.ScaleX;
-        var deltaY = (fixedCorner.Y * (1 - resized.Height / shape.Height) + pivot.Y * (resized.Height - shape.Height)) * evaluated.ScaleY;
+        var delta = new ScenePoint(fixedCorner.X * (1 - resized.Width / shape.Width) + pivot.X * (resized.Width - shape.Width),
+            fixedCorner.Y * (1 - resized.Height / shape.Height) + pivot.Y * (resized.Height - shape.Height));
+        if (SceneProjection.RequiresPerspective(evaluated))
+        {
+            return layer with
+            {
+                Shape = resized,
+                Transform = layer.Transform with
+                {
+                    ProjectionTranslation = layer.Transform.ProjectionTranslation + SceneProjection.RotateScaled(delta, evaluated)
+                }
+            };
+        }
+        var deltaX = delta.X * evaluated.ScaleX;
+        var deltaY = delta.Y * evaluated.ScaleY;
         var radians = evaluated.Rotation * Math.PI / 180;
         return layer with
         {
@@ -41,11 +57,23 @@ internal static class GraphicCanvasGeometry
         var evaluated = gesture.EvaluatedTransform;
         var geometry = gesture.Geometry;
         var pivot = new Point(geometry.LocalPivot.X, geometry.LocalPivot.Y);
-        var center = pivot * gesture.LocalToScreen;
         if (gesture.HandleIndex == 4)
         {
+            if (!gesture.TryMap(pivot, out var center))
+            {
+                return original;
+            }
             var start = Math.Atan2(gesture.Start.Y - center.Y, gesture.Start.X - center.X);
             var current = Math.Atan2(point.Y - center.Y, point.X - center.X);
+            if (SceneProjection.RequiresPerspective(evaluated))
+            {
+                if (!gesture.TryUnmap(gesture.Start, out var startLocal) || !gesture.TryUnmap(point, out var currentLocal))
+                {
+                    return original;
+                }
+                start = Math.Atan2((startLocal.Y - pivot.Y) * evaluated.ScaleY, (startLocal.X - pivot.X) * evaluated.ScaleX);
+                current = Math.Atan2((currentLocal.Y - pivot.Y) * evaluated.ScaleY, (currentLocal.X - pivot.X) * evaluated.ScaleX);
+            }
             var delta = Math.IEEERemainder((current - start) * 180 / Math.PI, 360);
             var rotation = evaluated.Rotation + delta;
             if (shift)
@@ -54,17 +82,29 @@ internal static class GraphicCanvasGeometry
             }
             return original with { Rotation = original.Rotation + rotation - evaluated.Rotation };
         }
-        if (!gesture.LocalToScreen.TryInvert(out var inverse))
+        if (!gesture.TryUnmap(point, out var local))
         {
             return original;
         }
         var fixedCorner = FixedCorner(gesture);
-        var factors = ResizeFactors(gesture, point * inverse, shift);
+        var factors = ResizeFactors(gesture, local, shift);
         var newScale = new ScenePoint(Math.Clamp(evaluated.ScaleX * factors.X, -10000, 10000), Math.Clamp(evaluated.ScaleY * factors.Y, -10000, 10000));
         var radians = evaluated.Rotation * Math.PI / 180;
         var displacement = fixedCorner - pivot;
         var deltaX = displacement.X * (evaluated.ScaleX - newScale.X);
         var deltaY = displacement.Y * (evaluated.ScaleY - newScale.Y);
+        if (SceneProjection.RequiresPerspective(evaluated))
+        {
+            var previous = SceneProjection.RotateScaled(new(displacement.X, displacement.Y), evaluated);
+            var changed = SceneProjection.RotateScaled(new(displacement.X, displacement.Y), evaluated with { Scale = newScale });
+            return original with
+            {
+                ScaleX = original.ScaleX + newScale.X - evaluated.ScaleX,
+                ScaleY = original.ScaleY + newScale.Y - evaluated.ScaleY,
+                ProjectionTranslation = original.ProjectionTranslation + new SceneVector3(previous.X - changed.X,
+                    previous.Y - changed.Y, previous.Z - changed.Z)
+            };
+        }
         return original with
         {
             ScaleX = original.ScaleX + newScale.X - evaluated.ScaleX,

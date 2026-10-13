@@ -61,6 +61,8 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     private Matrix parentMatrix = Matrix.Identity;
     private Matrix layerMatrix = Matrix.Identity;
     private Point dragStart;
+    private ProjectLayerGeometry? dragGeometry;
+    private Matrix dragFit;
     private int handle = -1;
     private bool dragging;
     private MediaTime position;
@@ -83,6 +85,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         {
             if (editMode != value)
             {
+                spatialCancellationRevision++;
                 CancelDrag();
                 editMode = value;
                 DrawingCommandStateChanged?.Invoke(this, EventArgs.Empty);
@@ -92,7 +95,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         }
     }
 
-    internal bool HasActiveDrag => graphicGestureActive || creationActive || dragging || pathTopologyEdit is not null || HasActiveMaskGesture;
+    internal bool HasActiveDrag => graphicGestureActive || creationActive || dragging || spatialGesture is not null || pathTopologyEdit is not null || HasActiveMaskGesture;
     internal long PreviewSequence => previewSequence;
     internal long PresentedPreviewSequence => presentedPreviewSequence;
     internal Task PreviewCompletion => previewScheduler?.Completion ?? previewDrain;
@@ -100,7 +103,8 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     /// <inheritdoc />
     public bool CanExecuteFocusCommand(WorkbenchCommand command, IInputElement focusedElement) =>
         command == WorkbenchCommand.PASTE_CLIPS && ImagePasteRequested is not null ||
-        command == WorkbenchCommand.END_TEXT_INPUT && (IsMaskMode || IsGraphicMode || IsCreationMode || HasActiveDrag);
+        command == WorkbenchCommand.END_TEXT_INPUT && (IsMaskMode || IsGraphicMode || IsCreationMode ||
+            EditMode == CanvasEditMode.SPATIAL_TRANSFORM || HasActiveDrag);
 
     /// <inheritdoc />
     public bool TryExecuteFocusCommand(WorkbenchCommand command, IInputElement focusedElement)
@@ -142,7 +146,8 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             directoryChanged = true;
         }
 
-        if ((dragging || graphicGestureActive || creationActive || HasActiveMaskGesture) && ReferenceEquals(document, value) && selected?.Id == layer?.Id)
+        if ((dragging || graphicGestureActive || creationActive || HasActiveMaskGesture || spatialGesture is not null) &&
+            ReferenceEquals(document, value) && selected?.Id == layer?.Id)
         {
             time = position;
             editorPose = editingPose;
@@ -210,7 +215,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             return;
         }
 
-        var sceneDocument = EditorDocument();
+        var sceneDocument = spatialDraftDocument ?? EditorDocument();
         if (draft is { } layerDraft)
         {
             sceneDocument = ReplaceLayer(sceneDocument, PrepareRenderedDraft(layerDraft));
@@ -248,6 +253,13 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             }
         }
 
+        if (EditMode == CanvasEditMode.SPATIAL_TRANSFORM)
+        {
+            using var clip = context.PushClip(board);
+            DrawSpatialOverlay(context, sceneDocument);
+            return;
+        }
+
         if (DrawGraphicOverlay(context))
         {
             return;
@@ -268,16 +280,20 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             context.DrawLine(pen, corners[index] * fit, corners[(index + 1) % corners.Length] * fit);
         }
 
-        DrawSubtitleAnchor(context, sceneDocument, layer, fit, origin);
-
         if (EditMode == CanvasEditMode.POSITION)
         {
             DrawTransformHandles(context);
-            context.DrawEllipse(null, pen, origin, 9, 9);
-            context.DrawLine(pen, origin - new Vector(15, 0), origin + new Vector(15, 0));
-            context.DrawLine(pen, origin - new Vector(0, 15), origin + new Vector(0, 15));
+            if (double.IsFinite(origin.X) && double.IsFinite(origin.Y))
+            {
+                context.DrawEllipse(null, pen, origin, 9, 9);
+                context.DrawLine(pen, origin - new Vector(15, 0), origin + new Vector(15, 0));
+                context.DrawLine(pen, origin - new Vector(0, 15), origin + new Vector(0, 15));
+            }
+            DrawSubtitleAnchor(context, sceneDocument, layer, fit, origin);
             return;
         }
+
+        DrawSubtitleAnchor(context, sceneDocument, layer, fit, origin);
 
         var path = layer.MotionPath?.Path;
         if (path is null)
@@ -328,7 +344,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         Focusable = true;
         Focus();
 
-        if (GraphicPointerPressed(e) || selected is null)
+        if (SpatialPointerPressed(e) || GraphicPointerPressed(e) || selected is null)
         {
             return;
         }
@@ -404,7 +420,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (GraphicPointerMoved(e))
+        if (SpatialPointerMoved(e) || GraphicPointerMoved(e))
         {
             return;
         }
@@ -432,6 +448,26 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         var delta = new Vector(current.X - initial.X, current.Y - initial.Y);
         if (EditMode == CanvasEditMode.POSITION)
         {
+            if (dragGeometry is null)
+            {
+                return;
+            }
+            if (dragGeometry.ParentProjection.M31 != 0 || dragGeometry.ParentProjection.M32 != 0 ||
+                dragGeometry.ParentProjection.M33 != 1)
+            {
+                if (!dragFit.TryInvert(out var worldFit))
+                {
+                    return;
+                }
+                var worldCurrent = e.GetPosition(this) * worldFit;
+                var worldStart = dragStart * worldFit;
+                if (!dragGeometry.TryUnmapParentPoint(new((float)worldCurrent.X, (float)worldCurrent.Y), out var parentCurrent) ||
+                    !dragGeometry.TryUnmapParentPoint(new((float)worldStart.X, (float)worldStart.Y), out var parentStart))
+                {
+                    return;
+                }
+                delta = new(parentCurrent.X - parentStart.X, parentCurrent.Y - parentStart.Y);
+            }
             draft = selected with
             {
                 Transform = selected.Transform with
@@ -455,7 +491,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     protected override void OnPointerReleased(PointerReleasedEventArgs e)
     {
         base.OnPointerReleased(e);
-        if (GraphicPointerReleased(e))
+        if (SpatialPointerReleased(e) || GraphicPointerReleased(e))
         {
             return;
         }
@@ -521,24 +557,39 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             return false;
         }
         handle = handleIndex;
+        if (!RefreshGeometry(EditorDocument()))
+        {
+            GestureCancelled?.Invoke(this, EventArgs.Empty);
+            return false;
+        }
+        dragGeometry = selectedGeometry;
+        dragFit = Fit();
         draft = selected;
         dragStart = point;
         dragging = true;
         return true;
     }
 
-    internal void CancelGesture() => CancelDrag();
+    internal void CancelGesture()
+    {
+        spatialCancellationRevision++;
+        CancelDrag();
+    }
 
     private void CancelDrag(bool notifyCancellation = true)
     {
         CancelMaskGesture();
         CancelGraphicGesture(notifyCancellation);
-        var cancelled = dragging || pathTopologyEdit is not null;
-        if (draft is not null)
+        var cancelled = dragging || spatialGesture is not null || pathTopologyEdit is not null;
+        if (draft is not null || spatialDraftDocument is not null)
         {
             sceneRevision++;
         }
         dragging = false;
+        dragGeometry = null;
+        spatialGesture = null;
+        spatialDraftDocument = null;
+        renderedDocument = null;
         pathTopologyEdit = null;
         draft = null;
         handle = -1;
@@ -635,9 +686,16 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
                     evaluated.Y + layerDraft.Transform.Y - selected.Transform.Y),
                 Scale = new(evaluated.ScaleX + layerDraft.Transform.ScaleX - selected.Transform.ScaleX,
                     evaluated.ScaleY + layerDraft.Transform.ScaleY - selected.Transform.ScaleY),
-                Rotation = evaluated.Rotation + layerDraft.Transform.Rotation - selected.Transform.Rotation
+                Rotation = evaluated.Rotation + layerDraft.Transform.Rotation - selected.Transform.Rotation,
+                RotationX = evaluated.RotationX,
+                RotationY = evaluated.RotationY
             },
-            Tracks = layerDraft.Tracks.Where(track => track.Property is not (AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION)).ToImmutableArray()
+            Tracks = layerDraft.Tracks.Where(track => track.Target != new AnimationTrackTarget(AnimationProperty.POSITION) &&
+                track.Target != new AnimationTrackTarget(AnimationProperty.SCALE) &&
+                track.Target != new AnimationTrackTarget(AnimationProperty.ROTATION) &&
+                track.Target != new AnimationTrackTarget(AnimationProperty.ROTATION_X) &&
+                track.Target != new AnimationTrackTarget(AnimationProperty.ROTATION_Y) &&
+                track.Target != new AnimationTrackTarget(AnimationProperty.ROTATION_3D)).ToImmutableArray()
         };
     }
 
@@ -725,6 +783,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         if (!disposed)
         {
             disposed = true;
+            spatialCancellationRevision++;
             CancelDrag();
             video = null;
             DetachBezierCursorHost();
@@ -742,6 +801,8 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             renderer?.Dispose();
             renderer = null;
             LayerEdited = null;
+            SpatialEdited = null;
+            SpatialGestureStarting = null;
             LayerSelectionRequested = null;
             GraphicGestureStarting = null;
             GraphicGestureCancelled = null;
@@ -783,7 +844,10 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         var placement = cue.Style.Position ?? SubtitlePosition.FromAlignment(cue.Style.Alignment, cue.Style.Margins);
         var anchor = new Point(placement.Anchor.X * sceneDocument.Width, placement.Anchor.Y * sceneDocument.Height) * parentMatrix * fit;
         var markerPen = new Pen(Brushes.Gold, 1.5);
-        context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#80FFD700"))), anchor, origin);
+        if (double.IsFinite(origin.X) && double.IsFinite(origin.Y))
+        {
+            context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#80FFD700"))), anchor, origin);
+        }
         context.DrawEllipse(null, markerPen, anchor, 4.5, 4.5);
         context.DrawLine(markerPen, anchor - new Vector(7, 0), anchor + new Vector(7, 0));
         context.DrawLine(markerPen, anchor - new Vector(0, 7), anchor + new Vector(0, 7));
@@ -844,7 +908,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             }
             return;
         }
-        var interactive = interactivePreview || dragging || maskDragging || graphicGestureActive;
+        var interactive = interactivePreview || HasActiveDrag;
         var maximumWidth = interactive ? Math.Min(960, maximumPreviewSize.Width) : maximumPreviewSize.Width;
         var maximumHeight = interactive ? Math.Min(540, maximumPreviewSize.Height) : maximumPreviewSize.Height;
         var scale = Math.Min(1, Math.Min((double)maximumWidth / document.Width, (double)maximumHeight / document.Height));
@@ -897,7 +961,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
 
     private bool CanReuseComposite(ProjectDocument sceneDocument)
     {
-        if (draft is not null || maskDraft is not null || editingPose ||
+        if (draft is not null || spatialDraftDocument is not null || maskDraft is not null || editingPose ||
             interactivePreview != compositeInteractive || !ReferenceEquals(compositeDocument, sceneDocument))
         {
             return false;
@@ -956,7 +1020,8 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         return layers.Select(layer => layer.Id == replacement.Id ? replacement : layer).ToImmutableArray();
     }
 
-    private static Matrix ToMatrix(SKMatrix value) => new(value.ScaleX, value.SkewY, value.SkewX, value.ScaleY, value.TransX, value.TransY);
+    private static Matrix ToMatrix(SKMatrix value) => new(value.ScaleX, value.SkewY, value.Persp0,
+        value.SkewX, value.ScaleY, value.Persp1, value.TransX, value.TransY, value.Persp2);
 
     private static Point ToPoint(ScenePoint point)
     {

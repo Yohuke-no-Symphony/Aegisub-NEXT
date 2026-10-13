@@ -95,9 +95,17 @@ internal sealed partial class WorkbenchSession
         }
         if (value.Transform.Rotation != transform.Rotation)
         {
-            var evaluated = AnimationEditOperations.Value(layer, AnimationProperty.ROTATION, target, transform.Rotation);
-            prepared = AnimationEditOperations.SetValue(prepared, target, AnimationProperty.ROTATION,
-                evaluated + value.Transform.Rotation - transform.Rotation);
+            var evaluated = AnimationEditOperations.Value(layer, AnimationProperty.ROTATION_3D, target,
+                new SceneVector3(transform.RotationX, transform.RotationY, transform.Rotation));
+            prepared = AnimationEditOperations.SetValue(prepared, target, AnimationProperty.ROTATION_3D,
+                evaluated with { Z = evaluated.Z + value.Transform.Rotation - transform.Rotation });
+        }
+        if (value.Transform.ProjectionTranslation != transform.ProjectionTranslation)
+        {
+            prepared = WorkspaceDraftOperations.UpdateLayer(prepared, layer.Id, item => item with
+            {
+                Transform = item.Transform with { ProjectionTranslation = value.Transform.ProjectionTranslation }
+            });
         }
         if (prepared != document)
         {
@@ -132,7 +140,7 @@ internal sealed partial class WorkbenchSession
         var layer = document.Layers.FirstOrDefault(value => value.Id == SelectedLayerId);
         ViewModel.Preview.Scene = new(document, layer, EditingPosition, SceneEditing.Mode,
             ProjectDirectory, SelectedKeyTime is not null || SceneEditing.GestureTarget is not null, playback.UsesInteractiveQuality,
-            preferences.PreviewQuality, SceneEditing.CreationShapeKind);
+            preferences.PreviewQuality, SceneEditing.CreationShapeKind, SceneEditing.Target);
         ViewModel.DrawingTools.RefreshState();
         Volatile.Write(ref previewState, CreatePreviewState(document));
     }

@@ -237,9 +237,9 @@ public sealed class DrawingToolsPanelUiTests
         UiTestActions.Click(context.Window, "ArrowToolButton");
         var panel = context.Window.Panels[WorkbenchPanelIds.DRAWING_TOOLS];
         var toggles = panel.GetVisualDescendants().OfType<ToolbarToggleButton>().ToArray();
-        Assert.Equal(8, toggles.Length);
+        Assert.Equal(9, toggles.Length);
         Assert.Null(panel.FindControl<ToolbarToggleButton>("RoundedRectangleToolButton"));
-        AssertSingleButtonRow(panel, 9);
+        AssertSingleButtonRow(panel, 10);
         foreach (var button in toggles)
         {
             Assert.True(button.IsEffectivelyVisible);
@@ -271,17 +271,17 @@ public sealed class DrawingToolsPanelUiTests
 
         UiTestActions.Click(context.Window, "PathToolButton");
         Flush(context.Window);
-        AssertSingleButtonRow(panel, 10);
+        AssertSingleButtonRow(panel, 11);
         Assert.Equal(Localization.Get("Preview.FinishPath"), ToolTip.GetTip(UiTestActions.Find<Button>(panel, "FinishShapePathButton")));
         UiTestActions.Click(context.Window, "EditShapePathToolButton");
         Flush(context.Window);
-        AssertSingleButtonRow(panel, 12);
+        AssertSingleButtonRow(panel, 13);
 
         context.Window.Layouts.Float(WorkbenchPanelIds.DRAWING_TOOLS);
         var floating = Assert.Single(context.Window.Layouts.FloatingWindows);
         floating.Width = 260;
         Flush(floating);
-        AssertSingleButtonRow(panel, 12);
+        AssertSingleButtonRow(panel, 13);
         var scroller = UiTestActions.Find<ScrollViewer>(panel, "DrawingToolsScrollViewer");
         Assert.True(scroller.Extent.Width > scroller.Viewport.Width);
         UiTestActions.Click(floating, "ArrowToolButton");
@@ -291,7 +291,7 @@ public sealed class DrawingToolsPanelUiTests
         Assert.True(arrow.IsChecked);
         var visiblePosition = arrow.TranslatePoint(default, scroller)!.Value;
         Assert.InRange(visiblePosition.X, -1, scroller.Viewport.Width - arrow.Bounds.Width + 1);
-        AssertSingleButtonRow(panel, 9);
+        AssertSingleButtonRow(panel, 10);
         Assert.Same(source, context.Session.DocumentSnapshot);
         Assert.False(context.Session.Editor.CanUndo);
     }
