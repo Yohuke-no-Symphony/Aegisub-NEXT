@@ -10,6 +10,7 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
     private readonly EffectPresetPreviewOptions options;
     private readonly Action<EffectPresetPreviewResult> present;
     private readonly Func<IEffectPresetPreviewRenderer> createRenderer;
+    private readonly bool deferLoopUntilPresented;
     private readonly EffectPresetPreviewFrameCache cache;
     private readonly Dictionary<string, EffectPresetPreviewVisibleRequest> visible = new(StringComparer.Ordinal);
     private readonly Queue<string> staticQueue = new();
@@ -22,17 +23,21 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
     private long animationGeneration;
     private long animationStart;
     private long lastAnimationFrame = -1;
+    private EffectPresetPreviewResult? closingFrame;
+    private bool delayAnimationStart;
     private bool animationFailed;
     private bool preferStatic;
     private bool disposed;
 
     internal EffectPresetPreviewScheduler(Action<EffectPresetPreviewResult> present,
-        EffectPresetPreviewOptions? options = null, Func<IEffectPresetPreviewRenderer>? createRenderer = null)
+        EffectPresetPreviewOptions? options = null, Func<IEffectPresetPreviewRenderer>? createRenderer = null,
+        bool deferLoopUntilPresented = false)
     {
         ArgumentNullException.ThrowIfNull(present);
         this.options = options ?? new();
         this.options.Validate();
         this.present = present;
+        this.deferLoopUntilPresented = deferLoopUntilPresented;
         this.createRenderer = createRenderer ?? (() => new EffectPresetPreviewRenderer(this.options));
         cache = new(this.options.StaticCacheBytes);
         durationFrames = this.options.Duration.ToTimestamp(new(1, this.options.FramesPerSecond), MediaTimeRounding.CEILING).Value;
@@ -78,7 +83,7 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
             staticQueue.Clear();
             foreach (var request in requests)
             {
-                if (!visible.TryGetValue(request.PresetId, out var entry) || entry.Request != request)
+                if (!visible.TryGetValue(request.PresetId, out var entry) || !ReferenceEquals(entry.Request, request))
                 {
                     entry = new(request, ++nextGeneration);
                     visible[request.PresetId] = entry;
@@ -95,7 +100,8 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
                 activeId = currentActive?.Request.PresetId;
                 RestartAnimation();
             }
-            if (activeWork is { } work && (!visible.TryGetValue(work.Request.PresetId, out var current) || current.Request != work.Request))
+            if (activeWork is { } work && (!visible.TryGetValue(work.Request.PresetId, out var current) ||
+                !ReferenceEquals(current.Request, work.Request)))
             {
                 work.Cancellation.Cancel();
             }
@@ -156,9 +162,25 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
         }
     }
 
+    internal void CompleteCycle(EffectPresetPreviewResult result)
+    {
+        lock (gate)
+        {
+            if (!ReferenceEquals(closingFrame, result) || !IsCurrentCore(result))
+            {
+                return;
+            }
+            closingFrame = null;
+            animationStart = Stopwatch.GetTimestamp();
+            lastAnimationFrame = -1;
+            delayAnimationStart = true;
+            Monitor.PulseAll(gate);
+        }
+    }
+
     private bool IsCurrentCore(EffectPresetPreviewResult result)
     {
-        if (disposed || !visible.TryGetValue(result.Request.PresetId, out var entry) || entry.Request != result.Request)
+        if (disposed || !visible.TryGetValue(result.Request.PresetId, out var entry) || !ReferenceEquals(entry.Request, result.Request))
         {
             return false;
         }
@@ -172,6 +194,8 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
         animationGeneration = ++nextGeneration;
         animationStart = 0;
         lastAnimationFrame = -1;
+        closingFrame = null;
+        delayAnimationStart = false;
         animationFailed = false;
         preferStatic = false;
         activeWork?.Cancellation.Cancel();
@@ -219,6 +243,7 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
             lock (gate)
             {
                 disposed = true;
+                closingFrame = null;
                 visible.Clear();
                 staticQueue.Clear();
                 quiescence.TrySetResult();
@@ -236,17 +261,23 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
                     ? Stopwatch.GetElapsedTime(animationStart).TotalSeconds
                     : 0;
                 var frame = (long)(elapsed * options.FramesPerSecond);
-                var animationReady = activeId is not null && !animationFailed && frame > lastAnimationFrame;
+                var startDelay = delayAnimationStart
+                    ? Math.Max(0, 1d / options.FramesPerSecond - Stopwatch.GetElapsedTime(animationStart).TotalSeconds)
+                    : 0;
+                var animationReady = activeId is not null && !animationFailed && closingFrame is null &&
+                    startDelay == 0 && frame > lastAnimationFrame;
                 if (animationReady && (!preferStatic || staticQueue.Count == 0) && visible.TryGetValue(activeId!, out var animated))
                 {
                     if (lastAnimationFrame < 0)
                     {
                         animationStart = Stopwatch.GetTimestamp();
+                        delayAnimationStart = false;
                     }
                     lastAnimationFrame = frame;
                     preferStatic = true;
+                    var completesCycle = frame >= durationFrames - 1;
                     return BeginWork(animated.Request, animationGeneration,
-                        new(frame % durationFrames, options.FramesPerSecond), true);
+                        new(completesCycle ? durationFrames - 1 : frame, options.FramesPerSecond), true, completesCycle);
                 }
                 while (staticQueue.TryDequeue(out var id))
                 {
@@ -261,8 +292,16 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
                 }
                 if (activeId is not null && !animationFailed)
                 {
-                    var delay = Math.Max(1, ((lastAnimationFrame + 1d) / options.FramesPerSecond - elapsed) * 1000);
-                    Monitor.Wait(gate, TimeSpan.FromMilliseconds(delay));
+                    if (closingFrame is not null)
+                    {
+                        Monitor.Wait(gate);
+                    }
+                    else
+                    {
+                        var delay = Math.Max(1, (startDelay > 0 ? startDelay :
+                            (lastAnimationFrame + 1d) / options.FramesPerSecond - elapsed) * 1000);
+                        Monitor.Wait(gate, TimeSpan.FromMilliseconds(delay));
+                    }
                 }
                 else
                 {
@@ -274,10 +313,11 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
         }
     }
 
-    private EffectPresetPreviewWork BeginWork(EffectPresetPreviewRequest request, long generation, MediaTime position, bool animated)
+    private EffectPresetPreviewWork BeginWork(EffectPresetPreviewRequest request, long generation, MediaTime position, bool animated,
+        bool completesCycle = false)
     {
         MarkBusy();
-        activeWork = new(request, generation, position, animated, new());
+        activeWork = new(request, generation, position, animated, new(), completesCycle);
         return activeWork;
     }
 
@@ -307,7 +347,7 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
         {
             activeWork = null;
             var entry = visible.GetValueOrDefault(work.Request.PresetId);
-            var current = !disposed && entry?.Request == work.Request;
+            var current = !disposed && entry is not null && ReferenceEquals(entry.Request, work.Request);
             if (!work.IsAnimated && current)
             {
                 entry!.StaticInFlight = false;
@@ -327,13 +367,20 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
             }
             if (!token.IsCancellationRequested && current)
             {
-                var delivered = new EffectPresetPreviewResult(work.Request, work.Generation, work.Position, work.IsAnimated, frame, error);
+                var delivered = new EffectPresetPreviewResult(work.Request, work.Generation, work.Position, work.IsAnimated, frame, error)
+                {
+                    CompletesCycle = work.CompletesCycle
+                };
                 if (IsCurrentCore(delivered))
                 {
                     result = delivered;
                     if (work.IsAnimated && error is not null)
                     {
                         animationFailed = true;
+                    }
+                    else if (work.CompletesCycle)
+                    {
+                        closingFrame = delivered;
                     }
                 }
             }
@@ -342,6 +389,10 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
         if (result is not null && IsCurrent(result))
         {
             present(result);
+            if (result.CompletesCycle && !deferLoopUntilPresented)
+            {
+                CompleteCycle(result);
+            }
         }
     }
 
@@ -362,6 +413,7 @@ internal sealed class EffectPresetPreviewScheduler : IDisposable, IAsyncDisposab
                 return;
             }
             disposed = true;
+            closingFrame = null;
             activeId = null;
             visible.Clear();
             staticQueue.Clear();

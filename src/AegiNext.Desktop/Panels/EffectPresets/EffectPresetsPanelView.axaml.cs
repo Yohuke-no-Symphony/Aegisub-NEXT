@@ -45,7 +45,7 @@ internal sealed partial class EffectPresetsPanelView : UserControl, IWorkbenchPa
         AvaloniaXamlLoader.Load(this);
         DataContext = viewModel;
         presetList = this.FindControl<ListBox>("EffectPresetList")!;
-        scheduler = new(QueueResult, createRenderer: createRenderer);
+        scheduler = new(QueueResult, createRenderer: createRenderer, deferLoopUntilPresented: true);
         presetList.ItemTemplate = new FuncDataTemplate<EffectPresetCardViewModel>((item, _) => CreateCard(item));
         presetList.DoubleTapped += OnDoubleTapped;
         AddHandler(GotFocusEvent, OnGotFocus, RoutingStrategies.Bubble);
@@ -355,7 +355,14 @@ internal sealed partial class EffectPresetsPanelView : UserControl, IWorkbenchPa
                 continue;
             }
             var card = cards.FirstOrDefault(card => ReferenceEquals(card.Request, result.Request) && IsInViewport(card));
-            card?.Present(result);
+            if (card is not null)
+            {
+                card.Present(result);
+                if (result.CompletesCycle && result.Frame is not null && result.Error is null)
+                {
+                    Dispatcher.UIThread.Post(() => scheduler.CompleteCycle(result), DispatcherPriority.Background);
+                }
+            }
         }
     }
 

@@ -8,6 +8,46 @@ namespace AegiNext.Desktop.Tests;
 /// <summary>验证预览工作者的公平队列、生命周期和双重迟到结果校验。</summary>
 public sealed class EffectPresetPreviewSchedulerTests
 {
+    /// <summary>慢渲染跨过整轮时长后仍先交付结束画面，不能直接跳到下一轮而丢失全部退场。</summary>
+    [Fact]
+    public async Task RenderDelayAcrossTheCycleDeliversTheClosingFrameBeforeRestarting()
+    {
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var unblock = new ManualResetEventSlim();
+        var inbox = Channel.CreateUnbounded<EffectPresetPreviewResult>();
+        await using var scheduler = new EffectPresetPreviewScheduler(result => inbox.Writer.TryWrite(result),
+            createRenderer: () => new EffectPresetPreviewTestRenderer((_, position, token) =>
+            {
+                if (position == MediaTime.Zero)
+                {
+                    entered.TrySetResult();
+                    Assert.True(unblock.Wait(TimeSpan.FromSeconds(5), token));
+                }
+                return new(1, 1, [0, 0, 0, 255]);
+            }));
+        var request = EffectPresetPreviewTestSources.Request(source: BuiltinEffectScripts.Get("fade-out").Source);
+        try
+        {
+            scheduler.UpdateVisible([request]);
+            await scheduler.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+            scheduler.SetActive(request.PresetId);
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.Delay(TimeSpan.FromMilliseconds(3200));
+            unblock.Set();
+            var first = await Next(inbox.Reader, result => result.IsAnimated);
+            var closing = await Next(inbox.Reader, result => result.IsAnimated);
+
+            Assert.Equal(MediaTime.Zero, first.Position);
+            Assert.Equal(new MediaTime(71, 24), closing.Position);
+            var restarted = await Next(inbox.Reader, result => result.IsAnimated);
+            Assert.Equal(MediaTime.Zero, restarted.Position);
+        }
+        finally
+        {
+            unblock.Set();
+        }
+    }
+
     /// <summary>可见静态卡片使用时长中点，重复可见同步和重新附着复用有界静态缓存。</summary>
     [Fact]
     public async Task StaticCardsUseTheMidpointAndReuseCachedPostersAfterReattachment()
