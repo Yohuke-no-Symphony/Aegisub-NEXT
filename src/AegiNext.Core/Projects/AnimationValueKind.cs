@@ -5,5 +5,6 @@ public enum AnimationValueKind
 {
     SCALAR,
     VECTOR,
-    COLOR
+    COLOR,
+    VECTOR3
 }

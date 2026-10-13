@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace AegiNext.Core.Projects;
 
-/// <summary>为工程文件和媒体 worker 共用的标量、二维向量和线性 RGBA 编码。</summary>
+/// <summary>为工程文件和媒体 worker 共用的标量、二维和三维向量以及线性 RGBA 编码。</summary>
 public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
 {
     /// <inheritdoc />
@@ -23,6 +23,12 @@ public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
                 return new ScenePoint(ReadComponent(value, "x"), ReadComponent(value, "y"));
             }
 
+            if (value.EnumerateObject().Count() == 3 && value.TryGetProperty("x", out _) &&
+                value.TryGetProperty("y", out _) && value.TryGetProperty("z", out _))
+            {
+                return new SceneVector3(ReadComponent(value, "x"), ReadComponent(value, "y"), ReadComponent(value, "z"));
+            }
+
             if (value.EnumerateObject().Count() == 4 && value.TryGetProperty("red", out _) &&
                 value.TryGetProperty("green", out _) && value.TryGetProperty("blue", out _) && value.TryGetProperty("alpha", out _))
             {
@@ -31,7 +37,7 @@ public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
             }
         }
 
-        throw new JsonException("Animation values must be finite numbers, complete two-dimensional vectors, or complete linear RGBA colors.");
+        throw new JsonException("Animation values must be finite numbers, complete two- or three-dimensional vectors, or complete linear RGBA colors.");
     }
 
     /// <inheritdoc />
@@ -48,6 +54,12 @@ public sealed class AnimationValueJsonConverter : JsonConverter<AnimationValue>
         {
             writer.WriteNumber("x", value.Vector.X);
             writer.WriteNumber("y", value.Vector.Y);
+        }
+        else if (value.Kind == AnimationValueKind.VECTOR3)
+        {
+            writer.WriteNumber("x", value.Vector3.X);
+            writer.WriteNumber("y", value.Vector3.Y);
+            writer.WriteNumber("z", value.Vector3.Z);
         }
         else if (value.Kind == AnimationValueKind.COLOR)
         {

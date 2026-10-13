@@ -10,4 +10,6 @@ public sealed record AnimationTransformOperation(Guid Id, MediaTime Start, Media
     public int ComponentMask { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public AnimationTransformMode Mode { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AnimationCurve? Curve { get; init; }
 }

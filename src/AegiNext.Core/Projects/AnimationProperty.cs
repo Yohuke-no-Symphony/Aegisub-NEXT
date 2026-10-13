@@ -41,5 +41,6 @@ public enum AnimationProperty
     SHADOW_COLOR = 35,
     ROTATION_X = 36,
     ROTATION_Y = 37,
-    PERSPECTIVE_DISTANCE = 38
+    PERSPECTIVE_DISTANCE = 38,
+    ROTATION_3D = 39
 }

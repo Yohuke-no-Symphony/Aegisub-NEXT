@@ -10,7 +10,7 @@ public static class AnimationPropertyMetadata
     /// <summary>返回面板及脚本可使用的完整属性顺序，不包含旧分量。</summary>
     public static ImmutableArray<AnimationProperty> CurrentProperties { get; } =
     [
-        AnimationProperty.POSITION, AnimationProperty.SCALE, AnimationProperty.ROTATION, AnimationProperty.OPACITY,
+        AnimationProperty.POSITION, AnimationProperty.SCALE, AnimationProperty.ROTATION_3D, AnimationProperty.OPACITY,
         AnimationProperty.FILL, AnimationProperty.STROKE, AnimationProperty.STROKE_WIDTH, AnimationProperty.BLUR,
         AnimationProperty.PATH_PROGRESS, AnimationProperty.MASK_RECTANGLE_TOP_LEFT,
         AnimationProperty.MASK_RECTANGLE_BOTTOM_RIGHT, AnimationProperty.MASK_POSITION, AnimationProperty.MASK_SCALE,
@@ -18,7 +18,7 @@ public static class AnimationPropertyMetadata
         AnimationProperty.MASK_NODE_OUT_HANDLE, AnimationProperty.LETTER_SPACING, AnimationProperty.FILL_BLUR,
         AnimationProperty.STROKE_BLUR, AnimationProperty.FONT_SIZE, AnimationProperty.SHADOW_OFFSET,
         AnimationProperty.SHADOW_BLUR, AnimationProperty.SHADOW_COLOR,
-        AnimationProperty.ROTATION_X, AnimationProperty.ROTATION_Y, AnimationProperty.PERSPECTIVE_DISTANCE
+        AnimationProperty.PERSPECTIVE_DISTANCE
     ];
 
     /// <summary>获取一个稳定属性的值类型，旧分量属性仍返回标量供显式迁移使用。</summary>
@@ -29,6 +29,7 @@ public static class AnimationPropertyMetadata
             AnimationProperty.MASK_NODE_POSITION or AnimationProperty.MASK_NODE_IN_HANDLE or
             AnimationProperty.MASK_NODE_OUT_HANDLE or AnimationProperty.SHADOW_OFFSET => AnimationValueKind.VECTOR,
         AnimationProperty.FILL or AnimationProperty.STROKE or AnimationProperty.SHADOW_COLOR => AnimationValueKind.COLOR,
+        AnimationProperty.ROTATION_3D => AnimationValueKind.VECTOR3,
         _ when Enum.IsDefined(property) => AnimationValueKind.SCALAR,
         _ => throw new ArgumentOutOfRangeException(nameof(property))
     };
@@ -37,6 +38,7 @@ public static class AnimationPropertyMetadata
     public static int GetComponentCount(AnimationProperty property) => GetValueKind(property) switch
     {
         AnimationValueKind.VECTOR => 2,
+        AnimationValueKind.VECTOR3 => 3,
         AnimationValueKind.COLOR => 4,
         _ => 1
     };
@@ -54,6 +56,7 @@ public static class AnimationPropertyMetadata
         return GetValueKind(property) switch
         {
             AnimationValueKind.VECTOR => component == 0 ? "X" : "Y",
+            AnimationValueKind.VECTOR3 => component switch { 0 => "X", 1 => "Y", _ => "Z" },
             AnimationValueKind.COLOR => component switch { 0 => "R", 1 => "G", 2 => "B", _ => "A" },
             _ => string.Empty
         };
@@ -116,7 +119,7 @@ public static class AnimationPropertyMetadata
         AnimationProperty.STROKE_WIDTH or AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or
         AnimationProperty.SHADOW_OFFSET or AnimationProperty.SHADOW_BLUR or AnimationProperty.SHADOW_COLOR or
         AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION or
-        AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE;
+        AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.ROTATION_3D or AnimationProperty.PERSPECTIVE_DISTANCE;
 
     /// <summary>判断是否为可独立作用于演唱前及高亮状态的绘制属性。</summary>
     public static bool IsSubtitleVisualProperty(AnimationProperty property) => property is
@@ -135,6 +138,7 @@ public static class AnimationPropertyMetadata
         AnimationProperty.SCALE => [AnimationProperty.SCALE_X, AnimationProperty.SCALE_Y],
         AnimationProperty.FILL => [AnimationProperty.FILL_RED, AnimationProperty.FILL_GREEN, AnimationProperty.FILL_BLUE, AnimationProperty.FILL_ALPHA],
         AnimationProperty.STROKE => [AnimationProperty.STROKE_RED, AnimationProperty.STROKE_GREEN, AnimationProperty.STROKE_BLUE, AnimationProperty.STROKE_ALPHA],
+        AnimationProperty.ROTATION_3D => [AnimationProperty.ROTATION_X, AnimationProperty.ROTATION_Y, AnimationProperty.ROTATION],
         _ => []
     };
 

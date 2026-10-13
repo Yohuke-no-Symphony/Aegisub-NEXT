@@ -7,7 +7,7 @@ namespace AegiNext.Application.Tests;
 public sealed class SpatialTransformPersistenceTests
 {
     [Fact]
-    public void VersionSixteenRoundTripsLayerAndRangeProjectionWithTracks()
+    public void CurrentVersionRoundTripsLayerAndRangeProjectionWithVectorTracks()
     {
         var range = new SubtitleAnimationRange(Guid.NewGuid(), 0, 2)
         {
@@ -18,11 +18,12 @@ public sealed class SpatialTransformPersistenceTests
         {
             SubtitleId = line.Id, Start = line.Start, End = line.End,
             Transform = new() { RotationX = 33, RotationY = -60, PerspectiveDistance = 1200, ProjectionTranslation = new(-1, 2, 3) },
-            Tracks = [new(AnimationProperty.ROTATION_Y, [new(new(0), -60), new(new(1), 720)])]
+            Tracks = [new(AnimationProperty.ROTATION_3D,
+                [new(new(0), new SceneVector3(33, -60, 0)), new(new(1), new SceneVector3(33, 720, 0))])]
         };
         var loaded = ProjectStore.Deserialize(ProjectStore.Serialize(new() { Subtitles = [line], Layers = [layer] }));
 
-        Assert.Equal(16, loaded.Version);
+        Assert.Equal(ProjectDocument.CURRENT_VERSION, loaded.Version);
         Assert.Equal(layer.Transform, loaded.Layers[0].Transform);
         Assert.Equal(layer.Tracks[0].Target, loaded.Layers[0].Tracks[0].Target);
         Assert.Equal(layer.Tracks[0].Keyframes.Select(frame => (frame.Time, frame.Value, Curve: frame.GetCurve(0))),

@@ -23,7 +23,7 @@ public static class SubtitleAnimationEditing
         {
             var range = subtitle!.AnimationRanges.Single(range => range.Id == rangeId);
             if (target.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION or
-                AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE)
+                AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.ROTATION_3D or AnimationProperty.PERSPECTIVE_DISTANCE)
             {
                 var changed = target.Property switch
                 {
@@ -32,6 +32,7 @@ public static class SubtitleAnimationEditing
                     AnimationProperty.ROTATION => range with { Rotation = value.Scalar },
                     AnimationProperty.ROTATION_X => range with { RotationX = value.Scalar },
                     AnimationProperty.ROTATION_Y => range with { RotationY = value.Scalar },
+                    AnimationProperty.ROTATION_3D => range with { RotationX = value.Vector3.X, RotationY = value.Vector3.Y, Rotation = value.Vector3.Z },
                     _ => range with { PerspectiveDistance = value.Scalar }
                 };
                 return ReplaceSubtitle(document, subtitle, subtitle with
@@ -53,6 +54,10 @@ public static class SubtitleAnimationEditing
         {
             AnimationProperty.POSITION => layer with { Transform = layer.Transform with { Position = value.Vector } },
             AnimationProperty.SCALE => layer with { Transform = layer.Transform with { Scale = value.Vector } },
+            AnimationProperty.ROTATION_3D => layer with
+            {
+                Transform = layer.Transform with { RotationX = value.Vector3.X, RotationY = value.Vector3.Y, Rotation = value.Vector3.Z }
+            },
             AnimationProperty.ROTATION => layer with { Transform = layer.Transform with { Rotation = value.Scalar } },
             AnimationProperty.ROTATION_X => layer with { Transform = layer.Transform with { RotationX = value.Scalar } },
             AnimationProperty.ROTATION_Y => layer with { Transform = layer.Transform with { RotationY = value.Scalar } },

@@ -486,75 +486,7 @@ public static partial class ProjectValidator
                     "Rectangle-boundary animation does not match the mask shape.");
             }
 
-            var dimension = AnimationPropertyMetadata.GetComponentCount(track.Property);
-            Require(!track.Keyframes.IsDefault && !track.Transforms.IsDefault &&
-                track.Keyframes.Length <= AnimationPropertyMetadata.GetMaximumTrackEntries(track.Property) &&
-                track.Transforms.Length <= AnimationPropertyMetadata.GetMaximumTrackEntries(track.Property),
-                "The property track exceeds the component time-union budget.");
-            if (track.IsOrdered)
-            {
-                Require(track.Keyframes.IsEmpty && track.InitialValue.HasValue, "Ordered transforms and keyframes are mutually exclusive, and ordered transforms require an initial value.");
-                AnimationValue(track.Property, track.InitialValue.Value);
-                var operationIds = new HashSet<Guid>();
-                foreach (var operation in track.Transforms)
-                {
-                    NotNull(operation, "An ordered transform operation cannot be null.");
-                    Require(operation.Id != Guid.Empty && operationIds.Add(operation.Id) && operation.End >= operation.Start,
-                        "The ordered transform ID or timing is invalid.");
-                    Require(double.IsFinite(operation.Acceleration) && operation.Acceleration >= 0, "The ordered transform exponent must be finite and nonnegative.");
-                    Require(Enum.IsDefined(operation.Mode) && operation.ComponentMask >= 0 &&
-                        operation.ComponentMask < (1 << dimension), "The ordered transform mode or component mask is invalid.");
-                    if (operation.Mode == AnimationTransformMode.MULTIPLY_BY)
-                    {
-                        if (track.Property == AnimationProperty.FONT_SIZE)
-                        {
-                            Require(operation.Value.Kind == AnimationValueKind.SCALAR && double.IsFinite(operation.Value.Scalar) &&
-                                operation.Value.Scalar > 0 && operation.Value.Scalar <= 409600, "The font-size multiplier must be finite and positive.");
-                        }
-                        else
-                        {
-                            Require(AnimationPropertyMetadata.GetValueKind(track.Property) == AnimationValueKind.COLOR &&
-                                operation.Value.Kind == AnimationValueKind.COLOR &&
-                                operation.Value.Color.Red == 1 && operation.Value.Color.Green == 1 && operation.Value.Color.Blue == 1 &&
-                                double.IsFinite(operation.Value.Color.Alpha) && operation.Value.Color.Alpha is >= 0 and <= 1 &&
-                                (operation.ComponentMask == 0 || operation.ComponentMask == 8), "Color multiplication only permits opacity attenuation.");
-                        }
-                    }
-                    else
-                    {
-                        AnimationValue(track.Property, operation.Value);
-                    }
-                }
-
-                if (track.Property == AnimationProperty.FONT_SIZE)
-                {
-                    ValidateFontSizeTransformBounds(track);
-                }
-
-                continue;
-            }
-
-            Require(!track.Keyframes.IsEmpty && track.InitialValue is null, "A keyframe track cannot be empty or contain an ordered-transform initial value.");
-            Timing.MediaTime? previous = null;
-            foreach (var frame in track.Keyframes)
-            {
-                NotNull(frame, "A data item cannot be null.");
-                Require(allowNegativeKeyTimes || frame.Time >= Timing.MediaTime.Zero, "Preset keyframe times must be nonnegative.");
-                Require(!previous.HasValue || frame.Time > previous.Value, "Keyframe times must be strictly increasing.");
-                Curve(new(frame.Interpolation, frame.CurveStart, frame.CurveEnd) { Exponent = frame.Exponent, Reverse = frame.Reverse });
-                AnimationValue(track.Property, frame.Value);
-                Require(!frame.ComponentCurves.IsDefault && (frame.ComponentCurves.IsEmpty || frame.ComponentCurves.Length == dimension - 1),
-                    "The number of component curves does not match the animation property.");
-                foreach (var curve in frame.ComponentCurves)
-                {
-                    if (curve is not null)
-                    {
-                        Curve(curve);
-                    }
-                }
-
-                previous = frame.Time;
-            }
+            ValidateAnimationTrackData(track, allowNegativeKeyTimes);
         }
 
         foreach (var property in new[] { AnimationProperty.FILL, AnimationProperty.STROKE })
@@ -562,6 +494,93 @@ public static partial class ProjectValidator
             Require(!targets.Contains(new(property)) ||
                 !AnimationPropertyMetadata.GetLegacyComponents(property).Any(component => targets.Contains(new(component))),
                 "A complete color track cannot coexist with legacy components from the same group.");
+        }
+
+        foreach (var target in targets.Where(target => target.Property == AnimationProperty.ROTATION_3D))
+        {
+            Require(!AnimationPropertyMetadata.GetLegacyComponents(AnimationProperty.ROTATION_3D)
+                .Any(property => targets.Contains(target with { Property = property })),
+                "A complete rotation track cannot coexist with scalar axes from the same target.");
+        }
+    }
+
+    internal static void ValidateAnimationTrackData(AnimationTrack track, bool allowNegativeKeyTimes = false)
+    {
+        Require(Enum.IsDefined(track.ColorSpace) &&
+            (track.ColorSpace == AnimationColorSpace.LINEAR_RGB || AnimationPropertyMetadata.GetValueKind(track.Property) == AnimationValueKind.COLOR),
+            "The animation color space does not match the property.");
+        var dimension = AnimationPropertyMetadata.GetComponentCount(track.Property);
+        Require(!track.Keyframes.IsDefault && !track.Transforms.IsDefault &&
+            track.Keyframes.Length <= AnimationPropertyMetadata.GetMaximumTrackEntries(track.Property) &&
+            track.Transforms.Length <= AnimationPropertyMetadata.GetMaximumTrackEntries(track.Property),
+            "The property track exceeds the component time-union budget.");
+        if (track.IsOrdered)
+        {
+            Require(track.Keyframes.IsEmpty && track.InitialValue.HasValue, "Ordered transforms and keyframes are mutually exclusive, and ordered transforms require an initial value.");
+            AnimationValue(track.Property, track.InitialValue.Value);
+            var operationIds = new HashSet<Guid>();
+            foreach (var operation in track.Transforms)
+            {
+                NotNull(operation, "An ordered transform operation cannot be null.");
+                Require(operation.Id != Guid.Empty && operationIds.Add(operation.Id) && operation.End >= operation.Start,
+                    "The ordered transform ID or timing is invalid.");
+                Require(double.IsFinite(operation.Acceleration) && operation.Acceleration >= 0, "The ordered transform exponent must be finite and nonnegative.");
+                if (operation.Curve is { } curve)
+                {
+                    Curve(curve);
+                }
+                Require(Enum.IsDefined(operation.Mode) && operation.ComponentMask >= 0 &&
+                    operation.ComponentMask < (1 << dimension), "The ordered transform mode or component mask is invalid.");
+                if (operation.Mode == AnimationTransformMode.MULTIPLY_BY)
+                {
+                    if (track.Property == AnimationProperty.FONT_SIZE)
+                    {
+                        Require(operation.Value.Kind == AnimationValueKind.SCALAR && double.IsFinite(operation.Value.Scalar) &&
+                            operation.Value.Scalar > 0 && operation.Value.Scalar <= 409600, "The font-size multiplier must be finite and positive.");
+                    }
+                    else
+                    {
+                        Require(AnimationPropertyMetadata.GetValueKind(track.Property) == AnimationValueKind.COLOR &&
+                            operation.Value.Kind == AnimationValueKind.COLOR &&
+                            operation.Value.Color.Red == 1 && operation.Value.Color.Green == 1 && operation.Value.Color.Blue == 1 &&
+                            double.IsFinite(operation.Value.Color.Alpha) && operation.Value.Color.Alpha is >= 0 and <= 1 &&
+                            (operation.ComponentMask == 0 || operation.ComponentMask == 8), "Color multiplication only permits opacity attenuation.");
+                    }
+                }
+                else
+                {
+                    AnimationValue(track.Property, operation.Value);
+                }
+            }
+
+            if (track.Property == AnimationProperty.FONT_SIZE)
+            {
+                ValidateFontSizeTransformBounds(track);
+            }
+
+            return;
+        }
+
+        Require(!track.Keyframes.IsEmpty && track.InitialValue is null, "A keyframe track cannot be empty or contain an ordered-transform initial value.");
+        Timing.MediaTime? previous = null;
+        foreach (var frame in track.Keyframes)
+        {
+            NotNull(frame, "A data item cannot be null.");
+            Require(allowNegativeKeyTimes || frame.Time >= Timing.MediaTime.Zero, "Preset keyframe times must be nonnegative.");
+            Require(!previous.HasValue || frame.Time > previous.Value, "Keyframe times must be strictly increasing.");
+            Curve(new(frame.Interpolation, frame.CurveStart, frame.CurveEnd) { Exponent = frame.Exponent, Reverse = frame.Reverse });
+            AnimationValue(track.Property, frame.Value);
+            Require(!frame.ComponentCurves.IsDefault && (frame.ComponentCurves.IsEmpty || frame.ComponentCurves.Length == dimension - 1),
+                "The number of component curves does not match the animation property.");
+            foreach (var curve in frame.ComponentCurves)
+            {
+                if (curve is not null)
+                {
+                    Curve(curve);
+                }
+            }
+
+            previous = frame.Time;
         }
     }
 

@@ -10,10 +10,13 @@ public sealed class AnimationValueSerializationTests
     {
         AnimationValue scalar = -0.25;
         AnimationValue vector = new ScenePoint(-25, 2.5);
+        AnimationValue vector3 = new SceneVector3(-25, 2.5, 720);
         Assert.Equal("-0.25", JsonSerializer.Serialize(scalar));
         Assert.Equal("{\"x\":-25,\"y\":2.5}", JsonSerializer.Serialize(vector));
+        Assert.Equal("{\"x\":-25,\"y\":2.5,\"z\":720}", JsonSerializer.Serialize(vector3));
         Assert.Equal(scalar, JsonSerializer.Deserialize<AnimationValue>(JsonSerializer.Serialize(scalar)));
         Assert.Equal(vector, JsonSerializer.Deserialize<AnimationValue>(JsonSerializer.Serialize(vector)));
+        Assert.Equal(vector3, JsonSerializer.Deserialize<AnimationValue>(JsonSerializer.Serialize(vector3)));
     }
 
     [Fact]
@@ -56,7 +59,11 @@ public sealed class AnimationValueSerializationTests
 
     [Theory]
     [InlineData("{\"x\":1}")]
-    [InlineData("{\"x\":1,\"y\":2,\"z\":3}")]
+    [InlineData("{\"x\":1,\"y\":2,\"z\":3,\"w\":4}")]
+    [InlineData("{\"x\":1,\"z\":3}")]
+    [InlineData("{\"x\":1,\"y\":2,\"y\":3}")]
+    [InlineData("{\"x\":1,\"y\":2,\"z\":\"3\"}")]
+    [InlineData("{\"x\":1,\"y\":2,\"z\":1e999}")]
     [InlineData("{\"x\":1,\"x\":2}")]
     [InlineData("{\"x\":\"1\",\"y\":2}")]
     [InlineData("{\"red\":1,\"green\":2,\"blue\":3}")]

@@ -56,7 +56,9 @@ public sealed record TimelineViewState
         foreach (var row in CollapsedAnimationRows)
         {
             if (row is null || row.OwnerId == Guid.Empty || !Enum.IsDefined(row.Scope) ||
-                !AnimationPropertyMetadata.CurrentProperties.Contains(row.Property) || !identities.Add(row) ||
+                !AnimationPropertyMetadata.CurrentProperties.Contains(row.Property) &&
+                    row.Property is not (AnimationProperty.ROTATION or AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y) ||
+                !identities.Add(row) ||
                 row.TextRangeId == Guid.Empty || !Enum.IsDefined(row.State) ||
                 row.TextRangeId.HasValue && !AnimationPropertyMetadata.IsTextRangeProperty(row.Property) ||
                 row.State != SubtitleAnimationState.NORMAL && !AnimationPropertyMetadata.IsSubtitleVisualProperty(row.Property))

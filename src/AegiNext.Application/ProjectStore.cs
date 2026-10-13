@@ -69,6 +69,7 @@ public static class ProjectStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         cancellationToken.ThrowIfCancellationRequested();
+        document = RotationVectorProjectMigration.Normalize(document);
         ProjectValidator.Validate(document);
         var fullPath = Path.GetFullPath(path);
         var directory = Path.GetDirectoryName(fullPath)!;
@@ -97,6 +98,7 @@ public static class ProjectStore
     /// <summary>输出可保存的 UTF-8 JSON 字节，时间保持有理表示。</summary>
     public static byte[] Serialize(ProjectDocument document)
     {
+        document = RotationVectorProjectMigration.Normalize(document);
         ProjectValidator.Validate(document);
         return JsonSerializer.SerializeToUtf8Bytes(document, options);
     }
@@ -104,6 +106,7 @@ public static class ProjectStore
     /// <summary>验证工程可按存储配置完整序列化，不保留完整 JSON 字节数组。</summary>
     public static void ValidateSerialization(ProjectDocument document)
     {
+        document = RotationVectorProjectMigration.Normalize(document);
         ProjectValidator.Validate(document);
         JsonSerializer.Serialize(Stream.Null, document, options);
     }
@@ -111,6 +114,7 @@ public static class ProjectStore
     /// <summary>计算存储 JSON 的 SHA-256 小写指纹，不保留完整 JSON 字节数组。</summary>
     public static string ComputeFingerprint(ProjectDocument document)
     {
+        document = RotationVectorProjectMigration.Normalize(document);
         ProjectValidator.Validate(document);
         using var hash = SHA256.Create();
         using var stream = new CryptoStream(Stream.Null, hash, CryptoStreamMode.Write);
@@ -152,9 +156,9 @@ public static class ProjectStore
         if (root.ValueKind != JsonValueKind.Object ||
             !root.TryGetProperty("version", out var version) ||
             version.ValueKind != JsonValueKind.Number ||
-            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or ProjectDocument.CURRENT_VERSION))
+            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or ProjectDocument.CURRENT_VERSION))
         {
-            throw new InvalidDataException($"Only project versions 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, and {ProjectDocument.CURRENT_VERSION} are supported; open older projects with the corresponding application version.");
+            throw new InvalidDataException($"Only project versions 3 through {ProjectDocument.CURRENT_VERSION} are supported; open older projects with the corresponding application version.");
         }
 
         if (number >= 5)
@@ -164,13 +168,18 @@ public static class ProjectStore
 
         if (number == ProjectDocument.CURRENT_VERSION)
         {
-            var current = root.Deserialize<ProjectDocument>(options) ?? throw new JsonException("The project cannot be null.");
+            var current = RotationVectorProjectMigration.Normalize(root.Deserialize<ProjectDocument>(options) ??
+                throw new JsonException("The project cannot be null."));
             ProjectValidator.Validate(current);
             return current;
         }
 
         var content = JsonNode.Parse(root.GetRawText(), documentOptions: documentOptions)!.AsObject();
-        SpatialTransformJsonMigration.RejectUndeclaredFields(content);
+        RotationVectorJsonMigration.RejectUndeclaredFields(content);
+        if (number < 16)
+        {
+            SpatialTransformJsonMigration.RejectUndeclaredFields(content);
+        }
         GraphicAssetJsonMigration.Upgrade(content);
         if (number < 13)
         {
@@ -204,7 +213,8 @@ public static class ProjectStore
             SubtitleKaraokeStyleJsonMigration.Upgrade(content, options);
         }
         content["version"] = ProjectDocument.CURRENT_VERSION;
-        var document = content.Deserialize<ProjectDocument>(options) ?? throw new JsonException("The project cannot be null.");
+        var document = RotationVectorProjectMigration.Normalize(content.Deserialize<ProjectDocument>(options) ??
+            throw new JsonException("The project cannot be null."));
         if (number < 11)
         {
             return LegacySubtitleKaraokeMigration.Upgrade(document);
@@ -243,7 +253,7 @@ public static class ProjectStore
                         !(info.Type == typeof(AnimationTrack) && property.Name is "initialValue" or "transforms" or "colorSpace") &&
                         !(info.Type == typeof(AnimationTrackTarget) && property.Name is "textRangeId" or "state") &&
                         !(info.Type == typeof(TimelineAnimationRowId) && property.Name is "textRangeId" or "state") &&
-                        !(info.Type == typeof(AnimationTransformOperation) && property.Name is "componentMask" or "mode") &&
+                        !(info.Type == typeof(AnimationTransformOperation) && property.Name is "componentMask" or "mode" or "curve") &&
                         !(info.Type == typeof(SubtitleAnimationRange) && property.Name is "rotation" or "pivot" or "offset" or "generatedOrigin") &&
                         !(info.Type == typeof(SubtitleLine) && property.Name is "karaokeStyle" or "karaokeStyleSpans" or "inactiveKaraoke" or "styleName" or "stylePresetId" or "colorTagId" or "animationRanges") &&
                         !(info.Type == typeof(SubtitleKaraokeStyleSpan) && property.Name is "activeStyle" or "inactiveStyle") &&

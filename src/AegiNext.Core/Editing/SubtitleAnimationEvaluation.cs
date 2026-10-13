@@ -65,6 +65,10 @@ public static class SubtitleAnimationEvaluation
             {
                 return range.Scale;
             }
+            if (target.Property == AnimationProperty.ROTATION_3D)
+            {
+                return new SceneVector3(range.RotationX, range.RotationY, range.Rotation);
+            }
             if (target.Property == AnimationProperty.ROTATION)
             {
                 return range.Rotation;
@@ -92,6 +96,7 @@ public static class SubtitleAnimationEvaluation
         {
             AnimationProperty.POSITION => layer.Transform.Position,
             AnimationProperty.SCALE => layer.Transform.Scale,
+            AnimationProperty.ROTATION_3D => new SceneVector3(layer.Transform.RotationX, layer.Transform.RotationY, layer.Transform.Rotation),
             AnimationProperty.ROTATION => layer.Transform.Rotation,
             AnimationProperty.ROTATION_X => layer.Transform.RotationX,
             AnimationProperty.ROTATION_Y => layer.Transform.RotationY,

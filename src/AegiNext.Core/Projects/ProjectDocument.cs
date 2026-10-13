@@ -6,7 +6,7 @@ namespace AegiNext.Core.Projects;
 /// <summary>AegiNext 不可变工程快照；所有边界通过 ProjectValidator 验证。</summary>
 public sealed record ProjectDocument
 {
-    public const int CURRENT_VERSION = 16;
+    public const int CURRENT_VERSION = 17;
     public int Version { get; init; } = CURRENT_VERSION;
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get; init; } = "Untitled";

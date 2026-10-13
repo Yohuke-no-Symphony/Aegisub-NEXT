@@ -36,7 +36,10 @@ public static class SceneEvaluator
             foreach (var operation in track.Transforms)
             {
                 var transformFraction = time < operation.Start ? 0 : time >= operation.End ? 1 :
-                    Math.Pow(Fraction(time - operation.Start, operation.End - operation.Start), operation.Acceleration);
+                    operation.Curve is { } curve
+                        ? CurveFraction(curve.Interpolation, curve.CurveStart, curve.CurveEnd,
+                            Fraction(time - operation.Start, operation.End - operation.Start), curve.Exponent, curve.Reverse)
+                        : Math.Pow(Fraction(time - operation.Start, operation.End - operation.Start), operation.Acceleration);
                 for (var component = 0; component < result.ComponentCount; component++)
                 {
                     if (operation.ComponentMask != 0 && (operation.ComponentMask & (1 << component)) == 0)
@@ -116,6 +119,9 @@ public static class SceneEvaluator
 
     /// <summary>读取二维向量轨道值，拒绝标量轨道。</summary>
     public static ScenePoint EvaluateVectorTrack(AnimationTrack track, MediaTime time) => EvaluateTrack(track, time).Vector;
+
+    /// <summary>读取三维向量轨道值，拒绝其他维度。</summary>
+    public static SceneVector3 EvaluateVector3Track(AnimationTrack track, MediaTime time) => EvaluateTrack(track, time).Vector3;
 
     /// <summary>读取完整线性 RGBA 轨道值，拒绝其他维度。</summary>
     public static SceneColor EvaluateColorTrack(AnimationTrack track, MediaTime time) => EvaluateTrack(track, time).Color;
@@ -283,28 +289,29 @@ public static class SceneEvaluator
     {
         ArgumentNullException.ThrowIfNull(layer);
         var values = layer.Tracks.ToDictionary(track => track.Target, track => EvaluateTrack(track, contentTime));
+        var rotation = GetRotation(values, null, new(layer.Transform.RotationX, layer.Transform.RotationY, layer.Transform.Rotation));
         var transform = layer.Transform with
         {
             Position = GetVector(values, AnimationProperty.POSITION, layer.Transform.Position),
             Scale = GetVector(values, AnimationProperty.SCALE, layer.Transform.Scale),
-            Rotation = Get(values, AnimationProperty.ROTATION, layer.Transform.Rotation),
-            RotationX = Get(values, AnimationProperty.ROTATION_X, layer.Transform.RotationX),
-            RotationY = Get(values, AnimationProperty.ROTATION_Y, layer.Transform.RotationY),
+            Rotation = rotation.Z,
+            RotationX = rotation.X,
+            RotationY = rotation.Y,
             PerspectiveDistance = Get(values, AnimationProperty.PERSPECTIVE_DISTANCE, layer.Transform.PerspectiveDistance)
         };
         if (layer.MotionPath is { } motion)
         {
             var progress = Get(values, AnimationProperty.PATH_PROGRESS, Fraction(contentTime, motion.Duration));
             var point = EvaluatePath(motion.Path, progress);
-            var rotation = transform.Rotation;
+            var pathRotation = transform.Rotation;
             if (motion.OrientToPath)
             {
                 var before = EvaluatePath(motion.Path, progress - 0.00001);
                 var after = EvaluatePath(motion.Path, progress + 0.00001);
-                rotation += Math.Atan2(after.Y - before.Y, after.X - before.X) * 180 / Math.PI;
+                pathRotation += Math.Atan2(after.Y - before.Y, after.X - before.X) * 180 / Math.PI;
             }
 
-            transform = transform with { X = transform.X + point.X, Y = transform.Y + point.Y, Rotation = rotation };
+            transform = transform with { X = transform.X + point.X, Y = transform.Y + point.Y, Rotation = pathRotation };
         }
 
         var fill = subtitle?.Style.Fill ?? layer.Fill;
@@ -333,16 +340,36 @@ public static class SceneEvaluator
             HasShadowBlurAnimation = values.ContainsKey(new(AnimationProperty.SHADOW_BLUR)),
             HasShadowColorAnimation = values.ContainsKey(new(AnimationProperty.SHADOW_COLOR)),
             AnimationValues = values.ToImmutableDictionary(),
-            AnimationRanges = subtitle is null ? [] : subtitle.AnimationRanges.Select(range => range with
-            {
-                Offset = values.TryGetValue(new(AnimationProperty.POSITION, TextRangeId: range.Id), out var offset) ? offset.Vector : range.Offset,
-                Scale = values.TryGetValue(new(AnimationProperty.SCALE, TextRangeId: range.Id), out var scale) ? scale.Vector : range.Scale,
-                Rotation = values.TryGetValue(new(AnimationProperty.ROTATION, TextRangeId: range.Id), out var rotation) ? rotation.Scalar : range.Rotation,
-                RotationX = values.TryGetValue(new(AnimationProperty.ROTATION_X, TextRangeId: range.Id), out var rotationX) ? rotationX.Scalar : range.RotationX,
-                RotationY = values.TryGetValue(new(AnimationProperty.ROTATION_Y, TextRangeId: range.Id), out var rotationY) ? rotationY.Scalar : range.RotationY,
-                PerspectiveDistance = values.TryGetValue(new(AnimationProperty.PERSPECTIVE_DISTANCE, TextRangeId: range.Id), out var distance) ? distance.Scalar : range.PerspectiveDistance
-            }).ToImmutableArray()
+            AnimationRanges = subtitle is null ? [] : subtitle.AnimationRanges.Select(range => EvaluateRange(range, values)).ToImmutableArray()
         };
+    }
+
+    private static SubtitleAnimationRange EvaluateRange(SubtitleAnimationRange range,
+        Dictionary<AnimationTrackTarget, AnimationValue> values)
+    {
+        var rotation = GetRotation(values, range.Id, new(range.RotationX, range.RotationY, range.Rotation));
+        return range with
+        {
+            Offset = values.TryGetValue(new(AnimationProperty.POSITION, TextRangeId: range.Id), out var offset) ? offset.Vector : range.Offset,
+            Scale = values.TryGetValue(new(AnimationProperty.SCALE, TextRangeId: range.Id), out var scale) ? scale.Vector : range.Scale,
+            Rotation = rotation.Z,
+            RotationX = rotation.X,
+            RotationY = rotation.Y,
+            PerspectiveDistance = values.TryGetValue(new(AnimationProperty.PERSPECTIVE_DISTANCE, TextRangeId: range.Id), out var distance) ? distance.Scalar : range.PerspectiveDistance
+        };
+    }
+
+    private static SceneVector3 GetRotation(Dictionary<AnimationTrackTarget, AnimationValue> values, Guid? rangeId,
+        SceneVector3 fallback)
+    {
+        if (values.TryGetValue(new(AnimationProperty.ROTATION_3D, TextRangeId: rangeId), out var rotation))
+        {
+            return rotation.Vector3;
+        }
+
+        return new(values.TryGetValue(new(AnimationProperty.ROTATION_X, TextRangeId: rangeId), out var x) ? x.Scalar : fallback.X,
+            values.TryGetValue(new(AnimationProperty.ROTATION_Y, TextRangeId: rangeId), out var y) ? y.Scalar : fallback.Y,
+            values.TryGetValue(new(AnimationProperty.ROTATION, TextRangeId: rangeId), out var z) ? z.Scalar : fallback.Z);
     }
 
     private static ImmutableArray<EvaluatedLayer> EvaluateLayers(ImmutableArray<ProjectLayer> layers,
