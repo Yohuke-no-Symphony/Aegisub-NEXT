@@ -44,12 +44,16 @@ public sealed class SubtitleTextLayout
         var distance = float.PositiveInfinity;
         foreach (var grapheme in Graphemes)
         {
+            if (ProjectionHidden(grapheme))
+            {
+                continue;
+            }
             var dx = Math.Max(Math.Max(grapheme.Bounds.Left - point.X, 0), point.X - grapheme.Bounds.Right);
             var dy = Math.Max(Math.Max(grapheme.Bounds.Top - point.Y, 0), point.Y - grapheme.Bounds.Bottom);
             var next = Math.Min(dx * dx + dy * dy,
                 Math.Min(CaretDistance(point, grapheme.LeadingCaret), CaretDistance(point, grapheme.TrailingCaret)));
-            if (grapheme.UntransformedBounds is { } original && grapheme.LocalToVisible.TryInvert(out var inverse) &&
-                original.Contains(inverse.MapPoint(point)))
+            if (grapheme.UntransformedBounds is { } original && grapheme.TryUnmapVisiblePoint(point, out var local) &&
+                original.Contains(local))
             {
                 next = 0;
             }
@@ -58,6 +62,10 @@ public sealed class SubtitleTextLayout
                 nearest = grapheme;
                 distance = next;
             }
+        }
+        if (!float.IsFinite(distance))
+        {
+            return new(0, 0, 0, false);
         }
         var trailing = CaretDistance(point, nearest.TrailingCaret) < CaretDistance(point, nearest.LeadingCaret);
         return new(trailing ? nearest.Utf16Start + nearest.Utf16Length : nearest.Utf16Start,
@@ -70,6 +78,9 @@ public sealed class SubtitleTextLayout
         var dy = Math.Max(Math.Max(caret.Top - point.Y, 0), point.Y - caret.Bottom);
         return dx * dx + dy * dy;
     }
+
+    private static bool ProjectionHidden(SubtitleGraphemeGeometry grapheme) => grapheme.ProjectionMapping is { } projection &&
+        (grapheme.Bounds.IsEmpty || !projection.Matrix.TryInvert(out _));
 
     /// <summary>获取完整字素边界处的光标；软换行边界优先使用下一排版行的起点。</summary>
     public SKRect GetCaretBounds(int utf16Offset)
@@ -110,6 +121,10 @@ public sealed class SubtitleTextLayout
         foreach (var grapheme in Graphemes)
         {
             if (grapheme.Utf16Start < utf16Start || grapheme.Utf16Start >= utf16Start + utf16Length)
+            {
+                continue;
+            }
+            if (ProjectionHidden(grapheme))
             {
                 continue;
             }

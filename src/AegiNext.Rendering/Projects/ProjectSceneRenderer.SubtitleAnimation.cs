@@ -89,37 +89,40 @@ public sealed partial class ProjectSceneRenderer
         }
     }
 
-    private static Dictionary<Guid, SKMatrix> RangeMatrices(EvaluatedLayer layer, SubtitleTextLayout layout)
+    private static Dictionary<Guid, ProjectiveMapping> RangeMatrices(EvaluatedLayer layer, SubtitleTextLayout layout)
     {
-        var result = new Dictionary<Guid, SKMatrix>();
+        var result = new Dictionary<Guid, ProjectiveMapping>();
         foreach (var range in layer.AnimationRanges)
         {
-            if (range.Offset == default && range.Scale == new ScenePoint(1, 1) && range.Rotation == 0)
+            if (IsRangeIdentity(range))
             {
                 continue;
             }
-            var bounds = range.Utf16Start == 0 && range.Utf16Length == layout.Text.Length
-                ? layout.Bounds
-                : layout.GetSelectionRects(range.Utf16Start, range.Utf16Length).Aggregate(SKRect.Empty,
-                    (current, next) => current.IsEmpty ? next : SKRect.Union(current, next));
-            var pivot = range.Pivot == SubtitleAnimationPivot.SUBTITLE_ANCHOR ? layout.Pivot : new SKPoint(bounds.MidX, bounds.MidY);
+            var bounds = RangeBounds(range, layout);
+            var pivot = RangePivot(range, layout, bounds);
             var matrix = SKMatrix.CreateTranslation(pivot.X + (float)range.Offset.X, pivot.Y + (float)range.Offset.Y);
             matrix = SKMatrix.Concat(matrix, SKMatrix.CreateRotationDegrees((float)range.Rotation));
             matrix = SKMatrix.Concat(matrix, SKMatrix.CreateScale((float)range.Scale.X, (float)range.Scale.Y));
             matrix = SKMatrix.Concat(matrix, SKMatrix.CreateTranslation(-pivot.X, -pivot.Y));
-            result.Add(range.Id, matrix);
+            var transform = new LayerTransform
+            {
+                Scale = range.Scale, Rotation = range.Rotation, RotationX = range.RotationX, RotationY = range.RotationY,
+                PerspectiveDistance = range.PerspectiveDistance, ProjectionTranslation = range.ProjectionTranslation
+            };
+            result.Add(range.Id, ProjectiveMapping.Create(transform, pivot,
+                new(pivot.X + (float)range.Offset.X, pivot.Y + (float)range.Offset.Y), matrix));
         }
         return result;
     }
 
-    private static SKMatrix RangeMatrix(EvaluatedLayer layer, IReadOnlyDictionary<Guid, SKMatrix> matrices, int offset)
+    private static ProjectiveMapping RangeMatrix(EvaluatedLayer layer, IReadOnlyDictionary<Guid, ProjectiveMapping> matrices, int offset)
     {
-        var result = SKMatrix.Identity;
+        var result = ProjectiveMapping.Identity;
         foreach (var range in layer.AnimationRanges)
         {
             if (offset >= range.Utf16Start && offset < range.Utf16Start + range.Utf16Length && matrices.TryGetValue(range.Id, out var matrix))
             {
-                result = SKMatrix.Concat(matrix, result);
+                result = result.Then(matrix);
             }
         }
         return result;
@@ -127,7 +130,7 @@ public sealed partial class ProjectSceneRenderer
 
     private static SubtitleTextLayout VisibleLayout(EvaluatedLayer layer, SubtitleTextLayout layout)
     {
-        if (layer.AnimationRanges.IsEmpty || layer.AnimationRanges.All(range => range.Offset == default && range.Scale == new ScenePoint(1, 1) && range.Rotation == 0))
+        if (layer.AnimationRanges.IsEmpty || layer.AnimationRanges.All(IsRangeIdentity))
         {
             return layout;
         }
@@ -138,10 +141,25 @@ public sealed partial class ProjectSceneRenderer
             return glyph with
             {
                 Bounds = matrix.MapRect(glyph.Bounds), LeadingCaret = matrix.MapRect(glyph.LeadingCaret),
-                TrailingCaret = matrix.MapRect(glyph.TrailingCaret), LocalToVisible = matrix, UntransformedBounds = glyph.Bounds
+                TrailingCaret = matrix.MapRect(glyph.TrailingCaret), LocalToVisible = matrix.CanvasMatrix,
+                UntransformedBounds = glyph.Bounds, ProjectionMapping = matrix.IsProjective ? matrix : null
             };
         }).ToImmutableArray();
         var bounds = graphemes.Aggregate(SKRect.Empty, (current, glyph) => current.IsEmpty ? glyph.Bounds : SKRect.Union(current, glyph.Bounds));
         return new(layout.Text, bounds, layout.BasePosition, layout.Pivot, layout.HasInk, layout.Runs, graphemes, layout.GetCaretBounds(0));
     }
+
+    private static bool IsRangeIdentity(SubtitleAnimationRange range) => range.Offset == default &&
+        range.Scale == new ScenePoint(1, 1) && range.Rotation == 0 && !RangeRequiresProjection(range);
+
+    private static bool RangeRequiresProjection(SubtitleAnimationRange range) => Math.IEEERemainder(range.RotationX, 360) != 0 ||
+        Math.IEEERemainder(range.RotationY, 360) != 0 || range.ProjectionTranslation != default;
+
+    private static SKRect RangeBounds(SubtitleAnimationRange range, SubtitleTextLayout layout) =>
+        range.Utf16Start == 0 && range.Utf16Length == layout.Text.Length ? layout.Bounds :
+            layout.GetSelectionRects(range.Utf16Start, range.Utf16Length).Aggregate(SKRect.Empty,
+                (current, next) => current.IsEmpty ? next : SKRect.Union(current, next));
+
+    private static SKPoint RangePivot(SubtitleAnimationRange range, SubtitleTextLayout layout, SKRect bounds) =>
+        range.Pivot == SubtitleAnimationPivot.SUBTITLE_ANCHOR ? layout.Pivot : new(bounds.MidX, bounds.MidY);
 }

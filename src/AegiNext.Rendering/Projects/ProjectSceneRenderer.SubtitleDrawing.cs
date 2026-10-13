@@ -50,12 +50,13 @@ public sealed partial class ProjectSceneRenderer
     }
 
     private void DrawSubtitle(ProjectDocument document, SKCanvas canvas, EvaluatedLayer layer,
-        SubtitlePreviewMode previewMode = SubtitlePreviewMode.TIMED)
+        SubtitlePreviewMode previewMode = SubtitlePreviewMode.TIMED, ProjectiveMapping? outerProjection = null)
     {
         layer = CanvasLayer(document, layer);
         var subtitle = layer.Subtitle!;
         var layout = Layout(document, layer);
         var matrices = RangeMatrices(layer, layout.Snapshot);
+        outerProjection ??= ProjectiveMapping.Affine(canvas.TotalMatrix);
         foreach (var line in layout.Lines)
         {
             foreach (var run in line.Runs)
@@ -67,7 +68,7 @@ public sealed partial class ProjectSceneRenderer
                     DrawSubtitleRun(canvas, run, normal);
                     continue;
                 }
-                DrawKaraokeRun(canvas, run, subtitle, layer, normal, previewMode, matrices);
+                DrawKaraokeRun(canvas, run, subtitle, layer, normal, previewMode, matrices, outerProjection);
 
             }
         }

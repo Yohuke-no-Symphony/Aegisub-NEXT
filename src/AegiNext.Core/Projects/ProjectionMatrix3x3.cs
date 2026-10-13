@@ -49,7 +49,10 @@ public readonly record struct ProjectionMatrix3x3(double M11, double M12, double
         var b = M23 * M31 - M21 * M33;
         var c = M21 * M32 - M22 * M31;
         var determinant = M11 * a + M12 * b + M13 * c;
-        if (!double.IsFinite(determinant) || determinant == 0)
+        var errorScale = Math.Abs(M11) * (Math.Abs(M22 * M33) + Math.Abs(M23 * M32)) +
+                         Math.Abs(M12) * (Math.Abs(M23 * M31) + Math.Abs(M21 * M33)) +
+                         Math.Abs(M13) * (Math.Abs(M21 * M32) + Math.Abs(M22 * M31));
+        if (!double.IsFinite(determinant) || Math.Abs(determinant) <= 16 * 2.2204460492503131e-16 * errorScale)
         {
             inverse = default;
             return false;

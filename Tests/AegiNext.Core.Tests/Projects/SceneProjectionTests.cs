@@ -80,6 +80,11 @@ public sealed class SceneProjectionTests
 
         Assert.False(matrix.TryInvert(out _));
         Assert.Equal(0, matrix.Map(new(20, 30)).Y);
+        var displacedCenter = SceneProjection.CreateMatrix(new() { RotationX = 90 }, new(12, 7), new(100, 80));
+        Assert.False(displacedCenter.TryInvert(out _));
+        var displacedPlane = SceneProjection.CreateMatrix(new() { RotationX = 90, ProjectionTranslation = new(0, 10, 0) },
+            new(12, 7), new(100, 80));
+        Assert.True(displacedPlane.TryInvert(out _));
     }
 
     [Fact]

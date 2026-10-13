@@ -111,6 +111,21 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         return FindGeometry(document, SceneEvaluator.Evaluate(prepared!, time), layerId, SKMatrix.Identity);
     }
 
+    /// <summary>返回当前动画范围的轴心、参数及成员字素的真实可见投影；不存在或当前不可见时返回 null。</summary>
+    public ProjectLayerGeometry? GetAnimationRangeGeometry(ProjectDocument document, MediaTime time, Guid layerId, Guid rangeId)
+    {
+        ObjectDisposedException.ThrowIf(isDisposed, this);
+        ArgumentNullException.ThrowIfNull(document);
+        Prepare(document);
+        var layer = SceneEvaluator.Evaluate(prepared!, time).FirstOrDefault(value => value.Source.Id == layerId);
+        var range = layer?.AnimationRanges.FirstOrDefault(value => value.Id == rangeId);
+        if (layer?.Subtitle is null || range is null)
+        {
+            return null;
+        }
+        return RangeGeometry(document, layer, range);
+    }
+
     /// <summary>按实际绘制顺序从前向后命中可见轮廓，每次点击只求值场景一次。</summary>
     public Guid? HitTestLayer(ProjectDocument document, MediaTime time, SKPoint point)
     {
@@ -418,7 +433,11 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         try
         {
             var geometry = Geometry(document, layer, parent.TotalMatrix);
-            canvas.SetMatrix(geometry.LocalToWorld);
+            var projection = geometry.ProjectionMapping ?? ProjectiveMapping.Affine(geometry.LocalToWorld);
+            if (!projection.ApplyToCanvas(canvas))
+            {
+                return;
+            }
             using var blend = Paint(new(1, 1, 1, layer.Opacity));
             blend.BlendMode = layer.Source.Blend switch
             {
@@ -441,7 +460,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
             switch (layer.Source.Kind)
             {
                 case LayerKind.SUBTITLE:
-                    DrawSubtitle(document, canvas, layer);
+                    DrawSubtitle(document, canvas, layer, outerProjection: projection);
                     break;
                 case LayerKind.SHAPE:
                     DrawShape(canvas, layer);
@@ -605,10 +624,12 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         var basePosition = SKPoint.Empty;
         var hasInk = true;
         IReadOnlyList<SubtitleGraphemeGeometry>? visibleGraphemes = null;
+        SubtitleTextLayout? subtitleLayout = null;
         switch (layer.Source.Kind)
         {
             case LayerKind.SUBTITLE:
                 var layout = Layout(document, layer);
+                subtitleLayout = layout.Snapshot;
                 var visible = VisibleLayout(layer, layout.Snapshot);
                 bounds = visible.Bounds;
                 visibleGraphemes = ReferenceEquals(visible, layout.Snapshot) ? null : visible.Graphemes;
@@ -649,12 +670,34 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         local = SKMatrix.Concat(local, SKMatrix.CreateRotationDegrees((float)transform.Rotation));
         local = SKMatrix.Concat(local, SKMatrix.CreateScale((float)transform.ScaleX, (float)transform.ScaleY));
         local = SKMatrix.Concat(local, SKMatrix.CreateTranslation(-effectivePivot.X, -effectivePivot.Y));
-        return new(bounds, effectivePivot, basePosition, SKMatrix.Concat(parentToWorld, local), parentToWorld, hasInk)
+        var projection = ProjectiveMapping.Create(transform, effectivePivot,
+            new(basePosition.X + (float)transform.X, basePosition.Y + (float)transform.Y), local)
+            .Then(ProjectiveMapping.Affine(parentToWorld));
+        IReadOnlyList<SKPoint>? worldOutline = null;
+        IReadOnlyList<ProjectedSubtitleGrapheme>? worldGraphemes = null;
+        if (subtitleLayout is { } text && (projection.IsProjective || layer.AnimationRanges.Any(RangeRequiresProjection)))
+        {
+            var matrices = RangeMatrices(layer, text);
+            worldGraphemes = text.Graphemes.Select(glyph => new ProjectedSubtitleGrapheme(glyph.Bounds,
+                RangeMatrix(layer, matrices, glyph.Utf16Start).Then(projection))).ToArray();
+            worldOutline = ProjectiveMapping.ConvexHull(worldGraphemes.SelectMany(glyph => glyph.Projection.MapBounds(glyph.OriginalBounds)));
+            hasInk &= worldGraphemes.Any(HasProjectedArea);
+        }
+        else if (projection.IsProjective)
+        {
+            worldOutline = projection.MapBounds(bounds);
+            hasInk &= ProjectiveMapping.HasArea(worldOutline) && projection.Matrix.TryInvert(out _);
+        }
+        return new(bounds, effectivePivot, basePosition, projection.CanvasMatrix, parentToWorld, hasInk)
         {
             VisibleGraphemes = visibleGraphemes,
             Shape = layer.Source.Shape,
             ShapeStrokeWidth = layer.StrokeWidth,
-            ShapeHasFill = layer.Fill.Alpha > 0
+            ShapeHasFill = layer.Fill.Alpha > 0,
+            ProjectionMapping = projection,
+            ParentProjectionMapping = ProjectiveMapping.Affine(parentToWorld),
+            WorldOutline = worldOutline,
+            WorldGraphemes = worldGraphemes
         };
     }
 

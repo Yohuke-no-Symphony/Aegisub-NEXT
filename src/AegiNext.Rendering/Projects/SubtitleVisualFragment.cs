@@ -7,4 +7,7 @@ internal sealed record SubtitleVisualFragment(SubtitleStyle Style, int Utf16Clus
     SKRect DecorationClip)
 {
     internal SKMatrix Matrix { get; init; } = SKMatrix.Identity;
+    internal ProjectiveMapping Projection { get; init; } = ProjectiveMapping.Identity;
+
+    internal bool EquivalentTransform(SubtitleVisualFragment other) => Matrix == other.Matrix && Projection.EquivalentTo(other.Projection);
 }

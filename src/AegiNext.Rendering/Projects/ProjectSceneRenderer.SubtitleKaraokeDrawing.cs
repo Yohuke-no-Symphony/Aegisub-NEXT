@@ -8,11 +8,13 @@ namespace AegiNext.Rendering.Projects;
 public sealed partial class ProjectSceneRenderer
 {
     private void DrawKaraokeRun(SKCanvas canvas, SubtitleLayoutRun run, SubtitleLine subtitle,
-        EvaluatedLayer layer, SubtitleStyle normal, SubtitlePreviewMode previewMode, IReadOnlyDictionary<Guid, SKMatrix> matrices)
+        EvaluatedLayer layer, SubtitleStyle normal, SubtitlePreviewMode previewMode,
+        IReadOnlyDictionary<Guid, ProjectiveMapping> matrices, ProjectiveMapping outerProjection)
     {
         var fragments = KaraokeFragments(run, subtitle, layer, normal, previewMode, matrices);
         if (fragments.Count == run.Shape.Clusters.Length && fragments.All(fragment => fragment.InkClip is null) &&
-            fragments.All(fragment => fragment.Style == fragments[0].Style && fragment.Matrix == SKMatrix.Identity))
+            fragments.All(fragment => fragment.Style == fragments[0].Style && fragment.Matrix == SKMatrix.Identity &&
+                                      !fragment.Projection.IsProjective))
         {
             DrawSubtitleRun(canvas, run, fragments[0].Style);
             return;
@@ -24,7 +26,8 @@ public sealed partial class ProjectSceneRenderer
             {
                 var key = InkPaint(fragments[first].Style, component);
                 var end = first + 1;
-                while (end < fragments.Count && InkPaint(fragments[end].Style, component) == key && fragments[end].Matrix == fragments[first].Matrix)
+                while (end < fragments.Count && InkPaint(fragments[end].Style, component) == key &&
+                       fragments[end].EquivalentTransform(fragments[first]))
                 {
                     end++;
                 }
@@ -33,9 +36,11 @@ public sealed partial class ProjectSceneRenderer
                     var saved = canvas.Save();
                     try
                     {
-                        var matrix = fragments[first].Matrix;
-                        canvas.Concat(in matrix);
-                        DrawOwnedInk(canvas, run, key, fragments.GetRange(first, end - first));
+                        var projection = fragments[first].Projection.Then(outerProjection);
+                        if (projection.ApplyToCanvas(canvas))
+                        {
+                            DrawOwnedInk(canvas, run, key, fragments.GetRange(first, end - first));
+                        }
                     }
                     finally
                     {
@@ -48,7 +53,7 @@ public sealed partial class ProjectSceneRenderer
     }
 
     private static List<SubtitleVisualFragment> KaraokeFragments(SubtitleLayoutRun run, SubtitleLine subtitle,
-        EvaluatedLayer layer, SubtitleStyle normal, SubtitlePreviewMode previewMode, IReadOnlyDictionary<Guid, SKMatrix> matrices)
+        EvaluatedLayer layer, SubtitleStyle normal, SubtitlePreviewMode previewMode, IReadOnlyDictionary<Guid, ProjectiveMapping> matrices)
     {
         var time = layer.LocalTime;
         var timing = new Dictionary<int, (SubtitleKaraokeSpan Span, float Advance)>();
@@ -101,7 +106,7 @@ public sealed partial class ProjectSceneRenderer
                 var range = StyleRangeAt(subtitle, glyph.Utf16Start);
                 if (previewMode == SubtitlePreviewMode.NORMAL || segment is null && previewMode == SubtitlePreviewMode.TIMED)
                 {
-                    pieces.Add(new(ordinary, cluster.Utf16Start, glyph.Bounds, glyph.Bounds) { Matrix = matrix });
+                    pieces.Add(new(ordinary, cluster.Utf16Start, glyph.Bounds, glyph.Bounds) { Matrix = matrix.CanvasMatrix, Projection = matrix });
                     continue;
                 }
                 if (segment is null && previewMode != SubtitlePreviewMode.TIMED)
@@ -124,11 +129,11 @@ public sealed partial class ProjectSceneRenderer
                 };
                 if (amount <= 0 || inactive == active)
                 {
-                    pieces.Add(new(inactive, cluster.Utf16Start, glyph.Bounds, glyph.Bounds) { Matrix = matrix });
+                    pieces.Add(new(inactive, cluster.Utf16Start, glyph.Bounds, glyph.Bounds) { Matrix = matrix.CanvasMatrix, Projection = matrix });
                 }
                 else if (amount >= glyph.Bounds.Width)
                 {
-                    pieces.Add(new(active, cluster.Utf16Start, glyph.Bounds, glyph.Bounds) { Matrix = matrix });
+                    pieces.Add(new(active, cluster.Utf16Start, glyph.Bounds, glyph.Bounds) { Matrix = matrix.CanvasMatrix, Projection = matrix });
                 }
                 else
                 {
@@ -144,8 +149,8 @@ public sealed partial class ProjectSceneRenderer
                         activeBounds.Right = glyph.Bounds.Left + amount;
                         inactiveBounds.Left = activeBounds.Right;
                     }
-                    pieces.Add(new(active, cluster.Utf16Start, activeBounds, activeBounds) { Matrix = matrix });
-                    pieces.Add(new(inactive, cluster.Utf16Start, inactiveBounds, inactiveBounds) { Matrix = matrix });
+                    pieces.Add(new(active, cluster.Utf16Start, activeBounds, activeBounds) { Matrix = matrix.CanvasMatrix, Projection = matrix });
+                    pieces.Add(new(inactive, cluster.Utf16Start, inactiveBounds, inactiveBounds) { Matrix = matrix.CanvasMatrix, Projection = matrix });
                 }
             }
             if (pieces.Count == 0)
@@ -153,9 +158,12 @@ public sealed partial class ProjectSceneRenderer
                 continue;
             }
             var decorationBounds = pieces.Select(piece => piece.DecorationClip).Aggregate(SKRect.Union);
-            if (pieces.All(piece => piece.Style == pieces[0].Style && piece.Matrix == pieces[0].Matrix))
+            if (pieces.All(piece => piece.Style == pieces[0].Style && piece.EquivalentTransform(pieces[0])))
             {
-                fragments.Add(new(pieces[0].Style, cluster.Utf16Start, null, decorationBounds) { Matrix = pieces[0].Matrix });
+                fragments.Add(new(pieces[0].Style, cluster.Utf16Start, null, decorationBounds)
+                {
+                    Matrix = pieces[0].Matrix, Projection = pieces[0].Projection
+                });
                 continue;
             }
             var ink = cluster.InkBounds;
@@ -178,7 +186,7 @@ public sealed partial class ProjectSceneRenderer
                 }
                 var previous = fragments.Count > 0 ? fragments[^1] : null;
                 if (previous is { InkClip: { } previousClip } && previous.Utf16Cluster == piece.Utf16Cluster &&
-                    previous.Style == piece.Style && previous.Matrix == piece.Matrix && previousClip.Right >= clip.Left)
+                    previous.Style == piece.Style && previous.EquivalentTransform(piece) && previousClip.Right >= clip.Left)
                 {
                     fragments[^1] = previous with
                     {
