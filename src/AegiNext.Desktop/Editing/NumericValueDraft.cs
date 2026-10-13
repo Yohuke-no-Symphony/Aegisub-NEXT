@@ -62,6 +62,11 @@ public sealed class NumericValueDraft : ObservableObject
     /// <summary>从已验证模型载入数值，显式替换上次草稿。</summary>
     public void Load(double number)
     {
+        if (PreserveDoublePrecision)
+        {
+            RawText = number.ToString("R", CultureInfo.CurrentCulture);
+            return;
+        }
         var loaded = (decimal)number;
         Value = loaded;
         RawText = loaded.ToString(CultureInfo.CurrentCulture);

@@ -15,12 +15,18 @@
       <StackPanel Name="ValueEditor" Grid.Column="1" Spacing="3" VerticalAlignment="Center" ToolTip.Tip="{Binding #Row.EditingHint}">
         <controls:NumericDraftInput Name="ScalarInput" ToolTip.Tip="{Binding #Row.EditingHint}" IsVisible="{Binding #Row.IsScalar}" IsEnabled="{Binding #Row.CanEdit}"
             RawText="{Binding #Row.X.RawText, Mode=TwoWay}" Value="{Binding #Row.X.Value, Mode=TwoWay}"
+            PreserveDoublePrecision="{Binding #Row.X.PreserveDoublePrecision}"
             Minimum="{Binding #Row.Minimum}" Maximum="{Binding #Row.Maximum}" Increment="{Binding #Row.Increment}" />
         <controls:VectorDraftInput Name="VectorInput" IsVisible="{Binding #Row.IsVector}" IsEnabled="{Binding #Row.CanEdit}"
+            HasZBinding="{Binding #Row.HasZ}" PreserveDoublePrecisionBinding="{Binding #Row.X.PreserveDoublePrecision}"
             XFieldKeyBinding="{Binding #Row.XFieldKey}" YFieldKeyBinding="{Binding #Row.YFieldKey}"
+            ZFieldKeyBinding="{Binding #Row.ZFieldKey}"
             XInputNameBinding="{Binding #Row.XInputName}" YInputNameBinding="{Binding #Row.YInputName}"
+            ZInputNameBinding="{Binding #Row.ZInputName}"
             XTextBinding="{Binding #Row.X.RawText, Mode=TwoWay}" YTextBinding="{Binding #Row.Y.RawText, Mode=TwoWay}"
+            ZTextBinding="{Binding #Row.Z.RawText, Mode=TwoWay}"
             XBinding="{Binding #Row.X.Value, Mode=TwoWay}" YBinding="{Binding #Row.Y.Value, Mode=TwoWay}"
+            ZBinding="{Binding #Row.Z.Value, Mode=TwoWay}"
             MinimumBinding="{Binding #Row.Minimum}" MaximumBinding="{Binding #Row.Maximum}" IncrementBinding="{Binding #Row.Increment}" />
         <controls:ColorDraftInput Name="ColorInput" CommitOnLostFocus="False" IsVisible="{Binding #Row.IsColor}" IsEnabled="{Binding #Row.CanEdit}" Draft="{Binding #Row.Color}" />
       </StackPanel>

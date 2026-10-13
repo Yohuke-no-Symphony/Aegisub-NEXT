@@ -89,6 +89,7 @@ public sealed class NumericDraftInput : NumericUpDown
         {
             preservingDraft = wasPreservingDraft;
         }
+        ResetHorizontalScrollPosition();
     }
 
     /// <inheritdoc />
@@ -114,6 +115,7 @@ public sealed class NumericDraftInput : NumericUpDown
             {
                 synchronizing = false;
             }
+            ResetHorizontalScrollPosition();
         }
     }
 
@@ -177,6 +179,7 @@ public sealed class NumericDraftInput : NumericUpDown
         if (valid)
         {
             base.OnLostFocus(e);
+            ResetHorizontalScrollPosition();
             return;
         }
         var wasPreservingDraft = preservingDraft;
@@ -189,6 +192,21 @@ public sealed class NumericDraftInput : NumericUpDown
         finally
         {
             preservingDraft = wasPreservingDraft;
+        }
+        ResetHorizontalScrollPosition();
+    }
+
+    private void ResetHorizontalScrollPosition()
+    {
+        if (IsKeyboardFocusWithin)
+        {
+            return;
+        }
+        var scroll = this.GetVisualDescendants().OfType<TextBox>().FirstOrDefault()?
+            .GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        if (scroll is not null)
+        {
+            scroll.Offset = new(0, scroll.Offset.Y);
         }
     }
 }

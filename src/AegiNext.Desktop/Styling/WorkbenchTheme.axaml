@@ -7,6 +7,7 @@
   <Styles.Resources>
     <ResourceDictionary>
     <sys:Double x:Key="WorkbenchControlHeight">32</sys:Double>
+    <sys:Double x:Key="WorkbenchNumericMinimumWidth">48</sys:Double>
     <sys:Double x:Key="WorkbenchBodyFontSize">13</sys:Double>
     <sys:Double x:Key="WorkbenchInputLineHeight">20</sys:Double>
     <sys:Double x:Key="WorkbenchHeadingLineHeight">28</sys:Double>
@@ -190,6 +191,14 @@
     <Setter Property="FontFamily" Value="{StaticResource WorkbenchBodyFontFamily}"/>
     <Setter Property="LineHeight" Value="{StaticResource WorkbenchInputLineHeight}"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="NumericUpDown">
+    <Setter Property="MinWidth" Value="{StaticResource WorkbenchNumericMinimumWidth}"/>
+    <Setter Property="ClipToBounds" Value="True"/>
+  </Style>
+  <Style Selector="NumericUpDown /template/ TextBox">
+    <Setter Property="MinWidth" Value="0"/>
+    <Setter Property="ClipToBounds" Value="True"/>
   </Style>
   <Style Selector=".business-surface TextBox.multiline-input">
     <Setter Property="VerticalContentAlignment" Value="Top"/>

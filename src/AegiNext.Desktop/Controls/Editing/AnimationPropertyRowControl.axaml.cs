@@ -14,6 +14,8 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, NumericValueDraft?>(nameof(X), null);
     public static readonly StyledProperty<NumericValueDraft?> YProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, NumericValueDraft?>(nameof(Y), null);
+    public static readonly StyledProperty<NumericValueDraft?> ZProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, NumericValueDraft?>(nameof(Z), null);
     public static readonly StyledProperty<ColorDraft?> ColorProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, ColorDraft?>(nameof(Color), null);
     public static readonly StyledProperty<string> LabelProperty =
@@ -24,16 +26,22 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(XFieldKey), null);
     public static readonly StyledProperty<string?> YFieldKeyProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(YFieldKey), null);
+    public static readonly StyledProperty<string?> ZFieldKeyProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(ZFieldKey), null);
     public static readonly StyledProperty<string> XInputNameProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(XInputName), "RangeValueXInput");
     public static readonly StyledProperty<string> YInputNameProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(YInputName), "RangeValueYInput");
+    public static readonly StyledProperty<string> ZInputNameProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(ZInputName), "RangeValueZInput");
     public static readonly StyledProperty<string> ScalarInputNameProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(ScalarInputName), "ScalarInput");
     public static readonly StyledProperty<bool> IsScalarProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(IsScalar), false);
     public static readonly StyledProperty<bool> IsVectorProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(IsVector), false);
+    public static readonly StyledProperty<bool> HasZProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(HasZ), false);
     public static readonly StyledProperty<bool> IsColorProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(IsColor), false);
     public static readonly StyledProperty<bool> CanEditProperty =
@@ -115,6 +123,12 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(YProperty, value);
     }
 
+    public NumericValueDraft? Z
+    {
+        get => GetValue(ZProperty);
+        set => SetValue(ZProperty, value);
+    }
+
     public ColorDraft? Color
     {
         get => GetValue(ColorProperty);
@@ -145,6 +159,12 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(YFieldKeyProperty, value);
     }
 
+    public string? ZFieldKey
+    {
+        get => GetValue(ZFieldKeyProperty);
+        set => SetValue(ZFieldKeyProperty, value);
+    }
+
     public bool IsScalar
     {
         get => GetValue(IsScalarProperty);
@@ -163,6 +183,12 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(YInputNameProperty, value);
     }
 
+    public string ZInputName
+    {
+        get => GetValue(ZInputNameProperty);
+        set => SetValue(ZInputNameProperty, value);
+    }
+
     public string ScalarInputName
     {
         get => GetValue(ScalarInputNameProperty);
@@ -173,6 +199,12 @@ public sealed partial class AnimationPropertyRowControl : UserControl
     {
         get => GetValue(IsVectorProperty);
         set => SetValue(IsVectorProperty, value);
+    }
+
+    public bool HasZ
+    {
+        get => GetValue(HasZProperty);
+        set => SetValue(HasZProperty, value);
     }
 
     public bool IsColor
@@ -316,7 +348,7 @@ public sealed partial class AnimationPropertyRowControl : UserControl
     /// <summary>判断完整属性或分量字段是否属于当前行。</summary>
     public bool OwnsField(string? field)
     {
-        return field is not null && (field == FieldKey || field == XFieldKey || field == YFieldKey);
+        return field is not null && (field == FieldKey || field == XFieldKey || field == YFieldKey || HasZ && field == ZFieldKey);
     }
 
     /// <summary>将焦点定位到当前行内的属性或分量输入。</summary>
@@ -332,7 +364,7 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         }
         if (IsVector)
         {
-            var componentKey = field == YFieldKey ? YFieldKey : XFieldKey;
+            var componentKey = field == YFieldKey ? YFieldKey : HasZ && field == ZFieldKey ? ZFieldKey : XFieldKey;
             return componentKey is not null && vector.FocusField(componentKey);
         }
         return scalar.FocusInput();
@@ -346,16 +378,20 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         {
             return null;
         }
-        return input.Name == YInputName ? YFieldKey : XFieldKey;
+        return IsVector ? vector.GetInputField(input) : XFieldKey;
     }
+
+    internal NumericDraftInput? FindFieldInput(string? field) =>
+        IsVector ? vector.FindFieldInput(field) : field == XFieldKey ? scalar : null;
 
     /// <inheritdoc />
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == ErrorProperty || change.Property == InvalidFieldKeyProperty ||
-            change.Property == XFieldKeyProperty || change.Property == YFieldKeyProperty ||
-            change.Property == XInputNameProperty || change.Property == YInputNameProperty)
+            change.Property == XFieldKeyProperty || change.Property == YFieldKeyProperty || change.Property == ZFieldKeyProperty ||
+            change.Property == XInputNameProperty || change.Property == YInputNameProperty || change.Property == ZInputNameProperty ||
+            change.Property == HasZProperty)
         {
             RefreshErrors();
         }
@@ -378,6 +414,7 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         }
         var xError = InvalidFieldKey is not null && InvalidFieldKey == XFieldKey ? Error : null;
         var yError = InvalidFieldKey is not null && InvalidFieldKey == YFieldKey ? Error : null;
+        var zError = HasZ && InvalidFieldKey is not null && InvalidFieldKey == ZFieldKey ? Error : null;
         DataValidationErrors.SetErrors(scalar, xError is null ? null : new[] { xError });
         if (XFieldKey is not null)
         {
@@ -386,6 +423,10 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         if (YFieldKey is not null)
         {
             vector.SetFieldError(YFieldKey, yError);
+        }
+        if (ZFieldKey is not null)
+        {
+            vector.SetFieldError(ZFieldKey, zError);
         }
     }
 
