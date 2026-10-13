@@ -218,7 +218,7 @@
     <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
   <Style Selector="Button:not(.dock-chrome)"><Setter Property="CornerRadius" Value="6"/><Setter Property="Padding" Value="{StaticResource WorkbenchButtonPadding}"/><Setter Property="MinHeight" Value="{StaticResource WorkbenchControlHeight}"/><Setter Property="FontSize" Value="{StaticResource WorkbenchBodyFontSize}"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="VerticalContentAlignment" Value="Center"/></Style>
-  <Style Selector="Button.icon-button, ToggleButton.icon-button">
+  <Style Selector="Button.icon-button, ToggleButton.icon-button, Button.animation-property-action, ToggleButton.animation-property-action">
     <Setter Property="Width" Value="{StaticResource WorkbenchControlHeight}"/>
     <Setter Property="Height" Value="{StaticResource WorkbenchControlHeight}"/>
     <Setter Property="MinWidth" Value="{StaticResource WorkbenchControlHeight}"/>
@@ -232,15 +232,6 @@
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="0" />
     <Setter Property="MinWidth" Value="0" />
-  </Style>
-  <Style Selector="Button.animation-property-action, ToggleButton.animation-property-action">
-    <Setter Property="Width" Value="26" />
-    <Setter Property="Height" Value="28" />
-    <Setter Property="MinWidth" Value="26" />
-    <Setter Property="MinHeight" Value="28" />
-    <Setter Property="Padding" Value="0" />
-    <Setter Property="HorizontalContentAlignment" Value="Center" />
-    <Setter Property="VerticalContentAlignment" Value="Center" />
   </Style>
   <Style Selector="ComboBox.icon-selector">
     <Setter Property="Width" Value="{DynamicResource WorkbenchControlHeight}"/>

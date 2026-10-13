@@ -31,7 +31,7 @@
         <controls:ColorDraftInput Name="ColorInput" CommitOnLostFocus="False" IsVisible="{Binding #Row.IsColor}" IsEnabled="{Binding #Row.CanEdit}" Draft="{Binding #Row.Color}" />
       </StackPanel>
       <StackPanel Name="RowActions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="2" IsVisible="{Binding #Row.ShowAnimationActions}">
-        <Button Name="AnimationOptionsButton" Classes="animation-property-action animation-options" Width="32" Height="32" MinWidth="32" MinHeight="32"
+        <Button Name="AnimationOptionsButton" Classes="animation-property-action animation-options"
             Command="{Binding #Row.AnimationOptionsCommand}" ToolTip.Tip="{Binding #Row.AnimationOptionsHint}" AutomationProperties.Name="{Binding #Row.AnimationOptionsHint}"><common:IconText IconKey="Settings" /></Button>
         <Button Classes="animation-property-action" IsEnabled="{Binding #Row.CanAddKeyframe}" Command="{Binding #Row.AddKeyframeCommand}" ToolTip.Tip="{Binding #Row.KeyframeHint}"><common:IconText IconKey="Keyframe" /></Button>
         <Button Classes="animation-property-action" IsEnabled="{Binding #Row.CanReset}" Command="{Binding #Row.ResetCommand}" ToolTip.Tip="{Binding #Row.ResetHint}"><common:IconText IconKey="Reset" /></Button>
