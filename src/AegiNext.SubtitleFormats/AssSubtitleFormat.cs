@@ -143,6 +143,7 @@ public static class AssSubtitleFormat
         var blurUsesPlayRes = layoutWidth <= 0 || layoutHeight <= 0;
         var blurScaleX = (double)targetWidth / (blurUsesPlayRes ? width : layoutWidth);
         var blurScaleY = (double)targetHeight / (blurUsesPlayRes ? height : layoutHeight);
+        var perspectiveDistance = SceneProjection.DEFAULT_DISTANCE * (blurUsesPlayRes ? 1 : (double)targetHeight / layoutHeight);
         var scaledBorder = !Get(info, "ScaledBorderAndShadow", "yes").Equals("no", StringComparison.OrdinalIgnoreCase);
         var resolution = scaledBorder ? new AssResolutionContext(scaleX, scaleY) :
             blurUsesPlayRes ? new(1, 1) : new((double)targetWidth / layoutWidth, (double)targetHeight / layoutHeight);
@@ -231,7 +232,8 @@ public static class AssSubtitleFormat
                 canvasHeight: targetHeight, wrapStyle: wrapStyle, blurScaleX: blurScaleX, blurScaleY: blurScaleY,
                 blurUsesPlayRes: blurUsesPlayRes, resolution: resolution, fontWeightResolver: fontWeightResolver,
                 dialogueMargins: new(marginL * scaleX, marginR * scaleX, marginV * scaleY),
-                placementMeasurer: placementMeasurer, maskGeometryCombiner: maskGeometryCombiner).Parse(body);
+                placementMeasurer: placementMeasurer, maskGeometryCombiner: maskGeometryCombiner,
+                perspectiveDistance: perspectiveDistance).Parse(body);
             var drawing = AssShapeImport.Convert(body, line, definition, parsed, scaleX, scaleY);
             var importedLine = parsed.Line;
             var keepSubtitle = !drawing.HasDrawing || importedLine.Text.Length > 0;

@@ -12,7 +12,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
     int wrapStyle = 0, double? blurScaleX = null, double? blurScaleY = null, bool blurUsesPlayRes = true,
     AssResolutionContext? resolution = null, bool projectAnimations = false, IAssFontWeightResolver? fontWeightResolver = null,
     SubtitleMargins? dialogueMargins = null, ISubtitlePlacementMeasurer? placementMeasurer = null,
-    ISubtitleMaskGeometryCombiner? maskGeometryCombiner = null)
+    ISubtitleMaskGeometryCombiner? maskGeometryCombiner = null, double perspectiveDistance = SceneProjection.DEFAULT_DISTANCE)
 {
     private readonly AssResolutionContext borderResolution = resolution ?? new(scaleX, scaleY);
     private readonly AssMaskParser maskParser = new(original.End - original.Start, scaleX, scaleY, canvasWidth, canvasHeight, maskGeometryCombiner);
@@ -219,15 +219,15 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             var sourceGeometry = rotationOriginParser.Origin.HasValue
                 ? textAnimation.RotationOriginGeometry() with { IsComplete = !incompleteGeometry } : null;
-            var perspectiveDistance = SceneProjection.DEFAULT_DISTANCE * (blurScaleY ?? scaleY);
-            if (perspectiveDistance < SceneProjection.MIN_DISTANCE || perspectiveDistance > SceneProjection.MAX_DISTANCE)
+            var importedPerspectiveDistance = perspectiveDistance;
+            if (importedPerspectiveDistance < SceneProjection.MIN_DISTANCE || importedPerspectiveDistance > SceneProjection.MAX_DISTANCE)
             {
                 Report("Ass.PerspectiveDistanceRange", "ASS layout resolution produces a perspective distance outside the native length range. Distance was clamped; text and rotation axes were preserved.", 0, 0);
-                perspectiveDistance = Math.Clamp(perspectiveDistance, SceneProjection.MIN_DISTANCE, SceneProjection.MAX_DISTANCE);
+                importedPerspectiveDistance = Math.Clamp(importedPerspectiveDistance, SceneProjection.MIN_DISTANCE, SceneProjection.MAX_DISTANCE);
             }
             transform = textAnimation.NormalizeTransform(geometryParser.Transform() with
             {
-                PerspectiveDistance = perspectiveDistance
+                PerspectiveDistance = importedPerspectiveDistance
             });
             var appearance = new AssTransformAppearance(transform, original.Id);
             line = appearance.Import(line);

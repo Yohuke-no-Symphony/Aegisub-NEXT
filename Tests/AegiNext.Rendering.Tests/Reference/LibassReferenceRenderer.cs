@@ -14,7 +14,7 @@ internal sealed unsafe class LibassReferenceRenderer : IDisposable
     private nint renderer;
     internal int Version { get; }
 
-    internal LibassReferenceRenderer(int width = 640, int height = 360)
+    internal LibassReferenceRenderer(int width = 640, int height = 360, bool useStorageResolution = true)
     {
         this.width = width;
         this.height = height;
@@ -44,7 +44,10 @@ internal sealed unsafe class LibassReferenceRenderer : IDisposable
                 throw new InvalidOperationException("libass renderer initialization failed.");
             }
             ((delegate* unmanaged[Cdecl]<nint, int, int, void>)Export("ass_set_frame_size"))(renderer, width, height);
-            ((delegate* unmanaged[Cdecl]<nint, int, int, void>)Export("ass_set_storage_size"))(renderer, width, height);
+            if (useStorageResolution)
+            {
+                ((delegate* unmanaged[Cdecl]<nint, int, int, void>)Export("ass_set_storage_size"))(renderer, width, height);
+            }
             ((delegate* unmanaged[Cdecl]<nint, int, void>)Export("ass_set_hinting"))(renderer, 0);
             var font = Encoding.UTF8.GetBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf") + '\0');
             var family = "Noto Sans\0"u8.ToArray();

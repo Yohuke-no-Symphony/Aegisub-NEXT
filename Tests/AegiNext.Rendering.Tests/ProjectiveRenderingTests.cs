@@ -305,6 +305,47 @@ public sealed class ProjectiveRenderingTests
         Assert.Single(layout.GetSelectionRects(1, 1));
     }
 
+    [Theory]
+    [InlineData("  Ajg  ", false)]
+    [InlineData("  ABC  \n  DEF  ", true)]
+    public void WholePlanePreservesTheOriginalInkBoxAndPivotWithOuterWhitespace(string text, bool identityRange)
+    {
+        var document = SubtitleDocument(text);
+        if (identityRange)
+        {
+            document = document with { Subtitles = [document.Subtitles[0] with
+            {
+                AnimationRanges = [new(Guid.NewGuid(), 0, text.Length)]
+            }] };
+        }
+        using var renderer = Renderer();
+        var baseline = renderer.GetLayerGeometry(document, MediaTime.Zero, document.Layers[0].Id)!;
+        var projected = document with { Layers = [document.Layers[0] with
+        {
+            Transform = new() { RotationX = 35, RotationY = -20 }
+        }] };
+        var geometry = renderer.GetLayerGeometry(projected, MediaTime.Zero, document.Layers[0].Id)!;
+        var layout = renderer.MeasureSubtitleTextLayout(document, document.Subtitles[0]);
+        var logical = layout.Graphemes.Select(glyph => glyph.Bounds).Aggregate(SKRect.Union);
+
+        Assert.Equal(baseline.LocalBounds, geometry.LocalBounds);
+        Assert.Equal(baseline.LocalPivot, geometry.LocalPivot);
+        Assert.Equal(baseline.BasePosition, geometry.BasePosition);
+        Assert.Equal(4, geometry.VisiblePolygon.Count);
+        var corners = new SKPoint[]
+        {
+            new(baseline.LocalBounds.Left, baseline.LocalBounds.Top), new(baseline.LocalBounds.Right, baseline.LocalBounds.Top),
+            new(baseline.LocalBounds.Right, baseline.LocalBounds.Bottom), new(baseline.LocalBounds.Left, baseline.LocalBounds.Bottom)
+        };
+        for (var index = 0; index < corners.Length; index++)
+        {
+            Assert.True(geometry.TryMapLocalPoint(corners[index], out var world));
+            AssertPoint(world, geometry.VisiblePolygon[index]);
+        }
+        var logicalWorld = geometry.LocalToWorld.MapRect(logical);
+        Assert.True(logicalWorld.Width > geometry.WorldBounds.Width || logicalWorld.Height > geometry.WorldBounds.Height);
+    }
+
     [Fact]
     public void FocalDistanceAnimationUpdatesPreviewAndExportWithoutReshapingText()
     {

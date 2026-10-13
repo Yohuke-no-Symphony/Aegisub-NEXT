@@ -21,6 +21,28 @@ public sealed class AssSpatialTransformTests
     }
 
     [Theory]
+    [InlineData(180, null, 312.5)]
+    [InlineData(720, null, 312.5)]
+    [InlineData(360, 180, 625)]
+    [InlineData(360, 720, 156.25)]
+    [InlineData(180, 360, 312.5)]
+    public void CameraUsesCompleteLayoutResolutionOrTargetCanvasStorage(int playResHeight, int? layoutHeight, double expected)
+    {
+        var parsed = Parse("{\\pos(120,80)\\frx30\\fry20}Axis", layoutHeight, playResHeight);
+
+        Assert.Equal(expected, Assert.Single(parsed.Clips).Transform.PerspectiveDistance);
+    }
+
+    [Fact]
+    public void IncompleteLayoutResolutionUsesTargetCanvasCamera()
+    {
+        var source = "[Script Info]\nPlayResX: 640\nPlayResY: 180\nLayoutResY: 180\n" +
+            "[Events]\nFormat: Layer, Start, End, Text\nDialogue: 0,0:00:00.00,0:00:02.00,{\\frx30}Axis";
+
+        Assert.Equal(312.5, Assert.Single(AssSubtitleFormat.Parse(source, 640, 360).Clips).Transform.PerspectiveDistance);
+    }
+
+    [Theory]
     [InlineData("\\frx30\\fry45\\frx\\fry")]
     [InlineData("\\frx30\\fry45\\r")]
     public void EmptyTagsAndStyleResetRestoreBothTiltAxesToZero(string tags)
@@ -257,13 +279,12 @@ public sealed class AssSpatialTransformTests
 
     private static ProjectLayer Layer(SubtitleLine line) => new() { SubtitleId = line.Id, End = line.End };
 
-    private static AssImportResult Parse(string text, int layoutHeight = 360) => AssSubtitleFormat.Parse($$"""
+    private static AssImportResult Parse(string text, int? layoutHeight = 360, int playResHeight = 360) => AssSubtitleFormat.Parse($$"""
         [Script Info]
         ScriptType: v4.00+
         PlayResX: 640
-        PlayResY: 360
-        LayoutResX: 640
-        LayoutResY: {{layoutHeight}}
+        PlayResY: {{playResHeight}}
+        {{(layoutHeight is { } height ? "LayoutResX: 640\nLayoutResY: " + height : string.Empty)}}
         WrapStyle: 1
         [V4+ Styles]
         Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, ScaleX, ScaleY, Spacing, Outline, Shadow, Alignment

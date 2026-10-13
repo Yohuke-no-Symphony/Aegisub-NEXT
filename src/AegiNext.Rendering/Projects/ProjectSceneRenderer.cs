@@ -675,7 +675,8 @@ public sealed partial class ProjectSceneRenderer : IDisposable
             .Then(ProjectiveMapping.Affine(parentToWorld));
         IReadOnlyList<SKPoint>? worldOutline = null;
         IReadOnlyList<ProjectedSubtitleGrapheme>? worldGraphemes = null;
-        if (subtitleLayout is { } text && (projection.IsProjective || layer.AnimationRanges.Any(RangeRequiresProjection)))
+        if (subtitleLayout is { } text && layer.AnimationRanges.Any(range => !IsRangeIdentity(range)) &&
+            (projection.IsProjective || layer.AnimationRanges.Any(RangeRequiresProjection)))
         {
             var matrices = RangeMatrices(layer, text);
             worldGraphemes = text.Graphemes.Select(glyph => new ProjectedSubtitleGrapheme(glyph.Bounds,
