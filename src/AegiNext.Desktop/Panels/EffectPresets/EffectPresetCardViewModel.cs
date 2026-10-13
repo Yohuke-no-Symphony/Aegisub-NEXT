@@ -19,6 +19,7 @@ internal sealed class EffectPresetCardViewModel(string id, string name, string s
         internal set => SetProperty(ref name, value);
     }
     public bool HasPreviewError => previewError is not null;
+    public string? PreviewToolTip => HasPreviewError ? PreviewStatus : null;
     public string PreviewStatus => previewError switch
     {
         EffectPresetPreviewRequirementException { Requirement: EffectPresetPreviewRequirement.MOTION_PATH } =>
@@ -37,5 +38,6 @@ internal sealed class EffectPresetCardViewModel(string id, string name, string s
     {
         OnPropertyChanged(nameof(HasPreviewError));
         OnPropertyChanged(nameof(PreviewStatus));
+        OnPropertyChanged(nameof(PreviewToolTip));
     }
 }

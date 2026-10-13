@@ -2,7 +2,7 @@
              xmlns:vm="using:AegiNext.Desktop.Panels.EffectPresets" xmlns:controls="using:AegiNext.Desktop.Controls"
              x:Class="AegiNext.Desktop.Panels.EffectPresets.EffectPresetCardView" x:DataType="vm:EffectPresetCardViewModel"
              AutomationProperties.Name="{Binding Name}">
-  <Grid RowDefinitions="Auto,Auto" RowSpacing="4" ToolTip.Tip="{Binding PreviewStatus}">
+  <Grid RowDefinitions="Auto,Auto" RowSpacing="4" ToolTip.Tip="{Binding PreviewToolTip}">
     <Border CornerRadius="4" ClipToBounds="True" Background="{DynamicResource PreviewBackground}">
       <Viewbox Stretch="Uniform">
         <Grid Width="320" Height="180">

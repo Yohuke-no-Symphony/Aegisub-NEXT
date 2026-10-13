@@ -28,6 +28,7 @@ internal sealed class EffectPresetPanelTestHost : IAsyncDisposable
         {
             await context.Session.ApplicationContext.Initialization;
             await context.Session.EffectScripts.Completion;
+            await context.Session.Fonts.EnsureLoadedAsync();
             return new(context, renderer ?? new(), postDrain);
         }
         catch
