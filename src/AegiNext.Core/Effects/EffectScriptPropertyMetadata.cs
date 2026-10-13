@@ -11,7 +11,8 @@ public static class EffectScriptPropertyMetadata
         "position", "scale", "rotation", "opacity", "blur", "stroke-width", "path-progress", "fill", "stroke",
         "mask-rectangle-top-left", "mask-rectangle-bottom-right", "mask-position", "mask-scale", "mask-rotation",
         "mask-node(1,1).position", "mask-node(1,1).in-handle", "mask-node(1,1).out-handle",
-        "letter-spacing", "fill-blur", "stroke-blur", "font-size", "shadow-offset", "shadow-blur", "shadow-color"
+        "letter-spacing", "fill-blur", "stroke-blur", "font-size", "shadow-offset", "shadow-blur", "shadow-color",
+        "rotation-x", "rotation-y", "perspective-distance"
     ];
 
     /// <summary>识别编辑器中的属性名称；节点序号的语法及存在性由解析器和编译器验证。</summary>
@@ -51,6 +52,9 @@ public static class EffectScriptPropertyMetadata
         EffectScriptProperty.POSITION => AnimationProperty.POSITION,
         EffectScriptProperty.SCALE => AnimationProperty.SCALE,
         EffectScriptProperty.ROTATION => AnimationProperty.ROTATION,
+        EffectScriptProperty.ROTATION_X => AnimationProperty.ROTATION_X,
+        EffectScriptProperty.ROTATION_Y => AnimationProperty.ROTATION_Y,
+        EffectScriptProperty.PERSPECTIVE_DISTANCE => AnimationProperty.PERSPECTIVE_DISTANCE,
         EffectScriptProperty.OPACITY => AnimationProperty.OPACITY,
         EffectScriptProperty.BLUR => AnimationProperty.BLUR,
         EffectScriptProperty.STROKE_WIDTH => AnimationProperty.STROKE_WIDTH,

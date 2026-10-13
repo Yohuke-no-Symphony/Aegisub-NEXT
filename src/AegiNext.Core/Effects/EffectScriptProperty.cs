@@ -26,5 +26,8 @@ public enum EffectScriptProperty
     FONT_SIZE,
     SHADOW_OFFSET,
     SHADOW_BLUR,
-    SHADOW_COLOR
+    SHADOW_COLOR,
+    ROTATION_X,
+    ROTATION_Y,
+    PERSPECTIVE_DISTANCE
 }
