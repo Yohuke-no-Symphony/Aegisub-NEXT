@@ -147,7 +147,7 @@ std::string ExportMetadata::X265Options() const
     if (hdr.flags & 4) result << ":max-cll=" << hdr.max_cll << ',' << hdr.max_fall;
     return result.str();
 }
-AVPixelFormat ExportMetadata::Verify(const char *path, AVCodecID codec, int depth, bool finalContainer,
+AVPixelFormat ExportMetadata::Verify(const char *path, AVCodecID codec, int depth, const ExportGeometry &geometry, bool finalContainer,
     const std::atomic<bool> &cancelled) const
 {
     Input input;
@@ -183,6 +183,7 @@ AVPixelFormat ExportMetadata::Verify(const char *path, AVCodecID codec, int dept
         av_packet_unref(input.packet);
     }
     Require(found, "Encoded output has no decodable video frame");
+    geometry.Verify(parameters, input.frame, finalContainer);
     const auto *description = av_pix_fmt_desc_get(static_cast<AVPixelFormat>(input.frame->format));
     Require(description && description->comp[0].depth == depth, "Encoded bit depth differs from the requested output");
     ExportMetadata actual(input.frame);

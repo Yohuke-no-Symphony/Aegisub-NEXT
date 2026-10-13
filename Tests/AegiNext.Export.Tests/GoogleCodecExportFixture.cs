@@ -72,6 +72,7 @@ internal sealed class GoogleCodecExportFixture : IDisposable
             Style = new()
             {
                 FontFamily = "Noto Sans", FontAssetId = font.Id, FontSize = 24, Alignment = TextAlignment.MIDDLE_CENTER,
+                Scaling = new() { ReferenceWidth = WIDTH, ReferenceHeight = HEIGHT },
                 Margins = new(4, 4, 4), Fill = SceneColor.White, StrokeWidth = 0, ShadowColor = SceneColor.Transparent,
                 ShadowBlur = 0
             }

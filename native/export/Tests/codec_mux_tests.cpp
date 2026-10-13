@@ -138,17 +138,19 @@ void Export(const std::string &source, const std::string &intermediate, const st
     CheckResult(an_export_create(&context, error.data(), error.size()), error.data());
     try
     {
-        an_export_request request{sizeof(request),6,0,codec,32,128,128,0,source.c_str(),intermediate.c_str(),"ultrafast",203,0,0,400000,1,0,mode,0};
+        an_export_request request{sizeof(request),AN_EXPORT_ABI_VERSION,0,codec,32,128,128,0,source.c_str(),intermediate.c_str(),"ultrafast",203,0,0,400000,1,0,mode,0};
         uint64_t frames = 0;
         CheckResult(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()), error.data());
         Require(frames == 6, "Encoded frame count changed");
-        an_export_result_info info{}; info.struct_size = sizeof(info); info.abi_version = 6;
+        an_export_result_info info{}; info.struct_size = sizeof(info); info.abi_version = AN_EXPORT_ABI_VERSION;
         CheckResult(an_export_get_result_info(context, &info, error.data(), error.size()), error.data());
         Require(info.output_verification == 1 && info.verification == 1 && info.bitrate_precision == 1000 &&
             info.codec == codec && info.rate_control_mode == mode, "Encoded receipt is incomplete");
+        Require(info.output_width == 128 && info.output_height == 128 && !info.padding_top && !info.padding_bottom &&
+            !info.padding_left && !info.padding_right, "Software output geometry receipt differs from the project canvas");
         Require(info.bit_depth == (transfer == AVCOL_TRC_BT709 ? 8 : 10) && info.hdr.flags == (transfer == AVCOL_TRC_SMPTE2084 ? 7u : 0u),
             "Encoded HDR receipt differs from input");
-        an_export_mux_request mux{sizeof(mux),6,destination.c_str(),audio ? source.c_str() : nullptr,audio ? 1 : -1,0};
+        an_export_mux_request mux{sizeof(mux),AN_EXPORT_ABI_VERSION,destination.c_str(),audio ? source.c_str() : nullptr,audio ? 1 : -1,0};
         const int muxResult = an_export_mux(context, &mux, error.data(), error.size());
         if (expectedMuxCode)
         {
@@ -219,7 +221,7 @@ int main()
         std::array<char,2048> error{};
         CheckResult(an_export_create(&context, error.data(), error.size()), error.data());
         const auto rejected = path("hdr-vp8.nut");
-        an_export_request request{sizeof(request),6,0,3,32,128,128,0,pqSource.c_str(),rejected.c_str(),"ultrafast",203,0,0,400000,1,0,4,0};
+        an_export_request request{sizeof(request),AN_EXPORT_ABI_VERSION,0,3,32,128,128,0,pqSource.c_str(),rejected.c_str(),"ultrafast",203,0,0,400000,1,0,4,0};
         uint64_t frames = 0;
         const int unsupported = an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size());
         an_export_destroy(context);
@@ -228,8 +230,11 @@ int main()
         expected.color_range = AVCOL_RANGE_MPEG; expected.colorspace = AVCOL_SPC_BT2020_NCL;
         expected.color_primaries = AVCOL_PRI_BT2020; expected.color_trc = AVCOL_TRC_SMPTE2084;
         aeginext::encode::ExportMetadata missingHdr(&expected);
+        AVCodecContext expectedEncoder{};
+        expectedEncoder.width = expectedEncoder.height = 128;
+        const auto geometry = aeginext::encode::ExportGeometry::Capture(128, 128, "ffv1", &expectedEncoder);
         bool rejectedMetadata = false;
-        try { missingHdr.Verify(pqSource.c_str(), AV_CODEC_ID_FFV1, 10, true, std::atomic<bool>{false}); }
+        try { missingHdr.Verify(pqSource.c_str(), AV_CODEC_ID_FFV1, 10, geometry, true, std::atomic<bool>{false}); }
         catch (const aeginext::encode::ExportFailure &) { rejectedMetadata = true; }
         Require(rejectedMetadata, "Actual HDR mismatch was accepted by final output verification");
         std::cout << "PASS VP8/VP9/AV1 quality/VBR/CBR; SDR/PQ/HLG; native mux and receipts" << std::endl;

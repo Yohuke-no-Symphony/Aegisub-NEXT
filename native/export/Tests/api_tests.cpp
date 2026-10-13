@@ -22,11 +22,14 @@ int main()
         static_assert(sizeof(an_export_request) == 88 && offsetof(an_export_request, input_path) == 32 &&
             offsetof(an_export_request, reference_white_nits) == 56 && offsetof(an_export_request, encoding_mode) == 64 &&
             offsetof(an_export_request, rate_control_mode) == 80 && offsetof(an_export_request, rate_control_reserved) == 84);
-        static_assert(sizeof(an_export_result_info) == 488 && offsetof(an_export_result_info, fallback_reason) == 72 &&
+        static_assert(sizeof(an_export_result_info) == 512 && offsetof(an_export_result_info, fallback_reason) == 72 &&
             offsetof(an_export_result_info, rate_control_mode) == 328 && offsetof(an_export_result_info, video_bitrate) == 332 &&
             offsetof(an_export_result_info, quality) == 336 && offsetof(an_export_result_info, verification) == 340);
         static_assert(sizeof(an_export_overlay_info) == 24 && offsetof(an_export_overlay_info, revision) == 16);
-        Require(an_export_abi_version() == 6, "ABI version mismatch");
+        static_assert(offsetof(an_export_result_info, output_width) == 488 && offsetof(an_export_result_info, output_height) == 492 &&
+            offsetof(an_export_result_info, padding_top) == 496 && offsetof(an_export_result_info, padding_bottom) == 500 &&
+            offsetof(an_export_result_info, padding_left) == 504 && offsetof(an_export_result_info, padding_right) == 508);
+        Require(an_export_abi_version() == AN_EXPORT_ABI_VERSION, "ABI version mismatch");
         Require(an_export_core_version() == 1 && (an_export_capabilities() & 7) == 7,
             "Shared media core version or capabilities are missing");
         std::array<char, 256> error{};
@@ -37,10 +40,10 @@ int main()
             void *context = nullptr;
             Require(an_export_create(&context, error.data(), error.size()) == 0 && context, "Context creation failed");
             uint64_t frames = 123;
-            an_export_request request{sizeof(request),6,0,0,20,64,48,0,"unused","unused","ultrafast",203,0,0,8000000,0,0,1,0};
+            an_export_request request{sizeof(request),AN_EXPORT_ABI_VERSION,0,0,20,64,48,0,"unused","unused","ultrafast",203,0,0,8000000,0,0,1,0};
             an_export_result_info info{};
             info.struct_size = sizeof(info);
-            info.abi_version = 6;
+            info.abi_version = AN_EXPORT_ABI_VERSION;
             Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
                 "Result information reported before completion");
             Require(an_export_get_result_info(context, nullptr, error.data(), error.size()) == 1,
@@ -49,15 +52,15 @@ int main()
             Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
                 "Invalid result information layout accepted");
             info.struct_size = sizeof(info);
-            info.abi_version = 4;
+            info.abi_version = 6;
             Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
                 "Legacy result information ABI accepted");
-            info.abi_version = 6;
+            info.abi_version = AN_EXPORT_ABI_VERSION;
             Require(std::strlen(an_export_encoder_name(context)) == 0, "Encoder reported before initialization");
-            request.abi_version = 4;
+            request.abi_version = 6;
             Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 1,
                 "Invalid ABI was accepted");
-            request.abi_version = 6;
+            request.abi_version = AN_EXPORT_ABI_VERSION;
             request.struct_size = 80;
             Require(an_export_run(context, &request, Render, nullptr, &frames, error.data(), error.size()) == 1,
                 "Legacy request size accepted");
@@ -166,7 +169,7 @@ int main()
                 }
             }
             request.codec = 0;
-            an_export_mux_request mux{sizeof(mux), 6, "unused.mkv", nullptr, -1, 0};
+            an_export_mux_request mux{sizeof(mux), AN_EXPORT_ABI_VERSION, "unused.mkv", nullptr, -1, 0};
             Require(an_export_mux(context, &mux, error.data(), error.size()) == 1, "Mux allowed before encoded completion");
             mux.reserved = 1;
             Require(an_export_mux(context, &mux, error.data(), error.size()) == 1, "Mux reserved field accepted");
@@ -181,7 +184,7 @@ int main()
             Require(an_export_get_result_info(context, &info, error.data(), error.size()) == 1,
                 "Destroyed result information handle accepted");
         }
-        std::cout << "PASS ABI 6, overlay POD24, explicit CRF/VBR/CBR, active quality boundaries, inactive fields, pinned runtime, cancellation, ownership\n";
+        std::cout << "PASS ABI 7, overlay POD24, explicit CRF/VBR/CBR, active quality boundaries, inactive fields, pinned runtime, cancellation, ownership\n";
         return 0;
     }
     catch (const std::exception &error)

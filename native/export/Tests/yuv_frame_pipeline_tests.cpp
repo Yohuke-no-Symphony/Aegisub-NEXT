@@ -296,7 +296,7 @@ size_t LegacyMatrixParity()
                                     " transfer=" + std::to_string(transfer) + " layout=" + std::to_string(layout) +
                                     " threads=" + std::to_string(threads) + " overlay=" + std::to_string(mode);
                                 EqualSamples(expected.get(), actual.get(), context);
-                                const an_export_overlay_info info{sizeof(info), 6, AN_EXPORT_OVERLAY_UPDATED, 0,
+                                const an_export_overlay_info info{sizeof(info), AN_EXPORT_ABI_VERSION, AN_EXPORT_OVERLAY_UPDATED, 0,
                                     static_cast<uint64_t>(mode + 1)};
                                 overlay.Invalidate();
                                 overlay.Accept(info, layer, color, referenceWhite, []() {});
@@ -357,7 +357,7 @@ size_t TallCroppedFramesMatchLegacyAcrossSliceBoundaries()
                                 " threads=" + std::to_string(threads) + " crop=(" + std::to_string(origin[0]) +
                                 "," + std::to_string(origin[1]) + ") overlay=" + std::to_string(mode);
                             EqualSamples(expected.get(), actual.get(), context);
-                            const an_export_overlay_info info{sizeof(info), 6, AN_EXPORT_OVERLAY_UPDATED, 0,
+                            const an_export_overlay_info info{sizeof(info), AN_EXPORT_ABI_VERSION, AN_EXPORT_OVERLAY_UPDATED, 0,
                                 static_cast<uint64_t>(mode)};
                             overlay.Invalidate();
                             overlay.Accept(info, layer, color, 203, []() {});
@@ -440,7 +440,7 @@ void PreparedReuseUpdatesBackgroundAndEmptyIgnoresStalePixels()
                     }
                 }
             }
-            const an_export_overlay_info info{sizeof(info), 6, static_cast<uint32_t>(state), 0, revision};
+            const an_export_overlay_info info{sizeof(info), AN_EXPORT_ABI_VERSION, static_cast<uint32_t>(state), 0, revision};
             overlay.Accept(info, pixels, color, 406, []() {});
             Check(reference.Convert(source.get(), frame == 2 || frame == 3 ? empty : pixels,
                 color, 406, expected.get()), "legacy revision reuse");
@@ -466,7 +466,7 @@ void AdaptiveUpdatedFramesPreserveScalarValidationAndCancelRecovery()
     auto actual = Allocate(AV_PIX_FMT_P010LE, WIDTH, HEIGHT);
     const auto accept = [&](uint32_t state, uint64_t revision)
     {
-        const an_export_overlay_info info{sizeof(info), 6, state, 0, revision};
+        const an_export_overlay_info info{sizeof(info), AN_EXPORT_ABI_VERSION, state, 0, revision};
         overlay.Accept(info, pixels, color, 203, []() {});
     };
     for (int frame = 0; frame < 3; ++frame)
@@ -541,7 +541,7 @@ void PreparedColorBudgetFallbackMatchesLegacy()
         pixels[index] = static_cast<float>(index / 4) / 100000;
     }
     PreparedOverlay overlay(VISIBLE_WIDTH, HEIGHT);
-    const an_export_overlay_info info{sizeof(info), 6, AN_EXPORT_OVERLAY_UPDATED, 0, 1};
+    const an_export_overlay_info info{sizeof(info), AN_EXPORT_ABI_VERSION, AN_EXPORT_OVERLAY_UPDATED, 0, 1};
     overlay.Accept(info, pixels, color, 203, []() {});
     Require(!overlay.PreparedPixels() && overlay.ActivePixels() == static_cast<uint64_t>(VISIBLE_WIDTH) * HEIGHT,
         "Fallback fixture did not exceed its foreground color budget");

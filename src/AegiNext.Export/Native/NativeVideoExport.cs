@@ -90,6 +90,19 @@ internal static class NativeVideoExport
             (VideoRateControlVerification)info.Verification, checked((int)info.BitratePrecision));
     }
 
+    internal static VideoExportGeometry ReadGeometry(NativeExportResultInfo info)
+    {
+        if (info.OutputWidth is 0 or > int.MaxValue || info.OutputHeight is 0 or > int.MaxValue ||
+            info.PaddingTop > int.MaxValue || info.PaddingBottom > int.MaxValue ||
+            info.PaddingLeft > int.MaxValue || info.PaddingRight > int.MaxValue)
+        {
+            throw new InvalidDataException("The native export dimensions or padding are missing or exceed the supported range.");
+        }
+
+        return new((int)info.OutputWidth, (int)info.OutputHeight, (int)info.PaddingTop,
+            (int)info.PaddingBottom, (int)info.PaddingLeft, (int)info.PaddingRight);
+    }
+
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static unsafe int Render(nint context, long pts, int numerator, int denominator, uint width, uint height,
         float* pixels, ulong channels, NativeExportOverlayInfo* overlay)

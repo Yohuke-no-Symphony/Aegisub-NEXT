@@ -185,7 +185,7 @@ public sealed class VideoEncodingOptionsTests
         Assert.Equal(effectiveMode == VideoRateControlMode.CRF ? 0 : 12500000, arguments.VideoBitrate);
         Assert.Equal(0U, arguments.RateControlReserved);
         Assert.Equal(88U, arguments.StructSize);
-        Assert.Equal(6U, arguments.AbiVersion);
+        Assert.Equal(7U, arguments.AbiVersion);
     }
 
     /// <summary>回执读取原生结果字段并拒绝未知保留位，不能由 managed 请求生成替代回执。</summary>
@@ -204,6 +204,8 @@ public sealed class VideoEncodingOptionsTests
     [InlineData(0, VideoRateControlMode.CRF)]
     [InlineData(1, VideoRateControlMode.CRF)]
     [InlineData(2, VideoRateControlMode.CRF)]
+    [InlineData(3, VideoRateControlMode.CRF)]
+    [InlineData(4, VideoRateControlMode.CRF)]
     [InlineData(ExportWire.VERSION, VideoRateControlMode.AUTOMATIC)]
     [InlineData(ExportWire.VERSION, (VideoRateControlMode)9)]
     public void WorkerRejectsMismatchedProtocolAndUnresolvedModes(int version, VideoRateControlMode mode)

@@ -79,15 +79,17 @@ public static class ExportWorkerHost
             using (var session = NativeVideoExport.Run(request, videoPath, progress, token))
             {
                 encoded = session.ReadResult(token);
+                VideoExporter.ValidateCompletedGeometry(request, encoded.Encoder, encoded.OutputGeometry);
                 VideoExporter.ValidateCompletedRateControl(request, encoded.RateControl);
                 await ExportMuxer.RunAsync(request, session, audio, token).ConfigureAwait(false);
                 encoded = session.ReadResult(token);
                 VideoExporter.ValidateCompletedOutput(request, encoded.OutputColor);
+                VideoExporter.ValidateCompletedGeometry(request, encoded.Encoder, encoded.OutputGeometry);
             }
 
             cancellation.ThrowIfCancellationRequested();
             writer.Send(new("complete", encoded.Frames, Encoder: encoded.Encoder, Decoder: encoded.Decoder,
-                OutputColor: encoded.OutputColor, RateControl: encoded.RateControl));
+                OutputColor: encoded.OutputColor, RateControl: encoded.RateControl, OutputGeometry: encoded.OutputGeometry));
             return 0;
         }
         catch (Exception error)

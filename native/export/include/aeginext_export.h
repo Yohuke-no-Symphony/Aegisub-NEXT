@@ -1,6 +1,7 @@
 #ifndef AEGINEXT_EXPORT_H
 #define AEGINEXT_EXPORT_H
 #include <stdint.h>
+#define AN_EXPORT_ABI_VERSION 7u
 #if defined(_WIN32)
 #define AN_EXPORT_CALL __cdecl
 #ifdef AEGINEXT_EXPORT_BUILD
@@ -15,7 +16,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/* ABI 6; one run per context. Cancel may run concurrently; destruction may not. */
+/* ABI 7; one run per context. Cancel may run concurrently; destruction may not. */
 typedef struct an_export_request
 {
     uint32_t struct_size, abi_version;
@@ -67,6 +68,8 @@ typedef struct an_export_result_info
     an_export_hdr_metadata hdr;
     uint32_t output_verification; /* 1 encoded bitstream checked, 2 final container checked */
     uint32_t bitrate_precision; /* rate-control target quantum in bits per second */
+    uint32_t output_width, output_height; /* verified untrimmed encoded dimensions */
+    uint32_t padding_top, padding_bottom, padding_left, padding_right; /* encoder-reported AV1 AMF alignment padding */
 } an_export_result_info;
 typedef struct an_export_overlay_info
 {
@@ -81,7 +84,7 @@ enum an_export_overlay_state
 };
 /* Updated fully overwrites tight premultiplied linear-sRGB float RGBA. Unchanged reuses the last
    successful revision. Empty ignores RGBA. Revision must be nonzero; return 0 OK, 1 cancelled, 2 error.
-   Native initializes info to size 24, ABI 6, state/reserved/revision 0. The buffer belongs to native,
+   Native initializes info to size 24, ABI 7, state/reserved/revision 0. The buffer belongs to native,
    remains unchanged on Unchanged, and may not be retained by the callback. */
 typedef int32_t (AN_EXPORT_CALL *an_export_render_callback)(void *user, int64_t pts,
     int32_t time_base_num, int32_t time_base_den, uint32_t width, uint32_t height,
@@ -104,7 +107,7 @@ AN_EXPORT_API int32_t AN_EXPORT_CALL an_export_run(void *context, const an_expor
 #ifdef __cplusplus
 }
 static_assert(sizeof(an_export_request) == 88);
-static_assert(sizeof(an_export_result_info) == 488);
+static_assert(sizeof(an_export_result_info) == 512);
 static_assert(sizeof(an_export_hdr_metadata) == 96);
 static_assert(sizeof(an_export_mux_request) == 32);
 static_assert(sizeof(an_export_overlay_info) == 24);

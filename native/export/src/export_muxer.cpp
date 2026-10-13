@@ -215,7 +215,8 @@ int64_t Timestamp(const AVPacket *packet)
 }
 }
 void MuxExport(const char *sourcePath, const char *videoPath, const an_export_mux_request &request,
-    const ExportMetadata &metadata, AVCodecID codec, int depth, const std::atomic<bool> &cancelled)
+    const ExportMetadata &metadata, const ExportGeometry &geometry, AVCodecID codec, int depth,
+    const std::atomic<bool> &cancelled)
 {
     const auto outputPath = std::filesystem::path(reinterpret_cast<const char8_t *>(request.output_path));
     Require(!std::filesystem::exists(outputPath), "Final export output already exists");
@@ -288,7 +289,7 @@ void MuxExport(const char *sourcePath, const char *videoPath, const an_export_mu
         }
         CheckAv(av_write_trailer(output.format), "write final container trailer");
         CheckAv(avio_closep(&output.format->pb), "close final output");
-        metadata.Verify(request.output_path, codec, depth, true, cancelled);
+        metadata.Verify(request.output_path, codec, depth, geometry, true, cancelled);
         VerifyChapters(original.format, request.output_path, cancelled);
         VerifyPackets(video, request.output_path, AVMEDIA_TYPE_VIDEO, cancelled);
         if (audio.format) VerifyPackets(audio, request.output_path, AVMEDIA_TYPE_AUDIO, cancelled);
