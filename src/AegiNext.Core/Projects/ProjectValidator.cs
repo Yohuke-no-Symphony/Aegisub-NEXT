@@ -117,6 +117,9 @@ public static partial class ProjectValidator
                 Number(range.Scale.X, -10000, 10000, "Range Scale X");
                 Number(range.Scale.Y, -10000, 10000, "Range Scale Y");
                 Number(range.Rotation, -1e9, 1e9, "Range Rotation");
+                Number(range.RotationX, -1e9, 1e9, "Range Rotation X");
+                Number(range.RotationY, -1e9, 1e9, "Range Rotation Y");
+                Projection(range.PerspectiveDistance, range.ProjectionTranslation);
                 Point(range.Offset);
             }
             ValidateGeneratedRangeOrigins(line.AnimationRanges);
@@ -319,6 +322,9 @@ public static partial class ProjectValidator
         Number(transform.ScaleX, -10000, 10000, "ScaleX");
         Number(transform.ScaleY, -10000, 10000, "ScaleY");
         Number(transform.Rotation, -1e9, 1e9, "Rotation");
+        Number(transform.RotationX, -1e9, 1e9, "Rotation X");
+        Number(transform.RotationY, -1e9, 1e9, "Rotation Y");
+        Projection(transform.PerspectiveDistance, transform.ProjectionTranslation);
         Number(layer.Opacity, 0, 1, "Opacity");
         Number(layer.StrokeWidth, 0, 4096, "StrokeWidth");
         Number(layer.Blur, 0, 512, "Blur");
@@ -589,6 +595,14 @@ public static partial class ProjectValidator
         }
         Number(minimum, 0.01, 4096, "Conservative lower bound of ordered font-size transforms");
         Number(maximum, 0.01, 4096, "Conservative upper bound of ordered font-size transforms");
+    }
+
+    private static void Projection(double distance, SceneVector3 translation)
+    {
+        Number(distance, SceneProjection.MIN_DISTANCE, SceneProjection.MAX_DISTANCE, "Perspective distance");
+        Number(translation.X, -1e9, 1e9, "Projection translation X");
+        Number(translation.Y, -1e9, 1e9, "Projection translation Y");
+        Number(translation.Z, -1e9, 1e9, "Projection translation Z");
     }
 
     private static void Mask(ClipMask mask)

@@ -287,7 +287,10 @@ public static class SceneEvaluator
         {
             Position = GetVector(values, AnimationProperty.POSITION, layer.Transform.Position),
             Scale = GetVector(values, AnimationProperty.SCALE, layer.Transform.Scale),
-            Rotation = Get(values, AnimationProperty.ROTATION, layer.Transform.Rotation)
+            Rotation = Get(values, AnimationProperty.ROTATION, layer.Transform.Rotation),
+            RotationX = Get(values, AnimationProperty.ROTATION_X, layer.Transform.RotationX),
+            RotationY = Get(values, AnimationProperty.ROTATION_Y, layer.Transform.RotationY),
+            PerspectiveDistance = Get(values, AnimationProperty.PERSPECTIVE_DISTANCE, layer.Transform.PerspectiveDistance)
         };
         if (layer.MotionPath is { } motion)
         {
@@ -334,7 +337,10 @@ public static class SceneEvaluator
             {
                 Offset = values.TryGetValue(new(AnimationProperty.POSITION, TextRangeId: range.Id), out var offset) ? offset.Vector : range.Offset,
                 Scale = values.TryGetValue(new(AnimationProperty.SCALE, TextRangeId: range.Id), out var scale) ? scale.Vector : range.Scale,
-                Rotation = values.TryGetValue(new(AnimationProperty.ROTATION, TextRangeId: range.Id), out var rotation) ? rotation.Scalar : range.Rotation
+                Rotation = values.TryGetValue(new(AnimationProperty.ROTATION, TextRangeId: range.Id), out var rotation) ? rotation.Scalar : range.Rotation,
+                RotationX = values.TryGetValue(new(AnimationProperty.ROTATION_X, TextRangeId: range.Id), out var rotationX) ? rotationX.Scalar : range.RotationX,
+                RotationY = values.TryGetValue(new(AnimationProperty.ROTATION_Y, TextRangeId: range.Id), out var rotationY) ? rotationY.Scalar : range.RotationY,
+                PerspectiveDistance = values.TryGetValue(new(AnimationProperty.PERSPECTIVE_DISTANCE, TextRangeId: range.Id), out var distance) ? distance.Scalar : range.PerspectiveDistance
             }).ToImmutableArray()
         };
     }

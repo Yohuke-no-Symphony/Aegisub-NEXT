@@ -69,6 +69,18 @@ public static class SubtitleAnimationEvaluation
             {
                 return range.Rotation;
             }
+            if (target.Property == AnimationProperty.ROTATION_X)
+            {
+                return range.RotationX;
+            }
+            if (target.Property == AnimationProperty.ROTATION_Y)
+            {
+                return range.RotationY;
+            }
+            if (target.Property == AnimationProperty.PERSPECTIVE_DISTANCE)
+            {
+                return range.PerspectiveDistance;
+            }
             return GetStyleValue(StaticStyleAt(subtitle, range.Utf16Start, target.State), target.Property);
         }
         if (subtitle is not null && styleProperties.Contains(target.Property))
@@ -81,6 +93,9 @@ public static class SubtitleAnimationEvaluation
             AnimationProperty.POSITION => layer.Transform.Position,
             AnimationProperty.SCALE => layer.Transform.Scale,
             AnimationProperty.ROTATION => layer.Transform.Rotation,
+            AnimationProperty.ROTATION_X => layer.Transform.RotationX,
+            AnimationProperty.ROTATION_Y => layer.Transform.RotationY,
+            AnimationProperty.PERSPECTIVE_DISTANCE => layer.Transform.PerspectiveDistance,
             AnimationProperty.OPACITY => layer.Opacity,
             AnimationProperty.BLUR => layer.Blur,
             AnimationProperty.FILL => layer.Fill,

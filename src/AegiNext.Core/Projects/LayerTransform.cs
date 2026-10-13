@@ -25,6 +25,13 @@ public sealed record LayerTransform
     public ScenePoint Scale { get; init; } = new(1, 1);
     public ScenePoint Pivot { get; init; }
     public double Rotation { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double RotationX { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double RotationY { get; init; }
+    public double PerspectiveDistance { get; init; } = SceneProjection.DEFAULT_DISTANCE;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public SceneVector3 ProjectionTranslation { get; init; }
 
     [JsonIgnore]
     public double X

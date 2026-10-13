@@ -17,7 +17,8 @@ public static class AnimationPropertyMetadata
         AnimationProperty.MASK_ROTATION, AnimationProperty.MASK_NODE_POSITION, AnimationProperty.MASK_NODE_IN_HANDLE,
         AnimationProperty.MASK_NODE_OUT_HANDLE, AnimationProperty.LETTER_SPACING, AnimationProperty.FILL_BLUR,
         AnimationProperty.STROKE_BLUR, AnimationProperty.FONT_SIZE, AnimationProperty.SHADOW_OFFSET,
-        AnimationProperty.SHADOW_BLUR, AnimationProperty.SHADOW_COLOR
+        AnimationProperty.SHADOW_BLUR, AnimationProperty.SHADOW_COLOR,
+        AnimationProperty.ROTATION_X, AnimationProperty.ROTATION_Y, AnimationProperty.PERSPECTIVE_DISTANCE
     ];
 
     /// <summary>获取一个稳定属性的值类型，旧分量属性仍返回标量供显式迁移使用。</summary>
@@ -69,6 +70,7 @@ public static class AnimationPropertyMetadata
                 AnimationProperty.PATH_PROGRESS or AnimationProperty.BLUR or AnimationProperty.STROKE_WIDTH or
                 AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_BLUR => 0,
             AnimationProperty.FONT_SIZE => 0.01,
+            AnimationProperty.PERSPECTIVE_DISTANCE => SceneProjection.MIN_DISTANCE,
             AnimationProperty.LETTER_SPACING => -4096,
             AnimationProperty.SCALE or AnimationProperty.SCALE_X or AnimationProperty.SCALE_Y or AnimationProperty.MASK_SCALE => -10000,
             AnimationProperty.FILL_RED or AnimationProperty.FILL_GREEN or AnimationProperty.FILL_BLUE or
@@ -113,7 +115,8 @@ public static class AnimationPropertyMetadata
         AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING or AnimationProperty.FILL or AnimationProperty.STROKE or
         AnimationProperty.STROKE_WIDTH or AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or
         AnimationProperty.SHADOW_OFFSET or AnimationProperty.SHADOW_BLUR or AnimationProperty.SHADOW_COLOR or
-        AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION;
+        AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION or
+        AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE;
 
     /// <summary>判断是否为可独立作用于演唱前及高亮状态的绘制属性。</summary>
     public static bool IsSubtitleVisualProperty(AnimationProperty property) => property is

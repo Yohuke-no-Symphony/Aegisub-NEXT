@@ -38,5 +38,8 @@ public enum AnimationProperty
     FONT_SIZE = 32,
     SHADOW_OFFSET = 33,
     SHADOW_BLUR = 34,
-    SHADOW_COLOR = 35
+    SHADOW_COLOR = 35,
+    ROTATION_X = 36,
+    ROTATION_Y = 37,
+    PERSPECTIVE_DISTANCE = 38
 }

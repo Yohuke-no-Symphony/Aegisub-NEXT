@@ -98,7 +98,9 @@ public static partial class ProjectEditingOperations
 
         if (!HasNeutralVisuals(firstLayer) || !HasNeutralVisuals(secondLayer) ||
             first.AnimationRanges.Concat(second.AnimationRanges).Any(range => range.Scale != new ScenePoint(1, 1) ||
-                range.Rotation != 0 || range.Offset != new ScenePoint(0, 0)))
+                range.Rotation != 0 || range.RotationX != 0 || range.RotationY != 0 ||
+                range.PerspectiveDistance != SceneProjection.DEFAULT_DISTANCE || range.ProjectionTranslation != default ||
+                range.Offset != new ScenePoint(0, 0)))
         {
             throw new InvalidOperationException("包含片段动画、变换、蒙版或混合效果的字幕不能无损合并。");
         }

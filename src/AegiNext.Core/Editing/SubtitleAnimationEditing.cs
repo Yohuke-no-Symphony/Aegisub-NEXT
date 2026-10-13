@@ -22,13 +22,17 @@ public static class SubtitleAnimationEditing
         if (target.TextRangeId is { } rangeId)
         {
             var range = subtitle!.AnimationRanges.Single(range => range.Id == rangeId);
-            if (target.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION)
+            if (target.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION or
+                AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE)
             {
                 var changed = target.Property switch
                 {
                     AnimationProperty.POSITION => range with { Offset = value.Vector },
                     AnimationProperty.SCALE => range with { Scale = value.Vector },
-                    _ => range with { Rotation = value.Scalar }
+                    AnimationProperty.ROTATION => range with { Rotation = value.Scalar },
+                    AnimationProperty.ROTATION_X => range with { RotationX = value.Scalar },
+                    AnimationProperty.ROTATION_Y => range with { RotationY = value.Scalar },
+                    _ => range with { PerspectiveDistance = value.Scalar }
                 };
                 return ReplaceSubtitle(document, subtitle, subtitle with
                 {
@@ -50,6 +54,9 @@ public static class SubtitleAnimationEditing
             AnimationProperty.POSITION => layer with { Transform = layer.Transform with { Position = value.Vector } },
             AnimationProperty.SCALE => layer with { Transform = layer.Transform with { Scale = value.Vector } },
             AnimationProperty.ROTATION => layer with { Transform = layer.Transform with { Rotation = value.Scalar } },
+            AnimationProperty.ROTATION_X => layer with { Transform = layer.Transform with { RotationX = value.Scalar } },
+            AnimationProperty.ROTATION_Y => layer with { Transform = layer.Transform with { RotationY = value.Scalar } },
+            AnimationProperty.PERSPECTIVE_DISTANCE => layer with { Transform = layer.Transform with { PerspectiveDistance = value.Scalar } },
             AnimationProperty.OPACITY => layer with { Opacity = value.Scalar },
             AnimationProperty.BLUR => layer with { Blur = value.Scalar },
             AnimationProperty.FILL => layer with { Fill = value.Color },

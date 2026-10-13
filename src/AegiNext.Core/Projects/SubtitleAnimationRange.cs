@@ -11,6 +11,13 @@ public sealed record SubtitleAnimationRange(Guid Id, int Utf16Start, int Utf16Le
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public double Rotation { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double RotationX { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public double RotationY { get; init; }
+    public double PerspectiveDistance { get; init; } = SceneProjection.DEFAULT_DISTANCE;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public SceneVector3 ProjectionTranslation { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public SubtitleAnimationPivot Pivot { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public SubtitleAnimationRangeOrigin? GeneratedOrigin { get; init; }

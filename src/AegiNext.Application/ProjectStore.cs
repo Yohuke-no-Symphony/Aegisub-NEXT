@@ -152,9 +152,9 @@ public static class ProjectStore
         if (root.ValueKind != JsonValueKind.Object ||
             !root.TryGetProperty("version", out var version) ||
             version.ValueKind != JsonValueKind.Number ||
-            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or ProjectDocument.CURRENT_VERSION))
+            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or ProjectDocument.CURRENT_VERSION))
         {
-            throw new InvalidDataException($"Only project versions 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, and {ProjectDocument.CURRENT_VERSION} are supported; open older projects with the corresponding application version.");
+            throw new InvalidDataException($"Only project versions 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, and {ProjectDocument.CURRENT_VERSION} are supported; open older projects with the corresponding application version.");
         }
 
         if (number >= 5)
@@ -170,6 +170,7 @@ public static class ProjectStore
         }
 
         var content = JsonNode.Parse(root.GetRawText(), documentOptions: documentOptions)!.AsObject();
+        SpatialTransformJsonMigration.RejectUndeclaredFields(content);
         GraphicAssetJsonMigration.Upgrade(content);
         if (number < 13)
         {
@@ -221,7 +222,14 @@ public static class ProjectStore
             {
                 foreach (var property in info.Properties)
                 {
+                    if ((info.Type == typeof(LayerTransform) || info.Type == typeof(SubtitleAnimationRange)) &&
+                        property.Name == "perspectiveDistance")
+                    {
+                        property.ShouldSerialize = (_, value) => value is not double distance || distance != SceneProjection.DEFAULT_DISTANCE;
+                    }
                     property.IsRequired = (property.Get is not null || property.Set is not null) &&
+                        !((info.Type == typeof(LayerTransform) || info.Type == typeof(SubtitleAnimationRange)) &&
+                          property.Name is "rotationX" or "rotationY" or "perspectiveDistance" or "projectionTranslation") &&
                         !(info.Type == typeof(ProjectDocument) && property.Name == "timelineViewState") &&
                         !(info.Type == typeof(ProjectDocument) && property.Name == "colorTags") &&
                         !(info.Type == typeof(LayerShape) && property.Name == "cornerRadii") &&
