@@ -93,23 +93,9 @@ internal static class ExportMuxer
 
         session.Mux(request.OutputPath, audioPath, audioIndex, cancellationToken);
         var encodedResult = session.ReadResult(cancellationToken);
-        var outputColor = encodedResult.OutputColor;
-        var expected = outputColor.ToMetadata();
         var result = await CreateProbe(audio.FfmpegPath).ProbeAsync(request.OutputPath, cancellationToken).ConfigureAwait(false);
         var stream = result.Asset.Streams.Single(stream => stream.CodecType == "video");
-        var video = stream.Video!;
-        var expectedCodec = outputColor.Codec switch
-        {
-            VideoCodec.H264 => "h264", VideoCodec.Hevc => "hevc", VideoCodec.Vp8 => "vp8",
-            VideoCodec.Vp9 => "vp9", VideoCodec.Av1 => "av1", _ => throw new InvalidDataException("The actual output codec is missing.")
-        };
-        if (stream.CodecName != expectedCodec || video.Width != request.Project.Width || video.Height != request.Project.Height ||
-            video.Color.Transfer != expected.Transfer || video.Color.Primaries != expected.Primaries ||
-            video.Color.Matrix != expected.Matrix || video.Color.Range != expected.Range || video.PixelFormat != outputColor.PixelFormat ||
-            (expected.IsPq || expected.IsHlg) && outputColor.BitDepth < 10)
-        {
-            throw new InvalidDataException("Output video validation failed for the codec, dimensions, color tags, or HDR bit depth; the output was not committed.");
-        }
+        ValidateCompletedVideo(request, encodedResult, stream);
 
         var outputAudio = result.Asset.Streams.Where(item => item.CodecType == "audio").ToArray();
         if (audio.StreamIndex is not null)
@@ -126,6 +112,34 @@ internal static class ExportMuxer
         else if (outputAudio.Length != 0)
         {
             throw new InvalidDataException("The output video contains an unexpected audio track despite audio being disabled; the output was not committed.");
+        }
+    }
+
+    internal static void ValidateCompletedVideo(VideoExportRequest request, NativeVideoExportResult encodedResult, MediaStreamInfo stream)
+    {
+        var outputColor = encodedResult.OutputColor;
+        var geometry = encodedResult.OutputGeometry;
+        VideoExporter.ValidateCompletedOutput(request, outputColor);
+        VideoExporter.ValidateCompletedGeometry(request, encodedResult.Encoder, geometry);
+        var expected = outputColor.ToMetadata();
+        var video = stream.Video ?? throw new InvalidDataException("The output probe did not report video dimensions or color metadata.");
+        var expectedCodec = outputColor.Codec switch
+        {
+            VideoCodec.H264 => "h264", VideoCodec.Hevc => "hevc", VideoCodec.Vp8 => "vp8",
+            VideoCodec.Vp9 => "vp9", VideoCodec.Av1 => "av1", _ => throw new InvalidDataException("The actual output codec is missing.")
+        };
+        if (stream.CodecName != expectedCodec || video.Width != geometry.Width || video.Height != geometry.Height ||
+            video.Color.Transfer != expected.Transfer || video.Color.Primaries != expected.Primaries ||
+            video.Color.Matrix != expected.Matrix || video.Color.Range != expected.Range || video.PixelFormat != outputColor.PixelFormat ||
+            (expected.IsPq || expected.IsHlg) && outputColor.BitDepth < 10)
+        {
+            throw new InvalidDataException("Output video validation failed for the codec, dimensions, color tags, or HDR bit depth; the output was not committed. " +
+                $"encoder={encodedResult.Encoder}, canvas={request.Project.Width}x{request.Project.Height}, " +
+                $"padding(top/bottom/left/right)={geometry.PaddingTop}/{geometry.PaddingBottom}/{geometry.PaddingLeft}/{geometry.PaddingRight}; " +
+                $"Actual codec={stream.CodecName}, size={video.Width}x{video.Height}, pix_fmt={video.PixelFormat}, " +
+                $"color={video.Color.Range}/{video.Color.Primaries}/{video.Color.Transfer}/{video.Color.Matrix}; " +
+                $"expected codec={expectedCodec}, size={geometry.Width}x{geometry.Height}, pix_fmt={outputColor.PixelFormat}, " +
+                $"color={expected.Range}/{expected.Primaries}/{expected.Transfer}/{expected.Matrix}, bit_depth={outputColor.BitDepth}.");
         }
     }
 

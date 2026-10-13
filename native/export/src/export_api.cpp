@@ -44,7 +44,7 @@ using aeginext::encode::ExportDecodedFrame;
 using aeginext::media::DecoderSession;
 using aeginext::media::DecodeMode;
 using aeginext::media::DecodeWorkload;
-constexpr uint32_t EXPORT_ABI_VERSION = 6;
+constexpr uint32_t EXPORT_ABI_VERSION = AN_EXPORT_ABI_VERSION;
 using Failure = aeginext::encode::ExportFailure;
 void Check(int result, const char *operation) { aeginext::encode::CheckAv(result, operation); }
 void Need(bool valid, const char *message) { aeginext::encode::Require(valid, message); }
@@ -66,6 +66,7 @@ struct Context
     AVCodecContext *encoder = nullptr;
     std::unique_ptr<aeginext::encode::EncoderBackend> backend;
     aeginext::encode::ExportMetadata metadata;
+    aeginext::encode::ExportGeometry geometry;
     std::string sourcePath, videoPath;
     bool muxStarted = false;
     AVPacket *encoded = nullptr;
@@ -225,12 +226,14 @@ void Execute(Context &c, const an_export_request &r, an_export_render_callback r
                 c.metadata, c.resultInfo, c.cancelled);
             c.encoder = c.backend->context;
             c.encoderName = c.encoder->codec->name;
+            c.geometry = aeginext::encode::ExportGeometry::Capture(r.width, r.height, c.encoderName, c.encoder);
             targetStream = avformat_new_stream(c.output, nullptr);
             if (!targetStream) throw std::bad_alloc();
             targetStream->time_base = sourceStream->time_base;
             targetStream->avg_frame_rate = sourceStream->avg_frame_rate;
             targetStream->r_frame_rate = sourceStream->r_frame_rate;
             Check(avcodec_parameters_from_context(targetStream->codecpar, c.encoder), "output stream parameters");
+            c.geometry.Apply(targetStream->codecpar);
             Check(avio_open2(&c.output->pb, r.output_path, AVIO_FLAG_WRITE, &c.output->interrupt_callback, nullptr), "open temporary output");
             Check(avformat_write_header(c.output, nullptr), "write container header");
             sourceFormat = decoded->format; sourceWidth = decoded->width; sourceHeight = decoded->height;
@@ -363,8 +366,9 @@ void Execute(Context &c, const an_export_request &r, an_export_render_callback r
     Check(c.performance.Measure(ExportStage::SendFrame, [&]() { return avcodec_send_frame(c.encoder, nullptr); }), "drain encoder"); WritePackets(c, targetStream);
     Check(av_write_trailer(c.output), "write output trailer");
     Check(avio_closep(&c.output->pb), "close output file");
-    const auto encodedFormat = c.metadata.Verify(r.output_path, c.encoder->codec_id, c.resultInfo.bit_depth, false, c.cancelled);
+    const auto encodedFormat = c.metadata.Verify(r.output_path, c.encoder->codec_id, c.resultInfo.bit_depth, c.geometry, false, c.cancelled);
     CopyError(c.resultInfo.pixel_format, sizeof(c.resultInfo.pixel_format), av_get_pix_fmt_name(encodedFormat));
+    c.geometry.WriteResult(c.resultInfo);
     c.resultInfo.output_verification |= 1;
     const auto &session = c.decoderSession->Info();
     c.resultInfo.struct_size = sizeof(an_export_result_info);
@@ -467,7 +471,7 @@ int32_t AN_EXPORT_CALL an_export_mux(void *context, const an_export_mux_request 
         if (!value->completed || value->muxStarted) throw Failure(1, "Mux requires a completed export and may run only once");
         value->CheckCancel(); value->muxStarted = true;
         aeginext::encode::MuxExport(value->sourcePath.c_str(), value->videoPath.c_str(), *request,
-            value->metadata, value->encoder->codec_id, value->resultInfo.bit_depth, value->cancelled);
+            value->metadata, value->geometry, value->encoder->codec_id, value->resultInfo.bit_depth, value->cancelled);
         value->resultInfo.output_verification |= 2;
         CopyError(error, capacity, ""); return 0;
     }

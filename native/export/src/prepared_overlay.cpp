@@ -37,7 +37,7 @@ void PreparedOverlay::Accept(const an_export_overlay_info &info, std::span<const
     try
     {
         scannedPixels_ = 0;
-        if (info.struct_size != sizeof(info) || info.abi_version != 6 || info.reserved || !info.revision)
+        if (info.struct_size != sizeof(info) || info.abi_version != AN_EXPORT_ABI_VERSION || info.reserved || !info.revision)
         {
             InvalidContract("Invalid overlay information ABI or revision");
         }

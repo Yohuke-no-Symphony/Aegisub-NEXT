@@ -151,6 +151,7 @@ public sealed class GoogleCodecExportIntegrationTests
         Assert.Equal(codec, result.OutputColor!.Codec);
         Assert.Equal(depth, result.OutputColor.BitDepth);
         Assert.Equal(3U, result.OutputColor.OutputVerification);
+        Assert.Equal(new(GoogleCodecExportFixture.WIDTH, GoogleCodecExportFixture.HEIGHT), result.OutputGeometry);
         var output = await GoogleCodecExportFixture.ProbeVideoAsync(result.OutputPath);
         var stream = Assert.Single(output.GetProperty("streams").EnumerateArray());
         Assert.Equal(codec.ToString().ToLowerInvariant(), stream.GetProperty("codec_name").GetString());

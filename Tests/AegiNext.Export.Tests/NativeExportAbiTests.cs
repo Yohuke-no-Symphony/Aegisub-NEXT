@@ -8,7 +8,7 @@ public sealed class NativeExportAbiTests
     [Fact]
     public void CurrentContractUsesTheCompleteHardwareRequestLayout()
     {
-        Assert.Equal(6U, NativeExportAbi.VERSION);
+        Assert.Equal(7U, NativeExportAbi.VERSION);
         Assert.Equal(88, Marshal.SizeOf<NativeExportRequest>());
         Assert.Equal(64, Marshal.OffsetOf<NativeExportRequest>(nameof(NativeExportRequest.EncodingMode)).ToInt32());
         Assert.Equal(68, Marshal.OffsetOf<NativeExportRequest>(nameof(NativeExportRequest.VideoBitrate)).ToInt32());
@@ -16,7 +16,7 @@ public sealed class NativeExportAbiTests
         Assert.Equal(76, Marshal.OffsetOf<NativeExportRequest>(nameof(NativeExportRequest.DecodeReserved)).ToInt32());
         Assert.Equal(80, Marshal.OffsetOf<NativeExportRequest>(nameof(NativeExportRequest.RateControlMode)).ToInt32());
         Assert.Equal(84, Marshal.OffsetOf<NativeExportRequest>(nameof(NativeExportRequest.RateControlReserved)).ToInt32());
-        Assert.Equal(488, Marshal.SizeOf<NativeExportResultInfo>());
+        Assert.Equal(512, Marshal.SizeOf<NativeExportResultInfo>());
         Assert.Equal(72, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.FallbackReason)).ToInt32());
         Assert.Equal(328, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.RateControlMode)).ToInt32());
         Assert.Equal(332, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.VideoBitrate)).ToInt32());
@@ -26,13 +26,19 @@ public sealed class NativeExportAbiTests
         Assert.Equal(384, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.Hdr)).ToInt32());
         Assert.Equal(480, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.OutputVerification)).ToInt32());
         Assert.Equal(484, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.BitratePrecision)).ToInt32());
+        Assert.Equal(488, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.OutputWidth)).ToInt32());
+        Assert.Equal(492, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.OutputHeight)).ToInt32());
+        Assert.Equal(496, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.PaddingTop)).ToInt32());
+        Assert.Equal(500, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.PaddingBottom)).ToInt32());
+        Assert.Equal(504, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.PaddingLeft)).ToInt32());
+        Assert.Equal(508, Marshal.OffsetOf<NativeExportResultInfo>(nameof(NativeExportResultInfo.PaddingRight)).ToInt32());
         Assert.Equal(96, Marshal.SizeOf<NativeExportHdrMetadata>());
         Assert.Equal(32, Marshal.SizeOf<NativeExportMuxRequest>());
         Assert.Equal(24, Marshal.SizeOf<NativeExportOverlayInfo>());
         Assert.Equal(8, Marshal.OffsetOf<NativeExportOverlayInfo>(nameof(NativeExportOverlayInfo.State)).ToInt32());
         Assert.Equal(12, Marshal.OffsetOf<NativeExportOverlayInfo>(nameof(NativeExportOverlayInfo.Reserved)).ToInt32());
         Assert.Equal(16, Marshal.OffsetOf<NativeExportOverlayInfo>(nameof(NativeExportOverlayInfo.Revision)).ToInt32());
-        NativeExportAbi.Validate(6, Path.Combine(Path.GetTempPath(), "aeginext_export.dll"));
+        NativeExportAbi.Validate(7, Path.Combine(Path.GetTempPath(), "aeginext_export.dll"));
     }
 
     [Theory]
@@ -54,11 +60,13 @@ public sealed class NativeExportAbiTests
     [InlineData(2U)]
     [InlineData(3U)]
     [InlineData(4U)]
+    [InlineData(5U)]
+    [InlineData(6U)]
     public void MismatchIdentifiesActualLibraryAndMatchingConfigurationRecovery(uint version)
     {
         var library = Path.Combine(Path.GetTempPath(), "工程 native", "libaeginext_export.dylib");
         var error = Assert.Throws<NotSupportedException>(() => NativeExportAbi.Validate(version, library));
-        Assert.Contains("required ABI 6", error.Message, StringComparison.Ordinal);
+        Assert.Contains("required ABI 7", error.Message, StringComparison.Ordinal);
         Assert.Contains($"actual ABI {version}", error.Message, StringComparison.Ordinal);
         Assert.Contains(library, error.Message, StringComparison.Ordinal);
         Assert.Contains("-Target Workbench -Configuration", error.Message, StringComparison.Ordinal);

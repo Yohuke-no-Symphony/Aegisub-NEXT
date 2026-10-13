@@ -21,7 +21,7 @@ internal sealed class NativeVideoExportSession(nint context, ulong frames) : IDi
             info.ChromaLocation, info.AlphaMode, info.InferredFields, (VideoCodec)info.Codec, info.BitDepth,
             ReadString(info.PixelFormat, 32), info.Hdr.GetMastering(), info.Hdr.GetContentLight(), info.OutputVerification);
         return new(frames, Marshal.PtrToStringUTF8(NativeExportMethods.EncoderName(native)) ?? string.Empty,
-            decoder, color, NativeVideoExport.ReadRateControl(info));
+            decoder, color, NativeVideoExport.ReadRateControl(info), NativeVideoExport.ReadGeometry(info));
     }
 
     internal unsafe void Mux(string outputPath, string? audioPath, int audioStreamIndex, CancellationToken cancellationToken)

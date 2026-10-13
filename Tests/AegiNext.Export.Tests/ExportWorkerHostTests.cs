@@ -34,6 +34,8 @@ public sealed class ExportWorkerHostTests
     /// <summary>旧协议必须在调用应用反序列化前拒绝，有效协议则保留应用加载错误。</summary>
     [Theory]
     [InlineData(0, false)]
+    [InlineData(3, false)]
+    [InlineData(4, false)]
     [InlineData(ExportWire.VERSION, true)]
     public async Task ProtocolValidationPrecedesTheApplicationProjectLoader(int version, bool expectedLoad)
     {

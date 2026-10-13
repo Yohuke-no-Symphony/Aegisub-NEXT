@@ -6,7 +6,7 @@ namespace AegiNext.Export;
 
 internal static class ExportWire
 {
-    internal const int VERSION = 4;
+    internal const int VERSION = 5;
     internal static JsonSerializerOptions Options { get; } = Create();
 
     internal static void ValidateJob(ExportWorkerJob job)

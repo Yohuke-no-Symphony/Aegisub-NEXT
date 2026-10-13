@@ -24,7 +24,7 @@ void Require(bool condition, const char *message)
 }
 an_export_overlay_info Info(uint32_t state, uint64_t revision)
 {
-    return {sizeof(an_export_overlay_info), 6, state, 0, revision};
+    return {sizeof(an_export_overlay_info), AN_EXPORT_ABI_VERSION, state, 0, revision};
 }
 void SetPixel(std::vector<float> &pixels, size_t width, size_t x, size_t y, const std::array<float, 4> &pixel)
 {

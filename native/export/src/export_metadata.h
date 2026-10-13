@@ -1,5 +1,6 @@
 #pragma once
 #include "aeginext_export.h"
+#include "export_geometry.h"
 #include <atomic>
 #include <string>
 extern "C"
@@ -26,7 +27,7 @@ public:
     void Apply(AVCodecContext *encoder) const;
     void Apply(AVCodecParameters *parameters) const;
     std::string X265Options() const;
-    AVPixelFormat Verify(const char *path, AVCodecID codec, int depth, bool finalContainer,
+    AVPixelFormat Verify(const char *path, AVCodecID codec, int depth, const ExportGeometry &geometry, bool finalContainer,
         const std::atomic<bool> &cancelled) const;
 };
 }

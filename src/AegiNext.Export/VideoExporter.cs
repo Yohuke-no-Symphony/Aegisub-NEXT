@@ -47,11 +47,15 @@ public sealed class VideoExporter
         ValidateCompletedDecoder(request, completed);
         ValidateCompletedRateControl(request, completed.RateControl);
         ValidateCompletedOutput(request, completed.OutputColor);
+        ValidateCompletedGeometry(request, completed.Encoder, completed.OutputGeometry);
 
         transaction.Commit(beforeCommit, cancellationToken);
         progress?.Report(new(completed.Frames, MediaTime.Zero, 1, "complete", completed.Encoder));
         return new(transaction.OutputPath, completed.Frames, completed.Encoder, completed.Decoder,
-            completed.OutputColor, completed.RateControl);
+            completed.OutputColor, completed.RateControl)
+        {
+            OutputGeometry = completed.OutputGeometry
+        };
     }
 
     internal static void Validate(VideoExportRequest request)
@@ -143,6 +147,23 @@ public sealed class VideoExporter
             color.ToMetadata() is { } metadata && (metadata.IsPq || metadata.IsHlg) && color.BitDepth < 10)
         {
             throw new InvalidDataException("The export worker did not verify the actual codec and final container format, bit depth, and HDR metadata; the output was not committed.");
+        }
+    }
+
+    internal static void ValidateCompletedGeometry(VideoExportRequest request, string? encoder, VideoExportGeometry? geometry)
+    {
+        if (geometry is null || request.Project.Width <= 0 || request.Project.Height <= 0 ||
+            geometry.Width <= 0 || geometry.Height <= 0 || geometry.PaddingTop != 0 || geometry.PaddingLeft != 0 ||
+            geometry.PaddingBottom < 0 || geometry.PaddingRight < 0 ||
+            geometry.Width != (long)request.Project.Width + geometry.PaddingLeft + geometry.PaddingRight ||
+            geometry.Height != (long)request.Project.Height + geometry.PaddingTop + geometry.PaddingBottom ||
+            (geometry.PaddingBottom != 0 || geometry.PaddingRight != 0) &&
+            (encoder != "av1_amf" || request.Codec != VideoCodec.Av1 || request.EncodingMode != VideoEncodingMode.HARDWARE))
+        {
+            var actual = geometry is null ? "missing" :
+                $"{geometry.Width}x{geometry.Height}, padding={geometry.PaddingTop}/{geometry.PaddingBottom}/{geometry.PaddingLeft}/{geometry.PaddingRight}";
+            throw new InvalidDataException("The export worker did not confirm valid output dimensions and permitted encoder padding; the output was not committed. " +
+                $"Encoder={encoder}, canvas={request.Project.Width}x{request.Project.Height}, output={actual}.");
         }
     }
 

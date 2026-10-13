@@ -32,4 +32,10 @@ internal unsafe struct NativeExportResultInfo
     internal NativeExportHdrMetadata Hdr;
     internal uint OutputVerification;
     internal uint BitratePrecision;
+    internal uint OutputWidth;
+    internal uint OutputHeight;
+    internal uint PaddingTop;
+    internal uint PaddingBottom;
+    internal uint PaddingLeft;
+    internal uint PaddingRight;
 }
