@@ -75,7 +75,6 @@ public sealed class AssFontWeightExchangeTests
     [Theory]
     [InlineData(600, false, "0", false)]
     [InlineData(900, true, "1", true)]
-    [InlineData(900, true, "-1", true)]
     public void BooleanBoldTagsClearAnInheritedVariantEvenWhenTheBooleanDoesNotChange(
         int weight, bool currentBold, string tag, bool expectedBold)
     {

@@ -39,6 +39,12 @@ internal sealed class AssNumericTransformParser
         revision++;
     }
 
+    internal void ResetScale(ScenePoint scale)
+    {
+        Set("fscx", scale.X);
+        Set("fscy", scale.Y);
+    }
+
     internal void Reset(SubtitleStyle style, ScenePoint scale, double rotation)
     {
         Set("fsp", style.LetterSpacing);

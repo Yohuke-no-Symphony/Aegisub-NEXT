@@ -12,19 +12,22 @@ public static class AssSubtitleFormat
 {
     /// <summary>以目标画布重采样静态字幕布局，保留对白来源的稳定顺序。</summary>
     public static AssImportResult Parse(string source, int targetWidth = 1920, int targetHeight = 1080,
-        IAssFontWeightResolver? fontWeightResolver = null)
+        IAssFontWeightResolver? fontWeightResolver = null, ISubtitlePlacementMeasurer? placementMeasurer = null,
+        ISubtitleMaskGeometryCombiner? maskGeometryCombiner = null)
     {
-        return ParseCore(source, targetWidth, targetHeight, fontWeightResolver).Result;
+        return ParseCore(source, targetWidth, targetHeight, fontWeightResolver, placementMeasurer, maskGeometryCombiner).Result;
     }
 
     /// <summary>按源 PlayRes 导入，不重采样已声明的轴；缺失的宽、高分别采用 1920、1080 并报告诊断。</summary>
-    public static AssSourceImportResult ParseAtSourceResolution(string source, IAssFontWeightResolver? fontWeightResolver = null)
+    public static AssSourceImportResult ParseAtSourceResolution(string source, IAssFontWeightResolver? fontWeightResolver = null,
+        ISubtitlePlacementMeasurer? placementMeasurer = null, ISubtitleMaskGeometryCombiner? maskGeometryCombiner = null)
     {
-        return ParseCore(source, null, null, fontWeightResolver);
+        return ParseCore(source, null, null, fontWeightResolver, placementMeasurer, maskGeometryCombiner);
     }
 
     private static AssSourceImportResult ParseCore(string source, int? requestedWidth, int? requestedHeight,
-        IAssFontWeightResolver? fontWeightResolver)
+        IAssFontWeightResolver? fontWeightResolver, ISubtitlePlacementMeasurer? placementMeasurer,
+        ISubtitleMaskGeometryCombiner? maskGeometryCombiner)
     {
         AssFormatValues.CheckText(source);
         var targetWidth = requestedWidth ?? 1920;
@@ -170,6 +173,7 @@ public static class AssSubtitleFormat
         }, SceneColor.White);
         var lines = ImmutableArray.CreateBuilder<SubtitleLine>();
         var clips = ImmutableArray.CreateBuilder<SubtitleClipImport>();
+        var layers = ImmutableArray.CreateBuilder<ProjectLayer>();
         if (!hasWidth || !hasHeight)
         {
             if (requestedWidth is not null)
@@ -222,31 +226,62 @@ public static class AssSubtitleFormat
                     }
                 };
             }
+            var body = Required(fields, "Text");
             var parsed = new AssTextParser(line, styles, definition.Secondary, scaleX, scaleY, canvasWidth: targetWidth,
                 canvasHeight: targetHeight, wrapStyle: wrapStyle, blurScaleX: blurScaleX, blurScaleY: blurScaleY,
                 blurUsesPlayRes: blurUsesPlayRes, resolution: resolution, fontWeightResolver: fontWeightResolver,
-                dialogueMargins: new(marginL * scaleX, marginR * scaleX, marginV * scaleY)).Parse(Required(fields, "Text"));
+                dialogueMargins: new(marginL * scaleX, marginR * scaleX, marginV * scaleY),
+                placementMeasurer: placementMeasurer, maskGeometryCombiner: maskGeometryCombiner).Parse(body);
+            var drawing = AssShapeImport.Convert(body, line, definition, parsed, scaleX, scaleY);
             var importedLine = parsed.Line;
-            lines.Add(importedLine);
-            clips.Add(new(importedLine, parsed.Mask, parsed.MaskTracks.AddRange(parsed.PlacementTracks).AddRange(parsed.OpacityTracks).AddRange(parsed.NumericTracks), parsed.ContentOffset)
+            var keepSubtitle = !drawing.HasDrawing || importedLine.Text.Length > 0;
+            if (keepSubtitle)
             {
-                Transform = parsed.Transform
-            });
-            diagnostics.AddRange(parsed.Diagnostics);
+                var clip = new SubtitleClipImport(importedLine, parsed.Mask,
+                    parsed.MaskTracks.AddRange(parsed.PlacementTracks).AddRange(parsed.OpacityTracks).AddRange(parsed.NumericTracks), parsed.ContentOffset)
+                {
+                    Transform = parsed.Transform
+                };
+                lines.Add(importedLine);
+                clips.Add(clip);
+                layers.Add(new()
+                {
+                    Id = importedLine.Id, Kind = LayerKind.SUBTITLE, Name = "Subtitle", SubtitleId = importedLine.Id,
+                    Start = importedLine.Start, End = importedLine.End,
+                    Mask = clip.Mask, Tracks = clip.Tracks, Transform = clip.Transform, AnimationOffset = clip.ContentOffset
+                });
+            }
+            layers.AddRange(drawing.Layers);
+            if (layers.Count > 10000)
+            {
+                throw new InvalidDataException("Expanded ASS subtitle and drawing layers exceed the native 10,000-layer budget.");
+            }
+            var drawingLayerId = drawing.Layers.IsEmpty ? (Guid?)null : drawing.Layers[0].Id;
+            diagnostics.AddRange(parsed.Diagnostics.Where(item => drawing.Layers.IsEmpty ||
+                item.Code is not ("Ass.Drawing" or "Ass.DrawingBaseline" or "Ass.TransformLayout" or "Ass.RotationOrigin" or "Ass.WrapModeApproximation"))
+                .Select(item => keepSubtitle ? item : item with { SubtitleId = null, LayerId = item.LayerId ?? drawingLayerId }));
+            diagnostics.AddRange(drawing.Diagnostics.Select(item => keepSubtitle || item.SubtitleId is null ? item :
+                item with { SubtitleId = null, LayerId = item.LayerId ?? drawingLayerId }));
             if (!styles.ContainsKey(name))
             {
-                diagnostics.Add(new("Ass.UnknownStyle", $"Style '{name}' does not exist. The default style was used.", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.UnknownStyle", $"Style '{name}' does not exist. The default style was used.",
+                    SubtitleId: keepSubtitle ? line.Id : null, LayerId: drawingLayerId));
             }
             if (Get(fields, "Effect", "").Length > 0)
             {
-                diagnostics.Add(new("Ass.Effect", "The ASS dialogue Effect field was not imported.", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.Effect", "The ASS dialogue Effect field was not imported.",
+                    SubtitleId: keepSubtitle ? line.Id : null, LayerId: drawingLayerId));
             }
             if (unsupportedGeometry.Contains(name))
             {
-                diagnostics.Add(new("Ass.StyleGeometry", "The ASS style background box was not imported.", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.StyleGeometry", "The ASS style background box was not imported.",
+                    SubtitleId: keepSubtitle ? line.Id : null, LayerId: drawingLayerId));
             }
         }
-        return new(width, height, new(lines.ToImmutable(), diagnostics.ToImmutable()) { Clips = clips.ToImmutable() });
+        return new(width, height, new(lines.ToImmutable(), diagnostics.ToImmutable())
+        {
+            Clips = clips.ToImmutable(), Layers = layers.ToImmutable()
+        });
     }
 
     /// <summary>按工程合成层顺序导出字幕及可表达的静态形状，静态样式去重，时间显式量化到厘秒。</summary>
@@ -298,6 +333,7 @@ public static class AssSubtitleFormat
             if (line.Style.FontAssetId.HasValue)
             {
                 diagnostics.Add(new("Ass.FontResource", "ASS files do not include project-embedded fonts. Install the corresponding fonts in the playback environment.", SubtitleId: line.Id));
+                reportedDiagnostics.Add((line.Id, "Ass.FontResource"));
             }
             if (line.Style.TextAlign is { } textAlign && (int)textAlign != (int)line.Style.Alignment % 3)
             {
@@ -364,7 +400,7 @@ public static class AssSubtitleFormat
         AssResolutionContext resolution, ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics,
         SubtitleScalingSettings scaling)
     {
-        var spacing = AssFormatValues.Number(Get(row, "Spacing", "0")) * sx;
+        var spacing = Math.Max(AssFormatValues.Number(Get(row, "Spacing", "0")), 0) * sx;
         if (!double.IsFinite(spacing) || spacing is < -4096 or > 4096)
         {
             diagnostics.Add(new("Ass.LetterSpacingRange", $"Resampled letter spacing for ASS style {Required(row, "Name")} exceeds the native range. The letter spacing was ignored and other style properties were preserved."));
@@ -379,8 +415,8 @@ public static class AssSubtitleFormat
             ShadowColor = AssFormatValues.Color(Get(row, "BackColour", "&H00000000")),
             Bold = AssFormatValues.Integer(Get(row, "Bold", "0")) != 0, Italic = AssFormatValues.Integer(Get(row, "Italic", "0")) != 0,
             Underline = AssFormatValues.Integer(Get(row, "Underline", "0")) != 0, Strikethrough = AssFormatValues.Integer(Get(row, "StrikeOut", "0")) != 0,
-            StrokeWidth = resolution.Stroke(AssFormatValues.Number(Get(row, "Outline", "0"))),
-            ShadowOffset = resolution.Shadow(AssFormatValues.Number(Get(row, "Shadow", "0"))),
+            StrokeWidth = resolution.Stroke(Math.Max(AssFormatValues.Number(Get(row, "Outline", "0")), 0)),
+            ShadowOffset = resolution.Shadow(Math.Max(AssFormatValues.Number(Get(row, "Shadow", "0")), 0)),
             ShadowBlur = 0, Alignment = AssFormatValues.Alignment(AssFormatValues.Integer(Get(row, "Alignment", "2"))),
             Margins = new(
                 AssFormatValues.Number(Get(row, "MarginL", Get(row, "MarginV", "0"))) * sx,
@@ -394,7 +430,8 @@ public static class AssSubtitleFormat
         ProjectValidator.ValidateSubtitleStyle(style);
         return new(Required(row, "Name"), style, AssFormatValues.Color(Get(row, "SecondaryColour", "&H000000FF")))
         {
-            Scale = new(AssFormatValues.Number(Get(row, "ScaleX", "100")) / 100, AssFormatValues.Number(Get(row, "ScaleY", "100")) / 100),
+            Scale = new(Math.Max(AssFormatValues.Number(Get(row, "ScaleX", "100")), 0) / 100,
+                Math.Max(AssFormatValues.Number(Get(row, "ScaleY", "100")), 0) / 100),
             Rotation = AssFormatValues.Number(Get(row, "Angle", "0"))
         };
     }

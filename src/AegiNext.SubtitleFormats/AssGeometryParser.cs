@@ -55,6 +55,9 @@ internal sealed class AssGeometryParser
     {
         switch (name)
         {
+            case "fsc":
+                currentScale = baseline.Scale;
+                break;
             case "fscx":
                 currentScale = currentScale with { X = value.Length == 0 ? baseline.Scale.X : Scale(value) };
                 break;
@@ -166,9 +169,13 @@ internal sealed class AssGeometryParser
                 }
             }
         }
-        if (end <= start)
+        if (end < start)
         {
-            Report("Ass.MoveTiming", "ASS reversed or instantaneous movement cannot be represented as a continuous position track and was skipped.", sourceStart, sourceLength);
+            (start, end) = (end, start);
+        }
+        if (end == start)
+        {
+            Report("Ass.MoveTiming", "ASS instantaneous movement cannot be represented as a continuous position track and was skipped.", sourceStart, sourceLength);
             return false;
         }
         if (delta != new ScenePoint())

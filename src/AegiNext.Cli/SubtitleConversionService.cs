@@ -33,7 +33,9 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
             if (extension.Equals(".ass", StringComparison.OrdinalIgnoreCase))
             {
                 fonts = new(SKFontManager.Default, cancellationToken: cancellationToken);
-                var imported = AssSubtitleFormat.ParseAtSourceResolution(source, new AssFontWeightResolver(fonts.Faces));
+                using var importMeasurer = new AssSubtitlePlacementMeasurer(Path.GetDirectoryName(inputPath)!, fonts);
+                var imported = AssSubtitleFormat.ParseAtSourceResolution(source, new AssFontWeightResolver(fonts.Faces),
+                    placementMeasurer: importMeasurer, maskGeometryCombiner: new AssMaskGeometryCombiner());
                 document = ProjectEditingOperations.ImportSubtitleLines(new()
                 {
                     Width = imported.Width,

@@ -110,6 +110,8 @@ internal static class AssTextWriter
             }
             if (styleChanged || karaokeStyleChanged || clip != previousClip || !line.AnimationRanges.IsEmpty)
             {
+                var sharedVisual = conversion?.SharedVisualProperties(offset, clip is not null) ??
+                    textAnimation?.SharedVisualProperties(offset, clip is not null) ?? ImmutableHashSet<AnimationProperty>.Empty;
                 CheckTagBoundary(result);
                 var outputStyle = conversion?.ConvertStyle(style) ?? style;
                 result.Append("{\\r").Append(StyleTags(outputStyle, projection, line.Id, diagnostics)).Append(conversion?.GeometryTags).Append('}');
@@ -145,7 +147,7 @@ internal static class AssTextWriter
                     else
                     {
                         result.Append(VisualTags(inactive, projection, line.Id, diagnostics));
-                        var changes = ChangedVisualTags(inactive, active, projection, line.Id, diagnostics);
+                        var changes = ChangedVisualTags(inactive, active, projection, line.Id, diagnostics, sharedVisual);
                         if (changes.Length > 0)
                         {
                             var startMs = checked(clipStartCount * 10).ToString(CultureInfo.InvariantCulture);
@@ -158,9 +160,9 @@ internal static class AssTextWriter
                 {
                     result.Append("{\\2c").Append(AssFormatValues.Color(style.Fill, false)).Append("\\2a").Append(AssFormatValues.Alpha(style.Fill)).Append('}');
                 }
-                var animationTags = conversion?.AnimationTags(style, eventOrigin ?? origin);
-                animationTags += conversion?.TextAnimationTags(offset, style, clip is not null, eventOrigin ?? origin);
-                animationTags += textAnimation?.Write(offset, style, clip is not null, eventOrigin ?? origin, new(1, 1), 0);
+                var animationTags = conversion?.AnimationTags(style, eventOrigin ?? origin, sharedVisual);
+                animationTags += conversion?.TextAnimationTags(offset, style, clip is not null, eventOrigin ?? origin, nativeInactive);
+                animationTags += textAnimation?.Write(offset, style, clip is not null, eventOrigin ?? origin, new(1, 1), 0, nativeInactive);
                 if (!string.IsNullOrEmpty(animationTags))
                 {
                     result.Append('{').Append(animationTags).Append('}');
@@ -224,30 +226,31 @@ internal static class AssTextWriter
     }
 
     private static string ChangedVisualTags(SubtitleStyle inactive, SubtitleStyle active, bool projection, Guid id,
-        ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
+        ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics, ImmutableHashSet<AnimationProperty> sharedVisual)
     {
         var tags = new StringBuilder();
-        if (inactive.Stroke != active.Stroke)
+        if (!sharedVisual.Contains(AnimationProperty.STROKE) && inactive.Stroke != active.Stroke)
         {
             tags.Append("\\3c").Append(AssFormatValues.Color(active.Stroke, false)).Append("\\3a").Append(AssFormatValues.Alpha(active.Stroke));
         }
-        if (!inactive.StrokeWidth.Equals(active.StrokeWidth))
+        if (!sharedVisual.Contains(AnimationProperty.STROKE_WIDTH) && !inactive.StrokeWidth.Equals(active.StrokeWidth))
         {
             tags.Append("\\bord").Append(AssFormatValues.Number(active.StrokeWidth));
         }
-        if (inactive.ShadowColor != active.ShadowColor)
+        if (!sharedVisual.Contains(AnimationProperty.SHADOW_COLOR) && inactive.ShadowColor != active.ShadowColor)
         {
             tags.Append("\\4c").Append(AssFormatValues.Color(active.ShadowColor, false)).Append("\\4a").Append(AssFormatValues.Alpha(active.ShadowColor));
         }
-        if (!inactive.ShadowOffset.X.Equals(active.ShadowOffset.X))
+        if (!sharedVisual.Contains(AnimationProperty.SHADOW_OFFSET) && !inactive.ShadowOffset.X.Equals(active.ShadowOffset.X))
         {
             tags.Append("\\xshad").Append(AssFormatValues.Number(active.ShadowOffset.X));
         }
-        if (!inactive.ShadowOffset.Y.Equals(active.ShadowOffset.Y))
+        if (!sharedVisual.Contains(AnimationProperty.SHADOW_OFFSET) && !inactive.ShadowOffset.Y.Equals(active.ShadowOffset.Y))
         {
             tags.Append("\\yshad").Append(AssFormatValues.Number(active.ShadowOffset.Y));
         }
-        if (!AssBlurConversion.Value(inactive, projection).Equals(AssBlurConversion.Value(active, projection)))
+        if (!sharedVisual.Contains(AnimationProperty.FILL_BLUR) && !sharedVisual.Contains(AnimationProperty.STROKE_BLUR) &&
+            !sharedVisual.Contains(AnimationProperty.SHADOW_BLUR) && !AssBlurConversion.Value(inactive, projection).Equals(AssBlurConversion.Value(active, projection)))
         {
             tags.Append("\\blur").Append(BlurValue(active, projection, id, diagnostics));
         }
@@ -280,6 +283,10 @@ internal static class AssTextWriter
         if (!projection)
         {
             AssExportPrecision.AddStyle(style, id, diagnostics);
+            if (style.FontAssetId.HasValue)
+            {
+                diagnostics.Add(new("Ass.FontResource", "ASS files do not include project-embedded fonts. Install the corresponding fonts in the playback environment.", SubtitleId: id));
+            }
             if (style.WrapMode == SubtitleWrapMode.GRAPHEME)
             {
                 diagnostics.Add(new("Ass.WrapMode", "ASS does not support project automatic wrapping by grapheme. Natural wrapping was used; line breaks may change.", SubtitleId: id));

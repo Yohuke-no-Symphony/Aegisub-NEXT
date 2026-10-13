@@ -672,9 +672,15 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         if (ass)
         {
             var fontWeightResolver = await CaptureAssFontWeightResolverAsync(fontLoading, context.CancellationToken);
-            var result = await Task.Run(() => AssSubtitleFormat.Parse(text, captured.Width, captured.Height, fontWeightResolver),
-                context.CancellationToken);
-            if (!await ConfirmConversionAsync(result.Diagnostics.AddRange(timingDiagnostics), result.Lines))
+            var projectDirectory = session.ProjectDirectory;
+            var fontCatalog = session.Fonts.Catalog;
+            var result = await Task.Run(() =>
+            {
+                using var measurer = new AssSubtitlePlacementMeasurer(projectDirectory, fontCatalog);
+                return AssSubtitleFormat.Parse(text, captured.Width, captured.Height, fontWeightResolver,
+                    placementMeasurer: measurer, maskGeometryCombiner: new AssMaskGeometryCombiner());
+            }, context.CancellationToken);
+            if (!await ConfirmConversionAsync(result.Diagnostics.AddRange(timingDiagnostics), result.Lines, result.Layers))
             {
                 return;
             }
@@ -704,18 +710,25 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         var imported = assResult is null
             ? ProjectEditingOperations.ImportSubtitleLines(prepared, lines, Path.GetFileNameWithoutExtension(path))
             : ProjectEditingOperations.ImportSubtitleLines(prepared, assResult, Path.GetFileNameWithoutExtension(path));
-        using var editLease = context.AcquireEditLease();
-        context.EnterCommit(() => !session.IsClosing && inputRevision == session.TaskInputRevision &&
-            !session.HasProjectDrafts && ReferenceEquals(captured, session.Editor.Snapshot));
-        session.Editor.Apply("Import subtitles", _ => imported);
-        firstCueId = lines.IsEmpty ? null : lines[0].Id;
-        session.LogInfo("Subtitles", $"{Localization.Get("WorkflowLog.SubtitlesImported")} ({lines.Length})", path);
-        editLease.Dispose();
+        using (context.AcquireEditLease())
+        {
+            context.EnterCommit(() => !session.IsClosing && inputRevision == session.TaskInputRevision &&
+                !session.HasProjectDrafts && ReferenceEquals(captured, session.Editor.Snapshot));
+            session.Editor.Apply("Import subtitles", _ => imported);
+            firstCueId = lines.IsEmpty ? null : lines[0].Id;
+            var importedCount = assResult is { Layers.IsEmpty: false } ? assResult.Layers.Length : lines.Length;
+            session.LogInfo("Subtitles", $"{Localization.Get("WorkflowLog.SubtitlesImported")} ({importedCount})", path);
+        }
 
         if (firstCueId is { } id)
         {
             session.SelectTrack(session.ClipIndex.GetSubtitleTrackId(id));
             session.SelectCue(id);
+        }
+        else if (assResult is { Layers.IsEmpty: false })
+        {
+            var layer = assResult.Layers[0];
+            session.SelectLayer(layer.Id, [layer.Id]);
         }
     }
 

@@ -34,7 +34,7 @@ internal sealed class AssEventConversionContext
     {
         var originalLayer = layer;
         textAnimation = new(line, layer, diagnostics);
-        layer = layer with { Tracks = layer.Tracks.Where(track => !AssTextAnimationExport.Handles(track)).ToImmutableArray() };
+        layer = layer with { Tracks = layer.Tracks.Where(track => !textAnimation.HandlesForExport(track)).ToImmutableArray() };
         this.layer = layer;
         this.line = line;
         this.diagnostics = diagnostics;
@@ -207,8 +207,15 @@ internal sealed class AssEventConversionContext
         "\\fscx" + AssFormatValues.Number(scale.X * 100) + "\\fscy" + AssFormatValues.Number(scale.Y * 100) +
         "\\frz" + AssFormatValues.Number(rotation == 0 ? 0 : -rotation);
 
-    internal string TextAnimationTags(int offset, SubtitleStyle style, bool karaoke, MediaTime origin) =>
-        textAnimation.Write(offset, style, karaoke, origin, scale, rotation);
+    internal string TextAnimationTags(int offset, SubtitleStyle style, bool karaoke, MediaTime origin, SubtitleStyle? sharedStyle = null)
+    {
+        return textAnimation.Write(offset, style, karaoke, origin, scale, rotation, sharedStyle);
+    }
+
+    internal ImmutableHashSet<AnimationProperty> SharedVisualProperties(int offset, bool karaoke)
+    {
+        return textAnimation.SharedVisualProperties(offset, karaoke);
+    }
 
     internal SubtitleStyle ApplyTypographyAnimations(SubtitleStyle style)
     {
@@ -226,7 +233,7 @@ internal sealed class AssEventConversionContext
         return AssEventClock.Origin(line.Start, sample.Start, layer.AnimationOffset, timeOffset);
     }
 
-    internal string AnimationTags(SubtitleStyle style, MediaTime origin)
+    internal string AnimationTags(SubtitleStyle style, MediaTime origin, ImmutableHashSet<AnimationProperty>? sharedVisual = null)
     {
         var result = new System.Text.StringBuilder();
         var appearanceScale = Math.Sqrt(scale.X * scale.Y);
@@ -234,6 +241,10 @@ internal sealed class AssEventConversionContext
         var hasRotation = numeric.ContainsKey((AnimationProperty.ROTATION, 0));
         foreach (var animation in numeric.Values)
         {
+            if (sharedVisual?.Contains(animation.Property) == true)
+            {
+                continue;
+            }
             var tag = animation.Property switch
             {
                 AnimationProperty.LETTER_SPACING => "\\fsp",
@@ -261,18 +272,21 @@ internal sealed class AssEventConversionContext
             result.Append(animation.Write(tag, factor, origin, line.Id, diagnostics));
         }
         var uniform = UniformScaleAnimation();
-        if (uniform is not null && style.StrokeWidth > 0 && !KaraokeOverrides(AnimationProperty.STROKE_WIDTH) && !numeric.ContainsKey((AnimationProperty.STROKE_WIDTH, 0)))
+        if (uniform is not null && style.StrokeWidth > 0 && sharedVisual?.Contains(AnimationProperty.STROKE_WIDTH) != true &&
+            !KaraokeOverrides(AnimationProperty.STROKE_WIDTH) && !numeric.ContainsKey((AnimationProperty.STROKE_WIDTH, 0)))
         {
             result.Append(uniform.Write("\\bord", style.StrokeWidth, origin, line.Id, diagnostics));
         }
         var blurProperty = style.StrokeWidth > 0 ? AnimationProperty.STROKE_BLUR : AnimationProperty.FILL_BLUR;
-        if (uniform is not null && AssBlurConversion.Sigma(style) > 0 && !KaraokeOverrides(blurProperty) && !numeric.ContainsKey((blurProperty, 0)))
+        if (uniform is not null && AssBlurConversion.Sigma(style) > 0 && sharedVisual?.Contains(blurProperty) != true &&
+            !KaraokeOverrides(blurProperty) && !numeric.ContainsKey((blurProperty, 0)))
         {
             result.Append(uniform.Write("\\blur", AssBlurConversion.Sigma(style) / AssBlurConversion.SigmaPerUnit, origin, line.Id, diagnostics));
         }
         if ((hasScale || hasRotation) && (style.ShadowColor.Alpha > 0 && style.ShadowOffset != default ||
             hasScale && (uniform is null || numeric.ContainsKey((AnimationProperty.STROKE_WIDTH, 0)) ||
-                numeric.ContainsKey((blurProperty, 0)) || KaraokeOverrides(AnimationProperty.STROKE_WIDTH) || KaraokeOverrides(blurProperty)) &&
+                numeric.ContainsKey((blurProperty, 0)) || sharedVisual?.Contains(AnimationProperty.STROKE_WIDTH) == true ||
+                sharedVisual?.Contains(blurProperty) == true || KaraokeOverrides(AnimationProperty.STROKE_WIDTH) || KaraokeOverrides(blurProperty)) &&
             (style.StrokeWidth > 0 || style.FillBlur > 0 || style.StrokeBlur > 0 || style.ShadowBlur > 0)))
         {
             Report("Ass.TransformAppearanceAnimation", "Scaling or rotation animation was preserved, but ASS cannot retain all transform compensation for independent stroke, blur, or shadow simultaneously. Some appearance values were approximated using the initial transform.");

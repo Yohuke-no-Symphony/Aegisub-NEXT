@@ -39,6 +39,58 @@ internal sealed class AssTextAnimationImport
 
     internal AssRotationOriginGeometry RotationOriginGeometry() => AssRotationOriginGeometry.FromRuns(runs, original.End - original.Start);
 
+    internal bool TryFixedLayout(SubtitleLine line, out SubtitleLine measuredLine)
+    {
+        measuredLine = line;
+        var typography = new List<(AssTextAnimationRun Run, double Size, double Spacing)>();
+        foreach (var run in runs)
+        {
+            if (!AssGeometryAnimationWindow.TryConstant(run.Channels["fs"], original.End - original.Start, out var size) ||
+                !AssGeometryAnimationWindow.TryConstant(run.Channels["fsp"], original.End - original.Start, out var spacing) ||
+                !double.IsFinite(size.Scalar) || size.Scalar is < 0.01 or > 4096 ||
+                !double.IsFinite(spacing.Scalar) || spacing.Scalar is < -4096 or > 4096)
+            {
+                return false;
+            }
+            typography.Add((run, size.Scalar, spacing.Scalar));
+        }
+        if (typography.Count == 0)
+        {
+            return false;
+        }
+        var boundaries = line.InlineSpans.SelectMany(span => new[] { span.Utf16Start, span.Utf16Start + span.Utf16Length })
+            .Concat(runs.SelectMany(run => new[] { run.Utf16Start, run.Utf16Start + run.Utf16Length }))
+            .Append(0).Append(line.Text.Length).Distinct().Order().ToArray();
+        var spans = ImmutableArray.CreateBuilder<SubtitleInlineSpan>();
+        var runIndex = 0;
+        for (var index = 0; index < boundaries.Length - 1; index++)
+        {
+            var start = boundaries[index];
+            var end = boundaries[index + 1];
+            while (runIndex < typography.Count && typography[runIndex].Run.Utf16Start + typography[runIndex].Run.Utf16Length <= start)
+            {
+                runIndex++;
+            }
+            var style = line.InlineSpans.FirstOrDefault(span => span.Utf16Start <= start &&
+                start < span.Utf16Start + span.Utf16Length)?.Style ?? new SubtitleInlineStyleOverride();
+            if (runIndex < typography.Count && typography[runIndex].Run.Utf16Start <= start)
+            {
+                var run = typography[runIndex];
+                style = style with { FontSize = run.Size, LetterSpacing = run.Spacing };
+            }
+            if (spans.Count > 0 && spans[^1].Style == style && spans[^1].Utf16Start + spans[^1].Utf16Length == start)
+            {
+                spans[^1] = spans[^1] with { Utf16Length = end - spans[^1].Utf16Start };
+            }
+            else
+            {
+                spans.Add(new(start, end - start, style));
+            }
+        }
+        measuredLine = line with { InlineSpans = spans.ToImmutable() };
+        return true;
+    }
+
     internal void Observe(int offset, int length, bool karaoke, int excludedCandidate)
     {
         if (runs.Count > 0 && observedRevision == revision && observedCandidate == excludedCandidate &&
@@ -71,6 +123,7 @@ internal sealed class AssTextAnimationImport
             case "fsp": channels["fsp"].Set(style.LetterSpacing); break;
             case "bord": channels["bord"].Set(style.StrokeWidth); break;
             case "blur": channels["blur"].Set(blur); break;
+            case "fsc": channels["scale"].Set(scale); break;
             case "fscx": channels["scale"].Set(scale, 1); break;
             case "fscy": channels["scale"].Set(scale, 2); break;
             case "fr":

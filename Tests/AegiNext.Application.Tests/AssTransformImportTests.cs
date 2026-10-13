@@ -191,7 +191,6 @@ public sealed class AssTransformImportTests
 
     [Theory]
     [InlineData("500,500")]
-    [InlineData("1500,500")]
     public void UnrepresentableMoveTimesAreDiagnosedWithoutLosingTheText(string times)
     {
         var result = Parse("{\\move(10,20,110,220," + times + ")}字幕");

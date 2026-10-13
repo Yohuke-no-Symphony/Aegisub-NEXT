@@ -2,7 +2,7 @@ namespace AegiNext.SubtitleFormats;
 
 internal static class AssOverrideTags
 {
-    internal static readonly string[] KnownNames = ["iclip", "alpha", "xbord", "ybord", "xshad", "yshad", "fscx", "fscy", "bord", "shad", "blur", "move", "clip", "fade", "pos", "fad", "frz", "frx", "fry", "fsp", "fax", "fay", "org", "pbo", "fn", "fs", "fe", "fr", "be", "an", "kf", "ko", "kt", "1c", "2c", "3c", "4c", "1a", "2a", "3a", "4a", "b", "i", "u", "s", "c", "r", "k", "K", "p", "q", "t", "a"];
+    internal static readonly string[] KnownNames = ["iclip", "alpha", "xbord", "ybord", "xshad", "yshad", "fscx", "fscy", "fsc", "bord", "shad", "blur", "move", "clip", "fade", "pos", "fad", "frz", "frx", "fry", "fsp", "fax", "fay", "org", "pbo", "fn", "fs", "fe", "fr", "be", "an", "kf", "ko", "kt", "1c", "2c", "3c", "4c", "1a", "2a", "3a", "4a", "b", "i", "u", "s", "c", "r", "k", "K", "p", "q", "t", "a"];
 
     internal static IEnumerable<AssOverrideTag> Parse(string block)
     {

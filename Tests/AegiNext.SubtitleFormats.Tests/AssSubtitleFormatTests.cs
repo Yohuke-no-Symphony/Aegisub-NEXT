@@ -67,7 +67,7 @@ public sealed class AssSubtitleFormatTests
         Assert.Equal("keep text", Assert.Single(parsed.Lines).Text);
         Assert.Contains(Assert.Single(parsed.Clips).Tracks, track => track.Property == AnimationProperty.FONT_SIZE);
         Assert.Contains(Assert.Single(parsed.Clips).Tracks, track => track.Property == AnimationProperty.POSITION);
-        Assert.Contains(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.Drawing");
+        Assert.Contains(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.DrawingMixedFlow");
         Assert.All(parsed.Diagnostics, diagnostic => Assert.NotNull(diagnostic.SubtitleId));
     }
 

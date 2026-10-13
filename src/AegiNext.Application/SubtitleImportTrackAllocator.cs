@@ -9,7 +9,7 @@ internal sealed class SubtitleImportTrackAllocator
     private readonly int[] maxima;
     private readonly int[] pending;
 
-    internal SubtitleImportTrackAllocator(IReadOnlyList<SubtitleLine> lines)
+    internal SubtitleImportTrackAllocator(IReadOnlyList<ProjectLayer> lines)
     {
         boundaries = lines.SelectMany(line => new[] { line.Start, line.End }).Distinct().Order().ToArray();
         maxima = new int[Math.Max(1, boundaries.Length * 4)];
@@ -18,7 +18,7 @@ internal sealed class SubtitleImportTrackAllocator
         Array.Fill(pending, -1);
     }
 
-    internal int[] Allocate(IReadOnlyList<SubtitleLine> lines)
+    internal int[] Allocate(IReadOnlyList<ProjectLayer> lines)
     {
         var result = new int[lines.Count];
         for (var index = 0; index < lines.Count; index++)
@@ -26,7 +26,7 @@ internal sealed class SubtitleImportTrackAllocator
             var line = lines[index];
             if (line.Start >= line.End)
             {
-                throw new InvalidDataException("The imported subtitle end time must be later than its start time.");
+                throw new InvalidDataException("The imported layer end time must be later than its start time.");
             }
             var start = Array.BinarySearch(boundaries, line.Start);
             var end = Array.BinarySearch(boundaries, line.End) - 1;

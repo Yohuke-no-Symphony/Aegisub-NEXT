@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text;
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 
@@ -9,6 +10,11 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
     ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics, bool projection = false)
 {
     private readonly HashSet<string> reported = [];
+    private readonly ImmutableHashSet<AnimationProperty> sharedChannels = projection ? [] : layer.Tracks.Where(track =>
+        track.Target.State != SubtitleAnimationState.NORMAL && IsSharedVisual(track.Property) &&
+        line.Karaoke.Any(segment => track.Target.TextRangeId is not { } rangeId ||
+            line.AnimationRanges.Any(range => range.Id == rangeId && range.Utf16Start < segment.Utf16Start + segment.Utf16Length &&
+                segment.Utf16Start < range.Utf16Start + range.Utf16Length))).Select(track => SharedChannel(track.Property)).ToImmutableHashSet();
 
     internal static bool Handles(AnimationTrack track) => track.Target.TextRangeId is not null ||
         track.Target.State != SubtitleAnimationState.NORMAL || track.Property is AnimationProperty.FONT_SIZE or
@@ -26,32 +32,38 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             track.Target == blur.Target with { Property = AnimationProperty.SHADOW_BLUR } && Equivalent(blur, track));
     }
 
-    internal string Write(int offset, SubtitleStyle style, bool karaoke, MediaTime origin, ScenePoint scale, double rotation)
+    internal bool HandlesForExport(AnimationTrack track)
     {
-        var selected = new Dictionary<(AnimationProperty Property, SubtitleAnimationState State), AnimationTrack>();
-        foreach (var track in layer.Tracks.Where(track => (Handles(track) || projection &&
-            track.Property is AnimationProperty.LETTER_SPACING or AnimationProperty.STROKE_WIDTH or AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR) && track.Target.TextRangeId is null))
-        {
-            selected[(track.Property, track.Target.State)] = track;
-        }
+        return Handles(track) || UsesSharedAppearance(track.Property);
+    }
+
+    internal bool UsesSharedAppearance(AnimationProperty property)
+    {
+        return IsSharedVisual(property) && sharedChannels.Contains(SharedChannel(property));
+    }
+
+    internal ImmutableHashSet<AnimationProperty> SharedVisualProperties(int offset, bool karaoke)
+    {
+        return SharedVisualProperties(SelectTracks(offset), karaoke);
+    }
+
+    internal string Write(int offset, SubtitleStyle style, bool karaoke, MediaTime origin, ScenePoint scale, double rotation,
+        SubtitleStyle? sharedStyle = null)
+    {
+        var selected = SelectTracks(offset);
         var matching = line.AnimationRanges.Where(range => range.Utf16Start <= offset && offset < range.Utf16Start + range.Utf16Length).ToArray();
         if (matching.Any(range => range.Offset != default || layer.Tracks.Any(track =>
             track.Target.TextRangeId == range.Id && track.Property == AnimationProperty.POSITION)))
         {
             Report("Ass.RangeTranslation", "ASS cannot represent independent text-range translation after layout. Range translation was omitted; native ranges and translation animation are preserved in the project.");
         }
-        foreach (var range in matching)
-        {
-            foreach (var track in layer.Tracks.Where(track => track.Target.TextRangeId == range.Id))
-            {
-                selected[(track.Property, track.Target.State)] = track;
-            }
-        }
         if (karaoke && (selected.ContainsKey((AnimationProperty.FILL, SubtitleAnimationState.INACTIVE)) ||
             KaraokeVisualStyleResolver.RangeStyleAt(line, offset, KaraokeVisualState.INACTIVE)?.Fill is not null))
         {
             selected.Remove((AnimationProperty.FILL, SubtitleAnimationState.NORMAL));
         }
+        var shared = SharedVisualProperties(selected, karaoke);
+        SelectSharedAppearance(selected, shared, sharedStyle ?? style, origin, offset);
         if (matching.Length > 1)
         {
             Report("Ass.RangeOverlap", "Overlapping text-range styles were converted in range order. Combined geometry and pivots cannot be represented exactly in ASS, so overlapping range geometry was omitted.");
@@ -132,12 +144,12 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             }
             var channel = track.Target.State == SubtitleAnimationState.INACTIVE ||
                 karaoke && track.Property == AnimationProperty.FILL && track.Target.State == SubtitleAnimationState.NORMAL ? "2" : "1";
-            if (track.Target.State != SubtitleAnimationState.NORMAL && track.Property != AnimationProperty.FILL)
+            if (track.Target.State != SubtitleAnimationState.NORMAL && track.Property != AnimationProperty.FILL && !shared.Contains(track.Property))
             {
                 Report("Ass.KaraokeAnimation", "ASS stroke, shadow, and layout only have shared channels and cannot preserve independent continuous animations for active and inactive states. This state track was omitted.");
                 continue;
             }
-            if (track.Property == AnimationProperty.SHADOW_BLUR)
+            if (track.Property == AnimationProperty.SHADOW_BLUR && !shared.Contains(track.Property))
             {
                 var blurProperty = style.StrokeWidth > 0 ? AnimationProperty.STROKE_BLUR : AnimationProperty.FILL_BLUR;
                 var blur = selected.GetValueOrDefault((blurProperty, track.Target.State)) ?? layer.Tracks.FirstOrDefault(candidate => candidate.Property == blurProperty && candidate.Target == track.Target with { Property = blurProperty });
@@ -147,7 +159,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
                 }
                 continue;
             }
-            if (track.Property is AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR &&
+            if (!shared.Contains(track.Property) && track.Property is AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR &&
                 (track.Property == AnimationProperty.FILL_BLUR ? style.StrokeWidth > 0 : style.StrokeWidth <= 0))
             {
                 Report("Ass.BlurAnimation", "ASS has only one edge-blur channel. Independent blur animation that is invisible in the current stroke state was omitted.");
@@ -186,6 +198,96 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
                 layer.AnimationOffset + layer.End - layer.Start, line.Id, diagnostics, forceSampling));
         }
         return result.ToString();
+    }
+
+    private Dictionary<(AnimationProperty Property, SubtitleAnimationState State), AnimationTrack> SelectTracks(int offset)
+    {
+        var selected = new Dictionary<(AnimationProperty Property, SubtitleAnimationState State), AnimationTrack>();
+        foreach (var track in layer.Tracks.Where(track => (HandlesForExport(track) || projection &&
+            track.Property is AnimationProperty.LETTER_SPACING or AnimationProperty.STROKE_WIDTH or AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR) && track.Target.TextRangeId is null))
+        {
+            selected[(track.Property, track.Target.State)] = track;
+        }
+        foreach (var range in line.AnimationRanges.Where(range => range.Utf16Start <= offset && offset < range.Utf16Start + range.Utf16Length))
+        {
+            foreach (var track in layer.Tracks.Where(track => track.Target.TextRangeId == range.Id))
+            {
+                selected[(track.Property, track.Target.State)] = track;
+            }
+        }
+        return selected;
+    }
+
+    private ImmutableHashSet<AnimationProperty> SharedVisualProperties(
+        Dictionary<(AnimationProperty Property, SubtitleAnimationState State), AnimationTrack> selected, bool karaoke)
+    {
+        if (projection || !karaoke)
+        {
+            return [];
+        }
+        var result = selected.Values.Where(track => track.Target.State != SubtitleAnimationState.NORMAL && IsSharedVisual(track.Property))
+            .Select(track => track.Property).ToImmutableHashSet();
+        return result.Any(IsBlur) ? result.Union([AnimationProperty.FILL_BLUR, AnimationProperty.STROKE_BLUR, AnimationProperty.SHADOW_BLUR]) : result;
+    }
+
+    private void SelectSharedAppearance(Dictionary<(AnimationProperty Property, SubtitleAnimationState State), AnimationTrack> selected,
+        ImmutableHashSet<AnimationProperty> shared, SubtitleStyle style, MediaTime origin, int offset)
+    {
+        if (shared.IsEmpty)
+        {
+            return;
+        }
+        var width = selected.Values.Where(track => track.Property == AnimationProperty.STROKE_WIDTH)
+            .OrderBy(track => StatePriority(track.Target.State)).FirstOrDefault() ?? layer.Tracks.FirstOrDefault(track =>
+                track.Property == AnimationProperty.STROKE_WIDTH && track.Target.State == SubtitleAnimationState.NORMAL &&
+                track.Target.TextRangeId is null);
+        var overridesNormalWidth = KaraokeVisualStyleResolver.RangeStyleAt(line, offset, KaraokeVisualState.INACTIVE)?.StrokeWidth is not null ||
+            line.Karaoke.Any(segment => segment.Utf16Start <= offset && offset < segment.Utf16Start + segment.Utf16Length &&
+                segment.HighlightKind == KaraokeHighlightKind.OUTLINE_STEP);
+        var strokeWidth = width is null || width.Target.State == SubtitleAnimationState.NORMAL && overridesNormalWidth
+            ? style.StrokeWidth : SceneEvaluator.EvaluateTrack(width, origin).Scalar;
+        var edgeBlur = strokeWidth > 0 ? AnimationProperty.STROKE_BLUR : AnimationProperty.FILL_BLUR;
+        foreach (var group in selected.Values.Where(track => shared.Contains(track.Property)).GroupBy(track => SharedChannel(track.Property)).ToArray())
+        {
+            var winner = group.OrderBy(track => StatePriority(track.Target.State))
+                .ThenBy(track => track.Property == edgeBlur ? 0 : track.Property == AnimationProperty.SHADOW_BLUR ? 1 : 2).First();
+            foreach (var track in group)
+            {
+                selected.Remove((track.Property, track.Target.State));
+            }
+            selected[(winner.Property, winner.Target.State)] = winner;
+        }
+        Report("Ass.KaraokeAnimation", "Independent karaoke stroke and shadow animations were mapped to shared ASS channels. Each channel uses INACTIVE before ACTIVE, then NORMAL; competing tracks and activation-specific static switches for that channel were omitted. Both visual states use the selected animation, and reimporting cannot recover state ownership.");
+        if (shared.Any(IsBlur))
+        {
+            Report("Ass.BlurAnimation", "Karaoke fill, stroke, and shadow blur share one ASS blur animation. Within the selected state, the initially visible edge takes priority, then shadow, then the other edge. Independent blur and changes in which edge is visible cannot be preserved.");
+        }
+    }
+
+    private static bool IsSharedVisual(AnimationProperty property)
+    {
+        return property is AnimationProperty.STROKE or AnimationProperty.STROKE_WIDTH or
+            AnimationProperty.SHADOW_COLOR or AnimationProperty.SHADOW_OFFSET || IsBlur(property);
+    }
+
+    private static bool IsBlur(AnimationProperty property)
+    {
+        return property is AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_BLUR;
+    }
+
+    private static AnimationProperty SharedChannel(AnimationProperty property)
+    {
+        return IsBlur(property) ? AnimationProperty.FILL_BLUR : property;
+    }
+
+    private static int StatePriority(SubtitleAnimationState state)
+    {
+        return state switch
+        {
+            SubtitleAnimationState.INACTIVE => 0,
+            SubtitleAnimationState.ACTIVE => 1,
+            _ => 2
+        };
     }
 
     private bool RemoveIdentityGeometryTrack(Dictionary<(AnimationProperty Property, SubtitleAnimationState State), AnimationTrack> selected,
@@ -253,7 +355,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             var tag = property switch
             {
                 AnimationProperty.FONT_SIZE => "fs", AnimationProperty.LETTER_SPACING => "fsp",
-                AnimationProperty.STROKE_WIDTH => "bord", AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR => "blur",
+                AnimationProperty.STROKE_WIDTH => "bord", AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_BLUR => "blur",
                 AnimationProperty.ROTATION => "frz", _ => null
             };
             if (tag is not null)
@@ -262,7 +364,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
                 {
                     AnimationProperty.FONT_SIZE when mode == AnimationTransformMode.MULTIPLY_BY => (value.Scalar - 1) * 10,
                     AnimationProperty.STROKE_WIDTH => value.Scalar * appearanceScale,
-                    AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR => value.Scalar * appearanceScale / AssBlurConversion.SigmaPerUnit,
+                    AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_BLUR => value.Scalar * appearanceScale / AssBlurConversion.SigmaPerUnit,
                     AnimationProperty.ROTATION => -(value.Scalar + rotation), _ => value.Scalar
                 };
                 if (tag == "blur" && !projection)

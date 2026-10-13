@@ -4,24 +4,90 @@ using AegiNext.Core.Timing;
 
 namespace AegiNext.SubtitleFormats;
 
-internal sealed class AssMaskParser(MediaTime duration, double scaleX, double scaleY, int width, int height)
+internal sealed class AssMaskParser(MediaTime duration, double scaleX, double scaleY, int width, int height,
+    ISubtitleMaskGeometryCombiner? geometryCombiner = null)
 {
-    private ClipMask? mask;
+    private VectorClipMask? vector;
+    private RectangleClipMask? rectangle;
+    private bool hasVectorSlot;
+    private bool dirty;
+    private ClipMask? resolved;
+    private Guid subtitleId;
+    private int sourceStart;
+    private int sourceLength;
     private readonly List<AssMaskTransform> transforms = [];
     private readonly List<SubtitleFormatDiagnostic> diagnostics = [];
 
-    internal ClipMask? Mask => mask;
+    internal ClipMask? Mask
+    {
+        get
+        {
+            if (!dirty)
+            {
+                return resolved;
+            }
+            dirty = false;
+            resolved = vector ?? (ClipMask?)rectangle;
+            if (vector is null || rectangle is null)
+            {
+                return resolved;
+            }
+            if (transforms.Count > 0)
+            {
+                diagnostics.Add(new("Ass.MixedMaskAnimation", "The first static vector clipping was preserved. Animated rectangle clipping combined with a vector requires mask animation baking and was omitted.", sourceStart, sourceLength, subtitleId));
+                transforms.Clear();
+            }
+            string? reason = null;
+            if (geometryCombiner is not null && geometryCombiner.TryCombine(vector, rectangle, out var combined, out reason))
+            {
+                resolved = combined;
+                diagnostics.Add(new("Ass.MaskGeometryPrecision", "Static vector and rectangle clipping were combined into a native path. Floating-point geometry and native edge antialiasing may differ from the source player's pixel clipping.", sourceStart, sourceLength, subtitleId));
+            }
+            else
+            {
+                diagnostics.Add(new("Ass.MixedMaskModes", "The first vector clipping was preserved, but its additional rectangle clipping could not be combined: " +
+                    (reason ?? "no geometry conversion service was provided") + ".", sourceStart, sourceLength, subtitleId));
+            }
+            return resolved;
+        }
+    }
     internal IEnumerable<SubtitleFormatDiagnostic> Diagnostics => diagnostics;
 
     internal void Apply(string name, string value, Guid subtitleId, int sourceStart, int sourceLength)
     {
-        var parsed = ParseGeometry(name, value);
-        if (mask is not null || transforms.Count > 0)
+        var arguments = AssOverrideTags.Arguments(value);
+        if (arguments.Length != 4)
         {
-            diagnostics.Add(new("Ass.DuplicateMask", "Duplicate static ASS clipping uses the last rectangle value. Later static clipping overrides preceding clipping transforms.", sourceStart, sourceLength, subtitleId));
-            transforms.Clear();
+            if (hasVectorSlot)
+            {
+                diagnostics.Add(new("Ass.DuplicateMask", "Duplicate vector clipping was ignored; the first source vector clipping occupies this event's vector slot.", sourceStart, sourceLength, subtitleId));
+                return;
+            }
+            if (arguments.Length is not (1 or 2))
+            {
+                throw new InvalidDataException("ASS vector clipping requires drawing commands and an optional scale value.");
+            }
+            hasVectorSlot = true;
+            vector = ParseGeometry(name, value) as VectorClipMask;
+            if (vector is null)
+            {
+                diagnostics.Add(new("Ass.EmptyVectorMask", "The first vector clipping has no drawable contour and was ignored, while still occupying the source vector slot.", sourceStart, sourceLength, subtitleId));
+            }
         }
-        mask = parsed;
+        else
+        {
+            var parsed = (RectangleClipMask)ParseGeometry(name, value)!;
+            if (rectangle is not null || transforms.Count > 0)
+            {
+                diagnostics.Add(new("Ass.DuplicateMask", "Duplicate static rectangle clipping uses the last value and cancels preceding rectangle transforms.", sourceStart, sourceLength, subtitleId));
+            }
+            transforms.Clear();
+            rectangle = parsed;
+        }
+        this.subtitleId = subtitleId;
+        this.sourceStart = sourceStart;
+        this.sourceLength = sourceLength;
+        dirty = true;
     }
 
     internal bool TryTransform(string value, Guid subtitleId, int sourceStart, int sourceLength)
@@ -50,32 +116,37 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
         }
         foreach (var clip in clips)
         {
-            var target = ParseGeometry(clip.Name, clip.Value);
+            if (AssOverrideTags.Arguments(clip.Value).Length != 4)
+            {
+                Apply(clip.Name, clip.Value, subtitleId, sourceStart, sourceLength);
+                diagnostics.Add(new("Ass.VectorMaskTransform", "Vector clipping inside t is static in ASS; its first source vector was preserved without animation.", sourceStart, sourceLength, subtitleId));
+                continue;
+            }
+            var target = (RectangleClipMask)ParseGeometry(clip.Name, clip.Value)!;
             if (acceleration < 0)
             {
                 diagnostics.Add(new("Ass.MaskAcceleration", "Negative accel produces infinity at the transform start and cannot be stored as a finite project mask. Base clipping was preserved and the transform was discarded.", sourceStart, sourceLength, subtitleId));
                 continue;
             }
-            if (target is not RectangleClipMask rectangle)
-            {
-                diagnostics.Add(new("Ass.VectorMaskTransform", "ASS cannot animate vector clipping with t. The static vector was preserved; use native mask animation.", sourceStart, sourceLength, subtitleId));
-                mask ??= target;
-                continue;
-            }
-            mask ??= new RectangleClipMask { BottomRight = new(width, height), Transform = new() { Pivot = new(width / 2d, height / 2d) }, Inverted = rectangle.Inverted };
-            if (mask is not RectangleClipMask || mask.Inverted != rectangle.Inverted)
+            rectangle ??= new RectangleClipMask { BottomRight = new(width, height), Transform = new() { Pivot = new(width / 2d, height / 2d) }, Inverted = target.Inverted };
+            if (rectangle.Inverted != target.Inverted)
             {
                 diagnostics.Add(new("Ass.MixedMaskModes", "ASS transforms mixing clip and iclip, or rectangles and vectors, cannot be preserved as one mask. The base shape was preserved and incompatible transforms were discarded.", sourceStart, sourceLength, subtitleId));
                 continue;
             }
-            transforms.Add(new(start, end, acceleration, rectangle));
+            transforms.Add(new(start, end, acceleration, target));
+            this.subtitleId = subtitleId;
+            this.sourceStart = sourceStart;
+            this.sourceLength = sourceLength;
+            dirty = true;
         }
         return tags.All(tag => tag.Name is "clip" or "iclip");
     }
 
     internal ImmutableArray<AnimationTrack> Tracks()
     {
-        if (transforms.Count == 0 || mask is not RectangleClipMask rectangle)
+        _ = Mask;
+        if (transforms.Count == 0 || rectangle is null || vector is not null)
         {
             return [];
         }
@@ -99,7 +170,7 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
         };
     }
 
-    private ClipMask ParseGeometry(string name, string value)
+    private ClipMask? ParseGeometry(string name, string value)
     {
         var arguments = AssOverrideTags.Arguments(value);
         if (arguments.Length == 4)

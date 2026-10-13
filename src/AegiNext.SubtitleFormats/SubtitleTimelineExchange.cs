@@ -27,7 +27,7 @@ public static class SubtitleTimelineExchange
         }).ToImmutableArray();
     }
 
-    /// <summary>同时平移 ASS 行及片段的对应行，不修改蒙版、轨道及内容偏移。</summary>
+    /// <summary>同时平移 ASS 行及原生片段的绝对区间，不修改蒙版、轨道及内容偏移。</summary>
     public static AssImportResult ToProjectTime(AssImportResult imported, MediaTimelineMapping mapping)
     {
         ArgumentNullException.ThrowIfNull(imported);
@@ -40,7 +40,11 @@ public static class SubtitleTimelineExchange
         return imported with
         {
             Lines = lines,
-            Clips = imported.Clips.Select((clip, index) => clip with { Line = lines[index] }).ToImmutableArray()
+            Clips = imported.Clips.Select((clip, index) => clip with { Line = lines[index] }).ToImmutableArray(),
+            Layers = imported.Layers.Select(layer => layer with
+            {
+                Start = mapping.ToProjectTime(layer.Start), End = mapping.ToProjectTime(layer.End)
+            }).ToImmutableArray()
         };
     }
 }

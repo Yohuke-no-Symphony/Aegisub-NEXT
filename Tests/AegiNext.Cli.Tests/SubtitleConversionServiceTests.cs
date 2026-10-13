@@ -126,6 +126,64 @@ public sealed class SubtitleConversionServiceTests
         Assert.StartsWith("Missing ASS PlayRes axes use default dimensions", diagnostic.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task AssDrawingContoursSurviveAssConversionWithoutEmptySubtitles()
+    {
+        using var directory = new CliTestDirectory();
+        var input = await directory.InputAsync("drawing.ass", AssSource(@"{\q2\an7\pos(80,60)\pbo20\p1}m 0 0 l 30 0 30 30 0 30 m 60 0 l 90 0 90 30 60 30{\p0}"));
+
+        var result = await new SubtitleConversionService().ConvertAsync(input, "ass", CancellationToken.None);
+        var imported = AssSubtitleFormat.ParseAtSourceResolution(result.Text).Result;
+
+        Assert.Empty(imported.Lines);
+        Assert.Equal(2, imported.Layers.Length);
+        Assert.All(imported.Layers, layer => Assert.Equal(LayerKind.SHAPE, layer.Kind));
+        Assert.DoesNotContain(result.Diagnostics, item => item.Code is "Ass.Drawing" or "Ass.DrawingBaseline" or "Ass.DrawingPlacement");
+    }
+
+    [Fact]
+    public async Task AssDrawingReachesSrtCompositionLossAnalysis()
+    {
+        using var directory = new CliTestDirectory();
+        var input = await directory.InputAsync("drawing.ass", AssSource(@"{\q2\an7\pos(80,60)\p1}m 0 0 l 30 0 30 30 0 30"));
+
+        var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
+
+        Assert.Empty(SubtitleTextFormat.ParseSrt(result.Text));
+        var diagnostic = Assert.Single(result.Diagnostics, item => item.Code == "Subtitle.Composition");
+        Assert.NotNull(diagnostic.LayerId);
+        Assert.Null(diagnostic.SubtitleId);
+    }
+
+    [Fact]
+    public async Task AssConversionCombinesStaticVectorAndRectangleMasks()
+    {
+        using var directory = new CliTestDirectory();
+        var input = await directory.InputAsync("mask.ass", AssSource(@"{\clip(m 20 10 l 300 10 300 200 20 200)\clip(120,0,450,220)}Hello"));
+
+        var result = await new SubtitleConversionService().ConvertAsync(input, "ass", CancellationToken.None);
+        var imported = AssSubtitleFormat.ParseAtSourceResolution(result.Text).Result;
+        var mask = Assert.IsType<VectorClipMask>(Assert.Single(imported.Clips).Mask);
+        var points = mask.Contours.SelectMany(contour => contour.Nodes).Select(node => node.Position).ToArray();
+
+        Assert.Equal(120, points.Min(point => point.X), 6);
+        Assert.Equal(300, points.Max(point => point.X), 6);
+        Assert.Contains(result.Diagnostics, item => item.Code == "Ass.MaskGeometryPrecision");
+        Assert.DoesNotContain(result.Diagnostics, item => item.Code == "Ass.MixedMaskModes");
+    }
+
+    [Fact]
+    public async Task AssConversionMeasuresAutomaticRotationOriginWithRealFonts()
+    {
+        using var directory = new CliTestDirectory();
+        var input = await directory.InputAsync("origin.ass", AssSource(@"{\q2\org(205,155)\frz37}Fj"));
+
+        var result = await new SubtitleConversionService().ConvertAsync(input, "ass", CancellationToken.None);
+
+        Assert.Contains(@"\org(205,155)", result.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(result.Diagnostics, item => item.Code is "Ass.RotationOrigin" or "Ass.PlacementMeasurement");
+    }
+
     private static string AssSource(string text)
     {
         return "[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 360\nScaledBorderAndShadow: yes\n" +

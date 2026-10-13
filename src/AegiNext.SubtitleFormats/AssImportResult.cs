@@ -8,4 +8,7 @@ public sealed record AssImportResult(ImmutableArray<SubtitleLine> Lines,
     ImmutableArray<SubtitleFormatDiagnostic> Diagnostics)
 {
     public ImmutableArray<SubtitleClipImport> Clips { get; init; } = [];
+
+    /// <summary>格式导入产生的完整原生图层，包含字幕及可编辑图形。</summary>
+    public ImmutableArray<ProjectLayer> Layers { get; init; } = [];
 }

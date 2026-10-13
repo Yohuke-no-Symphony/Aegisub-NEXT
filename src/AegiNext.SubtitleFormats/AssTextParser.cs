@@ -11,16 +11,24 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
     SceneColor secondary, double scaleX = 1, double scaleY = 1, bool projectSource = false, int canvasWidth = 1920, int canvasHeight = 1080,
     int wrapStyle = 0, double? blurScaleX = null, double? blurScaleY = null, bool blurUsesPlayRes = true,
     AssResolutionContext? resolution = null, bool projectAnimations = false, IAssFontWeightResolver? fontWeightResolver = null,
-    SubtitleMargins? dialogueMargins = null)
+    SubtitleMargins? dialogueMargins = null, ISubtitlePlacementMeasurer? placementMeasurer = null,
+    ISubtitleMaskGeometryCombiner? maskGeometryCombiner = null)
 {
     private readonly AssResolutionContext borderResolution = resolution ?? new(scaleX, scaleY);
-    private readonly AssMaskParser maskParser = new(original.End - original.Start, scaleX, scaleY, canvasWidth, canvasHeight);
+    private readonly AssMaskParser maskParser = new(original.End - original.Start, scaleX, scaleY, canvasWidth, canvasHeight, maskGeometryCombiner);
     private readonly AssGeometryParser geometryParser = new(original, styles, scaleX, scaleY, !projectSource);
     private readonly AssRotationOriginParser rotationOriginParser = new(original.Id, scaleX, scaleY);
     private readonly AssOpacityParser opacityParser = new(original.End - original.Start, original.Id);
+    private readonly AssBorderSourceState borderSource = new(original.Style.StrokeWidth);
+    private int borderSourceStart;
+    private int borderSourceLength;
     private AssNumericTransformParser numericParser = null!;
     private AssTextAnimationImport textAnimation = null!;
     private readonly StringBuilder text = new();
+    private readonly ImmutableArray<AssDrawingRun>.Builder drawings = ImmutableArray.CreateBuilder<AssDrawingRun>();
+    private AssDrawingRun? drawingRun;
+    private int drawingScale;
+    private double drawingBaselineOffset;
     private readonly ImmutableArray<SubtitleInlineSpan>.Builder spans = ImmutableArray.CreateBuilder<SubtitleInlineSpan>();
     private readonly ImmutableArray<SubtitleKaraokeStyleSpan>.Builder karaokeStyles = ImmutableArray.CreateBuilder<SubtitleKaraokeStyleSpan>();
     private readonly ImmutableArray<KaraokeSegment>.Builder karaoke = ImmutableArray.CreateBuilder<KaraokeSegment>();
@@ -76,6 +84,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             if (source[index] == '{')
             {
+                FlushDrawing();
                 var end = source.IndexOf('}', index + 1);
                 if (end < 0)
                 {
@@ -111,6 +120,10 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 }
                 if ((!projectSource || projectAnimations) && content.Any(character => character is not ('\r' or '\n')))
                 {
+                    if (!projectSource)
+                    {
+                        ObserveBorder();
+                    }
                     geometryParser.Observe();
                     numericParser.Observe(current, segmentDuration > MediaTime.Zero && instantVisualTime == karaokeTime &&
                         kind != KaraokeHighlightKind.SWEEP ? instantCandidate : 0);
@@ -151,9 +164,21 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 text.Append(content);
                 AppendStyle(offset, content.Length);
             }
+            else if (!projectSource)
+            {
+                if (drawingRun is null)
+                {
+                    ObserveBorder();
+                    var drawingStyle = ResolveExternalBlur(current, edgeBlur);
+                    drawingRun = new(index, 0, drawingScale, drawingBaselineOffset, drawingStyle,
+                        geometryParser.CurrentScale, geometryParser.CurrentRotation);
+                }
+                drawingRun = drawingRun with { SourceLength = drawingRun.SourceLength + count };
+            }
             map.Add(new(index, count, offset, drawing ? 0 : content.Length));
             index += count;
         }
+        FlushDrawing();
         FlushKaraoke();
         if (!projectSource)
         {
@@ -201,9 +226,35 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             numericTracks = textAnimations.Tracks;
             if (rotationOriginParser.Origin is { } origin && sourceGeometry is not null)
             {
-                if (AssRotationOriginConversion.TryImport(origin, geometryParser.Placement, line, transform, placementTracks,
+                var basis = geometryParser.Placement;
+                var reason = string.Empty;
+                if (basis is null)
+                {
+                    if (!textAnimation.TryFixedLayout(line, out var measuredLine))
+                    {
+                        reason = "automatic placement depends on changing or unpreserved font-size or letter-spacing layout";
+                    }
+                    else if (placementMeasurer is null)
+                    {
+                        reason = "automatic placement requires actual font layout measurements";
+                    }
+                    else
+                    {
+                        var measurementDocument = new ProjectDocument
+                        {
+                            Width = canvasWidth, Height = canvasHeight, Subtitles = [measuredLine],
+                            Layers = [new()
+                            {
+                                Kind = LayerKind.SUBTITLE, SubtitleId = measuredLine.Id,
+                                Start = measuredLine.Start, End = measuredLine.End
+                            }]
+                        };
+                        basis = placementMeasurer.Measure(measurementDocument, measuredLine).BasePosition;
+                    }
+                }
+                if (reason.Length == 0 && AssRotationOriginConversion.TryImport(origin, basis, line, transform, placementTracks,
                     numericTracks, sourceGeometry, scaleX, scaleY, contentOffset, original.End - original.Start,
-                    out var convertedTransform, out var convertedPlacementTracks, out var convertedNumericTracks, out var reason))
+                    out var convertedTransform, out var convertedPlacementTracks, out var convertedNumericTracks, out reason))
                 {
                     transform = convertedTransform;
                     placementTracks = convertedPlacementTracks;
@@ -234,12 +285,13 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             AssShadowComposition.AddDiagnostics(line, contentOffset, diagnostics);
         }
+        var mask = maskParser.Mask;
         diagnostics.AddRange(maskParser.Diagnostics);
         var opacityTracks = projectSource ? [] : opacityParser.Tracks(contentOffset);
         diagnostics.AddRange(opacityParser.Diagnostics);
         return new(line, diagnostics.ToImmutable(), map.ToImmutable())
         {
-            KaraokeSourceMap = karaokeMap.ToImmutable(), Mask = maskParser.Mask, ContentOffset = contentOffset,
+            KaraokeSourceMap = karaokeMap.ToImmutable(), Drawings = drawings.ToImmutable(), Mask = mask, ContentOffset = contentOffset,
             Transform = transform, PlacementTracks = placementTracks,
             OpacityTracks = opacityTracks, NumericTracks = numericTracks,
             MaskTracks = projectSource ? maskParser.Tracks() : LayerAnimationTiming.Clip(new ProjectLayer
@@ -302,12 +354,13 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         switch (name)
         {
             case "fn":
-                var family = value.Length == 0 ? baseline.FontFamily : value;
+                var resetFont = value.Length == 0 || !projectSource && value == "0";
+                var family = resetFont ? baseline.FontFamily : value;
                 if (!projectSource)
                 {
                     if (family != current.FontFamily)
                     {
-                        requestedFontWidth = value.Length == 0 ? baseline.FontVariant?.Width ?? 5 : 5;
+                        requestedFontWidth = resetFont ? baseline.FontVariant?.Width ?? 5 : 5;
                     }
                     current = current with { FontFamily = family, FontAssetId = null, FontVariant = null };
                     RefreshFontWeight(sourceStart, sourceLength);
@@ -344,14 +397,19 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 {
                     var resetWeight = !baseline.FontAssetId.HasValue ? baseline.FontVariant?.Weight : null;
                     var requested = value.Length == 0 ? resetWeight ?? (baseline.Bold ? 1 : 0) : AssFormatValues.Integer(value);
-                    var explicitWeight = value.Length == 0 ? resetWeight.HasValue : requested is not (-1 or 0 or 1);
+                    var resetBold = value.Length == 0 || requested is not (0 or 1) && requested < 100;
+                    if (resetBold)
+                    {
+                        requested = resetWeight ?? (baseline.Bold ? 1 : 0);
+                    }
+                    var explicitWeight = resetBold ? resetWeight.HasValue : requested >= 100;
                     requestedFontWeight = explicitWeight ? requested : null;
                     fontWeightSourceStart = sourceStart;
                     fontWeightSourceLength = sourceLength;
                     fontWeightDirty = explicitWeight;
                     current = current with
                     {
-                        Bold = explicitWeight ? requested >= 600 : requested is -1 or 1,
+                        Bold = explicitWeight ? requested >= 600 : requested == 1,
                         FontVariant = null
                     };
                     break;
@@ -365,7 +423,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 }
                 break;
             case "i":
-                var italic = value.Length == 0 ? baseline.Italic : AssFormatValues.Integer(value) != 0;
+                var italic = EmphasisFlag(value, baseline.Italic);
                 if (!projectSource)
                 {
                     current = current with { Italic = italic, FontVariant = null };
@@ -374,8 +432,12 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 }
                 current = current with { Italic = italic, FontVariant = italic == current.Italic ? current.FontVariant : null };
                 break;
-            case "u": current = current with { Underline = value.Length == 0 ? baseline.Underline : AssFormatValues.Integer(value) != 0 }; break;
-            case "s": current = current with { Strikethrough = value.Length == 0 ? baseline.Strikethrough : AssFormatValues.Integer(value) != 0 }; break;
+            case "u":
+                current = current with { Underline = EmphasisFlag(value, baseline.Underline) };
+                break;
+            case "s":
+                current = current with { Strikethrough = EmphasisFlag(value, baseline.Strikethrough) };
+                break;
             case "c":
             case "1c": current = current with { Fill = value.Length == 0 ? baseline.Fill with { Alpha = current.Fill.Alpha } : AssFormatValues.Color(value, current.Fill) }; break;
             case "2c": inactive = value.Length == 0 ? resetSecondaryColor with { Alpha = (inactive ?? secondaryColor).Alpha } : AssFormatValues.Color(value, inactive ?? secondaryColor); break;
@@ -399,12 +461,32 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 current = current with { StrokeWidth = value.Length == 0 ? baseline.StrokeWidth : BorderWidth(AssFormatValues.Number(value)) };
                 if (!projectSource)
                 {
+                    borderSource.Set(name, current.StrokeWidth);
                     numericParser.Set(name, current.StrokeWidth);
                 }
                 if (!projectSource && instantVisual is not null)
                 {
                     instantVisual = instantVisual with { StrokeWidth = null };
                     DiscardEmptyInstantVisual();
+                }
+                break;
+            case "xbord":
+            case "ybord":
+                if (projectSource)
+                {
+                    Report("Ass.UnsupportedTag", $"Project ASS code does not support {name}. Adjust the native stroke width instead.", sourceStart, sourceLength);
+                }
+                else
+                {
+                    var border = value.Length == 0 ? baseline.StrokeWidth : BorderWidth(AssFormatValues.Number(value));
+                    borderSource.Set(name, border);
+                    borderSourceStart = sourceStart;
+                    borderSourceLength = sourceLength;
+                    if (instantVisual is not null)
+                    {
+                        instantVisual = instantVisual with { StrokeWidth = null };
+                        DiscardEmptyInstantVisual();
+                    }
                 }
                 break;
             case "shad":
@@ -434,6 +516,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 resetStyle = current;
                 if (!projectSource)
                 {
+                    borderSource.Set("bord", current.StrokeWidth);
                     requestedFontWeight = current.FontAssetId.HasValue ? null : current.FontVariant?.Weight;
                     requestedFontWidth = current.FontVariant?.Width ?? 5;
                     fontWeightDirty = false;
@@ -473,8 +556,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 break;
             case "an":
             case "a":
-                var alignment = value.Length == 0 ? baseline.Alignment : name == "an" ? AssFormatValues.Alignment(AssFormatValues.Integer(value)) :
-                    AssFormatValues.LegacyAlignment(AssFormatValues.Integer(value));
+                var alignment = Alignment(name, value, baseline.Alignment);
                 if (explicitAlignment)
                 {
                     Report("Ass.DuplicatePlacement", "Duplicate ASS alignment tags on the same line were ignored; the first value was used.", sourceStart, sourceLength);
@@ -489,6 +571,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                         : null
                 };
                 break;
+            case "fsc":
             case "fscx":
             case "fscy":
             case "frz":
@@ -500,8 +583,15 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 else
                 {
                     geometryParser.Apply(name, value);
-                    numericParser.Set(name, name == "fscx" ? geometryParser.CurrentScale.X :
-                        name == "fscy" ? geometryParser.CurrentScale.Y : geometryParser.CurrentRotation);
+                    if (name == "fsc")
+                    {
+                        numericParser.ResetScale(geometryParser.CurrentScale);
+                    }
+                    else
+                    {
+                        numericParser.Set(name, name == "fscx" ? geometryParser.CurrentScale.X :
+                            name == "fscy" ? geometryParser.CurrentScale.Y : geometryParser.CurrentRotation);
+                    }
                 }
                 break;
             case "pos":
@@ -529,7 +619,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 break;
             case "kt":
                 FlushKaraoke();
-                var karaokeStart = AssFormatValues.Integer(value);
+                var karaokeStart = value.Length == 0 && !projectSource ? 0 : AssFormatValues.Integer(value);
                 AssKaraokeTiming.ValidateCount(karaokeStart);
                 karaokeTime = new(karaokeStart, 100);
                 if (projectSource && karaokeTime < MediaTime.Zero)
@@ -542,7 +632,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             case "kf":
             case "ko":
                 FlushKaraoke();
-                var centiseconds = AssFormatValues.Integer(value);
+                var centiseconds = value.Length == 0 && !projectSource ? 100 : AssFormatValues.Integer(value);
                 if (centiseconds < 0)
                 {
                     throw new InvalidDataException("ASS karaoke durations cannot be negative.");
@@ -584,8 +674,22 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 }
                 break;
             case "p":
-                drawing = AssFormatValues.Integer(value) != 0;
-                Report("Ass.Drawing", "ASS drawing was not imported. Use project shape layers.", sourceStart, sourceLength);
+                drawingScale = AssFormatValues.Integer(value);
+                drawing = projectSource ? drawingScale != 0 : drawingScale > 0;
+                if (drawing && projectSource)
+                {
+                    Report("Ass.Drawing", "ASS drawing was not imported. Use project shape layers.", sourceStart, sourceLength);
+                }
+                break;
+            case "pbo":
+                if (projectSource)
+                {
+                    Report("Ass.UnsupportedTag", "Project ASS code does not support drawing baseline offsets. Adjust native shape placement instead.", sourceStart, sourceLength);
+                }
+                else
+                {
+                    drawingBaselineOffset = value.Length == 0 ? 0 : AssFormatValues.Integer(value);
+                }
                 break;
             default:
                 Report("Ass.UnsupportedTag", name == "move" ? "ASS move is unsupported. Use project position effects." : $"ASS tag {name} was not imported.", sourceStart, sourceLength);
@@ -596,6 +700,85 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             textAnimation.Set(name, current, inactive ?? secondaryColor, geometryParser.CurrentScale,
                 geometryParser.CurrentRotation, edgeBlur);
         }
+    }
+
+    private void FlushDrawing()
+    {
+        if (drawingRun is not null)
+        {
+            drawings.Add(drawingRun);
+            drawingRun = null;
+        }
+    }
+
+    private void ObserveBorder()
+    {
+        if (!borderSource.Dirty)
+        {
+            return;
+        }
+        if (borderSource.IsShared && borderSource.IsStatic)
+        {
+            SynchronizeStaticBorder();
+        }
+        else if (!borderSource.IsShared)
+        {
+            numericParser.Set("bord", current.StrokeWidth);
+            textAnimation.Set("bord", current, inactive ?? secondaryColor, geometryParser.CurrentScale,
+                geometryParser.CurrentRotation, edgeBlur);
+            Report("Ass.BorderAxes", "Independent ASS horizontal and vertical stroke values or animations cannot share one native stroke width. The previous native width was preserved and conflicting stroke animation was omitted.",
+                borderSourceStart, borderSourceLength);
+        }
+        borderSource.Observe();
+    }
+
+    private void SynchronizeStaticBorder()
+    {
+        if (!borderSource.Dirty || !borderSource.IsShared || !borderSource.IsStatic)
+        {
+            return;
+        }
+        current = current with { StrokeWidth = borderSource.Width };
+        numericParser.Set("bord", current.StrokeWidth);
+        textAnimation.Set("bord", current, inactive ?? secondaryColor, geometryParser.CurrentScale,
+            geometryParser.CurrentRotation, edgeBlur);
+    }
+
+    private bool ApplyImmediateScaleResets(IEnumerable<AssOverrideTag> tags, int sourceStart, int sourceLength)
+    {
+        if (projectSource)
+        {
+            return false;
+        }
+        var onlyResets = true;
+        var pending = new Stack<AssOverrideTag>(tags.Reverse());
+        while (pending.TryPop(out var tag))
+        {
+            if (tag.Name == "fsc")
+            {
+                ApplyTag(tag.Name, tag.Value, sourceStart, sourceLength);
+            }
+            else if (tag.Name == "t")
+            {
+                var arguments = AssOverrideTags.Arguments(tag.Value);
+                if (arguments.Length is >= 1 and <= 4 && arguments[^1].StartsWith('\\'))
+                {
+                    foreach (var child in AssOverrideTags.Parse(arguments[^1]).Reverse())
+                    {
+                        pending.Push(child);
+                    }
+                }
+                else
+                {
+                    onlyResets = false;
+                }
+            }
+            else
+            {
+                onlyResets = false;
+            }
+        }
+        return onlyResets;
     }
 
     private void FlushKaraoke()
@@ -648,6 +831,10 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
 
     private void ParseNumericTransform(string value, int sourceStart, int sourceLength)
     {
+        if (!projectSource)
+        {
+            SynchronizeStaticBorder();
+        }
         var arguments = AssOverrideTags.Arguments(value);
         var tags = AssOverrideTags.Parse(arguments[^1]).ToArray();
         if (!projectSource)
@@ -671,12 +858,14 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         }
         catch (InvalidDataException)
         {
+            ApplyImmediateScaleResets(tags, sourceStart, sourceLength);
             incompleteGeometry |= !projectSource && AssRotationOriginGeometry.ContainsGeometry(tags);
             Report("Ass.TransformTiming", "ASS numeric transform times or arguments are invalid. The transform was discarded and other content was preserved.", sourceStart, sourceLength);
             return;
         }
         if (timing.End < timing.Start || !double.IsFinite(timing.Acceleration) || timing.Acceleration < 0)
         {
+            ApplyImmediateScaleResets(tags, sourceStart, sourceLength);
             incompleteGeometry |= !projectSource && AssRotationOriginGeometry.ContainsGeometry(tags);
             Report("Ass.TransformTiming", "ASS reversed times or negative acceleration cannot be converted exactly to finite native animation. The transform was discarded.", sourceStart, sourceLength);
             return;
@@ -708,6 +897,30 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             if (tag.Name is "clip" or "iclip")
             {
+                continue;
+            }
+            if (tag.Name == "fsc")
+            {
+                ApplyTag(tag.Name, tag.Value, sourceStart, sourceLength);
+                continue;
+            }
+            if (tag.Name == "t" && ApplyImmediateScaleResets([tag], sourceStart, sourceLength))
+            {
+                continue;
+            }
+            if (!projectSource && tag.Name is "xbord" or "ybord")
+            {
+                if (tag.Value.Length == 0)
+                {
+                    ApplyTag(tag.Name, tag.Value, sourceStart, sourceLength);
+                }
+                else
+                {
+                    borderSource.Animate(tag.Name);
+                    borderSourceStart = sourceStart;
+                    borderSourceLength = sourceLength;
+                    Report("Ass.UnsupportedTag", $"Independent ASS transform tag {tag.Name} cannot yet be converted to native stroke animation.", sourceStart, sourceLength);
+                }
                 continue;
             }
             if (tag.Value.Length == 0 && tag.Name is "fs" or "shad" or "xshad" or "yshad" or "c" or
@@ -762,6 +975,10 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 });
                 if (tag.Name == "bord")
                 {
+                    if (!projectSource)
+                    {
+                        borderSource.Animate(tag.Name);
+                    }
                     ReportBorderApproximation(target);
                 }
             }
@@ -898,6 +1115,39 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             Report(code, message, 0, 0);
         }
+    }
+
+    private bool EmphasisFlag(string value, bool baseline)
+    {
+        if (value.Length == 0)
+        {
+            return baseline;
+        }
+        var flag = AssFormatValues.Integer(value);
+        return projectSource ? flag != 0 : flag is 0 or 1 ? flag == 1 : baseline;
+    }
+
+    private TextAlignment Alignment(string name, string value, TextAlignment baseline)
+    {
+        if (value.Length == 0)
+        {
+            return baseline;
+        }
+        var alignment = AssFormatValues.Integer(value);
+        if (projectSource)
+        {
+            return name == "an" ? AssFormatValues.Alignment(alignment) : AssFormatValues.LegacyAlignment(alignment);
+        }
+        if (name == "an")
+        {
+            return alignment is >= 1 and <= 9 ? AssFormatValues.Alignment(alignment) : baseline;
+        }
+        if (alignment is 4 or 8)
+        {
+            alignment = 5;
+        }
+        return alignment is 1 or 2 or 3 or 5 or 6 or 7 or 9 or 10 or 11
+            ? AssFormatValues.LegacyAlignment(alignment) : baseline;
     }
 
     private void RefreshFontWeight(int sourceStart, int sourceLength)

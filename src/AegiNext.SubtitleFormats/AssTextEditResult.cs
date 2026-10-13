@@ -18,4 +18,5 @@ public sealed record AssTextEditResult(SubtitleLine Line, ImmutableArray<Subtitl
     internal ImmutableArray<AnimationTrack> OpacityTracks { get; init; } = [];
     internal ImmutableArray<AnimationTrack> NumericTracks { get; init; } = [];
     internal ImmutableArray<AssKaraokeSourceMapEntry> KaraokeSourceMap { get; init; } = [];
+    internal ImmutableArray<AssDrawingRun> Drawings { get; init; } = [];
 }

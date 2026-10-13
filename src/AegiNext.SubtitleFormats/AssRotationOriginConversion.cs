@@ -27,6 +27,11 @@ internal static class AssRotationOriginConversion
             reason = "automatic or unpreserved placement cannot compensate for the rotation origin exactly";
             return false;
         }
+        if (!ValidPoint(basis))
+        {
+            reason = "the measured or explicit placement exceeds the native coordinate range";
+            return false;
+        }
         if (!sourceGeometry.HasContent || !sourceGeometry.IsValid)
         {
             reason = "source text scaling or rotation exceeds the convertible native range";

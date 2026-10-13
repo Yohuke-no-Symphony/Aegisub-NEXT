@@ -146,13 +146,13 @@ public sealed class AssAlignmentCompatibilityTests
     }
 
     [Theory]
-    [InlineData("{\\an0}")]
-    [InlineData("{\\an10}")]
-    [InlineData("{\\an7\\an0}")]
-    [InlineData("{\\a5\\an10}")]
-    public void InvalidModernAlignmentStillRejectsFileAndProjectSource(string tags)
+    [InlineData("{\\an0}", TextAlignment.BOTTOM_CENTER)]
+    [InlineData("{\\an10}", TextAlignment.BOTTOM_CENTER)]
+    [InlineData("{\\an7\\an0}", TextAlignment.TOP_LEFT)]
+    [InlineData("{\\a5\\an10}", TextAlignment.TOP_LEFT)]
+    public void InvalidModernAlignmentUsesExternalFallbackAndRejectsProjectSource(string tags, TextAlignment alignment)
     {
-        Assert.Throws<InvalidDataException>(() => AssSubtitleFormat.Parse(File(tags)));
+        Assert.Equal(alignment, Assert.Single(AssSubtitleFormat.Parse(File(tags)).Lines).Style.Alignment);
         var original = new SubtitleLine { Text = "Long line\nx", End = new(3) };
         var projection = AssTextProjection.Create(original);
         var source = projection.Source.Replace("{\\an2}", tags, StringComparison.Ordinal);
@@ -160,13 +160,13 @@ public sealed class AssAlignmentCompatibilityTests
     }
 
     [Theory]
-    [InlineData(0)]
-    [InlineData(4)]
-    [InlineData(8)]
-    public void InvalidLegacyAlignmentRejectsFileAndProjectSource(int value)
+    [InlineData(0, TextAlignment.BOTTOM_CENTER)]
+    [InlineData(4, TextAlignment.TOP_LEFT)]
+    [InlineData(8, TextAlignment.TOP_LEFT)]
+    public void InvalidLegacyAlignmentUsesExternalFallbackAndRejectsProjectSource(int value, TextAlignment alignment)
     {
         var tags = "{\\a" + value + "}";
-        Assert.Throws<InvalidDataException>(() => AssSubtitleFormat.Parse(File(tags)));
+        Assert.Equal(alignment, Assert.Single(AssSubtitleFormat.Parse(File(tags)).Lines).Style.Alignment);
         var original = new SubtitleLine { Text = "Long line\nx", End = new(3) };
         var projection = AssTextProjection.Create(original);
         var source = projection.Source.Replace("{\\an2}", tags, StringComparison.Ordinal);
