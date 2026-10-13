@@ -399,6 +399,61 @@ public sealed class VideoExporterTests
         Assert.Empty(Directory.GetDirectories(directory, ".aeginext-export-*"));
     }
 
+    /// <summary>编码开始后取消并立即复用导出服务与输出路径，不遗留临时文件或阻止后续导出。</summary>
+    [ExportTheory]
+    [InlineData(VideoDecodeMode.Software)]
+    [InlineData(VideoDecodeMode.Auto)]
+    public async Task CancelledEncodingCanImmediatelyRestartWithTheSameExporterAndOutputPath(VideoDecodeMode decodeMode)
+    {
+        const int CANCEL_RESTART_ATTEMPTS = 3;
+        const int EXPORT_TIMEOUT_SECONDS = 60;
+        using var fixture = await DecoderFixture.CreateAsync(transfer: "bt709", frameCount: 120);
+        var directory = Path.GetDirectoryName(fixture.MediaPath)!;
+        var output = Path.Combine(directory, "取消后重新编码.mkv");
+        var request = Request(CreateProject(fixture.MediaPath, 1, 64, 48), directory, output) with
+        {
+            AudioMode = AudioExportMode.None,
+            DecodeMode = decodeMode
+        };
+        var exporter = new VideoExporter();
+
+        for (var attempt = 0; attempt < CANCEL_RESTART_ATTEMPTS; attempt++)
+        {
+            File.Delete(output);
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(EXPORT_TIMEOUT_SECONDS));
+            var cancelledFromEncoding = false;
+            var progress = new ExportProgressCapture(value =>
+            {
+                if (value.Stage != "encoding" || value.FrameCount == 0 || cancellation.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                var temporary = Assert.Single(Directory.GetDirectories(directory, ".aeginext-export-*"));
+                Assert.True(File.Exists(Path.Combine(temporary, "video.nut")));
+                cancelledFromEncoding = true;
+                cancellation.Cancel();
+            });
+
+            var error = await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+                exporter.ExportAsync(request, progress, cancellation.Token));
+
+            Assert.Equal(cancellation.Token, error.CancellationToken);
+            Assert.True(cancelledFromEncoding, "Cancellation must be triggered by active encoding progress.");
+            Assert.True(cancellation.IsCancellationRequested);
+            Assert.False(File.Exists(output));
+            Assert.Empty(Directory.GetDirectories(directory, ".aeginext-export-*"));
+
+            using var restartDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(EXPORT_TIMEOUT_SECONDS));
+            var result = await exporter.ExportAsync(request, cancellationToken: restartDeadline.Token);
+
+            Assert.Equal(output, result.OutputPath);
+            Assert.Equal((ulong)fixture.ExpectedFrames.GetArrayLength(), result.Frames);
+            Assert.True(new FileInfo(output).Length > 0);
+            Assert.Empty(Directory.GetDirectories(directory, ".aeginext-export-*"));
+        }
+    }
+
     [ExportTheory]
     [InlineData(true)]
     [InlineData(false)]

@@ -18,22 +18,30 @@ public sealed class SubtitleMuxExporter
     {
         SubtitleMuxRequestValidator.Validate(request);
         cancellationToken.ThrowIfCancellationRequested();
-        using var transaction = new ExportOutputTransaction(request.OutputPath);
-        var ffmpeg = ExportExecutable.Resolve("ffmpeg", request.FfmpegPath ?? Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"));
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(request.Project, ExportWire.Options),
-            Path.GetFullPath(request.ProjectDirectory), transaction.TemporaryDirectory, transaction.Extension,
-            ffmpeg, ExportWorkerOperation.SUBTITLE_MUX, ProtocolVersion: ExportWire.VERSION);
-        var completed = await ExportWorkerClient.RunAsync(JsonSerializer.Serialize(job, ExportWire.Options),
-            request.WorkerPath, transaction.TemporaryDirectory, message =>
-            {
-                progress?.Report(new(new(message.PositionNumerator, message.PositionDenominator), message.Fraction,
-                    message.Stage ?? "muxing"));
-            }, cancellationToken).ConfigureAwait(false);
-        var receipt = ValidateCompleted(request, completed);
-        transaction.Commit(beforeCommit, cancellationToken);
-        progress?.Report(new(MediaTime.Zero, 1, "complete"));
-        return new(transaction.OutputPath, receipt.VideoStreamCount, receipt.AudioStreamCount,
-            receipt.PreservedSubtitleStreamCount, receipt.AddedSubtitleStreamIndex, receipt.SubtitleCodec);
+        await using var transaction = new ExportOutputTransaction(request.OutputPath);
+        try
+        {
+            var ffmpeg = ExportExecutable.Resolve("ffmpeg", request.FfmpegPath ?? Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"));
+            var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(request.Project, ExportWire.Options),
+                Path.GetFullPath(request.ProjectDirectory), transaction.TemporaryDirectory, transaction.Extension,
+                ffmpeg, ExportWorkerOperation.SUBTITLE_MUX, ProtocolVersion: ExportWire.VERSION);
+            var completed = await ExportWorkerClient.RunAsync(JsonSerializer.Serialize(job, ExportWire.Options),
+                request.WorkerPath, transaction.TemporaryDirectory, message =>
+                {
+                    progress?.Report(new(new(message.PositionNumerator, message.PositionDenominator), message.Fraction,
+                        message.Stage ?? "muxing"));
+                }, cancellationToken).ConfigureAwait(false);
+            var receipt = ValidateCompleted(request, completed);
+            transaction.Commit(beforeCommit, cancellationToken);
+            progress?.Report(new(MediaTime.Zero, 1, "complete"));
+            return new(transaction.OutputPath, receipt.VideoStreamCount, receipt.AudioStreamCount,
+                receipt.PreservedSubtitleStreamCount, receipt.AddedSubtitleStreamIndex, receipt.SubtitleCodec);
+        }
+        catch (Exception error)
+        {
+            transaction.RecordFailure(error);
+            throw;
+        }
     }
 
     internal static SubtitleMuxReceipt ValidateCompleted(SubtitleMuxRequest request, ExportWorkerMessage completed)

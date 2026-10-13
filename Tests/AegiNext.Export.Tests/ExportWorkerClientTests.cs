@@ -23,7 +23,7 @@ public sealed class ExportWorkerClientTests
         using var directory = new ExportTestDirectory();
         var output = Path.Combine(directory.Path, "output.mkv");
         string temporary;
-        using (var transaction = new ExportOutputTransaction(output))
+        await using (var transaction = new ExportOutputTransaction(output))
         {
             temporary = transaction.TemporaryDirectory;
             var error = await Assert.ThrowsAsync<FileNotFoundException>(() => ExportWorkerClient.RunAsync(
@@ -36,14 +36,14 @@ public sealed class ExportWorkerClientTests
     }
 
     [ExportTheory]
-    [InlineData("{}", "协议")]
-    [InlineData("null", "缺少导出请求")]
+    [InlineData("{}", "protocol")]
+    [InlineData("null", "The export request is missing.")]
     public async Task WorkerProtocolFailuresPropagateWithoutPublishing(string serializedJob, string expectedError)
     {
         using var directory = new ExportTestDirectory();
         var output = Path.Combine(directory.Path, "output.mkv");
         string temporary;
-        using (var transaction = new ExportOutputTransaction(output))
+        await using (var transaction = new ExportOutputTransaction(output))
         {
             temporary = transaction.TemporaryDirectory;
             var error = await Assert.ThrowsAsync<InvalidOperationException>(() => ExportWorkerClient.RunAsync(

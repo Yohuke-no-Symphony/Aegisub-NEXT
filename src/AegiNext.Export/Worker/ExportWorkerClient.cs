@@ -8,11 +8,15 @@ internal static class ExportWorkerClient
 {
     private const int MESSAGE_LENGTH_LIMIT = 65536;
     private const int DIAGNOSTIC_LENGTH_LIMIT = 65536;
+    private const int CANCELLATION_GRACE_SECONDS = 5;
 
     internal static async Task<ExportWorkerMessage> RunAsync(string serializedJob, string? workerPath,
-        string workingDirectory, Action<ExportWorkerMessage>? reportProgress, CancellationToken cancellationToken)
+        string workingDirectory, Action<ExportWorkerMessage>? reportProgress, CancellationToken cancellationToken,
+        TimeSpan? cancellationGracePeriod = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        var gracePeriod = cancellationGracePeriod ?? TimeSpan.FromSeconds(CANCELLATION_GRACE_SECONDS);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(gracePeriod, TimeSpan.Zero);
         var executable = OperatingSystem.IsWindows() ? "aegn-exporter.exe" : "aegn-exporter";
         var worker = workerPath ?? Path.Combine(AppContext.BaseDirectory,
             File.Exists(Path.Combine(AppContext.BaseDirectory, executable)) ? executable : "aegn-exporter.dll");
@@ -44,24 +48,18 @@ internal static class ExportWorkerClient
             throw new InvalidOperationException("The export worker could not be started.");
         }
 
-        await using var cancelled = cancellationToken.Register(static state =>
-        {
-            try
-            {
-                Kill((Process)state!);
-            }
-            catch (System.ComponentModel.Win32Exception)
-            {
-            }
-        }, process);
+        using var inputGate = new SemaphoreSlim(1, 1);
+        using var finished = new CancellationTokenSource();
+        var cancellation = Task.CompletedTask;
         var errors = ReadErrorsAsync(process.StandardError);
         try
         {
             await process.StandardInput.WriteLineAsync(serializedJob.AsMemory(), cancellationToken).ConfigureAwait(false);
-            process.StandardInput.Close();
+            await process.StandardInput.FlushAsync(cancellationToken).ConfigureAwait(false);
+            cancellation = CancelWhenRequestedAsync(process, inputGate, gracePeriod, finished.Token, cancellationToken);
             ExportWorkerMessage? completed = null;
             string? failure = null;
-            while (await process.StandardOutput.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
+            while (await process.StandardOutput.ReadLineAsync(CancellationToken.None).ConfigureAwait(false) is { } line)
             {
                 if (line.Length > MESSAGE_LENGTH_LIMIT)
                 {
@@ -72,19 +70,27 @@ internal static class ExportWorkerClient
                     ?? throw new InvalidDataException("The export worker returned an empty message.");
                 if (message.Type == "progress")
                 {
-                    reportProgress?.Invoke(message);
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        reportProgress?.Invoke(message);
+                    }
                 }
                 else if (message.Type == "complete")
                 {
                     completed = message;
+                    break;
                 }
                 else if (message.Type == "error")
                 {
                     failure = message.Error;
+                    break;
                 }
             }
 
-            await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
+            await finished.CancelAsync().ConfigureAwait(false);
+            await cancellation.ConfigureAwait(false);
+            await CloseInputAsync(process, inputGate).ConfigureAwait(false);
+            await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
             var diagnostics = await errors.ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (process.ExitCode != 0 || completed is null)
@@ -96,15 +102,107 @@ internal static class ExportWorkerClient
         }
         finally
         {
+            await finished.CancelAsync().ConfigureAwait(false);
             try
             {
-                Kill(process);
+                await cancellation.ConfigureAwait(false);
             }
             finally
             {
-                await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
-                await errors.ConfigureAwait(false);
+                try
+                {
+                    Kill(process);
+                }
+                finally
+                {
+                    try
+                    {
+                        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            await CloseInputAsync(process, inputGate).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            await errors.ConfigureAwait(false);
+                        }
+                    }
+                }
             }
+        }
+    }
+
+    private static async Task CancelWhenRequestedAsync(Process process, SemaphoreSlim inputGate,
+        TimeSpan gracePeriod, CancellationToken finished, CancellationToken cancellationToken)
+    {
+        var requested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        await using var registration = cancellationToken.Register(static state => ((TaskCompletionSource)state!).TrySetResult(), requested);
+        try
+        {
+            await requested.Task.WaitAsync(finished).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (finished.IsCancellationRequested)
+        {
+        }
+
+        if (!cancellationToken.IsCancellationRequested || process.HasExited)
+        {
+            return;
+        }
+
+        using var deadline = new CancellationTokenSource(gracePeriod);
+        try
+        {
+            await SendCancellationAsync(process, inputGate, deadline.Token).ConfigureAwait(false);
+            await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+        {
+            Kill(process);
+        }
+        catch (IOException)
+        {
+            Kill(process);
+        }
+        catch (InvalidOperationException)
+        {
+            Kill(process);
+        }
+
+        await process.WaitForExitAsync(CancellationToken.None).ConfigureAwait(false);
+    }
+
+    private static async Task SendCancellationAsync(Process process, SemaphoreSlim inputGate, CancellationToken cancellationToken)
+    {
+        await inputGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await process.StandardInput.WriteLineAsync(ExportWire.CANCEL_COMMAND.AsMemory(), cancellationToken).ConfigureAwait(false);
+            await process.StandardInput.FlushAsync(cancellationToken).ConfigureAwait(false);
+            process.StandardInput.Close();
+        }
+        finally
+        {
+            inputGate.Release();
+        }
+    }
+
+    private static async Task CloseInputAsync(Process process, SemaphoreSlim inputGate)
+    {
+        await inputGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            process.StandardInput.Close();
+        }
+        catch (IOException)
+        {
+        }
+        finally
+        {
+            inputGate.Release();
         }
     }
 
@@ -118,6 +216,9 @@ internal static class ExportWorkerClient
             }
         }
         catch (InvalidOperationException)
+        {
+        }
+        catch (System.ComponentModel.Win32Exception) when (process.HasExited)
         {
         }
     }

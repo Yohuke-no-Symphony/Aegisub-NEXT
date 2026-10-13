@@ -6,6 +6,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../AegiNext.Export.TestHost/AegiNext.Export.TestHost.csproj" ReferenceOutputAssembly="false" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" />
@@ -16,5 +17,17 @@
     <Using Include="Xunit" />
     <None Include="../AegiNext.Rendering.Tests/Fixtures/NotoSans.ttf" Link="Fixtures/NotoSans.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <Target Name="CopyExportCancellationTestHost" AfterTargets="Build">
+    <MSBuild Projects="../AegiNext.Export.TestHost/AegiNext.Export.TestHost.csproj" Targets="GetTargetPath"
+             Properties="Configuration=$(Configuration);TargetFramework=$(TargetFramework);RuntimeIdentifier=$(RuntimeIdentifier)">
+      <Output TaskParameter="TargetOutputs" ItemName="_ExportCancellationHostTarget" />
+    </MSBuild>
+    <ItemGroup>
+      <_ExportCancellationHostFile Include="$([System.IO.Path]::GetDirectoryName('%(_ExportCancellationHostTarget.Identity)'))/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_ExportCancellationHostFile)"
+          DestinationFiles="@(_ExportCancellationHostFile->'$(TargetDir)ExportTestHost/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
   <Import Project="../Shared/Media/MediaFixtures.props" />
 </Project>

@@ -23,35 +23,43 @@ public sealed class VideoExporter
     {
         Validate(request);
         cancellationToken.ThrowIfCancellationRequested();
-        using var transaction = new ExportOutputTransaction(request.OutputPath);
-        var ffmpeg = ExportExecutable.Resolve("ffmpeg", request.FfmpegPath ?? Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"));
-        var settings = VideoExportSettingsValidator.Normalize(request.ToSettings());
-        var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(request.Project, ExportWire.Options),
-            Path.GetFullPath(request.ProjectDirectory), transaction.TemporaryDirectory, transaction.Extension,
-            ffmpeg, ExportWorkerOperation.BURN_IN,
-            new(settings.Codec, settings.Preset, settings.Quality, settings.AudioMode, settings.AudioBitrate,
-                settings.EncodingMode, settings.VideoBitrate, request.DecodeMode, settings.RateControlMode), ExportWire.VERSION);
-        var completed = await ExportWorkerClient.RunAsync(JsonSerializer.Serialize(job, ExportWire.Options),
-            request.WorkerPath, transaction.TemporaryDirectory, message =>
-            {
-                progress?.Report(new(message.Frames, new(message.PositionNumerator, message.PositionDenominator),
-                    null, "encoding", message.Encoder));
-            }, cancellationToken).ConfigureAwait(false);
-
-        if (completed.Operation != ExportWorkerOperation.BURN_IN || completed.SubtitleMux is not null)
+        await using var transaction = new ExportOutputTransaction(request.OutputPath);
+        try
         {
-            throw new InvalidDataException("The export worker did not confirm the burn-in operation; the output was not committed.");
+            var ffmpeg = ExportExecutable.Resolve("ffmpeg", request.FfmpegPath ?? Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"));
+            var settings = VideoExportSettingsValidator.Normalize(request.ToSettings());
+            var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(request.Project, ExportWire.Options),
+                Path.GetFullPath(request.ProjectDirectory), transaction.TemporaryDirectory, transaction.Extension,
+                ffmpeg, ExportWorkerOperation.BURN_IN,
+                new(settings.Codec, settings.Preset, settings.Quality, settings.AudioMode, settings.AudioBitrate,
+                    settings.EncodingMode, settings.VideoBitrate, request.DecodeMode, settings.RateControlMode), ExportWire.VERSION);
+            var completed = await ExportWorkerClient.RunAsync(JsonSerializer.Serialize(job, ExportWire.Options),
+                request.WorkerPath, transaction.TemporaryDirectory, message =>
+                {
+                    progress?.Report(new(message.Frames, new(message.PositionNumerator, message.PositionDenominator),
+                        null, "encoding", message.Encoder));
+                }, cancellationToken).ConfigureAwait(false);
+
+            if (completed.Operation != ExportWorkerOperation.BURN_IN || completed.SubtitleMux is not null)
+            {
+                throw new InvalidDataException("The export worker did not confirm the burn-in operation; the output was not committed.");
+            }
+
+            ValidateCompletedEncoder(request, completed.Encoder);
+            ValidateCompletedDecoder(request, completed);
+            ValidateCompletedRateControl(request, completed.RateControl);
+            ValidateCompletedOutput(request, completed.OutputColor);
+
+            transaction.Commit(beforeCommit, cancellationToken);
+            progress?.Report(new(completed.Frames, MediaTime.Zero, 1, "complete", completed.Encoder));
+            return new(transaction.OutputPath, completed.Frames, completed.Encoder, completed.Decoder,
+                completed.OutputColor, completed.RateControl);
         }
-
-        ValidateCompletedEncoder(request, completed.Encoder);
-        ValidateCompletedDecoder(request, completed);
-        ValidateCompletedRateControl(request, completed.RateControl);
-        ValidateCompletedOutput(request, completed.OutputColor);
-
-        transaction.Commit(beforeCommit, cancellationToken);
-        progress?.Report(new(completed.Frames, MediaTime.Zero, 1, "complete", completed.Encoder));
-        return new(transaction.OutputPath, completed.Frames, completed.Encoder, completed.Decoder,
-            completed.OutputColor, completed.RateControl);
+        catch (Exception error)
+        {
+            transaction.RecordFailure(error);
+            throw;
+        }
     }
 
     internal static void Validate(VideoExportRequest request)

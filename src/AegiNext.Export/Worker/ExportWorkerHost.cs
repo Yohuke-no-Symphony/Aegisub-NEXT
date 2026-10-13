@@ -28,13 +28,32 @@ public static class ExportWorkerHost
                 ?? throw new InvalidDataException("The export request is missing.");
             ExportWire.ValidateJob(job);
             writer.Operation = job.Operation;
+            return await RunJobAsync(job, input, writer, errors, deserializeProject, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            writer.Send(new("error", Error: error.Message));
+            await errors.WriteLineAsync(error.ToString()).ConfigureAwait(false);
+            return 1;
+        }
+    }
+
+    private static async Task<int> RunJobAsync(ExportWorkerJob job, TextReader input, ExportWorkerMessageWriter writer,
+        TextWriter errors, Func<JsonElement, ProjectDocument> deserializeProject, CancellationToken cancellationToken)
+    {
+        await using var cancellation = new ExportWorkerCancellation(input, cancellationToken);
+        var token = cancellation.Token;
+        try
+        {
+            cancellation.ThrowIfCancellationRequested();
             var document = deserializeProject(job.Project);
             var outputPath = Path.Combine(job.TemporaryDirectory, "output" + job.Extension);
             if (job.Operation == ExportWorkerOperation.SUBTITLE_MUX)
             {
                 var muxRequest = new SubtitleMuxRequest(document, job.ProjectDirectory, outputPath) { FfmpegPath = job.FfmpegPath };
                 var muxProgress = new SubtitleMuxWorkerProgress(writer);
-                var receipt = await SubtitleMuxer.RunAsync(muxRequest, muxProgress, cancellationToken).ConfigureAwait(false);
+                var receipt = await SubtitleMuxer.RunAsync(muxRequest, muxProgress, token).ConfigureAwait(false);
+                cancellation.ThrowIfCancellationRequested();
                 writer.Send(new("complete", SubtitleMux: receipt));
                 return 0;
             }
@@ -55,21 +74,27 @@ public static class ExportWorkerHost
             };
             var progress = new ExportWorkerProgress(writer);
             var videoPath = Path.Combine(job.TemporaryDirectory, "video.nut");
-            var audio = await ExportMuxer.PreflightAsync(request, cancellationToken).ConfigureAwait(false);
-            using var session = NativeVideoExport.Run(request, videoPath, progress, cancellationToken);
-            var encoded = session.ReadResult(cancellationToken);
-            VideoExporter.ValidateCompletedRateControl(request, encoded.RateControl);
-            await ExportMuxer.RunAsync(request, session, audio, cancellationToken).ConfigureAwait(false);
-            encoded = session.ReadResult(cancellationToken);
-            VideoExporter.ValidateCompletedOutput(request, encoded.OutputColor);
+            var audio = await ExportMuxer.PreflightAsync(request, token).ConfigureAwait(false);
+            NativeVideoExportResult encoded;
+            using (var session = NativeVideoExport.Run(request, videoPath, progress, token))
+            {
+                encoded = session.ReadResult(token);
+                VideoExporter.ValidateCompletedRateControl(request, encoded.RateControl);
+                await ExportMuxer.RunAsync(request, session, audio, token).ConfigureAwait(false);
+                encoded = session.ReadResult(token);
+                VideoExporter.ValidateCompletedOutput(request, encoded.OutputColor);
+            }
+
+            cancellation.ThrowIfCancellationRequested();
             writer.Send(new("complete", encoded.Frames, Encoder: encoded.Encoder, Decoder: encoded.Decoder,
                 OutputColor: encoded.OutputColor, RateControl: encoded.RateControl));
             return 0;
         }
         catch (Exception error)
         {
-            writer.Send(new("error", Error: error.Message));
-            await errors.WriteLineAsync(error.ToString()).ConfigureAwait(false);
+            var failure = cancellation.Failure ?? error;
+            writer.Send(new("error", Error: failure.Message));
+            await errors.WriteLineAsync(failure.ToString()).ConfigureAwait(false);
             return 1;
         }
     }
