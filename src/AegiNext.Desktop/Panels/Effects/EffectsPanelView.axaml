@@ -68,15 +68,6 @@
           <ItemsControl ItemsSource="{Binding RotationRows}">
             <ItemsControl.ItemTemplate><DataTemplate x:DataType="workspace:AnimationPropertyRowViewModel"><vm:EffectPropertyRowView DataContext="{Binding}" /></DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
-          <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" ToolTip.Tip="{Binding RotationEditingHint}">
-            <controls:NumericDragLabel Text="{Loc Key=Workbench.RotationZ}" Input="{Binding #RotationInput}" VerticalAlignment="Center" TextWrapping="Wrap" />
-            <controls:NumericDraftInput Grid.Column="1" Name="RotationInput" RawText="{Binding RotationText, Mode=TwoWay}" Minimum="{x:Static vm:EffectsPanelViewModel.RotationMinimum}" Maximum="{x:Static vm:EffectsPanelViewModel.RotationMaximum}" Value="{Binding Rotation, Mode=TwoWay}" IsEnabled="{Binding CanEditRotation}" />
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
-              <ToggleButton Classes="animation-property-action" IsChecked="{Binding IsRotationAnimated, Mode=OneWay}" Command="{Binding TogglePropertyAnimationCommand}" CommandParameter="{x:Static core:AnimationProperty.ROTATION}" ToolTip.Tip="{Loc Key=Workbench.TogglePropertyAnimation}" ><controlsCommon:IconText IconKey="Clock" /></ToggleButton>
-              <Button Classes="animation-property-action" Command="{Binding AddPropertyKeyframeCommand}" CommandParameter="{x:Static core:AnimationProperty.ROTATION}" ToolTip.Tip="{Loc Key=Workbench.Keyframe}" ><controlsCommon:IconText IconKey="Keyframe" /></Button>
-              <Button Classes="animation-property-action" IsEnabled="{Binding CanResetRotationAnimation}" Command="{Binding ResetPropertyCommand}" CommandParameter="{x:Static core:AnimationProperty.ROTATION}" ToolTip.Tip="{Loc Key=Workbench.ResetProperty}" ><controlsCommon:IconText IconKey="Reset" /></Button>
-            </StackPanel>
-          </Grid>
           <ItemsControl ItemsSource="{Binding PerspectiveRows}">
             <ItemsControl.ItemTemplate><DataTemplate x:DataType="workspace:AnimationPropertyRowViewModel"><vm:EffectPropertyRowView DataContext="{Binding}" /></DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
@@ -171,6 +162,11 @@
                     SelectedIndex="{Binding Interpolation, Mode=TwoWay}" ItemsSource="{Binding Interpolations}" />
         </StackPanel>
       </Grid>
+      <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" IsVisible="{Binding HasKeyframeCurveComponents}">
+        <TextBlock Text="{Loc Key=Workbench.AnimationCurveComponents}" />
+        <ComboBox Name="KeyframeCurveComponentCombo" Grid.Column="1" Grid.ColumnSpan="2" IsEnabled="{Binding CanEditKeyframes}"
+                  ItemsSource="{Binding KeyframeCurveComponents}" SelectedItem="{Binding SelectedKeyframeCurveComponent, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+      </Grid>
       <controls:NumericDragLabel Text="{Loc Key=Workbench.Power}" Input="{Binding #PowerExponentInput}" IsVisible="{Binding IsPowerInterpolation}" />
       <controls:NumericDraftInput Name="PowerExponentInput" PreserveDoublePrecision="True" IsEnabled="{Binding CanEditKeyframes}" IsVisible="{Binding IsPowerInterpolation}" Minimum="0" Maximum="79228162514264337593543950335"
           RawText="{Binding PowerExponent.RawText, Mode=TwoWay}" Value="{Binding PowerExponent.Value, Mode=TwoWay}" />
@@ -187,11 +183,12 @@
             <controls:NumericDraftInput Name="OperationEndInput" RawText="{Binding OperationEnd.RawText, Mode=TwoWay}" Value="{Binding OperationEnd.Value, Mode=TwoWay}" Minimum="-1000000000" Maximum="1000000000" />
           </StackPanel>
         </Grid>
-        <controls:VectorDraftInput Name="OperationVectorInput" IsVisible="{Binding IsVectorProperty}" XFieldKey="OperationValueXInput" YFieldKey="OperationValueYInput"
+        <controls:VectorDraftInput Name="OperationVectorInput" PreserveDoublePrecision="True" HasZBinding="{Binding HasVectorZ}" IsVisible="{Binding IsVectorProperty}" XFieldKey="OperationValueXInput" YFieldKey="OperationValueYInput" ZFieldKey="OperationValueZInput" ZInputName="OperationValueZInput"
             XTextBinding="{Binding OperationValueX.RawText, Mode=TwoWay}" YTextBinding="{Binding OperationValueY.RawText, Mode=TwoWay}"
-            XBinding="{Binding OperationValueX.Value, Mode=TwoWay}" YBinding="{Binding OperationValueY.Value, Mode=TwoWay}" MinimumBinding="{Binding KeyframeMinimum}" MaximumBinding="{Binding KeyframeMaximum}" />
+            ZTextBinding="{Binding OperationValueZ.RawText, Mode=TwoWay}"
+            XBinding="{Binding OperationValueX.Value, Mode=TwoWay}" YBinding="{Binding OperationValueY.Value, Mode=TwoWay}" ZBinding="{Binding OperationValueZ.Value, Mode=TwoWay}" MinimumBinding="{Binding KeyframeMinimum}" MaximumBinding="{Binding KeyframeMaximum}" />
         <controls:NumericDragLabel Text="{Loc Key=Workbench.Value}" Input="{Binding #OperationValueInput}" IsVisible="{Binding IsScalarProperty}" />
-        <controls:NumericDraftInput Name="OperationValueInput" IsVisible="{Binding IsScalarProperty}" RawText="{Binding OperationValueX.RawText, Mode=TwoWay}"
+        <controls:NumericDraftInput Name="OperationValueInput" PreserveDoublePrecision="True" IsVisible="{Binding IsScalarProperty}" RawText="{Binding OperationValueX.RawText, Mode=TwoWay}"
             Value="{Binding OperationValueX.Value, Mode=TwoWay}" Minimum="{Binding KeyframeMinimum}" Maximum="{Binding KeyframeMaximum}" />
         <controls:ColorDraftInput Name="OperationColorInput" CommitOnLostFocus="False" IsVisible="{Binding IsColorProperty}" Draft="{Binding OperationColorDraft}" />
         <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto">
@@ -199,10 +196,16 @@
           <ComboBox Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding OperationComponents}" SelectedItem="{Binding SelectedOperationComponents, Mode=TwoWay}" HorizontalAlignment="Stretch" />
         </Grid>
         <CheckBox IsVisible="{Binding CanUseRelativeOperation}" IsChecked="{Binding OperationIsRelative, Mode=TwoWay}" Content="{Loc Key=Workbench.RelativeFontSizeOperation}" />
+        <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" IsVisible="{Binding HasOperationCurve}">
+          <TextBlock Text="{Loc Key=Workbench.Interpolation}" />
+          <ComboBox Name="OperationCurveInterpolationCombo" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Interpolations}"
+                    SelectedIndex="{Binding OperationCurveInterpolation, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+        </Grid>
+        <CheckBox Name="OperationCurveReverseCheck" IsVisible="{Binding HasOperationCurve}" IsChecked="{Binding OperationCurveReverse, Mode=TwoWay}" Content="{Loc Key=Workbench.AnimationCurveReverse}" />
         <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
           <StackPanel>
             <controls:NumericDragLabel Text="{Loc Key=Workbench.Power}" Input="{Binding #OperationAccelerationInput}" />
-            <controls:NumericDraftInput Name="OperationAccelerationInput" PreserveDoublePrecision="True" RawText="{Binding OperationAcceleration.RawText, Mode=TwoWay}" Value="{Binding OperationAcceleration.Value, Mode=TwoWay}" Minimum="0" Maximum="79228162514264337593543950335" />
+            <controls:NumericDraftInput Name="OperationAccelerationInput" IsEnabled="{Binding CanEditOperationExponent}" ToolTip.Tip="{Binding OperationExponentHint}" PreserveDoublePrecision="True" RawText="{Binding OperationAcceleration.RawText, Mode=TwoWay}" Value="{Binding OperationAcceleration.Value, Mode=TwoWay}" Minimum="0" Maximum="79228162514264337593543950335" />
           </StackPanel>
           <StackPanel Grid.Column="1">
             <controls:NumericDragLabel Text="{Loc Key=Workbench.TransformOrder}" Input="{Binding #OperationOrderInput}" />
@@ -211,11 +214,12 @@
         </Grid>
         <Button Content="{Loc Key=Workbench.DeleteKeyframe}" Command="{Binding DeleteOperationCommand}" />
       </StackPanel>
-      <controls:VectorDraftInput Name="KeyframeVectorInput" IsEnabled="{Binding CanEditKeyframes}" IsVisible="{Binding IsVectorProperty}"
-                                 XFieldKey="KeyframeValueXInput" YFieldKey="KeyframeValueYInput"
+      <controls:VectorDraftInput Name="KeyframeVectorInput" PreserveDoublePrecision="True" HasZBinding="{Binding HasVectorZ}" IsEnabled="{Binding CanEditKeyframes}" IsVisible="{Binding IsVectorProperty}"
+                                 XFieldKey="KeyframeValueXInput" YFieldKey="KeyframeValueYInput" ZFieldKey="KeyframeValueZInput" ZInputName="KeyframeValueZInput"
                                  XTextBinding="{Binding KeyframeValueText, Mode=TwoWay}"
                                  YTextBinding="{Binding KeyframeValueYText, Mode=TwoWay}"
-                                 XBinding="{Binding KeyframeValue, Mode=TwoWay}" YBinding="{Binding KeyframeValueY, Mode=TwoWay}"
+                                 ZTextBinding="{Binding KeyframeValueZText, Mode=TwoWay}"
+                                 XBinding="{Binding KeyframeValue, Mode=TwoWay}" YBinding="{Binding KeyframeValueY, Mode=TwoWay}" ZBinding="{Binding KeyframeValueZ, Mode=TwoWay}"
                                  MinimumBinding="{Binding KeyframeMinimum}" MaximumBinding="{Binding KeyframeMaximum}" />
       <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" IsVisible="{Binding IsColorProperty}">
         <TextBlock Text="{Loc Key=Workbench.ColorInterpolationSpace}" />
@@ -224,7 +228,7 @@
       <controls:ColorDraftInput Name="KeyframeColorInput" IsEnabled="{Binding CanEditKeyframes}" IsVisible="{Binding IsColorProperty}"
                                 Draft="{Binding KeyframeColorDraft}" />
       <controls:NumericDragLabel Text="{Loc Key=Workbench.Value}" Input="{Binding #KeyframeValueInput}" IsVisible="{Binding IsScalarProperty}" />
-      <controls:NumericDraftInput Name="KeyframeValueInput" IsEnabled="{Binding CanEditKeyframes}" IsVisible="{Binding IsScalarProperty}"
+      <controls:NumericDraftInput Name="KeyframeValueInput" PreserveDoublePrecision="True" IsEnabled="{Binding CanEditKeyframes}" IsVisible="{Binding IsScalarProperty}"
                                   RawText="{Binding KeyframeValueText, Mode=TwoWay}"
                                   Minimum="{Binding KeyframeMinimum}" Maximum="{Binding KeyframeMaximum}"
                                   Increment="0.1" Value="{Binding KeyframeValue, Mode=TwoWay}" />

@@ -20,6 +20,8 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     private readonly ComboBox blend;
     private readonly ComboBox property;
     private readonly ComboBox interpolation;
+    private readonly ComboBox keyframeCurveComponents;
+    private readonly ComboBox operationCurveInterpolation;
     private readonly (Grid Grid, Control Editor, Control? Actions, int Span)[] propertyGridRows;
     private bool suppressFocusCommit;
     private int focusCommitRevision;
@@ -46,6 +48,8 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         };
         property = this.FindControl<ComboBox>("PropertyCombo")!;
         interpolation = this.FindControl<ComboBox>("InterpolationCombo")!;
+        keyframeCurveComponents = this.FindControl<ComboBox>("KeyframeCurveComponentCombo")!;
+        operationCurveInterpolation = this.FindControl<ComboBox>("OperationCurveInterpolationCombo")!;
         interpolation.SelectionChanged += (_, _) =>
         {
             if (!session.IsUpdating)
@@ -325,6 +329,8 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         BeginChoiceRefresh(blend);
         BeginChoiceRefresh(property);
         BeginChoiceRefresh(interpolation);
+        BeginChoiceRefresh(keyframeCurveComponents);
+        BeginChoiceRefresh(operationCurveInterpolation);
     }
 
     private void OnChoicesRefreshed(object? sender, EventArgs e)
@@ -333,6 +339,9 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         property.EndInit();
         property.SelectedItem = viewModel.SelectedProperty;
         interpolation.EndInit();
+        keyframeCurveComponents.EndInit();
+        keyframeCurveComponents.SelectedItem = viewModel.SelectedKeyframeCurveComponent;
+        operationCurveInterpolation.EndInit();
     }
 
     private static void BeginChoiceRefresh(ComboBox choice)

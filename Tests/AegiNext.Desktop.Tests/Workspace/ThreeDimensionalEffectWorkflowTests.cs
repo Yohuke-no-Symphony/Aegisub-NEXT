@@ -10,7 +10,7 @@ public sealed class ThreeDimensionalEffectWorkflowTests
     [InlineData(AnimationProperty.ROTATION_X, "35", 35)]
     [InlineData(AnimationProperty.ROTATION_Y, "-48", -48)]
     [InlineData(AnimationProperty.PERSPECTIVE_DISTANCE, "540", 540)]
-    public async Task NormalRangeScalarDraftChangesOnlyTheExactRangeAndUndoesOnce(AnimationProperty property, string text, double expected)
+    public async Task NormalRangeDraftChangesOnlyTheExactRangeAndUndoesOnce(AnimationProperty property, string text, double expected)
     {
         var range = new SubtitleAnimationRange(Guid.NewGuid(), 1, 2);
         var other = new SubtitleAnimationRange(Guid.NewGuid(), 0, 1);
@@ -21,12 +21,12 @@ public sealed class ThreeDimensionalEffectWorkflowTests
         await context.InitializeAsync();
         var session = context.Session;
         session.SelectCue(line.Id);
-        var target = new AnimationTrackTarget(property, TextRangeId: range.Id);
+        var target = new AnimationTrackTarget(property == AnimationProperty.PERSPECTIVE_DISTANCE ? property : AnimationProperty.ROTATION_3D, TextRangeId: range.Id);
         session.ViewModel.Effects.Target = target;
         var row = session.ViewModel.Effects.RotationRows.Concat(session.ViewModel.Effects.PerspectiveRows)
             .Single(row => row.Target == target);
 
-        row.X.RawText = text;
+        (property == AnimationProperty.ROTATION_Y ? row.Y : row.X).RawText = text;
         Assert.Same(source, context.Editor.Snapshot);
         Assert.True(session.TryCommitDrafts(false));
 
@@ -54,9 +54,11 @@ public sealed class ThreeDimensionalEffectWorkflowTests
     {
         var range = new SubtitleAnimationRange(Guid.NewGuid(), 0, 2);
         var line = new SubtitleLine { Text = "ABCD", End = new(4), AnimationRanges = [range] };
-        var target = new AnimationTrackTarget(property, TextRangeId: range.Id);
-        var frame = new Keyframe(new(1), 300d, KeyframeInterpolation.POWER) { Reverse = true, Exponent = 2.5 };
-        var whole = new AnimationTrack(property, [new(MediaTime.Zero, 240d)]);
+        var canonical = property == AnimationProperty.PERSPECTIVE_DISTANCE ? property : AnimationProperty.ROTATION_3D;
+        var target = new AnimationTrackTarget(canonical, TextRangeId: range.Id);
+        var value = canonical == AnimationProperty.ROTATION_3D ? AnimationValue.FromVector3(new(300, 300, 300)) : 300d;
+        var frame = new Keyframe(new(1), value, KeyframeInterpolation.POWER) { Reverse = true, Exponent = 2.5 };
+        var whole = new AnimationTrack(canonical, [new(MediaTime.Zero, canonical == AnimationProperty.ROTATION_3D ? AnimationValue.FromVector3(new(240, 240, 240)) : 240d)]);
         var layer = new ProjectLayer { SubtitleId = line.Id, End = line.End, Tracks = [whole, new(target, [frame])] };
         var source = new ProjectDocument { Subtitles = [line], Layers = [layer] };
         await using var context = new WorkspaceSessionTestContext(source);
@@ -67,10 +69,10 @@ public sealed class ThreeDimensionalEffectWorkflowTests
         var row = session.ViewModel.Effects.RotationRows.Concat(session.ViewModel.Effects.PerspectiveRows)
             .Single(row => row.Target == target);
 
-        row.X.RawText = "450";
+        (property == AnimationProperty.ROTATION_Y ? row.Y : row.X).RawText = "450";
         Assert.True(session.TryCommitDrafts(false));
 
-        Assert.Equal(frame with { Value = 450d }, Assert.Single(session.SelectedLayer!.Tracks.Single(track => track.Target == target).Keyframes));
+        Assert.Equal(frame with { Value = value.WithComponent(property == AnimationProperty.ROTATION_Y ? 1 : 0, 450) }, Assert.Single(session.SelectedLayer!.Tracks.Single(track => track.Target == target).Keyframes));
         Assert.Same(whole, session.SelectedLayer.Tracks.Single(track => track.Target == whole.Target));
         Assert.Same(line, session.SelectedCue);
         Assert.True(context.Editor.Undo());

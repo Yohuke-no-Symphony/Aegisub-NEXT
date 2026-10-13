@@ -432,22 +432,25 @@ public sealed class LocalizationUiTests
         var cueID = cue.Id;
         var styleView = context.Window.Panels[WorkbenchPanelIds.STYLES];
         var effectsView = context.Window.Panels[WorkbenchPanelIds.EFFECTS];
+        context.ViewModel.Effects.TransformExpanded = true;
+        context.Window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
         var alignment = UiTestActions.Find<SubtitleAlignmentPicker>(styleView, "AlignmentPicker");
         var blend = effectsView.FindControl<ComboBox>("BlendCombo")!;
         var interpolation = effectsView.FindControl<ComboBox>("InterpolationCombo")!;
-        var number = effectsView.FindControl<NumericDraftInput>("RotationInput")!;
+        var number = UiTestActions.Find<NumericDraftInput>(effectsView, "RotationInput");
         var color = UiTestActions.Find<ColorDraftInput>(styleView, "FillPicker");
         context.ViewModel.Styles.Subtitle.CommitAlignment((int)TextAlignment.MIDDLE_CENTER);
         blend.SelectedIndex = (int)BlendMode.SCREEN;
-        context.Session.Editor.SetKeyframe(cueID, AnimationProperty.ROTATION, new(new(1), 0));
-        Assert.True(context.Session.SelectKeyframe(new(cueID, AnimationProperty.ROTATION, new(1), new(1))));
+        context.Session.Editor.SetKeyframe(cueID, AnimationProperty.ROTATION_3D, new(new(1), AnimationValue.FromVector3(default)));
+        Assert.True(context.Session.SelectKeyframe(new(cueID, AnimationProperty.ROTATION_3D, new(1), new(1))));
         interpolation.SelectedIndex = (int)KeyframeInterpolation.EASE_OUT;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal((int)TextAlignment.MIDDLE_CENTER, context.ViewModel.Styles.Subtitle.Alignment);
         Assert.Equal((int)BlendMode.SCREEN, context.ViewModel.Effects.Blend);
         Assert.Equal((int)KeyframeInterpolation.EASE_OUT, context.ViewModel.Effects.Interpolation);
         Assert.Equal(KeyframeInterpolation.EASE_OUT, Assert.Single(context.Session.SelectedLayer!.Tracks
-            .Single(track => track.Property == AnimationProperty.ROTATION).Keyframes).Interpolation);
+            .Single(track => track.Property == AnimationProperty.ROTATION_3D).Keyframes).Interpolation);
         var originalNumberText = number.RawText;
         try
         {

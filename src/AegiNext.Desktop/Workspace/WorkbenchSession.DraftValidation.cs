@@ -1,11 +1,15 @@
 using AegiNext.Core.Projects;
+using AegiNext.Core.Editing;
+using AegiNext.Core.Effects;
 using AegiNext.Desktop.Editing;
 
 namespace AegiNext.Desktop.Workspace;
 
 internal sealed partial class WorkbenchSession
 {
-    internal bool HasEffectDrafts => effectsDirty;
+    internal bool HasEffectDrafts => effectsDirty || PropertyEditing.HasDrafts;
+    internal bool CanChangeKeyframeCurveComponent => !changedEffectFields.Overlaps(["Interpolation", "PowerExponent"]);
+    internal void RefreshKeyframeCurveInspector() => layerEditing.RefreshKeyframeCurveInspector();
     private long draftRevision;
     private (long Revision, string? Panel, string? Field, string Message)? lastDraftDiagnostic;
     private (long Revision, string? Panel, string? Field)? lastDraftFocus;
@@ -42,6 +46,11 @@ internal sealed partial class WorkbenchSession
 
     internal void RestoreEffectDraftField(string fieldKey)
     {
+        if (fieldKey == "RotationInput" && ViewModel.Effects.RotationRow is { } rotationRow)
+        {
+            rotationRow.Restore(rotationRow.ZFieldKey);
+            return;
+        }
         if (SelectedLayer is not { } layer || IsUpdating)
         {
             return;
@@ -62,26 +71,34 @@ internal sealed partial class WorkbenchSession
                 case "PositionY": vm.PositionY = position is { } y ? (decimal)y.Y : null; break;
                 case "ScaleX": vm.ScaleX = (decimal)InspectorVector(layer, AnimationProperty.SCALE, layer.Transform.Scale).X; break;
                 case "ScaleY": vm.ScaleY = (decimal)InspectorVector(layer, AnimationProperty.SCALE, layer.Transform.Scale).Y; break;
-                case "Rotation": vm.Rotation = (decimal)InspectorValue(layer, AnimationProperty.ROTATION, layer.Transform.Rotation); break;
                 case "Opacity": vm.Opacity = (decimal)InspectorValue(layer, AnimationProperty.OPACITY, layer.Opacity); break;
                 case "Blur": vm.Blur = (decimal)InspectorValue(layer, AnimationProperty.BLUR, layer.Blur); break;
                 case "PowerExponent":
-                    var exponentFrame = layer.Tracks.FirstOrDefault(track => track.Target == (target.Target ?? SceneEditing.Target))?.Keyframes.FirstOrDefault(key => key.Time == target.LocalTime);
-                    vm.LoadPowerExponent(exponentFrame?.Exponent ?? 1);
+                    var exponentFrame = InspectorTrack(layer, target.Target ?? SceneEditing.Target)?.Keyframes.FirstOrDefault(key => key.Time == target.LocalTime);
+                    var curveComponent = vm.KeyframeCurveComponentMask == 0 ? 0 : System.Numerics.BitOperations.TrailingZeroCount((uint)vm.KeyframeCurveComponentMask);
+                    vm.LoadPowerExponent(exponentFrame?.GetCurve(curveComponent).Exponent ?? 1);
                     break;
                 case "KeyframeValueX":
                 case "KeyframeValueY":
+                case "KeyframeValueZ":
                 case "KeyframeValue":
-                    var frame = layer.Tracks.FirstOrDefault(track => track.Target == (target.Target ?? SceneEditing.Target))?.Keyframes.FirstOrDefault(key => key.Time == target.LocalTime);
+                    var identity = RotationTargetCompatibility.Canonicalize(target.Target ?? SceneEditing.Target);
+                    var track = InspectorTrack(layer, identity);
+                    var subtitle = layer.SubtitleId is { } subtitleId ? DocumentSnapshot.Subtitles.Single(line => line.Id == subtitleId) : null;
+                    var value = track is null ? SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, identity) : SceneEvaluator.EvaluateTrack(track, target.LocalTime);
+                    var component = propertyName == "KeyframeValueY" ? 1 : propertyName == "KeyframeValueZ" ? 2 : 0;
+                    var rawText = value.GetComponent(component).ToString("R", InterfaceCulture);
                     if (propertyName == "KeyframeValueY")
                     {
-                        vm.KeyframeValueY = frame?.Value.IsVector == true ? (decimal)frame.Value.Vector.Y : vm.KeyframeValueY ?? 0;
-                        vm.KeyframeValueYText = vm.KeyframeValueY.Value.ToString(InterfaceCulture);
+                        vm.KeyframeValueYText = rawText;
+                    }
+                    else if (propertyName == "KeyframeValueZ")
+                    {
+                        vm.KeyframeValueZText = rawText;
                     }
                     else
                     {
-                        vm.KeyframeValue = frame is null ? vm.KeyframeValue ?? 0 : (decimal)frame.Value.GetComponent(0);
-                        vm.KeyframeValueText = vm.KeyframeValue.Value.ToString(InterfaceCulture);
+                        vm.KeyframeValueText = rawText;
                         propertyName = "KeyframeValue";
                     }
                     break;
@@ -93,7 +110,6 @@ internal sealed partial class WorkbenchSession
                 case "PositionY": vm.PositionYText = vm.PositionY?.ToString(InterfaceCulture) ?? string.Empty; break;
                 case "ScaleX": vm.ScaleXText = vm.ScaleX?.ToString(InterfaceCulture) ?? string.Empty; break;
                 case "ScaleY": vm.ScaleYText = vm.ScaleY?.ToString(InterfaceCulture) ?? string.Empty; break;
-                case "Rotation": vm.RotationText = vm.Rotation?.ToString(InterfaceCulture) ?? string.Empty; break;
                 case "Opacity": vm.OpacityText = vm.Opacity?.ToString(InterfaceCulture) ?? string.Empty; break;
                 case "Blur": vm.BlurText = vm.Blur?.ToString(InterfaceCulture) ?? string.Empty; break;
             }

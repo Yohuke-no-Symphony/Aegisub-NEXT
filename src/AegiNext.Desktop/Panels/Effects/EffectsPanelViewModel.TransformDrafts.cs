@@ -16,18 +16,23 @@ internal sealed partial class EffectsPanelViewModel
     private AnimationTrackTarget operationTarget;
     private Guid? operationIdentity;
     private bool operationOptionsDirty;
+    private long operationRevision;
+    private long operationPreviewRevision;
+    private ProjectDocument? operationPreviewSource;
+    private ProjectDocument? operationPreview;
 
     private IEnumerable<(string Name, NumericValueDraft Draft)> OperationFields =>
     [
         ("OperationStartInput", OperationStart), ("OperationEndInput", OperationEnd),
         ("OperationValueXInput", OperationValueX), ("OperationValueYInput", OperationValueY),
+        ("OperationValueZInput", OperationValueZ),
         ("OperationAccelerationInput", OperationAcceleration), ("OperationOrderInput", OperationOrder)
     ];
     internal bool HasOperationDraft => operationOptionsDirty || OperationColorDraft.IsDirty || OperationFields.Any(draftField => operationOriginals.TryGetValue(draftField.Name, out var original) && draftField.Draft.RawText != original);
 
     private void InitializeOperationDrafts()
     {
-        OperationColorDraft.Changed += (_, _) => MarkOperationChanged();
+        OperationColorDraft.Changed += (_, _) => MarkOperationChanged(false);
         OperationColorDraft.Committed += (_, _) => session.TryCommitDrafts(false);
         foreach (var field in OperationFields)
         {
@@ -37,18 +42,19 @@ internal sealed partial class EffectsPanelViewModel
                 {
                     return;
                 }
-                MarkOperationChanged();
+                MarkOperationChanged(false);
             };
         }
     }
 
-    private void MarkOperationChanged()
+    private void MarkOperationChanged(bool optionsChanged = true)
     {
-        if (loadingOperation || session.IsUpdating)
+        if (loadingOperation || session.IsUpdating || refreshingChoices)
         {
             return;
         }
-        operationOptionsDirty = true;
+        operationOptionsDirty |= optionsChanged;
+        operationRevision++;
         session.NotifyTaskInputChanged();
         operationSource ??= session.DocumentSnapshot;
         operationLayer ??= SelectedLayer?.Id;
@@ -74,6 +80,7 @@ internal sealed partial class EffectsPanelViewModel
         {
             loadingOperation = false;
         }
+        operationRevision++;
         session.RefreshMaskPreview();
         return true;
     }
@@ -88,6 +95,7 @@ internal sealed partial class EffectsPanelViewModel
         {
             throw new InvalidOperationException(Localization.Get("Workbench.SubtitleDraftConflict"));
         }
+        document = AnimationEditOperations.NormalizeRotation(document, operationLayer!.Value, operationTarget);
         var layer = document.Layers.Single(layer => layer.Id == operationLayer);
         var track = layer.Tracks.Single(track => track.Target == operationTarget);
         var operation = track.Transforms.Single(operation => operation.Id == operationIdentity);
@@ -103,9 +111,10 @@ internal sealed partial class EffectsPanelViewModel
         }
         var start = Read("OperationStartInput", OperationStart);
         var end = Read("OperationEndInput", OperationEnd);
-        var acceleration = Read("OperationAccelerationInput", OperationAcceleration);
+        var acceleration = CanEditOperationExponent ? Read("OperationAccelerationInput", OperationAcceleration) : operation.Curve!.Exponent;
         var order = Read("OperationOrderInput", OperationOrder);
-        if (end < start || acceleration < 0 || order != Math.Truncate(order) || order < 1 || order > track.Transforms.Length)
+        if (end < start || acceleration < 0 || operation.Curve is not null && acceleration <= 0 ||
+            order != Math.Truncate(order) || order < 1 || order > track.Transforms.Length)
         {
             throw new InvalidDataException(Localization.Get("Workbench.InvalidValue"));
         }
@@ -122,12 +131,18 @@ internal sealed partial class EffectsPanelViewModel
         else
         {
             var x = Read("OperationValueXInput", OperationValueX);
-            value = operation.Value.IsVector ? new ScenePoint(x, Read("OperationValueYInput", OperationValueY)) : x;
+            value = operation.Value.IsVector3 ? AnimationValue.FromVector3(new(x, Read("OperationValueYInput", OperationValueY), Read("OperationValueZInput", OperationValueZ))) :
+                operation.Value.IsVector ? new ScenePoint(x, Read("OperationValueYInput", OperationValueY)) : x;
         }
         var changed = operation with
         {
-            Start = new MediaTime((long)Math.Round(start * 1000000), 1000000),
-            End = new MediaTime((long)Math.Round(end * 1000000), 1000000), Value = value, Acceleration = acceleration,
+            Start = operationOriginals["OperationStartInput"] == OperationStart.RawText ? operation.Start : new MediaTime((long)Math.Round(start * 1000000), 1000000),
+            End = operationOriginals["OperationEndInput"] == OperationEnd.RawText ? operation.End : new MediaTime((long)Math.Round(end * 1000000), 1000000), Value = value,
+            Acceleration = operation.Curve is null ? acceleration : operation.Acceleration,
+            Curve = operation.Curve is { } curve ? curve with
+            {
+                Interpolation = (KeyframeInterpolation)OperationCurveInterpolation, Exponent = acceleration, Reverse = OperationCurveReverse
+            } : null,
             ComponentMask = operationComponentMask, Mode = operationIsRelative ? AnimationTransformMode.MULTIPLY_BY : AnimationTransformMode.INTERPOLATE_TO
         };
         var operations = track.Transforms.Remove(operation).Insert((int)order - 1, changed);
@@ -139,6 +154,16 @@ internal sealed partial class EffectsPanelViewModel
 
     internal ProjectDocument OverlayOperationDraft(ProjectDocument document)
     {
+        if (!HasOperationDraft)
+        {
+            operationPreviewSource = null;
+            operationPreview = null;
+            return document;
+        }
+        if (ReferenceEquals(operationPreviewSource, document) && operationPreviewRevision == operationRevision && operationPreview is { } cached)
+        {
+            return cached;
+        }
         try
         {
             var result = PrepareOperationDraft(document);
@@ -146,6 +171,9 @@ internal sealed partial class EffectsPanelViewModel
             {
                 ProjectValidator.Validate(result);
             }
+            operationPreviewSource = document;
+            operationPreviewRevision = operationRevision;
+            operationPreview = result;
             return result;
         }
         catch (Exception error) when (error is InvalidDataException or InvalidOperationException or ArgumentException or OverflowException)
@@ -164,6 +192,8 @@ internal sealed partial class EffectsPanelViewModel
 
     internal void AcceptOperationDraft()
     {
+        operationPreviewSource = null;
+        operationPreview = null;
         operationSource = null;
         operationLayer = null;
         operationIdentity = null;

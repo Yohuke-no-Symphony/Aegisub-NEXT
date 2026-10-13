@@ -125,8 +125,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     public string? OpacityEditingHint => CanEditOpacity ? null : Localization.Get("Workbench.OpacityOrderedTransformHint");
     public bool CanEditScale => SelectedLayer?.Tracks.Any(track =>
         track.Target == Target with { Property = AnimationProperty.SCALE, NodeId = null } && !track.Transforms.IsEmpty) != true;
-    public bool CanEditRotation => SelectedLayer?.Tracks.Any(track =>
-        track.Target == Target with { Property = AnimationProperty.ROTATION, NodeId = null } && !track.Transforms.IsEmpty) != true;
+    public bool CanEditRotation => RotationRow?.IsEnabled ?? true;
     public string? ScaleEditingHint => CanEditScale ? null : Localization.Get("Workbench.StyleOrderedTransformHint");
     public string? RotationEditingHint => CanEditRotation ? null : Localization.Get("Workbench.StyleOrderedTransformHint");
     public static decimal ScaleMinimum => (decimal)AnimationPropertyMetadata.GetMinimum(AnimationProperty.SCALE);
@@ -210,8 +209,18 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
 
     public decimal? Rotation
     {
-        get => rotation;
-        set => SetProperty(ref rotation, value);
+        get => RotationRow?.Z.Value ?? rotation;
+        set
+        {
+            if (RotationRow is { } row)
+            {
+                row.Z.RawText = value?.ToString(System.Globalization.CultureInfo.CurrentCulture) ?? string.Empty;
+            }
+            else
+            {
+                SetProperty(ref rotation, value);
+            }
+        }
     }
 
     public decimal? Opacity
@@ -271,6 +280,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
         get => session.SceneEditing.Target;
         set
         {
+            value = RotationTargetCompatibility.Canonicalize(value);
             if (refreshingChoices || Target == value)
             {
                 return;
@@ -299,6 +309,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
             OnPropertyChanged(nameof(IsVectorProperty));
             OnPropertyChanged(nameof(IsColorProperty));
             OnPropertyChanged(nameof(IsScalarProperty));
+            RefreshKeyframeCurveChoices();
             OnPropertyChanged(nameof(OperationComponents));
             OnPropertyChanged(nameof(SelectedOperationComponents));
             OnPropertyChanged(nameof(CanUseRelativeOperation));
@@ -350,7 +361,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     private string keyframeValueYText = "1";
     public decimal? KeyframeValueY { get => keyframeValueY; set => SetProperty(ref keyframeValueY, value); }
     public string KeyframeValueYText { get => keyframeValueYText; set => SetProperty(ref keyframeValueYText, value); }
-    public bool IsVectorProperty => AnimationPropertyMetadata.GetValueKind(Property) == AnimationValueKind.VECTOR;
+    public bool IsVectorProperty => AnimationPropertyMetadata.GetValueKind(Property) is AnimationValueKind.VECTOR or AnimationValueKind.VECTOR3;
     public bool IsColorProperty => AnimationPropertyMetadata.GetValueKind(Property) == AnimationValueKind.COLOR;
     public bool IsScalarProperty => !IsVectorProperty && !IsColorProperty;
 
@@ -484,8 +495,18 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     }
     public string RotationText
     {
-        get => rotationText;
-        set => SetProperty(ref rotationText, value);
+        get => RotationRow?.Z.RawText ?? rotationText;
+        set
+        {
+            if (RotationRow is { } row)
+            {
+                row.Z.RawText = value;
+            }
+            else
+            {
+                SetProperty(ref rotationText, value);
+            }
+        }
     }
     public string OpacityText
     {
@@ -525,6 +546,8 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
 
     internal void RefreshChoices(string[] blendOptions, AnimationPropertyChoice[] propertyOptions, string[] interpolationOptions)
     {
+        RefreshKeyframeCurveChoices();
+        OnPropertyChanged(nameof(OperationExponentHint));
         ColorSpaces = [Localization.Get("Workbench.ColorLinearRgb"), Localization.Get("Workbench.ColorSrgb")];
         OnPropertyChanged(nameof(ColorSpaces));
         RefreshPropertyGrid();
@@ -535,7 +558,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
         {
             return;
         }
-        var selection = (blend, interpolation);
+        var selection = (blend, interpolation, operationCurveInterpolation);
         refreshingChoices = true;
         try
         {
@@ -545,8 +568,10 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
             Interpolations = interpolationOptions;
             blend = selection.blend;
             interpolation = selection.interpolation;
+            operationCurveInterpolation = selection.operationCurveInterpolation;
             OnPropertyChanged(nameof(Blend));
             OnPropertyChanged(nameof(Interpolation));
+            OnPropertyChanged(nameof(OperationCurveInterpolation));
             OnPropertyChanged(nameof(SelectedProperty));
         }
         finally

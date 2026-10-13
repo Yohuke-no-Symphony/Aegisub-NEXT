@@ -1,5 +1,6 @@
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
+using AegiNext.Desktop.Editing;
 
 namespace AegiNext.Desktop.Workspace;
 
@@ -7,8 +8,24 @@ internal static class AnimationEditOperations
 {
     internal static double Value(ProjectLayer layer, AnimationProperty property, AnimationEditTarget target, double fallback)
     {
+        if (RotationTargetCompatibility.IsRotation(property) && property != AnimationProperty.ROTATION_3D)
+        {
+            var component = RotationTargetCompatibility.Component(property);
+            var rotation = AnimationValue.FromVector3(new(layer.Transform.RotationX, layer.Transform.RotationY, layer.Transform.Rotation))
+                .WithComponent(component, fallback).Vector3;
+            return AnimationValue.FromVector3(Value(layer, AnimationProperty.ROTATION_3D, target, rotation)).GetComponent(component);
+        }
         var track = layer.Tracks.FirstOrDefault(value => value.Target == ResolveTarget(target, property));
         return track is null ? fallback : SceneEvaluator.EvaluateScalarTrack(track, target.LocalTime);
+    }
+
+    internal static SceneVector3 Value(ProjectLayer layer, AnimationProperty property, AnimationEditTarget target, SceneVector3 fallback)
+    {
+        var identity = ResolveTarget(target, property);
+        var tracks = property == AnimationProperty.ROTATION_3D
+            ? RotationAnimationTrackMigration.Merge(layer.Tracks, identity, fallback) : layer.Tracks;
+        var track = tracks.FirstOrDefault(value => value.Target == identity);
+        return track is null ? fallback : SceneEvaluator.EvaluateTrack(track, target.LocalTime).Vector3;
     }
 
     internal static ScenePoint Value(ProjectLayer layer, AnimationProperty property, AnimationEditTarget target, ScenePoint fallback)
@@ -28,8 +45,25 @@ internal static class AnimationEditOperations
 
     internal static ProjectDocument SetValue(ProjectDocument document, AnimationEditTarget target, AnimationTrackTarget animationTarget, AnimationValue value)
     {
-        var property = animationTarget.Property;
         var layer = document.Layers.Single(value => value.Id == target.LayerId);
+        if (RotationTargetCompatibility.IsRotation(animationTarget.Property))
+        {
+            var subtitle = layer.SubtitleId is { } subtitleId ? document.Subtitles.Single(line => line.Id == subtitleId) : null;
+            var tracks = RotationAnimationTrackMigration.Normalize(layer, subtitle);
+            if (!tracks.SequenceEqual(layer.Tracks))
+            {
+                document = WorkspaceDraftOperations.UpdateLayer(document, layer.Id, current => current with { Tracks = tracks });
+                layer = document.Layers.Single(current => current.Id == layer.Id);
+            }
+            var property = animationTarget.Property;
+            animationTarget = RotationTargetCompatibility.Canonicalize(animationTarget);
+            if (property != AnimationProperty.ROTATION_3D)
+            {
+                var fallback = SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, animationTarget).Vector3;
+                value = AnimationValue.FromVector3(Value(layer, AnimationProperty.ROTATION_3D,
+                    target with { Target = animationTarget }, fallback)).WithComponent(RotationTargetCompatibility.Component(property), value.Scalar);
+            }
+        }
         var track = layer.Tracks.FirstOrDefault(value => value.Target == animationTarget);
         if (track is not null && !track.Transforms.IsEmpty)
         {
@@ -44,6 +78,19 @@ internal static class AnimationEditOperations
         }
 
         return SubtitleAnimationEditing.SetBaseValue(document, layer.Id, animationTarget, value);
+    }
+
+    internal static ProjectDocument NormalizeRotation(ProjectDocument document, Guid layerId, AnimationTrackTarget target)
+    {
+        if (!RotationTargetCompatibility.IsRotation(target.Property))
+        {
+            return document;
+        }
+        var layer = document.Layers.Single(current => current.Id == layerId);
+        var subtitle = layer.SubtitleId is { } id ? document.Subtitles.Single(line => line.Id == id) : null;
+        var tracks = RotationAnimationTrackMigration.Normalize(layer, subtitle);
+        return tracks.SequenceEqual(layer.Tracks) ? document :
+            WorkspaceDraftOperations.UpdateLayer(document, layerId, current => current with { Tracks = tracks });
     }
 
     private static AnimationTrackTarget ResolveTarget(AnimationEditTarget target, AnimationProperty property) =>

@@ -66,6 +66,7 @@ internal sealed partial class EffectsPanelViewModel
     public string PositionLabel => Localization.Get(Target.TextRangeId is null ? "Workbench.PositionVector" : "Workbench.LocalPositionVector");
     public string? PositionEditingHint => Target.TextRangeId is null ? null : Localization.Get("Workbench.LocalPositionHint");
     public AnimationPropertyRowViewModel[] RotationRows { get => rotationRows; private set => SetItems(ref rotationRows, value, nameof(RotationRows)); }
+    public AnimationPropertyRowViewModel? RotationRow => RotationRows.FirstOrDefault();
     public AnimationPropertyRowViewModel[] PerspectiveRows { get => perspectiveRows; private set => SetItems(ref perspectiveRows, value, nameof(PerspectiveRows)); }
     public AnimationPropertyRowViewModel[] TypographyRows { get => typographyRows; private set => SetItems(ref typographyRows, value, nameof(TypographyRows)); }
     public AnimationPropertyRowViewModel[] FillRows { get => fillRows; private set => SetItems(ref fillRows, value, nameof(FillRows)); }
@@ -85,7 +86,7 @@ internal sealed partial class EffectsPanelViewModel
         track.Target == Target with { Property = AnimationProperty.BLUR, NodeId = null } && !track.Transforms.IsEmpty) != true;
     public bool IsPositionAnimated => HasAnimation(AnimationProperty.POSITION);
     public bool IsScaleAnimated => HasAnimation(AnimationProperty.SCALE);
-    public bool IsRotationAnimated => HasAnimation(AnimationProperty.ROTATION);
+    public bool IsRotationAnimated => RotationRow?.IsAnimated == true;
     public bool IsOpacityAnimated => HasAnimation(AnimationProperty.OPACITY);
     public bool IsBlurAnimated => HasAnimation(AnimationProperty.BLUR);
     public ICommand TogglePropertyAnimationCommand { get; private set; } = null!;
@@ -155,7 +156,10 @@ internal sealed partial class EffectsPanelViewModel
         {
             refreshingScopes = false;
         }
-        RotationRows = CanEditTargetTransform ? Rows(AnimationProperty.ROTATION_X, AnimationProperty.ROTATION_Y) : [];
+        RotationRows = CanEditTargetTransform ? Rows(AnimationProperty.ROTATION_3D) : [];
+        OnPropertyChanged(nameof(RotationRow));
+        OnPropertyChanged(nameof(Rotation));
+        OnPropertyChanged(nameof(RotationText));
         PerspectiveRows = CanEditTargetTransform ? Rows(AnimationProperty.PERSPECTIVE_DISTANCE) : [];
         TypographyRows = line is not null && Target.State == SubtitleAnimationState.NORMAL
             ? Rows(AnimationProperty.FONT_SIZE, AnimationProperty.LETTER_SPACING) : [];
@@ -233,7 +237,7 @@ internal sealed partial class EffectsPanelViewModel
         }
         switch (row.Target.Property)
         {
-            case AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE:
+            case AnimationProperty.ROTATION_3D or AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE:
                 TransformExpanded = true;
                 break;
             case AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING:

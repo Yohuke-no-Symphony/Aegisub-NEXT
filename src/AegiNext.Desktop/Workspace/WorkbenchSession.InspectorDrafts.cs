@@ -101,7 +101,7 @@ internal sealed partial class WorkbenchSession
         {
             var vm = ViewModel.Effects;
             ViewModel.InvalidPanelId = "effects";
-            var keyframeChanged = changedEffectFields.Overlaps(["KeyframeValueText", "KeyframeValue", "KeyframeValueY", "KeyframeValueYText", "KeyframeColorDraft"]);
+            var keyframeChanged = changedEffectFields.Overlaps(["KeyframeValueText", "KeyframeValue", "KeyframeValueY", "KeyframeValueYText", "KeyframeValueZ", "KeyframeValueZText", "KeyframeColorDraft"]);
             var keyframeValue = ReadKeyframeDraft(vm, keyframeChanged);
             ViewModel.InvalidFieldKey = "LayerStartInput";
             var start = vm.LayerStart == TimelineTimeText.Format(selected.Start) ? selected.Start : TimelineTimeText.Parse(vm.LayerStart);
@@ -157,7 +157,6 @@ internal sealed partial class WorkbenchSession
             });
             foreach (var (property, text, fallback, label, field) in new[]
             {
-                (AnimationProperty.ROTATION, vm.RotationText, selected.Transform.Rotation, "Rotation", "RotationInput"),
                 (AnimationProperty.OPACITY, vm.OpacityText, selected.Opacity, "Opacity", "OpacityInput"),
                 (AnimationProperty.BLUR, vm.BlurText, selected.Blur, "Blur", "BlurInput")
             })
@@ -187,21 +186,15 @@ internal sealed partial class WorkbenchSession
             {
                 prepared = AnimationEditOperations.SetValue(prepared, target, target.Target ?? SceneEditing.Target, keyframeValue);
             }
-            if (target.IsKeyframe && (keyframeChanged || changedEffectFields.Overlaps(["Interpolation", "PowerExponent"])))
+            if (target.IsKeyframe && changedEffectFields.Overlaps(["Interpolation", "PowerExponent"]))
             {
-                var property = target.Target ?? SceneEditing.Target;
-                var frame = selected.Tracks.FirstOrDefault(track => track.Target == property)?.Keyframes.FirstOrDefault(key => key.Time == target.LocalTime) ?? new Keyframe(target.LocalTime, keyframeValue);
-                var preservesCurve = vm.Interpolation == (int)frame.Interpolation && vm.ReadPowerExponent() == frame.Exponent;
-                prepared = WorkspaceDraftOperations.SetKeyframe(prepared, selected.Id, property, frame with
-                {
-                    Value = keyframeChanged ? keyframeValue : frame.Value,
-                    Interpolation = (KeyframeInterpolation)vm.Interpolation,
-                    Exponent = vm.ReadPowerExponent(),
-                    Reverse = preservesCurve && frame.Reverse,
-                    CurveStart = preservesCurve ? frame.CurveStart : 0,
-                    CurveEnd = preservesCurve ? frame.CurveEnd : 1,
-                    ComponentCurves = preservesCurve ? frame.ComponentCurves : []
-                });
+                var property = RotationTargetCompatibility.Canonicalize(target.Target ?? SceneEditing.Target);
+                prepared = AnimationEditOperations.NormalizeRotation(prepared, selected.Id, property);
+                var currentLayer = prepared.Layers.Single(layer => layer.Id == selected.Id);
+                var frame = currentLayer.Tracks.FirstOrDefault(track => track.Target == property)?.Keyframes.FirstOrDefault(key => key.Time == target.LocalTime)
+                    ?? new Keyframe(target.LocalTime, keyframeValue);
+                prepared = WorkspaceDraftOperations.SetKeyframe(prepared, selected.Id, property,
+                    KeyframeCurveEditing.Apply(frame, vm.KeyframeCurveComponentMask, (KeyframeInterpolation)vm.Interpolation, vm.ReadPowerExponent()));
             }
         }
 

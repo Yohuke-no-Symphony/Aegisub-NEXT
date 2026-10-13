@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Editing;
+using AegiNext.Core.Effects;
+using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Panels.Effects;
 using AegiNext.Desktop.I18n;
 
@@ -9,6 +11,7 @@ namespace AegiNext.Desktop.Workspace;
 internal sealed partial class WorkbenchSession
 {
     internal event EventHandler? NumericGestureCancellationRequested;
+    internal long EffectPropertyDraftRevision => draftRevision;
 
     internal void NotifyEffectPropertyDraftChanged()
     {
@@ -38,10 +41,20 @@ internal sealed partial class WorkbenchSession
     internal AnimationValue EffectPropertyValue(ProjectLayer layer, AnimationTrackTarget target)
     {
         var subtitle = layer.SubtitleId is { } id ? DocumentSnapshot.Subtitles.FirstOrDefault(line => line.Id == id) : null;
-        var track = layer.Tracks.FirstOrDefault(track => track.Target == target);
+        target = RotationTargetCompatibility.Canonicalize(target);
+        var track = InspectorTrack(layer, target);
         return track is not null && AnimationTarget is { } edit
             ? SceneEvaluator.EvaluateTrack(track, edit.LocalTime)
             : SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
+    }
+
+    internal AnimationTrack? InspectorTrack(ProjectLayer layer, AnimationTrackTarget target)
+    {
+        target = RotationTargetCompatibility.Canonicalize(target);
+        var subtitle = layer.SubtitleId is { } id ? DocumentSnapshot.Subtitles.FirstOrDefault(line => line.Id == id) : null;
+        var tracks = target.Property == AnimationProperty.ROTATION_3D
+            ? RotationAnimationTrackMigration.Normalize(layer, subtitle) : layer.Tracks;
+        return tracks.FirstOrDefault(track => track.Target == target);
     }
 
     internal Task CreateSelectedTextAnimationRangeAsync() => RunCommandAsync(() => EditAsync(() =>
@@ -87,8 +100,8 @@ internal sealed partial class WorkbenchSession
 
     internal Task ToggleEffectPropertyAnimationAsync(AnimationProperty property)
     {
-        var target = SceneEditing.Target with { Property = property, NodeId = null };
-        var enabled = SelectedLayer?.Tracks.Any(track => track.Target == target) != true;
+        var target = RotationTargetCompatibility.Canonicalize(SceneEditing.Target with { Property = property, NodeId = null });
+        var enabled = SelectedLayer is not { } layer || InspectorTrack(layer, target) is null;
         return SetEffectPropertyAnimationAsync(target, enabled);
     }
 
@@ -102,6 +115,7 @@ internal sealed partial class WorkbenchSession
 
     internal void OpenAnimationPropertyDetails(Guid layerId, AnimationTrackTarget target)
     {
+        target = RotationTargetCompatibility.Canonicalize(target);
         SelectAnimationProperty(layerId, target);
         if (SelectedLayerId == layerId && SceneEditing.Target == target)
         {
@@ -115,16 +129,20 @@ internal sealed partial class WorkbenchSession
 
     internal Task SetAnimationPropertyEnabledAsync(Guid layerId, AnimationTrackTarget target, bool enabled) => RunCommandAsync(() => EditAsync(() =>
     {
+        target = RotationTargetCompatibility.Canonicalize(target);
         if (SelectedLayer is not { } layer || layer.Id != layerId)
         {
             return;
         }
         if (!enabled)
         {
-            editor.ClearAnimationTracks([layer.Id], target);
+            editor.UpdateLayer(layer.Id, current => current with
+            {
+                Tracks = current.Tracks.Where(track => RotationTargetCompatibility.Canonicalize(track.Target) != target).ToImmutableArray()
+            });
             ClearKeyframeSelection();
         }
-        else if (!layer.Tracks.Any(track => track.Target == target))
+        else if (InspectorTrack(layer, target) is null)
         {
             AddEffectPropertyKeyframe(target);
         }
@@ -154,13 +172,15 @@ internal sealed partial class WorkbenchSession
 
     private void AddEffectPropertyKeyframe(AnimationTrackTarget target)
     {
+        target = RotationTargetCompatibility.Canonicalize(target);
         if (SelectedLayer is not { } layer || AnimationTarget is not { } edit || !CanAddEffectPropertyKeyframe(layer.Id) ||
-            layer.Tracks.FirstOrDefault(track => track.Target == target)?.Transforms.IsEmpty == false)
+            InspectorTrack(layer, target)?.Transforms.IsEmpty == false)
         {
             return;
         }
         var value = EffectPropertyValue(layer, target);
-        editor.SetKeyframe(layer.Id, target, new(edit.LocalTime, value));
+        editor.Apply("Add property keyframe", document => WorkspaceDraftOperations.SetKeyframe(
+            AnimationEditOperations.NormalizeRotation(document, layer.Id, target), layer.Id, target, new(edit.LocalTime, value)));
         SelectKeyframe(new(layer.Id, target, edit.LocalTime, edit.LocalTime));
     }
 
@@ -181,8 +201,9 @@ internal sealed partial class WorkbenchSession
 
     internal Task ResetAnimationPropertyAsync(Guid layerId, AnimationTrackTarget target) => RunCommandAsync(() => EditAsync(() =>
     {
+        target = RotationTargetCompatibility.Canonicalize(target);
         if (SelectedLayer is not { } layer || layer.Id != layerId || AnimationTarget is not { } edit ||
-            layer.Tracks.FirstOrDefault(track => track.Target == target)?.IsOrdered == true)
+            InspectorTrack(layer, target)?.IsOrdered == true)
         {
             return;
         }

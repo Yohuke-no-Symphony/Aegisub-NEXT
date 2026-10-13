@@ -2,9 +2,10 @@
              xmlns:controls="using:AegiNext.Desktop.Controls" xmlns:workspace="using:AegiNext.Desktop.Workspace"
              x:Class="AegiNext.Desktop.Panels.Effects.EffectPropertyRowView" x:DataType="workspace:AnimationPropertyRowViewModel">
   <controls:AnimationPropertyRowControl Name="PropertyRow"
-      Label="{Binding Name}" X="{Binding X}" Y="{Binding Y}" Color="{Binding Color}"
-      FieldKey="{Binding FieldKey}" XFieldKey="{Binding XFieldKey}" YFieldKey="{Binding YFieldKey}"
-      IsScalar="{Binding IsScalar}" IsVector="{Binding IsVector}" IsColor="{Binding IsColor}"
+      Label="{Binding Name}" X="{Binding X}" Y="{Binding Y}" Z="{Binding Z}" Color="{Binding Color}"
+      FieldKey="{Binding FieldKey}" XFieldKey="{Binding XFieldKey}" YFieldKey="{Binding YFieldKey}" ZFieldKey="{Binding ZFieldKey}"
+      XInputName="{Binding XInputName}" YInputName="{Binding YInputName}" ZInputName="{Binding ZInputName}"
+      IsScalar="{Binding IsScalar}" IsVector="{Binding IsVector}" HasZ="{Binding HasZ}" IsColor="{Binding IsColor}"
       CanEdit="{Binding IsEnabled}" IsAnimated="{Binding IsAnimated}" IsOrdered="{Binding IsOrdered}"
       CanToggleAnimation="{Binding CanToggleAnimation}" CanAddKeyframe="{Binding CanAddKeyframe}" CanReset="{Binding CanReset}"
       Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Increment="{Binding Increment}"

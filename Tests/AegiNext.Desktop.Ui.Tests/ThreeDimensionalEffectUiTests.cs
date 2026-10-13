@@ -29,7 +29,8 @@ public sealed class ThreeDimensionalEffectUiTests
         var session = context.Session;
         var range = new SubtitleAnimationRange(Guid.NewGuid(), 1, 2);
         session.Editor.SetSubtitleAnimationRange(session.SelectedCue!.Id, range);
-        var target = new AnimationTrackTarget(property, TextRangeId: range.Id);
+        var target = new AnimationTrackTarget(property == AnimationProperty.PERSPECTIVE_DISTANCE ? property : AnimationProperty.ROTATION_3D, TextRangeId: range.Id);
+        var component = property == AnimationProperty.ROTATION_Y ? 1 : 0;
         context.ViewModel.Effects.Target = target;
         context.ViewModel.Effects.TransformExpanded = true;
         Dispatcher.UIThread.RunJobs();
@@ -37,7 +38,8 @@ public sealed class ThreeDimensionalEffectUiTests
         var row = context.ViewModel.Effects.RotationRows.Concat(context.ViewModel.Effects.PerspectiveRows)
             .Single(row => row.Target == target);
         var rowView = FindRow(context, row);
-        var input = rowView.GetVisualDescendants().OfType<NumericDraftInput>().Single(input => input.IsEffectivelyVisible);
+        var input = rowView.GetVisualDescendants().OfType<AnimationPropertyRowControl>().Single()
+            .FindFieldInput(component == 1 ? row.YFieldKey : row.XFieldKey)!;
         var box = Assert.Single(input.GetVisualDescendants().OfType<TextBox>());
         input.BringIntoView();
         context.Window.UpdateLayout();
@@ -48,7 +50,7 @@ public sealed class ThreeDimensionalEffectUiTests
         context.Window.KeyTextInput(text);
         Dispatcher.UIThread.RunJobs();
         Assert.Same(before, session.DocumentSnapshot);
-        Assert.Equal(text, row.X.RawText);
+        Assert.Equal(text, (component == 1 ? row.Y : row.X).RawText);
         UiTestActions.Press(context.Window, Key.Enter);
         Dispatcher.UIThread.RunJobs();
 
@@ -71,7 +73,7 @@ public sealed class ThreeDimensionalEffectUiTests
         var track = Assert.Single(session.SelectedLayer.Tracks);
         Assert.Equal(target, track.Target);
         var frame = Assert.Single(track.Keyframes);
-        Assert.Equal(expected, frame.Value.Scalar);
+        Assert.Equal(expected, frame.Value.GetComponent(component));
         var keyed = session.DocumentSnapshot;
         var timeline = UiTestActions.Find<SubtitleTimelineControl>(context.Window, "Timeline");
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
@@ -101,7 +103,7 @@ public sealed class ThreeDimensionalEffectUiTests
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
         var effects = context.ViewModel.Effects;
-        var row = effects.RotationRows.Single(row => row.Target.Property == AnimationProperty.ROTATION_X);
+        var row = Assert.Single(effects.RotationRows);
         var source = context.Session.DocumentSnapshot;
         try
         {
@@ -116,12 +118,12 @@ public sealed class ThreeDimensionalEffectUiTests
 
             Assert.Equal("7e-", row.X.RawText);
             Assert.Same(source, context.Session.DocumentSnapshot);
-            Assert.Equal("旋转 X", row.Name);
+            Assert.Equal("旋转", row.Name);
             var distance = Assert.Single(effects.PerspectiveRows);
             Assert.Equal("透视距离", distance.Name);
             Assert.Equal(Localization.Get("Workbench.PerspectiveDistanceHint"), distance.EditingHint);
             var view = FindRow(context, row);
-            var input = view.GetVisualDescendants().OfType<NumericDraftInput>().Single(input => input.IsEffectivelyVisible);
+            var input = view.GetVisualDescendants().OfType<AnimationPropertyRowControl>().Single().FindFieldInput(row.XFieldKey)!;
             var box = Assert.Single(input.GetVisualDescendants().OfType<TextBox>());
             input.BringIntoView();
             context.Window.UpdateLayout();

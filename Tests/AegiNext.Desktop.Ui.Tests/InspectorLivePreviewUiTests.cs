@@ -109,7 +109,7 @@ public sealed class InspectorLivePreviewUiTests
     }
 
     [AvaloniaFact]
-    public async Task FieldRestoreSupersedesAPendingPreviewAndRestoresThePresentedTransform()
+    public async Task SharedRotationFieldRestoreReplacesTheImmediateVectorPreviewWithThePresentedTransform()
     {
         await using var context = new MainWindowTestContext();
         await PrepareAsync(context);
@@ -120,7 +120,7 @@ public sealed class InspectorLivePreviewUiTests
         await PresentAsync(context);
 
         context.ViewModel.Effects.RotationText = "45";
-        Assert.Equal(24.25, context.Session.PreviewDocument.Layers[0].Transform.Rotation);
+        Assert.Equal(45, context.Session.PreviewDocument.Layers[0].Transform.Rotation);
         context.ViewModel.Effects.RestoreField("RotationInput");
         Dispatcher.UIThread.RunJobs();
 

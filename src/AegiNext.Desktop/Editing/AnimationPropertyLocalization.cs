@@ -13,6 +13,7 @@ internal static class AnimationPropertyLocalization
             AnimationProperty.POSITION_X => "PositionX", AnimationProperty.POSITION_Y => "PositionY",
             AnimationProperty.SCALE_X => "ScaleX", AnimationProperty.SCALE_Y => "ScaleY", AnimationProperty.ROTATION => "RotationZ",
             AnimationProperty.ROTATION_X => "RotationX", AnimationProperty.ROTATION_Y => "RotationY",
+            AnimationProperty.ROTATION_3D => "Rotation",
             AnimationProperty.PERSPECTIVE_DISTANCE => "PerspectiveDistance",
             AnimationProperty.FILL => "Fill", AnimationProperty.STROKE => "Stroke",
             AnimationProperty.OPACITY => "Opacity", AnimationProperty.FILL_RED => "FillRed", AnimationProperty.FILL_GREEN => "FillGreen",

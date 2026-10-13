@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.ComponentModel;
 using AegiNext.Application;
 using AegiNext.Core.Projects;
+using AegiNext.Core.Editing;
+using AegiNext.Core.Effects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Editing;
@@ -19,7 +21,7 @@ internal sealed partial class WorkbenchSession
     private static readonly HashSet<string> effectDraftProperties =
     [
         "LayerStart", "LayerEnd", "PositionX", "PositionXText", "PositionY", "PositionYText", "ScaleX", "ScaleXText", "ScaleY", "ScaleYText",
-        "Rotation", "RotationText", "Opacity", "OpacityText", "Blur", "BlurText", "Blend", "OrientPath", "KeyframeValue", "KeyframeValueText", "KeyframeValueY", "KeyframeValueYText", "KeyframeColorDraft", "Interpolation", "PowerExponent"
+        "Opacity", "OpacityText", "Blur", "BlurText", "Blend", "OrientPath", "KeyframeValue", "KeyframeValueText", "KeyframeValueY", "KeyframeValueYText", "KeyframeValueZ", "KeyframeValueZText", "KeyframeColorDraft", "Interpolation", "PowerExponent"
     ];
 
     private readonly HashSet<string> changedEffectFields = [];
@@ -196,7 +198,7 @@ internal sealed partial class WorkbenchSession
             }
             else if (ViewModel.Effects.SelectedOperation is not null)
             {
-                ViewModel.Effects.RefreshTransformOperations(SelectedLayer?.Tracks.FirstOrDefault(track => track.Target == SceneEditing.Target));
+                ViewModel.Effects.RefreshTransformOperations(SelectedLayer is { } layer ? InspectorTrack(layer, SceneEditing.Target) : null);
             }
             RefreshEditingPreview();
         }
@@ -206,34 +208,45 @@ internal sealed partial class WorkbenchSession
         }
     }
 
-    private AnimationValue ReadKeyframeDraft(Panels.Effects.EffectsPanelViewModel vm, bool changed)
+    internal AnimationValue ReadKeyframeDraft(Panels.Effects.EffectsPanelViewModel vm, bool changed, bool readAll = false)
     {
-        var target = SceneEditing.DraftTarget?.Target ?? SceneEditing.Target;
+        var target = RotationTargetCompatibility.Canonicalize(SceneEditing.DraftTarget?.Target ?? SceneEditing.Target);
         var property = target.Property;
-        var vector = AnimationPropertyMetadata.GetValueKind(property) == AnimationValueKind.VECTOR;
         if (AnimationPropertyMetadata.GetValueKind(property) == AnimationValueKind.COLOR)
         {
             return ReadColorDraft(vm.KeyframeColorDraft, "KeyframeColorInput");
         }
-        var previous = SelectedLayer?.Tracks.FirstOrDefault(track => track.Target == target)?.Keyframes
-            .FirstOrDefault(frame => frame.Time == AnimationTarget?.LocalTime)?.Value;
-        double Read(string text, string field)
+        var layer = SelectedLayer ?? throw new InvalidOperationException(Localization.Get("Workbench.NoSelection"));
+        var edit = SceneEditing.DraftTarget ?? AnimationTarget;
+        var track = InspectorTrack(layer, target);
+        var subtitle = layer.SubtitleId is { } id ? DocumentSnapshot.Subtitles.Single(line => line.Id == id) : null;
+        var value = track is not null && edit is not null ? SceneEvaluator.EvaluateTrack(track, edit.LocalTime) :
+            SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
+        double Read(string text, string field, int component)
         {
-            var value = RequiredNumber(text, "Property", field);
-            if (value < (double)vm.KeyframeMinimum || value > (double)vm.KeyframeMaximum)
+            ViewModel.InvalidFieldKey = field;
+            if (!double.TryParse(text, System.Globalization.NumberStyles.Float, InterfaceCulture, out var number) || !double.IsFinite(number) ||
+                number < AnimationPropertyMetadata.GetMinimum(property, component) || number > AnimationPropertyMetadata.GetMaximum(property, component))
             {
                 throw new InvalidDataException(Localization.Get("Workbench.Property"));
             }
-            return value;
+            return number;
         }
-        if (!vector)
+        if (value.Kind == AnimationValueKind.SCALAR)
         {
-            return changed ? Read(vm.KeyframeValueText, "KeyframeValueInput") : previous ?? (double)(vm.KeyframeValue ?? 0);
+            return changed || readAll ? Read(vm.KeyframeValueText, "KeyframeValueInput", 0) : value;
         }
-        var value = previous?.Vector ?? new ScenePoint((double)(vm.KeyframeValue ?? 0), (double)(vm.KeyframeValueY ?? 0));
-        var x = changedEffectFields.Overlaps(["KeyframeValue", "KeyframeValueText"]) ? Read(vm.KeyframeValueText, "KeyframeValueXInput") : value.X;
-        var y = changedEffectFields.Overlaps(["KeyframeValueY", "KeyframeValueYText"]) ? Read(vm.KeyframeValueYText, "KeyframeValueYInput") : value.Y;
-        return new ScenePoint(x, y);
+        var texts = new[] { vm.KeyframeValueText, vm.KeyframeValueYText, vm.KeyframeValueZText };
+        var fields = new[] { "KeyframeValue", "KeyframeValueY", "KeyframeValueZ" };
+        var inputs = new[] { "KeyframeValueXInput", "KeyframeValueYInput", "KeyframeValueZInput" };
+        for (var component = 0; component < value.ComponentCount; component++)
+        {
+            if (readAll || changedEffectFields.Overlaps([fields[component], fields[component] + "Text"]))
+            {
+                value = value.WithComponent(component, Read(texts[component], inputs[component], component));
+            }
+        }
+        return value;
     }
 
     private SceneColor ReadColorDraft(ColorDraft draft, string field)
@@ -332,9 +345,6 @@ internal sealed partial class WorkbenchSession
             case "ScaleY":
                 ViewModel.Effects.ScaleYText = SynchronizeNumericText(ViewModel.Effects.ScaleYText, ViewModel.Effects.ScaleY);
                 break;
-            case "Rotation":
-                ViewModel.Effects.RotationText = SynchronizeNumericText(ViewModel.Effects.RotationText, ViewModel.Effects.Rotation);
-                break;
             case "Opacity":
                 ViewModel.Effects.OpacityText = SynchronizeNumericText(ViewModel.Effects.OpacityText, ViewModel.Effects.Opacity);
                 break;
@@ -343,6 +353,9 @@ internal sealed partial class WorkbenchSession
                 break;
             case "KeyframeValueY":
                 ViewModel.Effects.KeyframeValueYText = SynchronizeNumericText(ViewModel.Effects.KeyframeValueYText, ViewModel.Effects.KeyframeValueY);
+                break;
+            case "KeyframeValueZ":
+                ViewModel.Effects.KeyframeValueZText = SynchronizeNumericText(ViewModel.Effects.KeyframeValueZText, ViewModel.Effects.KeyframeValueZ);
                 break;
             case "KeyframeValue":
                 ViewModel.Effects.KeyframeValueText = SynchronizeNumericText(ViewModel.Effects.KeyframeValueText, ViewModel.Effects.KeyframeValue);
@@ -470,8 +483,7 @@ internal sealed partial class WorkbenchSession
                 transform = transform with
                 {
                     Position = InspectorVector(layer, AnimationProperty.POSITION, transform.Position),
-                    Scale = InspectorVector(layer, AnimationProperty.SCALE, transform.Scale),
-                    Rotation = InspectorValue(layer, AnimationProperty.ROTATION, transform.Rotation)
+                    Scale = InspectorVector(layer, AnimationProperty.SCALE, transform.Scale)
                 };
             }
             var position = InspectorPosition(layer, placement);
@@ -480,7 +492,6 @@ internal sealed partial class WorkbenchSession
             effects.PositionY = position is { } displayedY ? (decimal)displayedY.Y : null;
             effects.ScaleX = (decimal)transform.ScaleX;
             effects.ScaleY = (decimal)transform.ScaleY;
-            effects.Rotation = (decimal)transform.Rotation;
             effects.Opacity = (decimal)(layer is null ? 1 : InspectorValue(layer, AnimationProperty.OPACITY, layer.Opacity));
             effects.Blur = (decimal)(layer is null ? 0 : InspectorValue(layer, AnimationProperty.BLUR, layer.Blur));
             effects.LayerStart = layer is null ? string.Empty : TimelineTimeText.Format(layer.Start);

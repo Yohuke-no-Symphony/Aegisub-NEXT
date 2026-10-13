@@ -1,16 +1,21 @@
 using AegiNext.Core.Projects;
 using AegiNext.Core.Editing;
+using AegiNext.Desktop.Editing;
 
 namespace AegiNext.Desktop.Workspace;
 
 internal sealed class AnimationPropertyEditingCoordinator(WorkbenchSession session)
 {
     private readonly Dictionary<(Guid LayerId, AnimationTrackTarget Target), AnimationPropertyRowViewModel> rows = [];
+    private ProjectDocument? overlaySource;
+    private ProjectDocument? overlayResult;
+    private long overlayRevision;
 
     internal bool HasDrafts => rows.Values.Any(row => row.HasDraft);
 
     internal AnimationPropertyRowViewModel GetRow(Guid layerId, AnimationTrackTarget target)
     {
+        target = RotationTargetCompatibility.Canonicalize(target);
         var layer = session.DocumentSnapshot.Layers.Single(layer => layer.Id == layerId);
         if (!rows.TryGetValue((layerId, target), out var row))
         {
@@ -18,7 +23,7 @@ internal sealed class AnimationPropertyEditingCoordinator(WorkbenchSession sessi
             rows.Add((layerId, target), row);
         }
         var subtitle = layer.SubtitleId is { } id ? session.DocumentSnapshot.Subtitles.Single(line => line.Id == id) : null;
-        row.Load(session.EffectPropertyValue(layer, target), layer.Tracks.FirstOrDefault(track => track.Target == target),
+        row.Load(session.EffectPropertyValue(layer, target), session.InspectorTrack(layer, target),
             !SubtitleAnimationEvaluation.IsBaseValueUniform(layer, subtitle, target));
         return row;
     }
@@ -79,6 +84,17 @@ internal sealed class AnimationPropertyEditingCoordinator(WorkbenchSession sessi
 
     internal ProjectDocument Overlay(ProjectDocument document)
     {
+        if (!HasDrafts)
+        {
+            overlaySource = null;
+            overlayResult = null;
+            return document;
+        }
+        if (ReferenceEquals(overlaySource, document) && overlayRevision == session.EffectPropertyDraftRevision && overlayResult is { } cached)
+        {
+            return cached;
+        }
+        var source = document;
         var invalidPanel = session.ViewModel.InvalidPanelId;
         var invalidField = session.ViewModel.InvalidFieldKey;
         try
@@ -101,11 +117,16 @@ internal sealed class AnimationPropertyEditingCoordinator(WorkbenchSession sessi
             session.ViewModel.InvalidPanelId = invalidPanel;
             session.ViewModel.InvalidFieldKey = invalidField;
         }
+        overlaySource = source;
+        overlayRevision = session.EffectPropertyDraftRevision;
+        overlayResult = document;
         return document;
     }
 
     internal void Accept()
     {
+        overlaySource = null;
+        overlayResult = null;
         foreach (var row in rows.Values.Where(row => row.HasDraft))
         {
             row.Accept();

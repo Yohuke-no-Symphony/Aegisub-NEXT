@@ -15,6 +15,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     private bool loading;
     private string originalX = string.Empty;
     private string originalY = string.Empty;
+    private string originalZ = string.Empty;
     private AnimationEditTarget? draftTarget;
     private ProjectDocument? draftSource;
     private bool isAnimated;
@@ -27,6 +28,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     private string editingPanel = "effects";
     private string xEditingPanel = "effects";
     private string yEditingPanel = "effects";
+    private string zEditingPanel = "effects";
     private string colorEditingPanel = "effects";
 
     internal AnimationPropertyRowViewModel(WorkbenchSession session, Guid layerId, AnimationTrackTarget target)
@@ -36,6 +38,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         Target = target;
         X.PropertyChanged += OnNumberChanged;
         Y.PropertyChanged += OnNumberChanged;
+        Z.PropertyChanged += OnNumberChanged;
         Color.Changed += OnColorChanged;
         Color.Committed += (_, _) => session.TryCommitDrafts(false);
         SelectCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target));
@@ -47,16 +50,22 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
 
     internal Guid LayerId { get; }
     internal AnimationTrackTarget Target { get; }
-    internal bool HasDraft => X.RawText != originalX || IsVector && Y.RawText != originalY || IsColor && Color.IsDirty;
+    internal bool HasDraft => X.RawText != originalX || IsVector && Y.RawText != originalY || HasZ && Z.RawText != originalZ || IsColor && Color.IsDirty;
     public string Name => AnimationPropertyLocalization.Get(Target.Property);
     public string FieldKey => $"EffectProperty_{LayerId:N}_{Target.NodeId:N}_{Target.TextRangeId:N}_{Target.State}_{Target.Property}";
     public string XFieldKey => FieldKey + "_X";
     public string YFieldKey => FieldKey + "_Y";
-    public NumericValueDraft X { get; } = new();
-    public NumericValueDraft Y { get; } = new();
+    public string ZFieldKey => FieldKey + "_Z";
+    public string XInputName => HasZ ? "RotationXInput" : "RangeValueXInput";
+    public string YInputName => HasZ ? "RotationYInput" : "RangeValueYInput";
+    public string ZInputName => HasZ ? "RotationInput" : "RangeValueZInput";
+    public NumericValueDraft X { get; } = new() { PreserveDoublePrecision = true };
+    public NumericValueDraft Y { get; } = new() { PreserveDoublePrecision = true };
+    public NumericValueDraft Z { get; } = new() { PreserveDoublePrecision = true };
     public ColorDraft Color { get; } = new();
     public bool IsScalar => AnimationPropertyMetadata.GetValueKind(Target.Property) == AnimationValueKind.SCALAR;
-    public bool IsVector => AnimationPropertyMetadata.GetValueKind(Target.Property) == AnimationValueKind.VECTOR;
+    public bool IsVector => AnimationPropertyMetadata.GetValueKind(Target.Property) is AnimationValueKind.VECTOR or AnimationValueKind.VECTOR3;
+    public bool HasZ => AnimationPropertyMetadata.GetValueKind(Target.Property) == AnimationValueKind.VECTOR3;
     public bool IsColor => AnimationPropertyMetadata.GetValueKind(Target.Property) == AnimationValueKind.COLOR;
     public decimal Minimum => (decimal)AnimationPropertyMetadata.GetMinimum(Target.Property);
     public decimal Maximum => (decimal)AnimationPropertyMetadata.GetMaximum(Target.Property);
@@ -76,7 +85,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     public bool CanReset => IsAnimated && IsEnabled;
     public bool CanToggleAnimation => IsAnimated || CanAddKeyframe;
     public bool IsMixed { get => isMixed; private set => SetProperty(ref isMixed, value); }
-    public string? EditingHint => IsMixed ? Localization.Get("Workbench.MixedPropertyValue") :
+    public string? EditingHint => !IsEnabled ? Localization.Get("Workbench.StyleOrderedTransformHint") : IsMixed ? Localization.Get("Workbench.MixedPropertyValue") :
         Target.Property == AnimationProperty.PERSPECTIVE_DISTANCE ? Localization.Get("Workbench.PerspectiveDistanceHint") : null;
     public string? Error { get => error; private set => SetProperty(ref error, value); }
     public string? InvalidFieldKey { get => invalidFieldKey; private set => SetProperty(ref invalidFieldKey, value); }
@@ -94,6 +103,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         OnPropertyChanged(nameof(EditingHint));
         IsAnimated = track is not null;
         IsEnabled = track?.Transforms.IsEmpty != false;
+        OnPropertyChanged(nameof(EditingHint));
         CanAddKeyframe = IsEnabled && session.CanAddEffectPropertyKeyframe(LayerId);
         OnPropertyChanged(nameof(IsOrdered));
         OnPropertyChanged(nameof(CanToggleAnimation));
@@ -113,10 +123,12 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
             else
             {
                 X.Load(value.GetComponent(0));
-                Y.Load(value.IsVector ? value.Vector.Y : 0);
+                Y.Load(value.IsVector || value.IsVector3 ? value.GetComponent(1) : 0);
+                Z.Load(value.IsVector3 ? value.GetComponent(2) : 0);
             }
             originalX = X.RawText;
             originalY = Y.RawText;
+            originalZ = Z.RawText;
             draftTarget = null;
             draftSource = null;
             Error = null;
@@ -144,9 +156,9 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     internal void BeginEdit(string panelId) => activePanel = panelId;
 
     internal double GetOriginalComponent(int component) =>
-        double.Parse(component == 0 ? originalX : originalY, NumberStyles.Float, CultureInfo.CurrentCulture);
+        double.Parse(component switch { 0 => originalX, 1 => originalY, _ => originalZ }, NumberStyles.Float, CultureInfo.CurrentCulture);
 
-    internal bool OwnsField(string? field) => field == FieldKey || field == XFieldKey || field == YFieldKey;
+    internal bool OwnsField(string? field) => field == FieldKey || field == XFieldKey || field == YFieldKey || HasZ && field == ZFieldKey;
 
     internal ProjectDocument Prepare(ProjectDocument document)
     {
@@ -173,7 +185,8 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         else
         {
             var x = Read(X, XFieldKey, 0);
-            value = IsVector ? new ScenePoint(x, Read(Y, YFieldKey, 1)) : x;
+            value = HasZ ? AnimationValue.FromVector3(new(x, Read(Y, YFieldKey, 1), Read(Z, ZFieldKey, 2))) :
+                IsVector ? new ScenePoint(x, Read(Y, YFieldKey, 1)) : x;
         }
         return AnimationEditOperations.SetValue(document, draftTarget, Target, value);
     }
@@ -182,6 +195,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     {
         originalX = X.RawText;
         originalY = Y.RawText;
+        originalZ = Z.RawText;
         if (IsColor)
         {
             Color.Load(Color.Value);
@@ -204,6 +218,10 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
             else if (field == YFieldKey)
             {
                 Y.RawText = originalY;
+            }
+            else if (HasZ && field == ZFieldKey)
+            {
+                Z.RawText = originalZ;
             }
         }
         finally
@@ -230,7 +248,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         {
             return value;
         }
-        session.ViewModel.InvalidPanelId = component == 0 ? xEditingPanel : yEditingPanel;
+        session.ViewModel.InvalidPanelId = component switch { 0 => xEditingPanel, 1 => yEditingPanel, _ => zEditingPanel };
         session.ViewModel.InvalidFieldKey = field;
         InvalidFieldKey = field;
         Error = Localization.Get("Workbench.InvalidValue");
@@ -247,9 +265,13 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         {
             xEditingPanel = activePanel;
         }
-        else
+        else if (ReferenceEquals(sender, Y))
         {
             yEditingPanel = activePanel;
+        }
+        else
+        {
+            zEditingPanel = activePanel;
         }
         Changed();
     }

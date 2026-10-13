@@ -49,7 +49,7 @@ internal static class WorkspaceDraftOperations
             }
             var frames = (track?.Keyframes ?? []).Where(value => value.Time != keyframe.Time).Append(keyframe)
                 .OrderBy(value => value.Time).ToImmutableArray();
-            var updated = new AnimationTrack(target, frames);
+            var updated = track is null ? new AnimationTrack(target, frames) : track with { Keyframes = frames };
             return layer with
             {
                 Tracks = track is null ? layer.Tracks.Add(updated) : layer.Tracks.SetItem(layer.Tracks.IndexOf(track), updated)

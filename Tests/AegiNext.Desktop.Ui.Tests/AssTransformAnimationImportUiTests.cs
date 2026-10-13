@@ -16,8 +16,8 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class AssTransformAnimationImportUiTests
 {
     [AvaloniaTheory]
-    [InlineData("\\frz90", AnimationProperty.ROTATION, "RotationInput", -90, "-45")]
-    [InlineData("\\frz72000", AnimationProperty.ROTATION, "RotationInput", -72000, "-144000")]
+    [InlineData("\\frz90", AnimationProperty.ROTATION_3D, "RotationInput", -90, "-45")]
+    [InlineData("\\frz72000", AnimationProperty.ROTATION_3D, "RotationInput", -72000, "-144000")]
     [InlineData("\\bord6", AnimationProperty.STROKE_WIDTH, "StrokeWidthInput", 6, "4")]
     [InlineData("\\fsp4", AnimationProperty.LETTER_SPACING, "LetterSpacingInput", 4, "6")]
     [InlineData("\\fscx150\\fscy200", AnimationProperty.SCALE, "ScaleXInput", 1.5, "1.75")]
@@ -27,10 +27,11 @@ public sealed class AssTransformAnimationImportUiTests
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         var layer = Import(context, "\\t(0,2000,2," + tag + ")",
-            property is AnimationProperty.SCALE or AnimationProperty.ROTATION ? ["Ass.TransformAppearanceAnimation"] : []);
+            property is AnimationProperty.SCALE or AnimationProperty.ROTATION_3D ? ["Ass.TransformAppearanceAnimation"] : []);
         var track = Assert.Single(layer.Tracks, value => value.Property == property);
         Assert.Empty(track.Transforms);
-        Assert.Contains(track.Keyframes, keyframe => keyframe.Interpolation == KeyframeInterpolation.POWER && keyframe.Exponent == 2);
+        Assert.Contains(track.Keyframes, keyframe => keyframe.GetCurve(property == AnimationProperty.ROTATION_3D ? 2 : 0) is
+            { Interpolation: KeyframeInterpolation.POWER, Exponent: 2 });
         var frame = track.Keyframes[^1];
         var timeline = UiTestActions.Find<SubtitleTimelineControl>(context.Window, "Timeline");
         Assert.Contains(property, timeline.GetAnimationProperties(layer.Id));
@@ -40,13 +41,13 @@ public sealed class AssTransformAnimationImportUiTests
         await context.Session.SeekForEditingAsync(frame.Time);
         Assert.Equal(frame.Time, context.Session.SelectedKeyTime);
         Assert.Contains(context.ViewModel.Effects.Properties, choice => choice.Property == property);
-        var ordinary = UiTestActions.Find<NumericDraftInput>(context.Window, field);
+        var ordinary = FindOrdinary<NumericDraftInput>(context, field);
         Assert.True(ordinary.IsEffectivelyEnabled);
         Assert.Equal((decimal)AnimationPropertyMetadata.GetMinimum(property), ordinary.Minimum);
         Assert.Equal((decimal)AnimationPropertyMetadata.GetMaximum(property), ordinary.Maximum);
         Assert.Equal(expected, (double)ordinary.Value!.Value, 10);
         var input = UiTestActions.Find<NumericDraftInput>(context.Window,
-            property == AnimationProperty.SCALE ? "KeyframeValueXInput" : "KeyframeValueInput");
+            property == AnimationProperty.ROTATION_3D ? "KeyframeValueZInput" : property == AnimationProperty.SCALE ? "KeyframeValueXInput" : "KeyframeValueInput");
         Assert.True(input.IsEffectivelyEnabled);
         Assert.Equal(expected, (double)input.Value!.Value, 10);
         var original = context.Session.DocumentSnapshot;
@@ -54,11 +55,11 @@ public sealed class AssTransformAnimationImportUiTests
         Assert.Same(original, context.Session.DocumentSnapshot);
         var requested = double.Parse(replacement, CultureInfo.InvariantCulture);
         var preview = context.Session.PreviewDocument.Layers.Single(value => value.Id == layer.Id).Tracks.Single(value => value.Property == property);
-        Assert.Equal(requested, preview.Keyframes[^1].Value.GetComponent(0));
+        Assert.Equal(requested, preview.Keyframes[^1].Value.GetComponent(property == AnimationProperty.ROTATION_3D ? 2 : 0));
         UiTestActions.Press(context.Window, Key.Enter);
         Dispatcher.UIThread.RunJobs();
         var changed = context.Session.SelectedLayer!.Tracks.Single(value => value.Property == property);
-        Assert.Equal(requested, changed.Keyframes[^1].Value.GetComponent(0));
+        Assert.Equal(requested, changed.Keyframes[^1].Value.GetComponent(property == AnimationProperty.ROTATION_3D ? 2 : 0));
         Assert.Equal(original.Subtitles[0].Style, context.Session.SelectedCue!.Style);
         if (property == AnimationProperty.SCALE)
         {
@@ -71,7 +72,7 @@ public sealed class AssTransformAnimationImportUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData("\\frz90", AnimationProperty.ROTATION, "RotationInput", -90, "-45")]
+    [InlineData("\\frz90", AnimationProperty.ROTATION_3D, "RotationInput", -90, "-45")]
     [InlineData("\\bord6", AnimationProperty.STROKE_WIDTH, "StrokeWidthInput", 6, "4")]
     [InlineData("\\fsp4", AnimationProperty.LETTER_SPACING, "LetterSpacingInput", 4, "6")]
     [InlineData("\\fscx150\\fscy200", AnimationProperty.SCALE, "ScaleInput", 1.5, "1.75")]
@@ -81,7 +82,7 @@ public sealed class AssTransformAnimationImportUiTests
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         var layer = Import(context, "\\t(1000,1000," + tag + ")",
-            property is AnimationProperty.SCALE or AnimationProperty.ROTATION ? ["Ass.TransformAppearanceAnimation"] : []);
+            property is AnimationProperty.SCALE or AnimationProperty.ROTATION_3D ? ["Ass.TransformAppearanceAnimation"] : []);
         var track = Assert.Single(layer.Tracks, value => value.Property == property);
         Assert.Empty(track.Keyframes);
         var operation = Assert.Single(track.Transforms);
@@ -91,26 +92,27 @@ public sealed class AssTransformAnimationImportUiTests
         ClickTimeline(context, timeline, marker.Position);
         await context.Session.SeekForEditingAsync(operation.End);
         Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation?.Id);
-        var ordinary = UiTestActions.Find<Control>(context.Window, field);
+        var ordinary = FindOrdinary<Control>(context, field);
         Assert.False(ordinary.IsEffectivelyEnabled);
         var original = context.Session.DocumentSnapshot;
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = "zh-CN" });
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(Localization.Get("Workbench.StyleOrderedTransformHint"), ToolTip.GetTip(Assert.IsType<StackPanel>(ordinary.Parent)));
+        Assert.Contains(ordinary.GetVisualAncestors().OfType<Control>(), parent =>
+            Equals(ToolTip.GetTip(parent), Localization.Get("Workbench.StyleOrderedTransformHint")));
         Assert.Same(original, context.Session.DocumentSnapshot);
         var input = UiTestActions.Find<NumericDraftInput>(context.Window,
-            property == AnimationProperty.SCALE ? "OperationValueXInput" : "OperationValueInput");
+            property == AnimationProperty.ROTATION_3D ? "OperationValueZInput" : property == AnimationProperty.SCALE ? "OperationValueXInput" : "OperationValueInput");
         Assert.True(input.IsEffectivelyEnabled);
         Assert.Equal(expected, (double)input.Value!.Value, 10);
         Type(context.Window, input, replacement);
         Assert.Same(original, context.Session.DocumentSnapshot);
         var requested = double.Parse(replacement, CultureInfo.InvariantCulture);
         var preview = context.Session.PreviewDocument.Layers.Single(value => value.Id == layer.Id).Tracks.Single(value => value.Property == property);
-        Assert.Equal(requested, preview.Transforms.Single(value => value.Id == operation.Id).Value.GetComponent(0));
+        Assert.Equal(requested, preview.Transforms.Single(value => value.Id == operation.Id).Value.GetComponent(property == AnimationProperty.ROTATION_3D ? 2 : 0));
         UiTestActions.Press(context.Window, Key.Enter);
         Dispatcher.UIThread.RunJobs();
         var changed = context.Session.SelectedLayer!.Tracks.Single(value => value.Property == property);
-        Assert.Equal(requested, changed.Transforms.Single(value => value.Id == operation.Id).Value.GetComponent(0));
+        Assert.Equal(requested, changed.Transforms.Single(value => value.Id == operation.Id).Value.GetComponent(property == AnimationProperty.ROTATION_3D ? 2 : 0));
         if (property == AnimationProperty.SCALE)
         {
             Assert.Equal(2, changed.Transforms.Single(value => value.Id == operation.Id).Value.Vector.Y);
@@ -226,9 +228,22 @@ public sealed class AssTransformAnimationImportUiTests
             imported.Diagnostics.Select(diagnostic => diagnostic.Code).Distinct().Order(StringComparer.Ordinal));
         context.Session.Editor.ImportSubtitleLines(imported, "ASS numeric transform");
         context.Session.SelectCue(imported.Lines[0].Id);
+        context.ViewModel.Effects.TransformExpanded = true;
+        context.ViewModel.Effects.AnimationExpanded = true;
         Dispatcher.UIThread.RunJobs();
         context.Window.UpdateLayout();
         return context.Session.SelectedLayer!;
+    }
+
+    private static T FindOrdinary<T>(MainWindowTestContext context, string field) where T : Control
+    {
+        if (field == "RotationInput")
+        {
+            context.Window.Layouts.Activate("effects");
+            context.Window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+        }
+        return UiTestActions.Find<T>(context.Window, field);
     }
 
     private static void ClickTimeline(MainWindowTestContext context, SubtitleTimelineControl timeline, Point local)
