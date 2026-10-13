@@ -17,30 +17,21 @@ public sealed class KeyframeAvailabilityUiTests
     [AvaloniaTheory]
     [InlineData(0)]
     [InlineData(3)]
-    public async Task PlaybackWithinClipKeepsBothKeyframeButtonsEnabled(int animationOffset)
+    public async Task PlaybackWithinClipKeepsThePropertyKeyframeButtonEnabled(int animationOffset)
     {
         await using var context = new MainWindowTestContext(playbackTimeProvider: new AdvancingPlaybackTimeProvider());
         await context.OpenMediaAsync();
         SelectSubtitle(context, animationOffset);
         await context.Session.SeekForEditingAsync(new(2));
-        var buttons = GetKeyframeButtons(context);
-        Assert.True(buttons.General.IsEnabled);
-        Assert.True(buttons.Property.IsEnabled);
+        var button = GetKeyframeButton(context);
+        Assert.True(button.IsEnabled);
         var source = context.Session.DocumentSnapshot;
-        var generalTransitions = new List<bool>();
-        var propertyTransitions = new List<bool>();
-        buttons.General.PropertyChanged += (_, e) =>
+        var transitions = new List<bool>();
+        button.PropertyChanged += (_, e) =>
         {
             if (e.Property == InputElement.IsEnabledProperty)
             {
-                generalTransitions.Add(buttons.General.IsEnabled);
-            }
-        };
-        buttons.Property.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == InputElement.IsEnabledProperty)
-            {
-                propertyTransitions.Add(buttons.Property.IsEnabled);
+                transitions.Add(button.IsEnabled);
             }
         };
 
@@ -50,51 +41,39 @@ public sealed class KeyframeAvailabilityUiTests
             context.Session.Tick();
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(VideoPlaybackState.PLAYING, context.Controller.Snapshot.State);
-            Assert.True(buttons.General.IsEnabled);
-            Assert.True(buttons.Property.IsEnabled);
+            Assert.True(button.IsEnabled);
             Assert.Same(source, context.Session.DocumentSnapshot);
         }
-        Assert.Empty(generalTransitions);
-        Assert.Empty(propertyTransitions);
+        Assert.Empty(transitions);
 
         await context.Controller.PauseAsync();
         context.Session.Tick();
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(VideoPlaybackState.PAUSED, context.Controller.Snapshot.State);
-        Assert.True(buttons.General.IsEnabled);
-        Assert.True(buttons.Property.IsEnabled);
+        Assert.True(button.IsEnabled);
         Assert.Same(source, context.Session.DocumentSnapshot);
     }
 
-    /// <summary>播放头越过片段边界时两个按钮各切换一次，端点仍可保存关键帧。</summary>
+    /// <summary>播放头越过片段边界时属性按钮切换一次，端点仍可保存关键帧。</summary>
     [AvaloniaTheory]
     [InlineData(0)]
     [InlineData(3)]
     [InlineData(-3)]
-    public async Task PlaybackCrossingClipBoundsChangesEachButtonOnlyAtTheBoundary(int animationOffset)
+    public async Task PlaybackCrossingClipBoundsChangesThePropertyButtonOnlyAtTheBoundary(int animationOffset)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         SelectSubtitle(context, animationOffset);
         await context.Session.SeekForEditingAsync(new(1, 2));
-        var buttons = GetKeyframeButtons(context);
-        Assert.False(buttons.General.IsEnabled);
-        Assert.False(buttons.Property.IsEnabled);
+        var button = GetKeyframeButton(context);
+        Assert.False(button.IsEnabled);
         var source = context.Session.DocumentSnapshot;
-        var generalTransitions = new List<bool>();
-        var propertyTransitions = new List<bool>();
-        buttons.General.PropertyChanged += (_, e) =>
+        var transitions = new List<bool>();
+        button.PropertyChanged += (_, e) =>
         {
             if (e.Property == InputElement.IsEnabledProperty)
             {
-                generalTransitions.Add(buttons.General.IsEnabled);
-            }
-        };
-        buttons.Property.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == InputElement.IsEnabledProperty)
-            {
-                propertyTransitions.Add(buttons.Property.IsEnabled);
+                transitions.Add(button.IsEnabled);
             }
         };
 
@@ -110,12 +89,10 @@ public sealed class KeyframeAvailabilityUiTests
             context.Session.Tick();
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(VideoPlaybackState.PLAYING, context.Controller.Snapshot.State);
-            Assert.Equal(enabled, buttons.General.IsEnabled);
-            Assert.Equal(enabled, buttons.Property.IsEnabled);
+            Assert.Equal(enabled, button.IsEnabled);
             Assert.Same(source, context.Session.DocumentSnapshot);
         }
-        Assert.Equal([true, false], generalTransitions);
-        Assert.Equal([true, false], propertyTransitions);
+        Assert.Equal([true, false], transitions);
     }
 
     /// <summary>按钮遵守片段边界和动画偏移，并拒绝有序变换的关键帧编辑。</summary>
@@ -123,12 +100,12 @@ public sealed class KeyframeAvailabilityUiTests
     [InlineData(0)]
     [InlineData(3)]
     [InlineData(-3)]
-    public async Task KeyframeButtonsRespectClipBoundsAndOrderedTransforms(int animationOffset)
+    public async Task KeyframeButtonRespectsClipBoundsAndOrderedTransforms(int animationOffset)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         SelectSubtitle(context, animationOffset);
-        var buttons = GetKeyframeButtons(context);
+        var button = GetKeyframeButton(context);
         var source = context.Session.DocumentSnapshot;
         foreach (var (time, enabled) in new (MediaTime Time, bool Enabled)[]
                  {
@@ -138,8 +115,7 @@ public sealed class KeyframeAvailabilityUiTests
             await context.Session.SeekForEditingAsync(time);
             context.Session.Tick();
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(enabled, buttons.General.IsEnabled);
-            Assert.Equal(enabled, buttons.Property.IsEnabled);
+            Assert.Equal(enabled, button.IsEnabled);
             Assert.Same(source, context.Session.DocumentSnapshot);
         }
 
@@ -150,12 +126,11 @@ public sealed class KeyframeAvailabilityUiTests
             new(Guid.NewGuid(), new(animationOffset), new(animationOffset + 1), 64));
         context.Session.Tick();
         Dispatcher.UIThread.RunJobs();
-        Assert.False(buttons.General.IsEnabled);
-        Assert.False(buttons.Property.IsEnabled);
+        Assert.False(button.IsEnabled);
         Assert.True(context.ViewModel.Effects.IsOrderedTransform);
     }
 
-    /// <summary>没有主选片段时禁用通用关键帧按钮，并移除逐属性入口。</summary>
+    /// <summary>没有主选片段时禁用原属性按钮，并移除逐属性入口。</summary>
     [AvaloniaFact]
     public async Task KeyframeButtonIsDisabledWithoutSelectedClip()
     {
@@ -163,7 +138,7 @@ public sealed class KeyframeAvailabilityUiTests
         await context.OpenMediaAsync();
         SelectSubtitle(context, 0);
         await context.Session.SeekForEditingAsync(new(2));
-        var button = GetKeyframeButtons(context).General;
+        var button = GetKeyframeButton(context);
         Assert.True(button.IsEnabled);
         var source = context.Session.DocumentSnapshot;
 
@@ -181,19 +156,18 @@ public sealed class KeyframeAvailabilityUiTests
         var id = context.Session.Editor.AddSubtitle(new(1), new(8), "Keyframe availability 中文");
         context.Session.SelectCue(id);
         context.Session.Editor.UpdateLayer(context.Session.SelectedLayer!.Id, layer => layer with { AnimationOffset = new(animationOffset) });
-        UiTestActions.SelectAnimationProperty(context.Window, AnimationProperty.FONT_SIZE);
+        context.Window.Layouts.Activate("effects");
+        context.ViewModel.Effects.Target = new(AnimationProperty.FONT_SIZE);
         context.ViewModel.Effects.TypographyExpanded = true;
         context.Window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static (Button General, Button Property) GetKeyframeButtons(MainWindowTestContext context)
+    private static Button GetKeyframeButton(MainWindowTestContext context)
     {
-        var general = UiTestActions.Find<Button>(context.Window, "KeyframeButton");
         var row = context.ViewModel.Effects.TypographyRows.Single(row => row.Target.Property == AnimationProperty.FONT_SIZE);
         var view = context.Window.Panels["effects"].GetVisualDescendants().OfType<EffectPropertyRowView>()
             .Single(view => ReferenceEquals(view.DataContext, row));
-        var property = view.GetVisualDescendants().OfType<Button>().Single(button => ReferenceEquals(button.Command, row.AddKeyframeCommand));
-        return (general, property);
+        return view.GetVisualDescendants().OfType<Button>().Single(button => ReferenceEquals(button.Command, row.AddKeyframeCommand));
     }
 }

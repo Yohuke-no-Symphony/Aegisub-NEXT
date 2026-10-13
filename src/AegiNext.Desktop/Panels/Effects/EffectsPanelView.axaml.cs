@@ -18,10 +18,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     private readonly WorkbenchSession session;
     private readonly EffectsPanelViewModel viewModel;
     private readonly ComboBox blend;
-    private readonly ComboBox property;
-    private readonly ComboBox interpolation;
-    private readonly ComboBox keyframeCurveComponents;
-    private readonly ComboBox operationCurveInterpolation;
     private readonly (Grid Grid, Control Editor, Control? Actions, int Span)[] propertyGridRows;
     private bool suppressFocusCommit;
     private int focusCommitRevision;
@@ -46,17 +42,9 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
                 viewModel.CommitBlend(blend.SelectedIndex);
             }
         };
-        property = this.FindControl<ComboBox>("PropertyCombo")!;
-        interpolation = this.FindControl<ComboBox>("InterpolationCombo")!;
-        keyframeCurveComponents = this.FindControl<ComboBox>("KeyframeCurveComponentCombo")!;
-        operationCurveInterpolation = this.FindControl<ComboBox>("OperationCurveInterpolationCombo")!;
-        interpolation.SelectionChanged += (_, _) =>
-        {
-            if (!session.IsUpdating)
-            {
-                viewModel.CommitInterpolation(interpolation.SelectedIndex);
-            }
-        };
+        animationOptions = new(session, PanelId);
+        AddHandler(AnimationPropertyRowControl.AnimationOptionsRequestedEvent, OnAnimationOptionsRequested);
+        AddHandler(Button.ClickEvent, OnAnimationOptionsButtonClick);
         viewModel.ChoicesRefreshing += OnChoicesRefreshing;
         viewModel.ChoicesRefreshed += OnChoicesRefreshed;
         var orientPath = this.FindControl<CheckBox>("OrientPathCheck")!;
@@ -122,7 +110,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         });
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnCommitKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
-        viewModel.KeyframeColorDraft.Committed += OnColorCommitted;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         AddHandler(LostFocusEvent, (_, e) =>
         {
@@ -199,6 +186,10 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     }
     public void FocusInvalidField(string? fieldKey)
     {
+        if (animationOptions.FocusInvalidField(fieldKey))
+        {
+            return;
+        }
         var propertyField = viewModel.ExpandPropertyField(fieldKey);
         var propertyRow = this.GetVisualDescendants().OfType<AnimationPropertyRowControl>().FirstOrDefault(row => row.OwnsField(fieldKey));
         if (propertyRow is not null)
@@ -327,21 +318,11 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     {
         CancelGestures();
         BeginChoiceRefresh(blend);
-        BeginChoiceRefresh(property);
-        BeginChoiceRefresh(interpolation);
-        BeginChoiceRefresh(keyframeCurveComponents);
-        BeginChoiceRefresh(operationCurveInterpolation);
     }
 
     private void OnChoicesRefreshed(object? sender, EventArgs e)
     {
         blend.EndInit();
-        property.EndInit();
-        property.SelectedItem = viewModel.SelectedProperty;
-        interpolation.EndInit();
-        keyframeCurveComponents.EndInit();
-        keyframeCurveComponents.SelectedItem = viewModel.SelectedKeyframeCurveComponent;
-        operationCurveInterpolation.EndInit();
     }
 
     private static void BeginChoiceRefresh(ComboBox choice)
@@ -356,9 +337,9 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         if (!disposed)
         {
             disposed = true;
+            animationOptions.Dispose();
             viewModel.ChoicesRefreshing -= OnChoicesRefreshing;
             viewModel.ChoicesRefreshed -= OnChoicesRefreshed;
-            viewModel.KeyframeColorDraft.Committed -= OnColorCommitted;
             viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             session.ViewModel.GesturesCancelled -= OnGesturesCancelled;
             session.NumericGestureCancellationRequested -= OnNumericGestureCancellationRequested;

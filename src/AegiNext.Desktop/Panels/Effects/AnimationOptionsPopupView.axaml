@@ -1,0 +1,84 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:AegiNext.Desktop.Controls" xmlns:vm="using:AegiNext.Desktop.Panels.Effects"
+             x:Class="AegiNext.Desktop.Panels.Effects.AnimationOptionsPopupView" x:DataType="vm:AnimationOptionsPopupViewModel" Classes="business-surface">
+  <UserControl.Styles>
+    <Style Selector="Grid.effect-row">
+      <Setter Property="ColumnSpacing" Value="6" />
+      <Setter Property="Margin" Value="4,3" />
+    </Style>
+    <Style Selector="Grid.effect-row > TextBlock">
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+  </UserControl.Styles>
+  <ScrollViewer MaxHeight="520" HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="6" Margin="4" MinWidth="260">
+      <TextBlock Text="{Binding AnimationOptionsLabel}" FontWeight="SemiBold" />
+      <TextBlock Text="{Binding EditTargetLabel}" Classes="field" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding ValidationError}" Foreground="{DynamicResource PreviewError}" TextWrapping="Wrap" />
+      <TextBlock Text="{Loc Key=Workbench.NoKeyframeAtEditingTime}" IsVisible="{Binding NeedsAnimationKeyframe}" TextWrapping="Wrap" />
+      <StackPanel Spacing="4" IsVisible="{Binding !IsOrderedTransform}">
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.Interpolation}" />
+        <ComboBox Name="InterpolationCombo" IsEnabled="{Binding CanEditKeyframes}" HorizontalAlignment="Stretch"
+                  SelectedIndex="{Binding Interpolation, Mode=TwoWay}" ItemsSource="{Binding Interpolations}" />
+      <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" IsVisible="{Binding HasKeyframeCurveComponents}">
+        <TextBlock Text="{Loc Key=Workbench.AnimationCurveComponents}" />
+        <ComboBox Name="KeyframeCurveComponentCombo" Grid.Column="1" Grid.ColumnSpan="2" IsEnabled="{Binding CanEditKeyframes}"
+                  ItemsSource="{Binding KeyframeCurveComponents}" SelectedItem="{Binding SelectedKeyframeCurveComponent, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+      </Grid>
+      <controls:NumericDragLabel Text="{Loc Key=Workbench.Power}" Input="{Binding #PowerExponentInput}" IsVisible="{Binding IsPowerInterpolation}" />
+      <controls:NumericDraftInput Name="PowerExponentInput" PreserveDoublePrecision="True" IsEnabled="{Binding CanEditKeyframes}" IsVisible="{Binding IsPowerInterpolation}" Minimum="0" Maximum="79228162514264337593543950335"
+          RawText="{Binding PowerExponent.RawText, Mode=TwoWay}" Value="{Binding PowerExponent.Value, Mode=TwoWay}" />
+      </StackPanel>
+      <StackPanel Name="OrderedTransformSection" Spacing="4" IsVisible="{Binding IsOrderedTransform}">
+        <TextBlock Text="{Loc Key=Workbench.OrderedTransforms}" />
+        <ComboBox Name="TransformOperationCombo" ItemsSource="{Binding TransformOperations}" SelectedItem="{Binding SelectedOperation, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+          <StackPanel>
+            <controls:NumericDragLabel Text="{Loc Key=Workbench.Start}" Input="{Binding #OperationStartInput}" />
+            <controls:NumericDraftInput Name="OperationStartInput" RawText="{Binding OperationStart.RawText, Mode=TwoWay}" Value="{Binding OperationStart.Value, Mode=TwoWay}" Minimum="-1000000000" Maximum="1000000000" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <controls:NumericDragLabel Text="{Loc Key=Workbench.End}" Input="{Binding #OperationEndInput}" />
+            <controls:NumericDraftInput Name="OperationEndInput" RawText="{Binding OperationEnd.RawText, Mode=TwoWay}" Value="{Binding OperationEnd.Value, Mode=TwoWay}" Minimum="-1000000000" Maximum="1000000000" />
+          </StackPanel>
+        </Grid>
+        <controls:VectorDraftInput Name="OperationVectorInput" PreserveDoublePrecision="True" HasZBinding="{Binding HasVectorZ}" IsVisible="{Binding IsVectorProperty}" XFieldKey="OperationValueXInput" YFieldKey="OperationValueYInput" ZFieldKey="OperationValueZInput" ZInputName="OperationValueZInput"
+            XTextBinding="{Binding OperationValueX.RawText, Mode=TwoWay}" YTextBinding="{Binding OperationValueY.RawText, Mode=TwoWay}"
+            ZTextBinding="{Binding OperationValueZ.RawText, Mode=TwoWay}"
+            XBinding="{Binding OperationValueX.Value, Mode=TwoWay}" YBinding="{Binding OperationValueY.Value, Mode=TwoWay}" ZBinding="{Binding OperationValueZ.Value, Mode=TwoWay}" MinimumBinding="{Binding KeyframeMinimum}" MaximumBinding="{Binding KeyframeMaximum}" />
+        <controls:NumericDragLabel Text="{Loc Key=Workbench.Value}" Input="{Binding #OperationValueInput}" IsVisible="{Binding IsScalarProperty}" />
+        <controls:NumericDraftInput Name="OperationValueInput" PreserveDoublePrecision="True" IsVisible="{Binding IsScalarProperty}" RawText="{Binding OperationValueX.RawText, Mode=TwoWay}"
+            Value="{Binding OperationValueX.Value, Mode=TwoWay}" Minimum="{Binding KeyframeMinimum}" Maximum="{Binding KeyframeMaximum}" />
+        <controls:ColorDraftInput Name="OperationColorInput" CommitOnLostFocus="False" IsVisible="{Binding IsColorProperty}" Draft="{Binding OperationColorDraft}" />
+        <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto">
+          <TextBlock Text="{Loc Key=Workbench.AnimationComponents}" />
+          <ComboBox Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding OperationComponents}" SelectedItem="{Binding SelectedOperationComponents, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+        </Grid>
+        <CheckBox IsVisible="{Binding CanUseRelativeOperation}" IsChecked="{Binding OperationIsRelative, Mode=TwoWay}" Content="{Loc Key=Workbench.RelativeFontSizeOperation}" />
+        <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" IsVisible="{Binding HasOperationCurve}">
+          <TextBlock Text="{Loc Key=Workbench.Interpolation}" />
+          <ComboBox Name="OperationCurveInterpolationCombo" Grid.Column="1" Grid.ColumnSpan="2" ItemsSource="{Binding Interpolations}"
+                    SelectedIndex="{Binding OperationCurveInterpolation, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+        </Grid>
+        <CheckBox Name="OperationCurveReverseCheck" IsVisible="{Binding HasOperationCurve}" IsChecked="{Binding OperationCurveReverse, Mode=TwoWay}" Content="{Loc Key=Workbench.AnimationCurveReverse}" />
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+          <StackPanel>
+            <controls:NumericDragLabel Text="{Loc Key=Workbench.Power}" Input="{Binding #OperationAccelerationInput}" />
+            <controls:NumericDraftInput Name="OperationAccelerationInput" IsEnabled="{Binding CanEditOperationExponent}" ToolTip.Tip="{Binding OperationExponentHint}" PreserveDoublePrecision="True" RawText="{Binding OperationAcceleration.RawText, Mode=TwoWay}" Value="{Binding OperationAcceleration.Value, Mode=TwoWay}" Minimum="0" Maximum="79228162514264337593543950335" />
+          </StackPanel>
+          <StackPanel Grid.Column="1">
+            <controls:NumericDragLabel Text="{Loc Key=Workbench.TransformOrder}" Input="{Binding #OperationOrderInput}" />
+            <controls:NumericDraftInput Name="OperationOrderInput" RawText="{Binding OperationOrder.RawText, Mode=TwoWay}" Value="{Binding OperationOrder.Value, Mode=TwoWay}" Minimum="1" Maximum="100000" />
+          </StackPanel>
+        </Grid>
+        <Button Content="{Loc Key=Workbench.DeleteTransform}" Command="{Binding DeleteOperationCommand}" />
+      </StackPanel>
+      <Grid ColumnDefinitions="108,*" ColumnSpacing="6" IsVisible="{Binding IsColorProperty}">
+        <TextBlock Text="{Loc Key=Workbench.ColorInterpolationSpace}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <ComboBox Name="ColorInterpolationSpaceCombo" Grid.Column="1" IsEnabled="{Binding CanEditColorSpace}"
+                  ItemsSource="{Binding ColorSpaces}" SelectedIndex="{Binding ColorSpace, Mode=TwoWay}" HorizontalAlignment="Stretch" />
+      </Grid>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

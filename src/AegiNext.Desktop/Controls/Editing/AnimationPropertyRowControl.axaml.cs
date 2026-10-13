@@ -3,6 +3,7 @@ using AegiNext.Desktop.Editing;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 namespace AegiNext.Desktop.Controls;
@@ -10,6 +11,15 @@ namespace AegiNext.Desktop.Controls;
 /// <summary>通过显式草稿和命令组合动画属性行，编辑目标与事务由宿主协调层管理。</summary>
 public sealed partial class AnimationPropertyRowControl : UserControl
 {
+    public static readonly RoutedEvent<RoutedEventArgs> AnimationOptionsRequestedEvent =
+        RoutedEvent.Register<AnimationPropertyRowControl, RoutedEventArgs>(nameof(AnimationOptionsRequested), RoutingStrategies.Bubble);
+
+    /// <summary>请求宿主打开此属性行的动画设置。</summary>
+    public event EventHandler<RoutedEventArgs> AnimationOptionsRequested
+    {
+        add => AddHandler(AnimationOptionsRequestedEvent, value);
+        remove => RemoveHandler(AnimationOptionsRequestedEvent, value);
+    }
     public static readonly StyledProperty<NumericValueDraft?> XProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, NumericValueDraft?>(nameof(X), null);
     public static readonly StyledProperty<NumericValueDraft?> YProperty =
@@ -48,16 +58,12 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(CanEdit), true);
     public static readonly StyledProperty<bool> IsAnimatedProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(IsAnimated), false);
-    public static readonly StyledProperty<bool> CanToggleAnimationProperty =
-        AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(CanToggleAnimation), false);
     public static readonly StyledProperty<bool> CanAddKeyframeProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(CanAddKeyframe), false);
     public static readonly StyledProperty<bool> CanResetProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(CanReset), false);
     public static readonly StyledProperty<bool> ShowAnimationActionsProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(ShowAnimationActions), true);
-    public static readonly StyledProperty<bool> IsOrderedProperty =
-        AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(IsOrdered), false);
     public static readonly StyledProperty<decimal> MinimumProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, decimal>(nameof(Minimum), -1000000000m);
     public static readonly StyledProperty<decimal> MaximumProperty =
@@ -66,28 +72,39 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, decimal>(nameof(Increment), 1m);
     public static readonly StyledProperty<string?> EditingHintProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(EditingHint), null);
-    public static readonly StyledProperty<string?> AnimationHintProperty =
-        AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(AnimationHint), null);
     public static readonly StyledProperty<string?> KeyframeHintProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(KeyframeHint), null);
     public static readonly StyledProperty<string?> ResetHintProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(ResetHint), null);
-    public static readonly StyledProperty<string?> DetailsHintProperty =
-        AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(DetailsHint), null);
     public static readonly StyledProperty<string?> ErrorProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(Error), null);
     public static readonly StyledProperty<string?> InvalidFieldKeyProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(InvalidFieldKey), null);
     public static readonly StyledProperty<ICommand?> SelectCommandProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(SelectCommand), null);
-    public static readonly StyledProperty<ICommand?> ToggleAnimationCommandProperty =
-        AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(ToggleAnimationCommand), null);
     public static readonly StyledProperty<ICommand?> AddKeyframeCommandProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(AddKeyframeCommand), null);
     public static readonly StyledProperty<ICommand?> ResetCommandProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(ResetCommand), null);
-    public static readonly StyledProperty<ICommand?> DetailsCommandProperty =
-        AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(DetailsCommand), null);
+
+    public static readonly StyledProperty<ICommand?> AnimationOptionsCommandProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(AnimationOptionsCommand), null);
+    public static readonly StyledProperty<string?> AnimationOptionsHintProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(AnimationOptionsHint), null);
+
+    /// <summary>宿主提供的属性设置命令，控件只传递本地操作。</summary>
+    public ICommand? AnimationOptionsCommand
+    {
+        get => GetValue(AnimationOptionsCommandProperty);
+        set => SetValue(AnimationOptionsCommandProperty, value);
+    }
+
+    /// <summary>设置按钮的提示及无障碍名称。</summary>
+    public string? AnimationOptionsHint
+    {
+        get => GetValue(AnimationOptionsHintProperty);
+        set => SetValue(AnimationOptionsHintProperty, value);
+    }
 
     private readonly NumericDraftInput scalar;
     private readonly ColorDraftInput color;
@@ -106,6 +123,8 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         grid = this.FindControl<Grid>("RowGrid")!;
         values = this.FindControl<StackPanel>("ValueEditor")!;
         actions = this.FindControl<StackPanel>("RowActions")!;
+        this.FindControl<Button>("AnimationOptionsButton")!.Click += (_, _) =>
+            RaiseEvent(new RoutedEventArgs(AnimationOptionsRequestedEvent));
         SizeChanged += (_, _) => RefreshLayout();
         RefreshEditor();
         RefreshErrors();
@@ -225,12 +244,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(IsAnimatedProperty, value);
     }
 
-    public bool CanToggleAnimation
-    {
-        get => GetValue(CanToggleAnimationProperty);
-        set => SetValue(CanToggleAnimationProperty, value);
-    }
-
     public bool CanAddKeyframe
     {
         get => GetValue(CanAddKeyframeProperty);
@@ -247,12 +260,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
     {
         get => GetValue(ShowAnimationActionsProperty);
         set => SetValue(ShowAnimationActionsProperty, value);
-    }
-
-    public bool IsOrdered
-    {
-        get => GetValue(IsOrderedProperty);
-        set => SetValue(IsOrderedProperty, value);
     }
 
     public decimal Minimum
@@ -279,12 +286,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(EditingHintProperty, value);
     }
 
-    public string? AnimationHint
-    {
-        get => GetValue(AnimationHintProperty);
-        set => SetValue(AnimationHintProperty, value);
-    }
-
     public string? KeyframeHint
     {
         get => GetValue(KeyframeHintProperty);
@@ -295,12 +296,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
     {
         get => GetValue(ResetHintProperty);
         set => SetValue(ResetHintProperty, value);
-    }
-
-    public string? DetailsHint
-    {
-        get => GetValue(DetailsHintProperty);
-        set => SetValue(DetailsHintProperty, value);
     }
 
     public string? Error
@@ -321,12 +316,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(SelectCommandProperty, value);
     }
 
-    public ICommand? ToggleAnimationCommand
-    {
-        get => GetValue(ToggleAnimationCommandProperty);
-        set => SetValue(ToggleAnimationCommandProperty, value);
-    }
-
     public ICommand? AddKeyframeCommand
     {
         get => GetValue(AddKeyframeCommandProperty);
@@ -337,12 +326,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
     {
         get => GetValue(ResetCommandProperty);
         set => SetValue(ResetCommandProperty, value);
-    }
-
-    public ICommand? DetailsCommand
-    {
-        get => GetValue(DetailsCommandProperty);
-        set => SetValue(DetailsCommandProperty, value);
     }
 
     /// <summary>判断完整属性或分量字段是否属于当前行。</summary>

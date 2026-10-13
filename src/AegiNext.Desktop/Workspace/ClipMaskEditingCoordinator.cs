@@ -110,19 +110,23 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
         {
             if (force || fieldLayerId != layer?.Id || fieldNodeId != nodeId)
             {
-                foreach (var field in Fields)
+                var nextFields = CreateFields(layer).ToArray();
+                if (fieldLayerId != layer?.Id || fieldNodeId != nodeId || !HaveSameFieldTargets(Fields, nextFields))
                 {
-                    if (field.Target is null)
+                    foreach (var field in Fields)
                     {
-                        field.Draft.PropertyChanged -= OnFieldChanged;
+                        if (field.Target is null)
+                        {
+                            field.Draft.PropertyChanged -= OnFieldChanged;
+                        }
                     }
-                }
-                Fields = CreateFields(layer).ToArray();
-                foreach (var field in Fields)
-                {
-                    if (field.Target is null)
+                    Fields = nextFields;
+                    foreach (var field in Fields)
                     {
-                        field.Draft.PropertyChanged += OnFieldChanged;
+                        if (field.Target is null)
+                        {
+                            field.Draft.PropertyChanged += OnFieldChanged;
+                        }
                     }
                 }
             }
@@ -146,6 +150,14 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
         {
             loading = false;
         }
+    }
+
+    private static bool HaveSameFieldTargets(MaskNumericField[] left, MaskNumericField[] right)
+    {
+        return left.Length == right.Length && left.Zip(right).All(pair =>
+            pair.First.Key == pair.Second.Key && pair.First.Target == pair.Second.Target &&
+            pair.First.Component == pair.Second.Component && pair.First.Minimum == pair.Second.Minimum &&
+            pair.First.Maximum == pair.Second.Maximum && ReferenceEquals(pair.First.Row, pair.Second.Row));
     }
 
     private IEnumerable<MaskNumericField> CreateFields(ProjectLayer? layer)
@@ -260,15 +272,6 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
         lastValidSource = null;
         draftSource = null;
         draftTarget = null;
-        foreach (var field in Fields)
-        {
-            if (field.Target is null)
-            {
-                field.Draft.PropertyChanged -= OnFieldChanged;
-            }
-        }
-        Fields = [];
-        fieldLayerId = null;
     }
 
     internal void Restore(MaskNumericField field)

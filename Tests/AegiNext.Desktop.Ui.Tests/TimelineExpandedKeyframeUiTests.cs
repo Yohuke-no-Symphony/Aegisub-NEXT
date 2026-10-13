@@ -101,16 +101,17 @@ public sealed class TimelineExpandedKeyframeUiTests
         context.Session.SelectCue(source.Subtitles[0].Id);
         var timeline = await PrepareAsync(context);
         ExpandLeft(context, timeline, source);
-        UiTestActions.SelectAnimationProperty(context.Window, AnimationProperty.OPACITY);
+        context.ViewModel.Effects.Target = new(AnimationProperty.OPACITY);
         await context.Controller.SeekAsync(new(2));
         Flush(context.Window);
         var before = context.Session.DocumentSnapshot;
         Assert.True(context.ViewModel.Effects.CanAddKeyframe);
-        Assert.True(UiTestActions.Find<Button>(context.Window, "KeyframeButton").IsEffectivelyEnabled);
+        var button = UiTestActions.PropertyKeyframeButton(context.Window, AnimationProperty.OPACITY);
+        Assert.True(button.IsEffectivelyEnabled);
         var changes = 0;
         context.Session.Editor.Changed += (_, _) => changes++;
 
-        UiTestActions.Click(context.Window, "KeyframeButton");
+        UiTestActions.Click(context.Window, button);
         Flush(context.Window);
 
         Assert.Equal(1, changes);

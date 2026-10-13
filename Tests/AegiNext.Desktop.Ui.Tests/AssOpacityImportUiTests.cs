@@ -33,7 +33,7 @@ public sealed class AssOpacityImportUiTests
         Assert.NotNull(point);
         ClickMarker(context, timeline, point.Value);
         Assert.Equal(frame.Time, context.Session.SelectedKeyTime);
-        var input = UiTestActions.Find<NumericDraftInput>(context.Window, "OpacityInput");
+        var input = UiTestActions.PropertyInput(context.Window, AnimationProperty.OPACITY);
         Assert.True(input.IsEffectivelyEnabled);
         Assert.InRange(Math.Abs((double)input.Value!.Value - peak), 0, 0.0000001);
         var original = context.Session.DocumentSnapshot;
@@ -74,16 +74,18 @@ public sealed class AssOpacityImportUiTests
         Dispatcher.UIThread.RunJobs();
         Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation?.Id);
         Assert.True(context.ViewModel.Effects.IsOrderedTransform);
-        Assert.True(UiTestActions.Find<StackPanel>(context.Window, "OrderedTransformSection").IsEffectivelyVisible);
-        var opacity = UiTestActions.Find<NumericDraftInput>(context.Window, "OpacityInput");
+        var opacity = UiTestActions.PropertyInput(context.Window, AnimationProperty.OPACITY);
         Assert.Equal(1m, opacity.Value);
         Assert.False(opacity.IsEffectivelyEnabled);
-        Assert.False(UiTestActions.Find<NumericDraftInput>(context.Window, "KeyframeValueInput").IsEffectivelyEnabled);
         var original = context.Session.DocumentSnapshot;
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = "zh-CN" });
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(Localization.Get("Workbench.OpacityOrderedTransformHint"), ToolTip.GetTip(Assert.IsType<StackPanel>(opacity.Parent)));
+        Assert.Contains(opacity.GetVisualAncestors().OfType<Control>(), parent =>
+            Equals(ToolTip.GetTip(parent), Localization.Get("Workbench.OpacityOrderedTransformHint")));
         Assert.Same(original, context.Session.DocumentSnapshot);
+        UiTestActions.OpenAnimationOptions(context.Window, AnimationProperty.OPACITY);
+        Assert.True(UiTestActions.Find<StackPanel>(context.Window, "OrderedTransformSection").IsEffectivelyVisible);
+        Assert.False(UiTestActions.Find<ComboBox>(context.Window, "InterpolationCombo").IsEffectivelyVisible);
         var valueInput = UiTestActions.Find<NumericDraftInput>(context.Window, "OperationValueInput");
         Assert.True(valueInput.IsEffectivelyEnabled);
 
@@ -101,6 +103,9 @@ public sealed class AssOpacityImportUiTests
         await CaptureAsync(context, "ass-fade-instant-operation");
         Assert.True(context.Session.Editor.Undo());
         Assert.Same(original, context.Session.DocumentSnapshot);
+        UiTestActions.OpenAnimationOptions(context.Window, AnimationProperty.OPACITY);
+        Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation?.Id);
+        valueInput = UiTestActions.Find<NumericDraftInput>(context.Window, "OperationValueInput");
         Assert.Equal(1m, valueInput.Value);
         Assert.False(opacity.IsEffectivelyEnabled);
     }

@@ -144,7 +144,7 @@ public sealed class InspectorLivePreviewUiTests
         context.Session.Editor.SetKeyframe(id, AnimationProperty.OPACITY, new(new(3), 0.75));
         Assert.True(context.Session.SelectKeyframe(new(id, AnimationProperty.OPACITY, new(1), new(1))));
         context.Session.Editor.Reset(context.Session.DocumentSnapshot);
-        var box = FocusInput(context, "KeyframeValueInput");
+        var box = FocusInput(context, "OpacityInput");
         var before = context.Session.DocumentSnapshot;
         Enter(context, box, "0.4");
         Enter(context, box, "0.6");

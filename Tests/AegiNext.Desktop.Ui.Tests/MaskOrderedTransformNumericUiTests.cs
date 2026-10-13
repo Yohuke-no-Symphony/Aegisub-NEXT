@@ -37,7 +37,7 @@ public sealed class MaskOrderedTransformNumericUiTests
             Assert.True(session.SelectKeyframe(new(id, target, new(0), new(0))));
         }
         Dispatcher.UIThread.RunJobs();
-        UiTestActions.ExpandEffectsCategory(context.Window, "AnimationCategory");
+        UiTestActions.OpenAnimationOptions(context.Window, target.Property);
         var original = session.DocumentSnapshot;
         var input = UiTestActions.Find<NumericDraftInput>(context.Window, ordered ? "OperationAccelerationInput" : "PowerExponentInput");
         input.BringIntoView();
@@ -75,7 +75,7 @@ public sealed class MaskOrderedTransformNumericUiTests
         var operation = new AnimationTransformOperation(Guid.NewGuid(), new(-1), new(2), new ScenePoint(50, 60), 2);
         session.Editor.SetAnimationTransform(id, target, new ScenePoint(0, 0), operation);
         context.ViewModel.Effects.Target = target;
-        UiTestActions.ExpandEffectsCategory(context.Window, "AnimationCategory");
+        UiTestActions.OpenAnimationOptions(context.Window, target.Property);
         var original = session.DocumentSnapshot;
         var input = UiTestActions.Find<NumericDraftInput>(context.Window, "OperationStartInput");
         input.BringIntoView();
@@ -95,6 +95,6 @@ public sealed class MaskOrderedTransformNumericUiTests
         Assert.Empty(track.Keyframes);
         Assert.True(session.Editor.Undo());
         Assert.Same(original, session.DocumentSnapshot);
-        Assert.False(UiTestActions.Find<NumericDraftInput>(context.Window, "KeyframeValueInput").IsEffectivelyEnabled);
+        Assert.False(UiTestActions.PropertyInput(context.Window, target.Property).IsEffectivelyEnabled);
     }
 }

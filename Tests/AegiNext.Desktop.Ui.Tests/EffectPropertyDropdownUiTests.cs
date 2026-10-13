@@ -1,5 +1,6 @@
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.I18n;
+using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Panels.Effects;
 using AegiNext.Desktop.Workspace;
 using Avalonia;
@@ -26,7 +27,11 @@ public sealed class EffectPropertyDropdownUiTests
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
-        context.Session.Editor.SetClipMask(context.Session.SelectedLayerId!.Value, new RectangleClipMask { BottomRight = new(400, 300) });
+        var layerId = context.Session.SelectedLayerId!.Value;
+        context.Session.Editor.SetClipMask(layerId, new RectangleClipMask { BottomRight = new(400, 300) });
+        var target = new AnimationTrackTarget(AnimationProperty.OPACITY);
+        context.Session.Editor.SetKeyframe(layerId, target, new(new(0), 0.5));
+        Assert.True(context.Session.SelectKeyframe(new(layerId, target, new(0), new(0))));
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = language });
         using var view = new EffectsPanelView(context.ViewModel.Effects, context.Session);
         var window = new Window { Width = width, Height = 900, Content = view, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
@@ -35,23 +40,23 @@ public sealed class EffectPropertyDropdownUiTests
         {
             Flush(window);
             UiTestActions.ExpandEffectsCategory(window, "CompositeCategory");
-            UiTestActions.ExpandEffectsCategory(window, "AnimationCategory");
-            var choice = UiTestActions.Find<ComboBox>(view, "PropertyCombo");
-            choice.BringIntoView();
-            Flush(window);
-            var input = UiTestActions.Find<NumericUpDown>(view, "OpacityInput");
+            var input = UiTestActions.Find<NumericDraftInput>(view, "OpacityInput");
             input.BringIntoView();
             Flush(window);
             Assert.True(input.GetVisualDescendants().OfType<TextBox>().Single().Focus());
-            choice.BringIntoView();
+            var button = view.GetVisualDescendants().OfType<Button>().Single(button =>
+                button.Classes.Contains("animation-options") && Equals(button.Tag, AnimationProperty.OPACITY));
+            UiTestActions.Click(window, button);
+            Assert.True(button.Flyout!.IsOpen);
+            var options = Assert.IsAssignableFrom<Control>(Assert.IsType<Flyout>(button.Flyout).Content);
+            var choice = UiTestActions.Find<ComboBox>(options, "InterpolationCombo");
             Flush(window);
-            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-            using var frame = window.CaptureRenderedFrame();
             var items = choice.ItemsSource;
             var selection = choice.SelectedItem;
-            var point = choice.TranslatePoint(new Point(choice.Bounds.Width / 2, choice.Bounds.Height / 2), window)!.Value;
-            window.MouseDown(point, MouseButton.Left);
-            window.MouseUp(point, MouseButton.Left);
+            var root = TopLevel.GetTopLevel(choice)!;
+            var point = choice.TranslatePoint(new Point(choice.Bounds.Width / 2, choice.Bounds.Height / 2), root)!.Value;
+            root.MouseDown(point, MouseButton.Left);
+            root.MouseUp(point, MouseButton.Left);
             Flush(window);
             Assert.True(choice.IsDropDownOpen);
             Assert.Same(items, choice.ItemsSource);
@@ -68,7 +73,7 @@ public sealed class EffectPropertyDropdownUiTests
             for (var index = 0; index < 10; index++)
             {
                 context.Session.MaskEditing.Refresh();
-                await context.Controller.SeekAsync(new(index, 10));
+                context.Session.Tick();
                 Flush(window);
                 Assert.True(choice.IsDropDownOpen);
                 Assert.Same(items, choice.ItemsSource);
@@ -91,51 +96,57 @@ public sealed class EffectPropertyDropdownUiTests
     }
 
     [AvaloniaFact]
-    public async Task RealChoiceChangesStillRefreshTitlesMaskShapeAndStableNodeTargets()
+    public async Task RealMaskChangesRefreshRowsAndPreserveCompleteNodeTargets()
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
-        var id = context.Session.SelectedLayerId!.Value;
-        var choice = UiTestActions.Find<ComboBox>(context.Window, "PropertyCombo");
-        var plain = choice.ItemsSource;
-        context.Session.Editor.SetClipMask(id, new RectangleClipMask { BottomRight = new(400, 300) });
+        var session = context.Session;
+        var effects = context.ViewModel.Effects;
+        var id = session.SelectedLayerId!.Value;
+        Assert.False(effects.HasEditableMask);
+        Assert.Empty(effects.MaskRows);
+        session.Editor.SetClipMask(id, new RectangleClipMask { BottomRight = new(400, 300) });
         Dispatcher.UIThread.RunJobs();
-        Assert.NotSame(plain, choice.ItemsSource);
-        Assert.Contains(choice.Items.OfType<AnimationPropertyChoice>(), item => item.Property == AnimationProperty.MASK_RECTANGLE_TOP_LEFT);
+        Assert.True(effects.HasEditableMask);
+        Assert.Contains(effects.MaskRows, row => row.Target.Property == AnimationProperty.MASK_RECTANGLE_TOP_LEFT);
         var first = new MaskNode { Position = new(10, 10) };
         var second = new MaskNode { Position = new(100, 100) };
-        context.Session.Editor.SetClipMask(id, new VectorClipMask { Contours = [new() { Nodes = [first, second] }] });
-        context.Session.MaskEditing.SelectNode(first.Id);
+        session.Editor.SetClipMask(id, new VectorClipMask { Contours = [new() { Nodes = [first, second] }] });
+        session.MaskEditing.SelectNode(first.Id);
         Dispatcher.UIThread.RunJobs();
-        Assert.DoesNotContain(choice.Items.OfType<AnimationPropertyChoice>(), item => item.Property == AnimationProperty.MASK_RECTANGLE_TOP_LEFT);
+        Assert.DoesNotContain(effects.MaskRows, row => row.Target.Property == AnimationProperty.MASK_RECTANGLE_TOP_LEFT);
         var target = new AnimationTrackTarget(AnimationProperty.MASK_NODE_POSITION, first.Id);
-        choice.SelectedItem = choice.Items.OfType<AnimationPropertyChoice>().Single(item => item.Property == target.Property);
+        var firstRow = Assert.Single(effects.MaskRows, row => row.Target == target);
+        var rows = effects.MaskRows;
+        var firstButton = UiTestActions.OpenAnimationOptions(context.Window, target.Property);
+        Assert.Equal(target, effects.Target);
+        session.MaskEditing.Refresh();
+        Assert.Same(rows, effects.MaskRows);
+        session.MaskEditing.SelectNode(second.Id);
         Dispatcher.UIThread.RunJobs();
-        var firstItems = choice.ItemsSource;
-        context.Session.MaskEditing.Refresh();
-        Assert.Same(firstItems, choice.ItemsSource);
-        context.Session.MaskEditing.SelectNode(second.Id);
-        Dispatcher.UIThread.RunJobs();
-        Assert.Same(firstItems, choice.ItemsSource);
-        Assert.Equal(AnimationProperty.MASK_NODE_POSITION, Assert.IsType<AnimationPropertyChoice>(choice.SelectedItem).Property);
-        Assert.Equal(new(AnimationProperty.MASK_NODE_POSITION, second.Id), context.ViewModel.Effects.Target);
+        Assert.False(firstButton.Flyout!.IsOpen);
+        Assert.Equal(new(AnimationProperty.MASK_NODE_POSITION, second.Id), effects.Target);
+        var secondRow = Assert.Single(effects.MaskRows, row => row.Target == effects.Target);
+        Assert.NotEqual(firstRow.FieldKey, secondRow.FieldKey);
         foreach (var language in new[] { "en-US", "zh-CN" })
         {
-            context.Session.UpdatePreferences(context.Session.Preferences with { Language = language });
+            session.UpdatePreferences(session.Preferences with { Language = language });
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(Localization.Get("Workbench.MASK_NODE_POSITION"), Assert.IsType<AnimationPropertyChoice>(choice.SelectedItem).Title);
-            var localized = choice.ItemsSource;
-            context.Session.MaskEditing.Refresh();
-            Assert.Same(localized, choice.ItemsSource);
+            Assert.Equal(Localization.Get("Workbench.MASK_NODE_POSITION"), secondRow.Name);
+            rows = effects.MaskRows;
+            session.MaskEditing.Refresh();
+            Assert.Same(rows, effects.MaskRows);
         }
-        context.Session.MaskEditing.Clear();
+        session.MaskEditing.Clear();
         Dispatcher.UIThread.RunJobs();
-        Assert.DoesNotContain(choice.Items.OfType<AnimationPropertyChoice>(), item => AnimationPropertyMetadata.IsMaskProperty(item.Property));
-        Assert.Equal(AnimationProperty.OPACITY, Assert.IsType<AnimationPropertyChoice>(choice.SelectedItem).Property);
-        Assert.True(context.Session.Editor.Undo());
+        Assert.False(effects.HasEditableMask);
+        Assert.Empty(effects.MaskRows);
+        Assert.Equal(AnimationProperty.OPACITY, effects.Target.Property);
+        Assert.True(session.Editor.Undo());
         Dispatcher.UIThread.RunJobs();
-        Assert.Contains(choice.Items.OfType<AnimationPropertyChoice>(), item => item.Property == AnimationProperty.MASK_POSITION);
+        Assert.True(effects.HasEditableMask);
+        Assert.Contains(effects.MaskRows, row => row.Target.Property == AnimationProperty.MASK_POSITION);
     }
 
     private static void Flush(Window window)

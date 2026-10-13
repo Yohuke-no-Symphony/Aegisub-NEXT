@@ -29,7 +29,7 @@ public sealed class KeyframeComponentCurveUiTests
         var layer = context.Session.SelectedLayer!;
         context.Session.Editor.SetKeyframe(layer.Id, property, frame);
         Assert.True(context.Session.SelectKeyframe(new(layer.Id, property, frame.Time, frame.Time)));
-        context.ViewModel.Effects.AnimationExpanded = true;
+        UiTestActions.OpenAnimationOptions(context.Window, property);
         Dispatcher.UIThread.RunJobs();
         context.Window.UpdateLayout();
         var picker = UiTestActions.Find<ComboBox>(context.Window, "KeyframeCurveComponentCombo");
@@ -79,7 +79,7 @@ public sealed class KeyframeComponentCurveUiTests
             Tracks = [new(AnimationProperty.ROTATION_3D, []) { InitialValue = AnimationValue.FromVector3(default), Transforms = [operation] }]
         });
         context.ViewModel.Effects.Target = new(AnimationProperty.ROTATION_3D);
-        context.ViewModel.Effects.AnimationExpanded = true;
+        UiTestActions.OpenAnimationOptions(context.Window, AnimationProperty.ROTATION_3D);
         Dispatcher.UIThread.RunJobs();
         context.Window.UpdateLayout();
         var exponent = UiTestActions.Find<NumericDraftInput>(context.Window, "OperationAccelerationInput");

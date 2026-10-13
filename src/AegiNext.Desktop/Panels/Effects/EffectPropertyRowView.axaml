@@ -6,11 +6,11 @@
       FieldKey="{Binding FieldKey}" XFieldKey="{Binding XFieldKey}" YFieldKey="{Binding YFieldKey}" ZFieldKey="{Binding ZFieldKey}"
       XInputName="{Binding XInputName}" YInputName="{Binding YInputName}" ZInputName="{Binding ZInputName}"
       IsScalar="{Binding IsScalar}" IsVector="{Binding IsVector}" HasZ="{Binding HasZ}" IsColor="{Binding IsColor}"
-      CanEdit="{Binding IsEnabled}" IsAnimated="{Binding IsAnimated}" IsOrdered="{Binding IsOrdered}"
-      CanToggleAnimation="{Binding CanToggleAnimation}" CanAddKeyframe="{Binding CanAddKeyframe}" CanReset="{Binding CanReset}"
+      CanEdit="{Binding IsEnabled}" IsAnimated="{Binding IsAnimated}"
+      CanAddKeyframe="{Binding CanAddKeyframe}" CanReset="{Binding CanReset}"
       Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Increment="{Binding Increment}"
-      SelectCommand="{Binding SelectCommand}" ToggleAnimationCommand="{Binding ToggleAnimationCommand}"
-      AddKeyframeCommand="{Binding AddKeyframeCommand}" ResetCommand="{Binding ResetCommand}" DetailsCommand="{Binding DetailsCommand}"
-      EditingHint="{Binding EditingHint}" AnimationHint="{Binding AnimationHint}" KeyframeHint="{Binding KeyframeHint}" ResetHint="{Binding ResetHint}" DetailsHint="{Binding DetailsHint}"
+      SelectCommand="{Binding SelectCommand}" AnimationOptionsCommand="{Binding AnimationOptionsCommand}" AnimationOptionsHint="{Binding AnimationOptionsHint}"
+      AddKeyframeCommand="{Binding AddKeyframeCommand}" ResetCommand="{Binding ResetCommand}"
+      EditingHint="{Binding EditingHint}" KeyframeHint="{Binding KeyframeHint}" ResetHint="{Binding ResetHint}"
       Error="{Binding Error}" InvalidFieldKey="{Binding InvalidFieldKey}" />
 </UserControl>

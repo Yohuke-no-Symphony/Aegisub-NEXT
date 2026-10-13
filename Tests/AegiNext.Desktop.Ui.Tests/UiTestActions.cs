@@ -16,6 +16,8 @@ using AegiNext.Desktop.Shortcuts;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Shortcuts;
+using AegiNext.Desktop.Controls;
+using AegiNext.Desktop.Editing;
 using Avalonia.Controls.Primitives;
 using CommunityToolkit.Mvvm.Input;
 
@@ -45,6 +47,16 @@ internal static class UiTestActions
             host.UpdateLayout();
             Dispatcher.UIThread.RunJobs();
             host.UpdateLayout();
+        }
+        var popupRoots = root is MainWindow mainWindow ? new[] { root }.Concat(mainWindow.Panels.Values) : [root];
+        var popupControl = popupRoots.SelectMany(control => control.GetVisualDescendants().Concat(control.GetLogicalDescendants().OfType<Visual>())).OfType<Button>()
+            .Select(button => button.Flyout).OfType<Flyout>().Where(flyout => flyout.IsOpen).Distinct()
+            .Select(flyout => flyout.Content).OfType<Control>()
+            .SelectMany(control => control.GetVisualDescendants().Concat(control.GetLogicalDescendants().OfType<Visual>()))
+            .OfType<T>().FirstOrDefault(control => control.Name == name);
+        if (popupControl is not null)
+        {
+            return popupControl;
         }
         var control = (root.Name == name ? root as T : null) ?? root.GetLogicalDescendants().OfType<T>().FirstOrDefault(control => control.Name == name)
             ?? root.GetVisualDescendants().OfType<T>().FirstOrDefault(control => control.Name == name);
@@ -110,10 +122,103 @@ internal static class UiTestActions
 
     internal static void SelectAnimationProperty(Window window, AnimationProperty property)
     {
-        ExpandEffectsCategory(window, "AnimationCategory");
-        var selector = Find<ComboBox>(window, "PropertyCombo");
-        selector.SelectedItem = selector.Items.OfType<AnimationPropertyChoice>().Single(value => value.Property == property);
+        OpenAnimationOptions(Assert.IsType<MainWindow>(window), property);
+    }
+
+    internal static Button OpenAnimationOptions(MainWindow window, AnimationProperty property, string panelId = "effects")
+    {
+        var button = FindAnimationOptionsButton(window, property, panelId);
+        if (button.Flyout?.IsOpen == true)
+        {
+            return button;
+        }
+        HideAnimationOptions(window);
+        Click(window, button);
+        Assert.True(button.Flyout?.IsOpen);
+        return button;
+    }
+
+    private static Button FindAnimationOptionsButton(MainWindow window, AnimationProperty property, string panelId = "effects")
+    {
+        property = RotationTargetCompatibility.Canonicalize(new(property)).Property;
+        window.Layouts.Activate(panelId);
+        window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
+        var panel = window.Panels[panelId];
+        if (panelId == "effects")
+        {
+            var category = property switch
+            {
+                AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION_3D or AnimationProperty.PERSPECTIVE_DISTANCE => "TransformCategory",
+                AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING => "TypographyCategory",
+                AnimationProperty.FILL or AnimationProperty.FILL_BLUR => "FillCategory",
+                AnimationProperty.STROKE or AnimationProperty.STROKE_WIDTH or AnimationProperty.STROKE_BLUR => "StrokeCategory",
+                AnimationProperty.SHADOW_COLOR or AnimationProperty.SHADOW_OFFSET or AnimationProperty.SHADOW_BLUR => "ShadowCategory",
+                AnimationProperty.OPACITY or AnimationProperty.BLUR => "CompositeCategory",
+                _ => "MaskCategory"
+            };
+            ExpandEffectsCategory(window, category);
+        }
+        var row = panel.GetVisualDescendants().OfType<AnimationPropertyRowControl>().FirstOrDefault(control =>
+            control.DataContext switch
+            {
+                AnimationPropertyRowViewModel model => model.Target.Property == property,
+                MaskNumericField field => field.Row?.Target.Property == property,
+                AegiNext.Desktop.Panels.Masks.MaskVectorField field => field.Row?.Target.Property == property,
+                _ => false
+            });
+        return row is not null ? row.FindControl<Button>("AnimationOptionsButton")! :
+            panel.GetVisualDescendants().OfType<Button>().Single(button => button.Classes.Contains("animation-options") && Equals(button.Tag, property));
+    }
+
+    private static void HideAnimationOptions(MainWindow window)
+    {
+        foreach (var current in window.Panels.Values.SelectMany(panel => panel.GetVisualDescendants()).OfType<Button>()
+            .Select(button => button.Flyout).OfType<Flyout>().Where(flyout => flyout.IsOpen).Distinct())
+        {
+            current.Hide();
+        }
+    }
+
+    internal static NumericDraftInput PropertyInput(MainWindow window, AnimationProperty property, int component = 0)
+    {
+        property = RotationTargetCompatibility.Canonicalize(new(property)).Property;
+        var anchor = FindAnimationOptionsButton(window, property);
+        HideAnimationOptions(window);
+        var row = anchor.GetVisualAncestors().OfType<AnimationPropertyRowControl>().FirstOrDefault();
+        if (row is not null)
+        {
+            if (row.IsScalar)
+            {
+                return row.FindControl<NumericDraftInput>("ScalarInput")!;
+            }
+            var key = component == 0 ? row.XFieldKey : component == 1 ? row.YFieldKey : row.ZFieldKey;
+            return row.FindControl<VectorDraftInput>("VectorInput")!.FindFieldInput(key)!;
+        }
+        var name = property switch
+        {
+            AnimationProperty.POSITION => "PositionInput",
+            AnimationProperty.SCALE => "ScaleInput",
+            AnimationProperty.OPACITY => "OpacityInput",
+            AnimationProperty.BLUR => "BlurInput",
+            _ => throw new InvalidOperationException($"No property input for {property}.")
+        };
+        if (property is AnimationProperty.POSITION or AnimationProperty.SCALE)
+        {
+            var key = (property == AnimationProperty.POSITION ? "Position" : "Scale") + (component == 0 ? "XInput" : "YInput");
+            return Find<VectorDraftInput>(window, name).FindFieldInput(key)!;
+        }
+        return Find<NumericDraftInput>(window, name);
+    }
+
+    internal static Button PropertyKeyframeButton(MainWindow window, AnimationProperty property)
+    {
+        var anchor = FindAnimationOptionsButton(window, property);
+        HideAnimationOptions(window);
+        var actions = anchor.GetVisualParent()!;
+        return actions.GetVisualDescendants().OfType<Button>().Single(button =>
+            button.Command is not null && (button.CommandParameter is AnimationProperty || button.Name != "AnimationOptionsButton") &&
+            button.GetVisualDescendants().OfType<AegiNext.Desktop.Controls.Common.IconText>().Any(icon => icon.IconKey == "Keyframe"));
     }
 
     internal static void ExpandEffectsCategory(Window window, string name)
@@ -147,15 +252,22 @@ internal static class UiTestActions
     internal static void Click(Window window, string name)
     {
         var button = Find<Button>(window, name);
+        Click(window, button);
+    }
+
+    internal static void Click(Window window, Button button)
+    {
         Assert.True(button.IsEffectivelyEnabled);
         button.BringIntoView();
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
-        var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), window)
-            ?? throw new InvalidOperationException($"Button {name} is not attached to the window.");
-        window.MouseDown(point, MouseButton.Left);
-        window.MouseUp(point, MouseButton.Left);
+        var root = TopLevel.GetTopLevel(button)!;
+        root.UpdateLayout();
+        var point = button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), root)
+            ?? throw new InvalidOperationException($"Button {button.Name} is not attached to a root.");
+        root.MouseDown(point, MouseButton.Left);
+        root.MouseUp(point, MouseButton.Left);
         Dispatcher.UIThread.RunJobs();
     }
 

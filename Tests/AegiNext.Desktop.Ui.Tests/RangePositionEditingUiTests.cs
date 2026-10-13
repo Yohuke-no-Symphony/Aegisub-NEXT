@@ -2,7 +2,6 @@ using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -75,9 +74,9 @@ public sealed class RangePositionEditingUiTests
         }
     }
 
-    /// <summary>位置行的动画开关和重置操作仅作用于完整范围目标。</summary>
+    /// <summary>位置行的关键帧删除和重置操作仅作用于完整范围目标。</summary>
     [AvaloniaFact]
-    public async Task RangePositionButtonsToggleAndResetOnlyTheScopedTrack()
+    public async Task RangePositionButtonsDeleteAndResetOnlyTheScopedTrack()
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -89,16 +88,14 @@ public sealed class RangePositionEditingUiTests
         session.Editor.SetKeyframe(session.SelectedLayer.Id, target, new(new(0), new ScenePoint(20, 30)) { Reverse = true });
         var source = session.DocumentSnapshot;
         var whole = source.Layers[0].Tracks.Single(track => track.Target.TextRangeId is null);
-        var toggle = UiTestActions.Find<ToggleButton>(context.Window, "PositionAnimationToggle");
         var key = UiTestActions.Find<Button>(context.Window, "PositionKeyframeButton");
         var reset = UiTestActions.Find<Button>(context.Window, "PositionResetAnimationButton");
-        Assert.True(toggle.IsChecked);
         Assert.Equal(AnimationProperty.POSITION, key.CommandParameter);
         Assert.True(reset.IsEffectivelyEnabled);
-        var toggleCommand = Assert.IsAssignableFrom<IAsyncRelayCommand>(toggle.Command);
-
-        UiTestActions.Click(context.Window, "PositionAnimationToggle");
-        await toggleCommand.ExecutionTask!;
+        Assert.True(session.SelectKeyframe(new(session.SelectedLayer.Id, target, new(0), new(0))));
+        Assert.True(key.Focus());
+        UiTestActions.Press(context.Window, Key.Delete);
+        await session.WaitForProjectIdleAsync();
 
         Assert.Same(whole, Assert.Single(session.SelectedLayer!.Tracks));
         Assert.True(session.Editor.Undo());

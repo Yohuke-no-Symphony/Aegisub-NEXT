@@ -14,7 +14,7 @@ public sealed class NumericDraftEditingUiTests
     [AvaloniaTheory]
     [InlineData("styles", "FontSizeInput")]
     [InlineData("effects", "PositionXInput")]
-    [InlineData("effects", "KeyframeValueInput")]
+    [InlineData("effects", "OpacityInput")]
     [InlineData("export", "QualityInput")]
     public async Task InvalidRawNumericInputPreventsPresetSwitchAndPreservesInput(string panelId, string fieldName)
     {
@@ -25,11 +25,9 @@ public sealed class NumericDraftEditingUiTests
         window.Layouts.Activate(panelId);
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
-        if (fieldName == "KeyframeValueInput")
-        {
-            UiTestActions.SelectAnimationProperty(window, AnimationProperty.OPACITY);
-        }
-        var input = UiTestActions.Find<NumericDraftInput>(window, fieldName);
+        var input = fieldName == "OpacityInput"
+            ? UiTestActions.PropertyInput(window, AnimationProperty.OPACITY)
+            : UiTestActions.Find<NumericDraftInput>(window, fieldName);
         input.BringIntoView();
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();

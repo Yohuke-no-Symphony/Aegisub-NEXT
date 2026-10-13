@@ -16,7 +16,7 @@ internal sealed partial class WorkbenchSession
     internal SceneEditingState SceneEditing { get; } = new();
 
     internal AnimationEditTarget? AnimationTarget => SelectedLayer is { } layer
-        ? SceneEditing.GestureTarget ?? SceneEditing.DraftTarget ?? new(layer.Id, SelectedKeyTime ?? LayerAnimationTiming.ClampTime(layer, ProjectPosition - layer.Start + layer.AnimationOffset), SelectedKeyTime is not null, SceneEditing.Target)
+        ? SceneEditing.GestureTarget ?? SceneEditing.DraftTarget ?? AnimationOptionsTarget ?? new(layer.Id, SelectedKeyTime ?? LayerAnimationTiming.ClampTime(layer, ProjectPosition - layer.Start + layer.AnimationOffset), SelectedKeyTime is not null, SceneEditing.Target)
         : null;
 
     internal MediaTime EditingPosition => SelectedLayer is { } layer && (SceneEditing.GestureTarget?.LocalTime ?? SelectedKeyTime) is { } time
@@ -38,7 +38,7 @@ internal sealed partial class WorkbenchSession
             return;
         }
         var local = SelectedKeyTime ?? (inspectorTime ?? ProjectPosition) - layer.Start + layer.AnimationOffset;
-        SceneEditing.DraftTarget = new(layer.Id, LayerAnimationTiming.ClampTime(layer, local), SelectedKeyTime is not null, SceneEditing.Target);
+        SceneEditing.DraftTarget = AnimationOptionsTarget ?? new(layer.Id, LayerAnimationTiming.ClampTime(layer, local), SelectedKeyTime is not null, SceneEditing.Target);
         _ = RunCommandAsync(PauseForSceneEditAsync);
     }
 

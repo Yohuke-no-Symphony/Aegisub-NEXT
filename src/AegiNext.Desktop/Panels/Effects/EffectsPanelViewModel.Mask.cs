@@ -1,11 +1,8 @@
-using System.Collections.Immutable;
-using System.Windows.Input;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Workspace;
-using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Panels.Effects;
 
@@ -25,13 +22,14 @@ internal sealed partial class EffectsPanelViewModel
             }
         }
     }
-    public bool CanEditKeyframes => !IsOrderedTransform;
+    public bool CanEditKeyframes => !IsOrderedTransform && session.AnimationTarget is { IsKeyframe: true } target &&
+        SelectedLayer is { } layer && session.InspectorTrack(layer, Target)?.Keyframes.Any(frame => frame.Time == target.LocalTime) == true;
     internal double ReadPowerExponent()
     {
         if (!double.TryParse(PowerExponent.RawText, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.CurrentCulture, out var value) ||
             !double.IsFinite(value) || value <= 0)
         {
-            session.ViewModel.InvalidPanelId = "effects";
+            session.ViewModel.InvalidPanelId = session.AnimationOptionsPanelId ?? "effects";
             session.ViewModel.InvalidFieldKey = "PowerExponentInput";
             throw new InvalidDataException(Localization.Get("Workbench.InvalidValue"));
         }
@@ -124,6 +122,10 @@ internal sealed partial class EffectsPanelViewModel
         get => operationCurveInterpolation;
         set
         {
+            if (refreshingChoices)
+            {
+                return;
+            }
             if (SetProperty(ref operationCurveInterpolation, value))
             {
                 OnPropertyChanged(nameof(CanEditOperationExponent));
@@ -162,24 +164,6 @@ internal sealed partial class EffectsPanelViewModel
     public NumericValueDraft OperationValueZ { get; } = new() { PreserveDoublePrecision = true };
     public NumericValueDraft OperationAcceleration { get; } = new() { PreserveDoublePrecision = true };
     public NumericValueDraft OperationOrder { get; } = new();
-    public ICommand DeleteOperationCommand => new AsyncRelayCommand(() => session.RunCommandAsync(() => session.EditAsync(() =>
-    {
-        if (SelectedLayer is { } layer && SelectedOperation is { } operation)
-        {
-            session.Editor.Apply("Delete animation transform", document =>
-            {
-                var normalized = AnimationEditOperations.NormalizeRotation(document, layer.Id, Target);
-                return WorkspaceDraftOperations.UpdateLayer(normalized, layer.Id, current => current with
-                {
-                    Tracks = current.Tracks.Select(track => track.Target == Target ? track with
-                    {
-                        Transforms = track.Transforms.Where(value => value.Id != operation.Id).ToImmutableArray()
-                    } : track).Where(track => !track.Keyframes.IsEmpty || !track.Transforms.IsEmpty).ToImmutableArray()
-                });
-            });
-        }
-    })));
-
     internal void RefreshTransformOperations(AnimationTrack? track)
     {
         TransformOperations = track?.Transforms.Select((operation, index) => new AnimationTransformChoice(operation.Id,

@@ -44,7 +44,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         SelectCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target));
         ToggleAnimationCommand = new AsyncRelayCommand(() => session.SetAnimationPropertyEnabledAsync(LayerId, Target, !IsAnimated));
         AddKeyframeCommand = new AsyncRelayCommand(() => session.AddAnimationPropertyKeyframeAsync(LayerId, Target));
-        DetailsCommand = new RelayCommand(() => session.OpenAnimationPropertyDetails(LayerId, Target));
+        AnimationOptionsCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target));
         ResetCommand = new AsyncRelayCommand(() => session.ResetAnimationPropertyAsync(LayerId, Target));
     }
 
@@ -80,8 +80,8 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     public bool IsEnabled { get => isEnabled; private set => SetProperty(ref isEnabled, value); }
     public bool CanAddKeyframe { get => canAddKeyframe; private set => SetProperty(ref canAddKeyframe, value); }
     public bool IsOrdered => !IsEnabled;
-    public ICommand DetailsCommand { get; }
-    public string DetailsHint { get; private set; } = Localization.Get("Workbench.EditAnimationDetails");
+    public ICommand AnimationOptionsCommand { get; }
+    public string AnimationOptionsHint => Localization.Format("Workbench.AnimationOptionsForProperty", Name);
     public bool CanReset => IsAnimated && IsEnabled;
     public bool CanToggleAnimation => IsAnimated || CanAddKeyframe;
     public bool IsMixed { get => isMixed; private set => SetProperty(ref isMixed, value); }
@@ -142,8 +142,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
 
     internal void RefreshLabels()
     {
-        DetailsHint = Localization.Get("Workbench.EditAnimationDetails");
-        OnPropertyChanged(nameof(DetailsHint));
+        OnPropertyChanged(nameof(AnimationOptionsHint));
         KeyframeHint = Localization.Get("Workbench.Keyframe");
         ResetHint = Localization.Get("Workbench.ResetProperty");
         OnPropertyChanged(nameof(Name));

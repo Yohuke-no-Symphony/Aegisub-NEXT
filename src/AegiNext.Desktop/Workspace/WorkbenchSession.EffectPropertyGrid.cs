@@ -113,17 +113,6 @@ internal sealed partial class WorkbenchSession
         }
     }
 
-    internal void OpenAnimationPropertyDetails(Guid layerId, AnimationTrackTarget target)
-    {
-        target = RotationTargetCompatibility.Canonicalize(target);
-        SelectAnimationProperty(layerId, target);
-        if (SelectedLayerId == layerId && SceneEditing.Target == target)
-        {
-            ViewModel.Effects.AnimationExpanded = true;
-            ViewModel.ActivatePanel("effects");
-        }
-    }
-
     internal Task SetEffectPropertyAnimationAsync(AnimationTrackTarget target, bool enabled) =>
         SelectedLayerId is { } layerId ? SetAnimationPropertyEnabledAsync(layerId, target, enabled) : Task.CompletedTask;
 

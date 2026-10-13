@@ -73,13 +73,13 @@ public sealed class AssTransformImportUiTests
         Assert.Equal(new MediaTime(3, 2), context.Session.SelectedKeyTime);
         Assert.Equal(300m, UiTestActions.Find<NumericDraftInput>(context.Window, "PositionXInput").Value);
         Assert.Equal(190m, UiTestActions.Find<NumericDraftInput>(context.Window, "PositionYInput").Value);
-        Assert.True(UiTestActions.Find<VectorDraftInput>(context.Window, "KeyframeVectorInput").IsEffectivelyVisible);
+        Assert.True(UiTestActions.Find<VectorDraftInput>(context.Window, "PositionInput").IsEffectivelyVisible);
         AvaloniaHeadlessPlatform.ForceRenderTimerTick();
         await UiTestActions.Find<EffectCanvasControl>(context.Window, "EffectCanvas").PreviewCompletion;
         Dispatcher.UIThread.RunJobs();
         UiTestCapture.CaptureExportPanel(context.Window, "ass-move-end-keyframe-import");
         var original = context.Session.DocumentSnapshot;
-        EnterNumber(context.Window, "KeyframeValueXInput", "240");
+        EnterNumber(context.Window, "PositionXInput", "340");
         Assert.True(timeline.Focus());
         Dispatcher.UIThread.RunJobs();
 
@@ -94,7 +94,7 @@ public sealed class AssTransformImportUiTests
         Assert.Equal(300m, context.ViewModel.Effects.PositionX);
         Assert.Equal(190m, context.ViewModel.Effects.PositionY);
 
-        EnterNumber(context.Window, "KeyframeValueYInput", "160");
+        EnterNumber(context.Window, "PositionYInput", "250");
         Assert.True(timeline.Focus());
         Dispatcher.UIThread.RunJobs();
 

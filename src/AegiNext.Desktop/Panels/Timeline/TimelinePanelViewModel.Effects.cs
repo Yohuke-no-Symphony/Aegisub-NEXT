@@ -15,6 +15,7 @@ internal sealed partial class TimelinePanelViewModel
     private bool suppressParentClipDelete;
 
     public TimelineEffectClipId? SelectedEffectClipId => selectedEffectClipId;
+    internal TimelineKeyframeIdentity? SelectedTimelineKeyframe => selectedTimelineKeyframe;
     public bool CanDeleteTimelineSelection => suppressParentClipDelete || session.CanCopyTimelineClips;
     public bool IsContextEffectClipCollapsed => effectClipContext is { } id && !TimelineViewState.ExpandedAnimationClips.Contains(id);
     public bool HasContextKeyframe => contextKeyframe.HasValue;

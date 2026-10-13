@@ -16,13 +16,13 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class AssTransformAnimationImportUiTests
 {
     [AvaloniaTheory]
-    [InlineData("\\frz90", AnimationProperty.ROTATION_3D, "RotationInput", -90, "-45")]
-    [InlineData("\\frz72000", AnimationProperty.ROTATION_3D, "RotationInput", -72000, "-144000")]
-    [InlineData("\\bord6", AnimationProperty.STROKE_WIDTH, "StrokeWidthInput", 6, "4")]
-    [InlineData("\\fsp4", AnimationProperty.LETTER_SPACING, "LetterSpacingInput", 4, "6")]
-    [InlineData("\\fscx150\\fscy200", AnimationProperty.SCALE, "ScaleXInput", 1.5, "1.75")]
+    [InlineData("\\frz90", AnimationProperty.ROTATION_3D, -90, "-45")]
+    [InlineData("\\frz72000", AnimationProperty.ROTATION_3D, -72000, "-144000")]
+    [InlineData("\\bord6", AnimationProperty.STROKE_WIDTH, 6, "4")]
+    [InlineData("\\fsp4", AnimationProperty.LETTER_SPACING, 4, "6")]
+    [InlineData("\\fscx150\\fscy200", AnimationProperty.SCALE, 1.5, "1.75")]
     public async Task SingleTransformImportsAsVisibleEditablePowerKeyframes(string tag, AnimationProperty property,
-        string field, double expected, string replacement)
+        double expected, string replacement)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -41,14 +41,12 @@ public sealed class AssTransformAnimationImportUiTests
         await context.Session.SeekForEditingAsync(frame.Time);
         Assert.Equal(frame.Time, context.Session.SelectedKeyTime);
         Assert.Contains(context.ViewModel.Effects.Properties, choice => choice.Property == property);
-        var ordinary = FindOrdinary<NumericDraftInput>(context, field);
-        Assert.True(ordinary.IsEffectivelyEnabled);
-        Assert.Equal((decimal)AnimationPropertyMetadata.GetMinimum(property), ordinary.Minimum);
-        Assert.Equal((decimal)AnimationPropertyMetadata.GetMaximum(property), ordinary.Maximum);
-        Assert.Equal(expected, (double)ordinary.Value!.Value, 10);
-        var input = UiTestActions.Find<NumericDraftInput>(context.Window,
-            property == AnimationProperty.ROTATION_3D ? "KeyframeValueZInput" : property == AnimationProperty.SCALE ? "KeyframeValueXInput" : "KeyframeValueInput");
+        var input = UiTestActions.PropertyInput(context.Window, property,
+            property == AnimationProperty.ROTATION_3D ? 2 : 0);
+        Assert.True(input.IsEffectivelyVisible);
         Assert.True(input.IsEffectivelyEnabled);
+        Assert.Equal((decimal)AnimationPropertyMetadata.GetMinimum(property), input.Minimum);
+        Assert.Equal((decimal)AnimationPropertyMetadata.GetMaximum(property), input.Maximum);
         Assert.Equal(expected, (double)input.Value!.Value, 10);
         var original = context.Session.DocumentSnapshot;
         Type(context.Window, input, replacement);
@@ -72,12 +70,12 @@ public sealed class AssTransformAnimationImportUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData("\\frz90", AnimationProperty.ROTATION_3D, "RotationInput", -90, "-45")]
-    [InlineData("\\bord6", AnimationProperty.STROKE_WIDTH, "StrokeWidthInput", 6, "4")]
-    [InlineData("\\fsp4", AnimationProperty.LETTER_SPACING, "LetterSpacingInput", 4, "6")]
-    [InlineData("\\fscx150\\fscy200", AnimationProperty.SCALE, "ScaleInput", 1.5, "1.75")]
+    [InlineData("\\frz90", AnimationProperty.ROTATION_3D, -90, "-45")]
+    [InlineData("\\bord6", AnimationProperty.STROKE_WIDTH, 6, "4")]
+    [InlineData("\\fsp4", AnimationProperty.LETTER_SPACING, 4, "6")]
+    [InlineData("\\fscx150\\fscy200", AnimationProperty.SCALE, 1.5, "1.75")]
     public async Task InstantTransformKeepsOrdinaryFieldsReadOnlyAndOperationValuesEditable(string tag, AnimationProperty property,
-        string field, double expected, string replacement)
+        double expected, string replacement)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -92,7 +90,9 @@ public sealed class AssTransformAnimationImportUiTests
         ClickTimeline(context, timeline, marker.Position);
         await context.Session.SeekForEditingAsync(operation.End);
         Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation?.Id);
-        var ordinary = FindOrdinary<Control>(context, field);
+        var ordinary = UiTestActions.PropertyInput(context.Window, property,
+            property == AnimationProperty.ROTATION_3D ? 2 : 0);
+        Assert.True(ordinary.IsEffectivelyVisible);
         Assert.False(ordinary.IsEffectivelyEnabled);
         var original = context.Session.DocumentSnapshot;
         context.Session.UpdatePreferences(context.Session.Preferences with { Language = "zh-CN" });
@@ -100,6 +100,7 @@ public sealed class AssTransformAnimationImportUiTests
         Assert.Contains(ordinary.GetVisualAncestors().OfType<Control>(), parent =>
             Equals(ToolTip.GetTip(parent), Localization.Get("Workbench.StyleOrderedTransformHint")));
         Assert.Same(original, context.Session.DocumentSnapshot);
+        UiTestActions.OpenAnimationOptions(context.Window, property);
         var input = UiTestActions.Find<NumericDraftInput>(context.Window,
             property == AnimationProperty.ROTATION_3D ? "OperationValueZInput" : property == AnimationProperty.SCALE ? "OperationValueXInput" : "OperationValueInput");
         Assert.True(input.IsEffectivelyEnabled);
@@ -121,6 +122,10 @@ public sealed class AssTransformAnimationImportUiTests
         UiTestCapture.CaptureExportPanel(context.Window, "ass-transform-operation-" + property);
         Assert.True(context.Session.Editor.Undo());
         Assert.Same(original, context.Session.DocumentSnapshot);
+        UiTestActions.OpenAnimationOptions(context.Window, property);
+        Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation?.Id);
+        input = UiTestActions.Find<NumericDraftInput>(context.Window,
+            property == AnimationProperty.ROTATION_3D ? "OperationValueZInput" : property == AnimationProperty.SCALE ? "OperationValueXInput" : "OperationValueInput");
         Assert.Equal(expected, (double)input.Value!.Value, 10);
         Assert.False(ordinary.IsEffectivelyEnabled);
     }
@@ -229,21 +234,9 @@ public sealed class AssTransformAnimationImportUiTests
         context.Session.Editor.ImportSubtitleLines(imported, "ASS numeric transform");
         context.Session.SelectCue(imported.Lines[0].Id);
         context.ViewModel.Effects.TransformExpanded = true;
-        context.ViewModel.Effects.AnimationExpanded = true;
         Dispatcher.UIThread.RunJobs();
         context.Window.UpdateLayout();
         return context.Session.SelectedLayer!;
-    }
-
-    private static T FindOrdinary<T>(MainWindowTestContext context, string field) where T : Control
-    {
-        if (field == "RotationInput")
-        {
-            context.Window.Layouts.Activate("effects");
-            context.Window.UpdateLayout();
-            Dispatcher.UIThread.RunJobs();
-        }
-        return UiTestActions.Find<T>(context.Window, field);
     }
 
     private static void ClickTimeline(MainWindowTestContext context, SubtitleTimelineControl timeline, Point local)

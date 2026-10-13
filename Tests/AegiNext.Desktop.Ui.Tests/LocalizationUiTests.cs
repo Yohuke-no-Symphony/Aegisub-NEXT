@@ -437,13 +437,14 @@ public sealed class LocalizationUiTests
         Dispatcher.UIThread.RunJobs();
         var alignment = UiTestActions.Find<SubtitleAlignmentPicker>(styleView, "AlignmentPicker");
         var blend = effectsView.FindControl<ComboBox>("BlendCombo")!;
-        var interpolation = effectsView.FindControl<ComboBox>("InterpolationCombo")!;
         var number = UiTestActions.Find<NumericDraftInput>(effectsView, "RotationInput");
         var color = UiTestActions.Find<ColorDraftInput>(styleView, "FillPicker");
         context.ViewModel.Styles.Subtitle.CommitAlignment((int)TextAlignment.MIDDLE_CENTER);
         blend.SelectedIndex = (int)BlendMode.SCREEN;
         context.Session.Editor.SetKeyframe(cueID, AnimationProperty.ROTATION_3D, new(new(1), AnimationValue.FromVector3(default)));
         Assert.True(context.Session.SelectKeyframe(new(cueID, AnimationProperty.ROTATION_3D, new(1), new(1))));
+        UiTestActions.OpenAnimationOptions(context.Window, AnimationProperty.ROTATION_3D);
+        var interpolation = UiTestActions.Find<ComboBox>(context.Window, "InterpolationCombo");
         interpolation.SelectedIndex = (int)KeyframeInterpolation.EASE_OUT;
         Dispatcher.UIThread.RunJobs();
         Assert.Equal((int)TextAlignment.MIDDLE_CENTER, context.ViewModel.Styles.Subtitle.Alignment);

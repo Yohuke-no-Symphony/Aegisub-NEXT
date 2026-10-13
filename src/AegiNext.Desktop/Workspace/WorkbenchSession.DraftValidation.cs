@@ -23,7 +23,9 @@ internal sealed partial class WorkbenchSession
             ShowError(error);
         }
         var sharedPivot = ViewModel.InvalidFieldKey is "MaskPivotX" or "MaskPivotY";
-        if (ViewModel.InvalidPanelId == "effects" || sharedPivot)
+        var animationOptions = ViewModel.InvalidFieldKey is "PowerExponentInput" ||
+            ViewModel.InvalidFieldKey?.StartsWith("Operation", StringComparison.Ordinal) == true;
+        if (ViewModel.InvalidPanelId == "effects" || sharedPivot || animationOptions)
         {
             ViewModel.Effects.InvalidFieldKey = ViewModel.InvalidFieldKey;
             ViewModel.Effects.ValidationError = error.Message;

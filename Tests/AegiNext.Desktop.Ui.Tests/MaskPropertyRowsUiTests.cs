@@ -157,11 +157,11 @@ public sealed class MaskPropertyRowsUiTests
         Assert.Same(source, session.DocumentSnapshot);
     }
 
-    /// <summary>两面板实际按钮同步启用动画、添加关键帧和重置当前帧的结果。</summary>
+    /// <summary>两面板实际按钮同步创建首帧、添加关键帧和重置当前帧的结果。</summary>
     [AvaloniaTheory]
     [InlineData(AnimationProperty.MASK_POSITION)]
     [InlineData(AnimationProperty.MASK_ROTATION)]
-    public async Task ActualAnimationButtonsSynchronizeToggleAddAndResetAcrossBothPanels(AnimationProperty property)
+    public async Task ActualAnimationButtonsSynchronizeFirstKeyframeAddAndResetAcrossBothPanels(AnimationProperty property)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -183,18 +183,22 @@ public sealed class MaskPropertyRowsUiTests
             Flush(masksHost);
             var effectsRow = FindEffectsRow(effects, row);
             var maskRow = FindMaskRow(masks, row);
-            var effectsToggle = Assert.Single(effectsRow.GetVisualDescendants().OfType<ToggleButton>(), button => button.Command == row.ToggleAnimationCommand);
-            var maskToggle = Assert.Single(maskRow.GetVisualDescendants().OfType<ToggleButton>(), button => button.Command == row.ToggleAnimationCommand);
+            var effectsAdd = FindAction(effectsRow, row.AddKeyframeCommand);
+            var maskAdd = FindAction(maskRow, row.AddKeyframeCommand);
             var effectsReset = FindAction(effectsRow, row.ResetCommand);
-            Assert.False(effectsToggle.IsChecked);
-            Assert.False(maskToggle.IsChecked);
+            Assert.False(effectsRow.IsAnimated);
+            Assert.False(maskRow.IsAnimated);
+            Assert.True(effectsAdd.IsEffectivelyEnabled);
+            Assert.True(maskAdd.IsEffectivelyEnabled);
+            Assert.DoesNotContain(effectsRow.GetVisualDescendants().OfType<ToggleButton>(), button => button.Command == row.ToggleAnimationCommand);
+            Assert.DoesNotContain(maskRow.GetVisualDescendants().OfType<ToggleButton>(), button => button.Command == row.ToggleAnimationCommand);
             Assert.False(effectsReset.IsEnabled);
 
-            await ClickActionAsync(masksHost, maskToggle);
+            await ClickActionAsync(masksHost, maskAdd);
 
             Assert.True(row.IsAnimated);
-            Assert.True(effectsToggle.IsChecked);
-            Assert.True(maskToggle.IsChecked);
+            Assert.True(effectsRow.IsAnimated);
+            Assert.True(FindMaskRow(masks, row).IsAnimated);
             Assert.True(effectsReset.IsEnabled);
             Assert.Single(Assert.Single(session.SelectedLayer!.Tracks, track => track.Target == row.Target).Keyframes);
             session.ClearKeyframeSelection();
@@ -219,13 +223,8 @@ public sealed class MaskPropertyRowsUiTests
             Assert.Equal(0, reset.Value.GetComponent(0));
             Assert.Equal("0", effectsRow.X!.RawText);
             Assert.Equal("0", FindMaskRow(masks, row).X!.RawText);
-            effectsRow = FindEffectsRow(effects, row);
-            effectsToggle = Assert.Single(effectsRow.GetVisualDescendants().OfType<ToggleButton>(), button => button.Command == row.ToggleAnimationCommand);
-            await ClickActionAsync(effectsHost, effectsToggle);
-            Assert.False(row.IsAnimated);
-            Assert.False(effectsToggle.IsChecked);
-            Assert.False(FindMaskRow(masks, row).IsAnimated);
-            Assert.DoesNotContain(session.SelectedLayer!.Tracks, track => track.Target == row.Target);
+            Assert.Equal(2, Assert.Single(session.SelectedLayer.Tracks, track => track.Target == row.Target).Keyframes.Length);
+            Assert.True(FindMaskRow(masks, row).IsAnimated);
         }
         finally
         {

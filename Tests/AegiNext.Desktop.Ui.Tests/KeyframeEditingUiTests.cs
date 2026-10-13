@@ -11,6 +11,7 @@ using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
@@ -23,20 +24,20 @@ public sealed class KeyframeEditingUiTests
         await PrepareSubtitleAsync(context);
         var window = context.Window;
         SetSelectedValue(window, 0.25m);
-        UiTestActions.Find<ComboBox>(window, "InterpolationCombo").SelectedIndex = (int)KeyframeInterpolation.EASE_OUT;
-        await context.Controller.SeekAsync(new(1, 3));
-        UiTestActions.Click(window, "KeyframeButton");
+        await context.Session.SeekFromUserAsync(new(1, 3));
+        await AddKeyframeAsync(window, AnimationProperty.OPACITY);
+        SetInterpolation(window, AnimationProperty.OPACITY, KeyframeInterpolation.EASE_OUT);
         var first = Assert.Single(OpacityTrack(window.DocumentSnapshot).Keyframes);
         Assert.Equal(new MediaTime(1, 3), first.Time);
 
-        await context.Controller.SeekAsync(new(4, 3));
-        UiTestActions.Click(window, "KeyframeButton");
+        await context.Session.SeekFromUserAsync(new(4, 3));
+        await AddKeyframeAsync(window, AnimationProperty.OPACITY);
         var frames = OpacityTrack(window.DocumentSnapshot).Keyframes;
         Assert.Equal(2, frames.Length);
         Assert.Equal(first, frames[0]);
         Assert.Equal(new MediaTime(4, 3), frames[1].Time);
         Assert.Equal(0.25, frames[1].Value.Scalar);
-        Assert.Equal(KeyframeInterpolation.EASE_OUT, frames[1].Interpolation);
+        Assert.Equal(KeyframeInterpolation.LINEAR, frames[1].Interpolation);
 
         Execute(window, WorkbenchCommand.UNDO);
         Assert.Equal(first, Assert.Single(OpacityTrack(window.DocumentSnapshot).Keyframes));
@@ -50,35 +51,41 @@ public sealed class KeyframeEditingUiTests
         await using var context = new MainWindowTestContext();
         await PrepareSubtitleAsync(context);
         var window = context.Window;
-        var valueInput = UiTestActions.Find<NumericUpDown>(window, "KeyframeValueInput");
-        var interpolation = UiTestActions.Find<ComboBox>(window, "InterpolationCombo");
+        var valueInput = UiTestActions.PropertyInput(window, AnimationProperty.OPACITY);
         SetSelectedValue(window, 0.25m);
-        interpolation.SelectedIndex = (int)KeyframeInterpolation.EASE_OUT;
-        await context.Controller.SeekAsync(new(1));
-        UiTestActions.Click(window, "KeyframeButton");
-        await context.Controller.SeekAsync(new(2));
-        UiTestActions.Click(window, "KeyframeButton");
+        await context.Session.SeekFromUserAsync(new(1));
+        await AddKeyframeAsync(window, AnimationProperty.OPACITY);
+        SetInterpolation(window, AnimationProperty.OPACITY, KeyframeInterpolation.EASE_OUT);
+        await context.Session.SeekFromUserAsync(new(2));
+        await AddKeyframeAsync(window, AnimationProperty.OPACITY);
         SetSelectedValue(window, 0.75m);
-        interpolation.SelectedIndex = (int)KeyframeInterpolation.HOLD;
+        SetInterpolation(window, AnimationProperty.OPACITY, KeyframeInterpolation.HOLD);
         var second = OpacityTrack(window.DocumentSnapshot).Keyframes[1];
-        Assert.Equal(new Keyframe(new(2), 0.75, KeyframeInterpolation.HOLD), second);
+        Assert.Equal(new MediaTime(2), second.Time);
+        Assert.Equal(0.75, second.Value.Scalar);
+        Assert.Equal(KeyframeInterpolation.HOLD, second.Interpolation);
+        Assert.Equal(0, second.CurveStart);
+        Assert.Equal(1, second.CurveEnd);
+        Assert.Equal(1, second.Exponent);
+        Assert.False(second.Reverse);
+        Assert.Empty(second.ComponentCurves);
 
         var beforeSelection = window.DocumentSnapshot;
         SelectOpacityFrame(window, new(1), 0.25);
         Assert.Same(beforeSelection, window.DocumentSnapshot);
         Assert.Equal(0.25m, valueInput.Value);
-        Assert.Equal((int)KeyframeInterpolation.EASE_OUT, interpolation.SelectedIndex);
+        AssertInterpolation(window, AnimationProperty.OPACITY, KeyframeInterpolation.EASE_OUT);
         SetSelectedValue(window, 0.5m);
         Assert.Equal(new Keyframe(new(1), 0.5, KeyframeInterpolation.EASE_OUT),
             OpacityTrack(window.DocumentSnapshot).Keyframes[0]);
-        interpolation.SelectedIndex = (int)KeyframeInterpolation.LINEAR;
+        SetInterpolation(window, AnimationProperty.OPACITY, KeyframeInterpolation.LINEAR);
         Assert.Equal(new Keyframe(new(1), 0.5), OpacityTrack(window.DocumentSnapshot).Keyframes[0]);
         Assert.Equal(second, OpacityTrack(window.DocumentSnapshot).Keyframes[1]);
 
         Execute(window, WorkbenchCommand.UNDO);
         Assert.Equal(new Keyframe(new(1), 0.5, KeyframeInterpolation.EASE_OUT),
             OpacityTrack(window.DocumentSnapshot).Keyframes[0]);
-        Assert.Equal((int)KeyframeInterpolation.EASE_OUT, interpolation.SelectedIndex);
+        AssertInterpolation(window, AnimationProperty.OPACITY, KeyframeInterpolation.EASE_OUT);
         Execute(window, WorkbenchCommand.UNDO);
         Assert.Equal(new Keyframe(new(1), 0.25, KeyframeInterpolation.EASE_OUT),
             OpacityTrack(window.DocumentSnapshot).Keyframes[0]);
@@ -97,20 +104,27 @@ public sealed class KeyframeEditingUiTests
         await PrepareSubtitleAsync(context);
         var window = context.Window;
         SetSelectedValue(window, 0.25m);
-        await context.Controller.SeekAsync(new(1));
-        UiTestActions.Click(window, "KeyframeButton");
+        await context.Session.SeekFromUserAsync(new(1));
+        await AddKeyframeAsync(window, AnimationProperty.OPACITY);
         var before = window.DocumentSnapshot;
         UiTestActions.SelectAnimationProperty(window, AnimationProperty.POSITION);
-        SetSelectedValue(window, 120, "KeyframeValueXInput");
-        UiTestActions.Find<ComboBox>(window, "InterpolationCombo").SelectedIndex = (int)KeyframeInterpolation.HOLD;
+        Assert.False(UiTestActions.Find<ComboBox>(window, "InterpolationCombo").IsEffectivelyEnabled);
+        var positionInput = UiTestActions.PropertyInput(window, AnimationProperty.POSITION);
+        var absoluteX = positionInput.Value!.Value - (decimal)Assert.Single(before.Layers).Transform.Position.X + 120;
+        SetSelectedValue(window, absoluteX, AnimationProperty.POSITION);
         Assert.NotSame(before, window.DocumentSnapshot);
 
-        UiTestActions.Click(window, "KeyframeButton");
+        await AddKeyframeAsync(window, AnimationProperty.POSITION);
+        SetInterpolation(window, AnimationProperty.POSITION, KeyframeInterpolation.HOLD);
         var tracks = Assert.Single(window.DocumentSnapshot.Layers).Tracks;
         Assert.Equal(2, tracks.Length);
         Assert.Equal(0.25, Assert.Single(OpacityTrack(window.DocumentSnapshot).Keyframes).Value.Scalar);
-        Assert.Equal(new Keyframe(new(1), new ScenePoint(120, 0), KeyframeInterpolation.HOLD),
-            Assert.Single(tracks.Single(track => track.Property == AnimationProperty.POSITION).Keyframes));
+        var position = Assert.Single(tracks.Single(track => track.Property == AnimationProperty.POSITION).Keyframes);
+        Assert.Equal(new MediaTime(1), position.Time);
+        Assert.Equal(120, position.Value.Vector.X, 10);
+        Assert.Equal(0, position.Value.Vector.Y, 10);
+        Assert.Equal(KeyframeInterpolation.HOLD, position.GetCurve(0).Interpolation);
+        Assert.Equal(KeyframeInterpolation.HOLD, position.GetCurve(1).Interpolation);
     }
 
     private static async Task PrepareSubtitleAsync(MainWindowTestContext context)
@@ -127,9 +141,9 @@ public sealed class KeyframeEditingUiTests
         return Assert.Single(document.Layers).Tracks.Single(track => track.Property == AnimationProperty.OPACITY);
     }
 
-    private static void SetSelectedValue(MainWindow window, decimal value, string fieldName = "KeyframeValueInput")
+    private static void SetSelectedValue(MainWindow window, decimal value, AnimationProperty property = AnimationProperty.OPACITY)
     {
-        var input = UiTestActions.Find<NumericUpDown>(window, fieldName);
+        var input = UiTestActions.PropertyInput(window, property);
         input.BringIntoView();
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
@@ -139,6 +153,31 @@ public sealed class KeyframeEditingUiTests
         Dispatcher.UIThread.RunJobs();
         Assert.True(UiTestActions.Find<SubtitleTimelineControl>(window, "Timeline").Focus());
         Dispatcher.UIThread.RunJobs();
+    }
+
+    private static async Task AddKeyframeAsync(MainWindow window, AnimationProperty property)
+    {
+        var button = UiTestActions.PropertyKeyframeButton(window, property);
+        UiTestActions.Click(window, button);
+        await Assert.IsAssignableFrom<IAsyncRelayCommand>(button.Command).ExecutionTask!;
+        Dispatcher.UIThread.RunJobs();
+    }
+
+    private static void SetInterpolation(MainWindow window, AnimationProperty property, KeyframeInterpolation value)
+    {
+        var anchor = UiTestActions.OpenAnimationOptions(window, property);
+        var input = UiTestActions.Find<ComboBox>(window, "InterpolationCombo");
+        Assert.True(input.IsEffectivelyEnabled);
+        input.SelectedIndex = (int)value;
+        Dispatcher.UIThread.RunJobs();
+        anchor.Flyout!.Hide();
+    }
+
+    private static void AssertInterpolation(MainWindow window, AnimationProperty property, KeyframeInterpolation value)
+    {
+        var anchor = UiTestActions.OpenAnimationOptions(window, property);
+        Assert.Equal((int)value, UiTestActions.Find<ComboBox>(window, "InterpolationCombo").SelectedIndex);
+        anchor.Flyout!.Hide();
     }
 
     private static void SelectOpacityFrame(MainWindow window, MediaTime time, double value)

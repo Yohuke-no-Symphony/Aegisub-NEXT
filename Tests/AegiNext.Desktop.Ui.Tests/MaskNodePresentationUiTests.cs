@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.I18n;
+using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Panels.Masks;
 using AegiNext.Desktop.Workspace;
 using Avalonia;
@@ -19,66 +20,57 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class MaskNodePresentationUiTests
 {
     [AvaloniaFact]
-    public async Task ThreeGroupedNodePropertiesResolveTheSelectedPointWithoutRebuildingChoices()
+    public async Task ThreeNodePropertyRowsUseTheSelectedPointAndCloseTheOldPopupWhenItChanges()
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
+        var session = context.Session;
+        var effects = context.ViewModel.Effects;
         var first = new MaskNode { Position = new(10, 20) };
         var second = new MaskNode { Position = new(30, 40) };
-        context.Session.Editor.SetClipMask(context.Session.SelectedLayerId!.Value,
+        session.Editor.SetClipMask(session.SelectedLayerId!.Value,
             new VectorClipMask { Contours = [new() { Nodes = [first] }, new() { Nodes = [second] }] });
-        UiTestActions.ExpandEffectsCategory(context.Window, "AnimationCategory");
-        var choice = UiTestActions.Find<ComboBox>(context.Window, "PropertyCombo");
-        var nodeProperties = choice.Items.OfType<AnimationPropertyChoice>().Where(item => AnimationPropertyMetadata.IsNodeProperty(item.Property)).ToArray();
-        Assert.Equal(new[] { AnimationProperty.MASK_NODE_POSITION, AnimationProperty.MASK_NODE_IN_HANDLE, AnimationProperty.MASK_NODE_OUT_HANDLE },
-            nodeProperties.Select(item => item.Property));
-        Assert.Null(context.Session.SceneEditing.MaskNodeId);
-        var target = new AnimationTrackTarget(AnimationProperty.MASK_NODE_OUT_HANDLE, first.Id);
-        var selected = nodeProperties.Single(item => item.Property == target.Property);
-        Assert.Equal(Localization.Get("Workbench.MASK_NODE_OUT_HANDLE"), selected.Title);
-        var original = context.Session.DocumentSnapshot;
-        choice.SelectedItem = selected;
+        Assert.Null(session.SceneEditing.MaskNodeId);
+        Assert.DoesNotContain(effects.MaskRows, row => AnimationPropertyMetadata.IsNodeProperty(row.Target.Property));
+        session.MaskEditing.SelectNode(first.Id);
         Dispatcher.UIThread.RunJobs();
-        Assert.Equal(first.Id, context.Session.SceneEditing.MaskNodeId);
+        var nodeRows = effects.MaskRows.Where(row => AnimationPropertyMetadata.IsNodeProperty(row.Target.Property)).ToArray();
+        Assert.Equal(new[] { AnimationProperty.MASK_NODE_POSITION, AnimationProperty.MASK_NODE_IN_HANDLE, AnimationProperty.MASK_NODE_OUT_HANDLE },
+            nodeRows.Select(row => row.Target.Property));
+        var target = new AnimationTrackTarget(AnimationProperty.MASK_NODE_OUT_HANDLE, first.Id);
+        var selected = nodeRows.Single(row => row.Target == target);
+        Assert.Equal(Localization.Get("Workbench.MASK_NODE_OUT_HANDLE"), selected.Name);
+        var original = session.DocumentSnapshot;
+        var firstButton = UiTestActions.OpenAnimationOptions(context.Window, target.Property);
         Assert.Equal(first.Id, context.ViewModel.Masks.SelectedPoint!.Id);
         Assert.Equal(first.Id, context.ViewModel.Timeline.SelectedMaskNodeId);
-        Assert.Equal(target, context.ViewModel.Effects.Target);
-        Assert.Same(original, context.Session.DocumentSnapshot);
-        var source = choice.ItemsSource;
-        choice.BringIntoView();
-        Flush(context.Window);
-        var pointer = choice.TranslatePoint(new Point(choice.Bounds.Width / 2, choice.Bounds.Height / 2), context.Window)!.Value;
-        context.Window.MouseDown(pointer, MouseButton.Left);
-        context.Window.MouseUp(pointer, MouseButton.Left);
-        Flush(context.Window);
-        Assert.True(choice.IsDropDownOpen);
-        var container = choice.ContainerFromIndex(choice.SelectedIndex);
-        Assert.NotNull(container);
-        context.Session.MaskEditing.SelectNode(second.Id);
+        Assert.Equal(target, effects.Target);
+        Assert.Same(original, session.DocumentSnapshot);
+        var rows = effects.MaskRows;
+        session.MaskEditing.Refresh();
+        Assert.Same(rows, effects.MaskRows);
+        session.MaskEditing.SelectNode(second.Id);
         Dispatcher.UIThread.RunJobs();
-        Assert.Same(source, choice.ItemsSource);
-        Assert.Same(selected, choice.SelectedItem);
-        Assert.True(choice.IsDropDownOpen);
-        Assert.Same(container, choice.ContainerFromIndex(choice.SelectedIndex));
-        Assert.Equal(new(AnimationProperty.MASK_NODE_OUT_HANDLE, second.Id), context.ViewModel.Effects.Target);
+        Assert.False(firstButton.Flyout!.IsOpen);
+        Assert.Equal(new(AnimationProperty.MASK_NODE_OUT_HANDLE, second.Id), effects.Target);
         Assert.Equal(second.Id, context.ViewModel.Timeline.SelectedMaskNodeId);
         Assert.Equal(second.Id, context.ViewModel.Masks.SelectedPoint!.Id);
+        var secondButton = UiTestActions.OpenAnimationOptions(context.Window, target.Property);
+        Assert.True(secondButton.Flyout!.IsOpen);
         if (Environment.GetEnvironmentVariable("AEGINEXT_MASK_NODE_CAPTURE_DIRECTORY") is { } directory)
         {
-            var popup = UiTestActions.Find<Popup>(choice, "PART_Popup");
-            var child = Assert.IsAssignableFrom<Control>(popup.Child);
+            var child = Assert.IsAssignableFrom<Control>(Assert.IsType<Flyout>(secondButton.Flyout).Content);
             using var bitmap = new RenderTargetBitmap(new((int)child.Bounds.Width, (int)child.Bounds.Height), new(96, 96));
             bitmap.Render(child);
             Directory.CreateDirectory(directory);
-            bitmap.Save(Path.Combine(directory, "grouped-node-property-menu.png"), PngBitmapEncoderOptions.Default);
+            bitmap.Save(Path.Combine(directory, "node-property-settings.png"), PngBitmapEncoderOptions.Default);
         }
-        choice.IsDropDownOpen = false;
-        context.Session.MaskEditing.SelectNode(null);
+        session.MaskEditing.SelectNode(null);
         Dispatcher.UIThread.RunJobs();
-        Assert.Same(source, choice.ItemsSource);
-        Assert.Equal(3, choice.Items.OfType<AnimationPropertyChoice>().Count(item => AnimationPropertyMetadata.IsNodeProperty(item.Property)));
-        Assert.Same(original, context.Session.DocumentSnapshot);
+        Assert.False(secondButton.Flyout.IsOpen);
+        Assert.DoesNotContain(effects.MaskRows, row => AnimationPropertyMetadata.IsNodeProperty(row.Target.Property));
+        Assert.Same(original, session.DocumentSnapshot);
     }
 
     [AvaloniaTheory]

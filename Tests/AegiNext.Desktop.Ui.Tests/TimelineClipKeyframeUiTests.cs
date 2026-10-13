@@ -91,7 +91,7 @@ public sealed class TimelineClipKeyframeUiTests
         Assert.Equal(key.Time, context.Session.SelectedKeyTime);
         Assert.Same(before, context.Session.DocumentSnapshot);
         Assert.False(context.Session.Editor.CanUndo);
-        var input = UiTestActions.Find<NumericDraftInput>(context.Window, "KeyframeValueInput");
+        var input = UiTestActions.PropertyInput(context.Window, AnimationProperty.OPACITY);
         input.BringIntoView();
         context.Window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();
@@ -144,7 +144,7 @@ public sealed class TimelineClipKeyframeUiTests
         context.Window.MouseDown(keyPoint, MouseButton.Left);
         context.Window.MouseUp(keyPoint, MouseButton.Left);
         Assert.Equal(new MediaTime(1), context.Session.SelectedKeyTime);
-        Assert.Equal(0.25m, context.ViewModel.Effects.KeyframeValue);
+        Assert.Equal(0.25m, UiTestActions.PropertyInput(context.Window, AnimationProperty.OPACITY).Value);
     }
 
     [AvaloniaFact]

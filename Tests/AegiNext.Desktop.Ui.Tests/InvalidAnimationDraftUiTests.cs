@@ -20,10 +20,9 @@ public sealed class InvalidAnimationDraftUiTests
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
-        UiTestActions.SelectAnimationProperty(context.Window, AnimationProperty.OPACITY);
+        var input = UiTestActions.PropertyInput(context.Window, AnimationProperty.OPACITY);
         try
         {
-            var input = UiTestActions.Find<NumericDraftInput>(context.Window, "KeyframeValueInput");
             input.BringIntoView();
             context.Window.UpdateLayout();
             var text = Assert.Single(input.GetVisualDescendants().OfType<TextBox>());
@@ -33,7 +32,7 @@ public sealed class InvalidAnimationDraftUiTests
             var other = UiTestActions.Find<NumericDraftInput>(context.Window, "RotationInput");
             other.Focus();
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal("illegal", context.ViewModel.Effects.KeyframeValueText);
+            Assert.Equal("illegal", input.RawText);
             Assert.NotNull(context.ViewModel.Effects.ValidationError);
             Assert.False(text.IsFocused);
             var entries = context.ViewModel.Log.Entries.Count;
@@ -43,17 +42,17 @@ public sealed class InvalidAnimationDraftUiTests
                 Dispatcher.UIThread.RunJobs();
             }
             Assert.Equal(entries, context.ViewModel.Log.Entries.Count);
-            context.ViewModel.Effects.RotationText = "35";
+            other.RawText = "35";
             Assert.True(text.Focus());
             UiTestActions.Press(context.Window, Key.Escape);
-            Assert.NotEqual("illegal", context.ViewModel.Effects.KeyframeValueText);
-            Assert.Equal("35", context.ViewModel.Effects.RotationText);
+            Assert.NotEqual("illegal", input.RawText);
+            Assert.Equal("35", other.RawText);
             Assert.True(context.Session.TryCommitDrafts());
             Assert.Equal(35, context.Session.SelectedLayer!.Transform.Rotation);
         }
         finally
         {
-            context.ViewModel.Effects.RestoreField("KeyframeValueInput");
+            context.ViewModel.Effects.RestoreField("OpacityInput");
             context.ViewModel.Effects.RestoreField("RotationInput");
             context.Session.TryCommitDrafts(false);
         }
@@ -70,13 +69,20 @@ public sealed class InvalidAnimationDraftUiTests
         session.Editor.SetKeyframe(id, AnimationProperty.OPACITY, new(new(1), 0.25));
         session.Editor.SetKeyframe(id, AnimationProperty.OPACITY, new(new(3), 0.75));
         Assert.True(session.SelectKeyframe(new(id, AnimationProperty.OPACITY, new(1), new(1))));
-        context.ViewModel.Effects.KeyframeValueText = "invalid";
+        var input = UiTestActions.PropertyInput(context.Window, AnimationProperty.OPACITY);
+        input.BringIntoView();
+        context.Window.UpdateLayout();
+        var text = Assert.Single(input.GetVisualDescendants().OfType<TextBox>());
+        Assert.True(text.Focus());
+        text.Text = "invalid";
+        Dispatcher.UIThread.RunJobs();
         await session.ExecuteCommandAsync(WorkbenchCommand.PLAY_PAUSE);
         Assert.Equal(VideoPlaybackState.PLAYING, context.Controller.Snapshot.State);
         await session.SeekFromUserAsync(new(3));
-        Assert.Equal("invalid", context.ViewModel.Effects.KeyframeValueText);
+        Assert.Equal("invalid", input.RawText);
         Assert.Equal(new MediaTime(1), session.SceneEditing.DraftTarget!.LocalTime);
-        context.ViewModel.Effects.KeyframeValueText = "0.4";
+        text.Text = "0.4";
+        Dispatcher.UIThread.RunJobs();
         Assert.True(session.TryCommitDrafts());
         var keys = session.SelectedLayer!.Tracks.Single(track => track.Property == AnimationProperty.OPACITY).Keyframes;
         Assert.Equal(0.4, keys[0].Value.Scalar);

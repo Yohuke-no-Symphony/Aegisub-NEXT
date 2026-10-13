@@ -200,9 +200,9 @@ public sealed class SharedMaskPropertyEditingUiTests
         }
     }
 
-    /// <summary>有序变换属性禁用直接修改并通过详情入口保留原操作身份。</summary>
+    /// <summary>有序变换属性禁用直接修改并通过属性弹窗保留原操作身份。</summary>
     [AvaloniaFact]
-    public async Task OrderedMaskRowsDisableDirectValueAddAndResetAndDetailsPreserveOperationIdentity()
+    public async Task OrderedMaskRowsDisableDirectValueAddAndResetAndPopupPreservesOperationIdentity()
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -214,7 +214,6 @@ public sealed class SharedMaskPropertyEditingUiTests
         var operation = new AnimationTransformOperation(Guid.NewGuid(), new(0), new(2), new ScenePoint(50, 60), 2);
         session.Editor.SetAnimationTransform(id, target, new ScenePoint(0, 0), operation);
         context.ViewModel.Effects.MaskExpanded = true;
-        context.ViewModel.Effects.AnimationExpanded = false;
         using var effects = new EffectsPanelView(context.ViewModel.Effects, session);
         using var masks = new MaskPanelView(context.ViewModel.Masks, session);
         var effectsHost = new Window { Width = 650, Height = 1000, Content = effects };
@@ -235,13 +234,18 @@ public sealed class SharedMaskPropertyEditingUiTests
                 Assert.False(FindComponent(control, false).IsEffectivelyEnabled);
                 Assert.False(FindAction(control, row.AddKeyframeCommand).IsEffectivelyEnabled);
                 Assert.False(FindAction(control, row.ResetCommand).IsEffectivelyEnabled);
-                Assert.True(FindAction(control, row.DetailsCommand).IsEffectivelyVisible);
+                Assert.True(control.FindControl<Button>("AnimationOptionsButton")!.IsEffectivelyVisible);
             }
 
-            await ClickActionAsync(masksHost, FindAction(masksRow, row.DetailsCommand));
+            var button = masksRow.FindControl<Button>("AnimationOptionsButton")!;
+            await ClickActionAsync(masksHost, button);
 
             Assert.Equal(target, context.ViewModel.Effects.Target);
-            Assert.True(context.ViewModel.Effects.AnimationExpanded);
+            Assert.True(button.Flyout!.IsOpen);
+            var popup = Assert.IsAssignableFrom<Control>(Assert.IsType<Flyout>(button.Flyout).Content);
+            Assert.True(UiTestActions.Find<VectorDraftInput>(popup, "OperationVectorInput").IsEffectivelyVisible);
+            Assert.True(UiTestActions.Find<ComboBox>(popup, "TransformOperationCombo").IsEffectivelyVisible);
+            Assert.Equal("masks", session.AnimationOptionsPanelId);
             Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation!.Id);
             var track = Assert.Single(session.SelectedLayer!.Tracks, track => track.Target == target);
             Assert.Empty(track.Keyframes);

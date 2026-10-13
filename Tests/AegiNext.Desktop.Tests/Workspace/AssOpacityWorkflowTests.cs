@@ -36,8 +36,9 @@ public sealed class AssOpacityWorkflowTests
         Assert.Equal(127d / 255, styled.Fill.Alpha, 10);
         Assert.Equal(1, layer.Opacity);
         Assert.Equal(line.Id, context.Session.SelectedCueId);
+        Assert.Contains(context.Dialogs.ConversionDiagnostics, value => value.StartsWith("Ass.OpacityComposition:", StringComparison.Ordinal));
         Assert.DoesNotContain(context.Dialogs.ConversionDiagnostics,
-            value => value.Contains("fade", StringComparison.OrdinalIgnoreCase) || value.Contains("fad", StringComparison.OrdinalIgnoreCase));
+            value => value.StartsWith("Ass.Fade", StringComparison.Ordinal) || value.StartsWith("Ass.DuplicateFade:", StringComparison.Ordinal));
         Assert.True(context.Editor.Undo());
         Assert.Same(original, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);

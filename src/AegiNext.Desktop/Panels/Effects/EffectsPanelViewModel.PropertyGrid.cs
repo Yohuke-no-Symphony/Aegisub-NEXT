@@ -76,6 +76,7 @@ internal sealed partial class EffectsPanelViewModel
     public ICommand DeleteRangeCommand { get; private set; } = null!;
     public ICommand MoveRangeUpCommand { get; private set; } = null!;
     public ICommand MoveRangeDownCommand { get; private set; } = null!;
+    public ICommand AnimationOptionsPropertyCommand { get; private set; } = null!;
     public ICommand AddPropertyKeyframeCommand { get; private set; } = null!;
     public ICommand ResetPropertyCommand { get; private set; } = null!;
     public bool CanResetPositionAnimation => IsPositionAnimated && CanEditPosition;
@@ -104,11 +105,17 @@ internal sealed partial class EffectsPanelViewModel
 
     private void InitializePropertyGrid()
     {
-        InitializeMaskPropertyGrid();
         CreateRangeCommand = new AsyncRelayCommand(session.CreateSelectedTextAnimationRangeAsync);
         DeleteRangeCommand = new AsyncRelayCommand(session.DeleteSelectedTextAnimationRangeAsync);
         MoveRangeUpCommand = new AsyncRelayCommand(() => session.MoveSelectedTextAnimationRangeAsync(-1));
         MoveRangeDownCommand = new AsyncRelayCommand(() => session.MoveSelectedTextAnimationRangeAsync(1));
+        AnimationOptionsPropertyCommand = new RelayCommand<AnimationProperty>(property =>
+        {
+            if (session.SelectedLayerId is { } layerId)
+            {
+                session.SelectAnimationProperty(layerId, Target with { Property = property, NodeId = null });
+            }
+        });
         AddPropertyKeyframeCommand = new AsyncRelayCommand<AnimationProperty>(property => session.AddEffectPropertyKeyframeAsync(Target with { Property = property, NodeId = null }));
         ResetPropertyCommand = new AsyncRelayCommand<AnimationProperty>(property => session.ResetEffectPropertyAsync(Target with { Property = property, NodeId = null }));
         TogglePropertyAnimationCommand = new AsyncRelayCommand<AnimationProperty>(property => session.ToggleEffectPropertyAnimationAsync(property));

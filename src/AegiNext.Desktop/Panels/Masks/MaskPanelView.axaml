@@ -31,13 +31,13 @@
           CanEdit="{Binding Row.IsEnabled, FallbackValue=True}"
           Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Increment="{Binding Row.Increment, FallbackValue=1}"
           ShowAnimationActions="{Binding Row, Converter={x:Static converters:ObjectConverters.IsNotNull}}"
-          IsAnimated="{Binding Row.IsAnimated, FallbackValue=False}" IsOrdered="{Binding Row.IsOrdered, FallbackValue=False}"
-          CanToggleAnimation="{Binding Row.CanToggleAnimation, FallbackValue=False}"
+          IsAnimated="{Binding Row.IsAnimated, FallbackValue=False}"
+
           CanAddKeyframe="{Binding Row.CanAddKeyframe, FallbackValue=False}" CanReset="{Binding Row.CanReset, FallbackValue=False}"
-          SelectCommand="{Binding Row.SelectCommand}" ToggleAnimationCommand="{Binding Row.ToggleAnimationCommand}"
-          AddKeyframeCommand="{Binding Row.AddKeyframeCommand}" ResetCommand="{Binding Row.ResetCommand}" DetailsCommand="{Binding Row.DetailsCommand}"
-          EditingHint="{Binding Row.EditingHint}" AnimationHint="{Binding Row.AnimationHint}" KeyframeHint="{Binding Row.KeyframeHint}"
-          ResetHint="{Binding Row.ResetHint}" DetailsHint="{Binding Row.DetailsHint}"
+          SelectCommand="{Binding Row.SelectCommand}" AnimationOptionsCommand="{Binding Row.AnimationOptionsCommand}" AnimationOptionsHint="{Binding Row.AnimationOptionsHint}"
+          AddKeyframeCommand="{Binding Row.AddKeyframeCommand}" ResetCommand="{Binding Row.ResetCommand}"
+          EditingHint="{Binding Row.EditingHint}" KeyframeHint="{Binding Row.KeyframeHint}"
+          ResetHint="{Binding Row.ResetHint}"
           Error="{Binding Row.Error}" InvalidFieldKey="{Binding Row.InvalidFieldKey}" />
     </DataTemplate>
   </UserControl.Resources>
@@ -110,12 +110,12 @@
             <controls:AnimationPropertyRowControl Label="{Loc Key=Workbench.MASK_ROTATION}" IsScalar="True" ScalarInputName="MaskRotationInput"
                 X="{Binding Draft}" FieldKey="{Binding Row.FieldKey}" XFieldKey="{Binding FieldKey}" YFieldKey="{Binding Row.YFieldKey}"
                 CanEdit="{Binding Row.IsEnabled}" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Increment="{Binding Row.Increment}"
-                IsAnimated="{Binding Row.IsAnimated}" IsOrdered="{Binding Row.IsOrdered}"
-                CanToggleAnimation="{Binding Row.CanToggleAnimation}" CanAddKeyframe="{Binding Row.CanAddKeyframe}" CanReset="{Binding Row.CanReset}"
-                SelectCommand="{Binding Row.SelectCommand}" ToggleAnimationCommand="{Binding Row.ToggleAnimationCommand}"
-                AddKeyframeCommand="{Binding Row.AddKeyframeCommand}" ResetCommand="{Binding Row.ResetCommand}" DetailsCommand="{Binding Row.DetailsCommand}"
-                EditingHint="{Binding Row.EditingHint}" AnimationHint="{Binding Row.AnimationHint}" KeyframeHint="{Binding Row.KeyframeHint}"
-                ResetHint="{Binding Row.ResetHint}" DetailsHint="{Binding Row.DetailsHint}"
+                IsAnimated="{Binding Row.IsAnimated}"
+                CanAddKeyframe="{Binding Row.CanAddKeyframe}" CanReset="{Binding Row.CanReset}"
+                SelectCommand="{Binding Row.SelectCommand}" AnimationOptionsCommand="{Binding Row.AnimationOptionsCommand}" AnimationOptionsHint="{Binding Row.AnimationOptionsHint}"
+                AddKeyframeCommand="{Binding Row.AddKeyframeCommand}" ResetCommand="{Binding Row.ResetCommand}"
+                EditingHint="{Binding Row.EditingHint}" KeyframeHint="{Binding Row.KeyframeHint}"
+                ResetHint="{Binding Row.ResetHint}"
                 Error="{Binding Row.Error}" InvalidFieldKey="{Binding Row.InvalidFieldKey}" />
           </DataTemplate>
         </ContentControl.ContentTemplate>

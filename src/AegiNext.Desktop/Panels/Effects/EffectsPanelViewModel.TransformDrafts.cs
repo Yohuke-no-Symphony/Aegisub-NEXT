@@ -33,7 +33,6 @@ internal sealed partial class EffectsPanelViewModel
     private void InitializeOperationDrafts()
     {
         OperationColorDraft.Changed += (_, _) => MarkOperationChanged(false);
-        OperationColorDraft.Committed += (_, _) => session.TryCommitDrafts(false);
         foreach (var field in OperationFields)
         {
             field.Draft.PropertyChanged += (_, e) =>
@@ -105,7 +104,7 @@ internal sealed partial class EffectsPanelViewModel
             {
                 return value;
             }
-            session.ViewModel.InvalidPanelId = "effects";
+            session.ViewModel.InvalidPanelId = session.AnimationOptionsPanelId ?? "effects";
             session.ViewModel.InvalidFieldKey = key;
             throw new InvalidDataException(Localization.Get("Workbench.InvalidValue"));
         }

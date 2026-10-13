@@ -271,6 +271,7 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
 
             RefreshKeyframeAvailability();
             session.ViewModel.Effects.CanDeleteKeyframe = frame is not null;
+            session.ViewModel.Effects.RefreshAnimationOptionsState();
         }
         finally
         {
