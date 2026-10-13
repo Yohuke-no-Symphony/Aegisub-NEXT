@@ -35,6 +35,12 @@ public sealed class EffectScriptLanguageTests
     [InlineData("at 0 shadow-o", "shadow-offset")]
     [InlineData("at 0 shadow-b", "shadow-blur")]
     [InlineData("at 0 shadow-c", "shadow-color")]
+    [InlineData("at 0 rotation-x", "rotation-x")]
+    [InlineData("at 0 rotation-y", "rotation-y")]
+    [InlineData("at 0 perspective-d", "perspective-distance")]
+    [InlineData("at 0 rotation-x ", "offset(0)")]
+    [InlineData("at 0 rotation-y ", "base")]
+    [InlineData("at 0 perspective-distance ", "factor(1)")]
     [InlineData("at 0 font-size ", "factor(1)")]
     [InlineData("at 0 shadow-offset ", "offset(0, 0)")]
     [InlineData("at 0 shadow-blur ", "base")]
@@ -104,6 +110,9 @@ public sealed class EffectScriptLanguageTests
     [InlineData("letter-spacing")]
     [InlineData("fill-blur")]
     [InlineData("stroke-blur")]
+    [InlineData("rotation-x")]
+    [InlineData("rotation-y")]
+    [InlineData("perspective-distance")]
     public void SubtitleAppearancePropertiesUseTheSharedMetadataForHighlighting(string property)
     {
         var source = $"at 0 {property} offset(2) linear";
@@ -238,10 +247,13 @@ public sealed class EffectScriptLanguageTests
         const string RANGE = "effect \"test\" version 2\nshort-clip compress\nscope letters current\nunit grapheme\nsegment stay flex 1\nat 0 ";
         var range = EffectScriptLanguage.Complete(RANGE, RANGE.Length);
         Assert.Contains(range, item => item.Insertion == "position");
+        Assert.Contains(range, item => item.Insertion == "rotation-x");
+        Assert.Contains(range, item => item.Insertion == "rotation-y");
+        Assert.Contains(range, item => item.Insertion == "perspective-distance");
         Assert.DoesNotContain(range, item => item.Insertion is "opacity" or "blur" or "mask-position" or "path-progress");
         var visual = RANGE.Replace("unit grapheme\n", "unit grapheme\nstate active\n", StringComparison.Ordinal);
         var active = EffectScriptLanguage.Complete(visual, visual.Length);
         Assert.Contains(active, item => item.Insertion == "fill");
-        Assert.DoesNotContain(active, item => item.Insertion is "position" or "scale" or "font-size");
+        Assert.DoesNotContain(active, item => item.Insertion is "position" or "scale" or "font-size" or "rotation-x" or "rotation-y" or "perspective-distance");
     }
 }

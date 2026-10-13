@@ -15,6 +15,8 @@ internal sealed partial class EffectsPanelViewModel
     private EffectScopeChoice? notifiedScope;
     private EffectStateChoice? notifiedState;
     private bool refreshingScopes;
+    private AnimationPropertyRowViewModel[] rotationRows = [];
+    private AnimationPropertyRowViewModel[] perspectiveRows = [];
     private AnimationPropertyRowViewModel[] typographyRows = [];
     private AnimationPropertyRowViewModel[] fillRows = [];
     private AnimationPropertyRowViewModel[] strokeRows = [];
@@ -63,6 +65,8 @@ internal sealed partial class EffectsPanelViewModel
     public bool CanEditTargetTransform => Target.State == SubtitleAnimationState.NORMAL;
     public string PositionLabel => Localization.Get(Target.TextRangeId is null ? "Workbench.PositionVector" : "Workbench.LocalPositionVector");
     public string? PositionEditingHint => Target.TextRangeId is null ? null : Localization.Get("Workbench.LocalPositionHint");
+    public AnimationPropertyRowViewModel[] RotationRows { get => rotationRows; private set => SetItems(ref rotationRows, value, nameof(RotationRows)); }
+    public AnimationPropertyRowViewModel[] PerspectiveRows { get => perspectiveRows; private set => SetItems(ref perspectiveRows, value, nameof(PerspectiveRows)); }
     public AnimationPropertyRowViewModel[] TypographyRows { get => typographyRows; private set => SetItems(ref typographyRows, value, nameof(TypographyRows)); }
     public AnimationPropertyRowViewModel[] FillRows { get => fillRows; private set => SetItems(ref fillRows, value, nameof(FillRows)); }
     public AnimationPropertyRowViewModel[] StrokeRows { get => strokeRows; private set => SetItems(ref strokeRows, value, nameof(StrokeRows)); }
@@ -151,6 +155,8 @@ internal sealed partial class EffectsPanelViewModel
         {
             refreshingScopes = false;
         }
+        RotationRows = CanEditTargetTransform ? Rows(AnimationProperty.ROTATION_X, AnimationProperty.ROTATION_Y) : [];
+        PerspectiveRows = CanEditTargetTransform ? Rows(AnimationProperty.PERSPECTIVE_DISTANCE) : [];
         TypographyRows = line is not null && Target.State == SubtitleAnimationState.NORMAL
             ? Rows(AnimationProperty.FONT_SIZE, AnimationProperty.LETTER_SPACING) : [];
         FillRows = Rows(AnimationProperty.FILL, AnimationProperty.FILL_BLUR);
@@ -227,6 +233,9 @@ internal sealed partial class EffectsPanelViewModel
         }
         switch (row.Target.Property)
         {
+            case AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE:
+                TransformExpanded = true;
+                break;
             case AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING:
                 TypographyExpanded = true;
                 break;

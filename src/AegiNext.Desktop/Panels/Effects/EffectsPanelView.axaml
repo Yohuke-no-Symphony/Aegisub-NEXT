@@ -65,8 +65,11 @@
               <Button Classes="animation-property-action" IsEnabled="{Binding CanResetScaleAnimation}" Command="{Binding ResetPropertyCommand}" CommandParameter="{x:Static core:AnimationProperty.SCALE}" ToolTip.Tip="{Loc Key=Workbench.ResetProperty}" ><controlsCommon:IconText IconKey="Reset" /></Button>
             </StackPanel>
           </Grid>
+          <ItemsControl ItemsSource="{Binding RotationRows}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="workspace:AnimationPropertyRowViewModel"><vm:EffectPropertyRowView DataContext="{Binding}" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
           <Grid Classes="effect-row" ColumnDefinitions="108,*,Auto" ToolTip.Tip="{Binding RotationEditingHint}">
-            <controls:NumericDragLabel Text="{Loc Key=Workbench.Rotation}" Input="{Binding #RotationInput}" VerticalAlignment="Center" TextWrapping="Wrap" />
+            <controls:NumericDragLabel Text="{Loc Key=Workbench.RotationZ}" Input="{Binding #RotationInput}" VerticalAlignment="Center" TextWrapping="Wrap" />
             <controls:NumericDraftInput Grid.Column="1" Name="RotationInput" RawText="{Binding RotationText, Mode=TwoWay}" Minimum="{x:Static vm:EffectsPanelViewModel.RotationMinimum}" Maximum="{x:Static vm:EffectsPanelViewModel.RotationMaximum}" Value="{Binding Rotation, Mode=TwoWay}" IsEnabled="{Binding CanEditRotation}" />
             <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2">
               <ToggleButton Classes="animation-property-action" IsChecked="{Binding IsRotationAnimated, Mode=OneWay}" Command="{Binding TogglePropertyAnimationCommand}" CommandParameter="{x:Static core:AnimationProperty.ROTATION}" ToolTip.Tip="{Loc Key=Workbench.TogglePropertyAnimation}" ><controlsCommon:IconText IconKey="Clock" /></ToggleButton>
@@ -74,6 +77,9 @@
               <Button Classes="animation-property-action" IsEnabled="{Binding CanResetRotationAnimation}" Command="{Binding ResetPropertyCommand}" CommandParameter="{x:Static core:AnimationProperty.ROTATION}" ToolTip.Tip="{Loc Key=Workbench.ResetProperty}" ><controlsCommon:IconText IconKey="Reset" /></Button>
             </StackPanel>
           </Grid>
+          <ItemsControl ItemsSource="{Binding PerspectiveRows}">
+            <ItemsControl.ItemTemplate><DataTemplate x:DataType="workspace:AnimationPropertyRowViewModel"><vm:EffectPropertyRowView DataContext="{Binding}" /></DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
           <Button Name="ResetPositionButton" IsVisible="{Binding IsWholeLayerTarget}" Command="{Binding ResetPositionCommand}" IsEnabled="{Binding CanResetPosition}"><controlsCommon:IconText IconKey="ResetPosition" Text="{Loc Key=Workbench.ResetPosition}" /></Button>
         </StackPanel>
       </controlsCommon:PropertySection>

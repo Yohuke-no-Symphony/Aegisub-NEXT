@@ -76,7 +76,8 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     public bool CanReset => IsAnimated && IsEnabled;
     public bool CanToggleAnimation => IsAnimated || CanAddKeyframe;
     public bool IsMixed { get => isMixed; private set => SetProperty(ref isMixed, value); }
-    public string? EditingHint => IsMixed ? Localization.Get("Workbench.MixedPropertyValue") : null;
+    public string? EditingHint => IsMixed ? Localization.Get("Workbench.MixedPropertyValue") :
+        Target.Property == AnimationProperty.PERSPECTIVE_DISTANCE ? Localization.Get("Workbench.PerspectiveDistanceHint") : null;
     public string? Error { get => error; private set => SetProperty(ref error, value); }
     public string? InvalidFieldKey { get => invalidFieldKey; private set => SetProperty(ref invalidFieldKey, value); }
     public string AnimationHint => Localization.Get(IsAnimated ? "Workbench.DisablePropertyAnimation" : "Workbench.EnablePropertyAnimation");
