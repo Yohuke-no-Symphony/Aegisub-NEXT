@@ -35,7 +35,7 @@ The renderer keeps at most 256 layouts in an LRU cache and one latest animated l
 
 ## Text range property animation
 
-`AnimationTrackTarget` identifies a property, an optional text range ID, and a normal/active/inactive painting state. Mask nodes and text ranges are mutually exclusive. `SubtitleLine.AnimationRanges` stores grapheme-safe UTF-16 half-open ranges with local pixel Offset, scale, Z rotation, and a pivot mode. Ranges may overlap: later ranges override the same painting property, and local matrices compose in saved order. A scoped Normal `POSITION` track evaluates the range Offset, whose default is `(0, 0)`.
+`AnimationTrackTarget` identifies a property, an optional text range ID, and a normal/active/inactive painting state. Mask nodes and text ranges are mutually exclusive. `SubtitleLine.AnimationRanges` stores grapheme-safe UTF-16 half-open ranges with local pixel Offset, scale, XYZ rotation, perspective distance, projection compensation, and a pivot mode. Ranges may overlap: later ranges override the same painting property, and local projections compose in saved order. A scoped Normal `POSITION` track evaluates the range Offset, whose default is `(0, 0)`.
 
 Font size and letter spacing reshape and reflow text at each evaluated time. Fill, stroke, and shadow color/offset/blur apply after layout. Karaoke states share normal-state geometry: normal animations precede static karaoke appearance, state animations follow it, and outline-step inactive stroke hiding applies last.
 
@@ -46,6 +46,25 @@ Local translation, scale, and rotation preserve layout occupancy. A range center
 Native color animation defaults to linear RGB interpolation. ASS-origin tracks can use `SRGB` interpolation while stored and evaluated colors remain linear; alpha is never encoded. Ordered operations retain source order and component masks for RGB, alpha, or shadow axes. Relative font size uses multiplication. Font-size operations must be provably valid throughout; conservative validation may reject combinations that rely on synchronized cancellation.
 
 `Keyframe.Reverse` and `AnimationCurve.Reverse` preserve a time-reversed interpolation curve, including clipped phases and component curves. Pingpong therefore reverses a POWER leg exactly rather than replaying its forward acceleration. Curve slicing and composition retain this flag; frame-cache identity includes the resulting evaluated values. DSL version 2 bakes grouping into native ranges and tracks at application time; rendering does not tokenize text or run template clocks.
+
+## Flat-plane projection
+
+Core's `SceneProjection` defines the shared projection for drawing, bounds, picking, and editing. Coordinates have X right, Y down, and positive Z away from the camera. Scale the local plane, then rotate around Z, X, and Y using right-hand rotations. With local pivot `p`, output center `C`, static three-dimensional compensation `T`, and distance `d`:
+
+```text
+V = T + Ry · Rx · Rz · Scale · (point − p, 0)
+output = C + d · V.xy / (d + V.z)
+```
+
+For a layer, `C` is native base placement plus evaluated Position; for a range it is its resolved local pivot plus Offset. Default distance is 312.5 project pixels; valid distances are 0.001–1e9. `ROTATION_3D` is an XYZ Vector3 target with shared keyframe times and optional component curves; perspective distance is a separate scalar target. Legacy scalar rotation IDs are normalized on load, preserving the union of keyframe times and each curve's phase. Mixed legacy keyframe/ordered axes become masked ordered operations with exact component curves. Evaluation preserves unwrapped angles and shares the same path in preview and export.
+
+`ProjectionTranslation` is static compensation, not an animation target. A Pivot edit adds `Ry · Rx · Rz · Scale · Δp` to it using the current frame; a range also subtracts `Δp` from Offset to keep its output center fixed. This preserves every projected local point at that frame while leaving tracks untouched. Pure 2D placement retains its existing Offset compensation.
+
+Each projection stage clips at `(d + V.z) / d >= 1/16384`, preserving all stage constraints when ranges compose. Rejecting a final homography denominator alone is incorrect: two camera-back stages can multiply to a positive denominator, and several legal small denominators can multiply below one stage's threshold. Camera-back content is empty; back-facing planes remain visible. Projection that degenerates to a line or point, or has an unstable inverse, does not expose inverse pointer editing.
+
+`ProjectLayerGeometry` exposes the clipped visible polygon and validated forward/inverse mapping. Whole-plane text keeps its original ink bounds and Pivot; transformed ranges use their per-grapheme projection chains. Cubic paths retain their source control points and are sampled adaptively for projected overlays and picking. Render targets stay bounded to the viewport rather than allocating surfaces from potentially enormous projected bounds.
+
+ASS is an exchange boundary. Its angle convention negates the native axes; `\org` resolves through native placement and Pivot. Complete `LayoutRes` defines the imported camera scale, otherwise the known target canvas supplies storage resolution. Nondefault distance, nonzero compensation, and unsupported whole/range coupling produce explicit conversion diagnostics rather than combining Euler values.
 
 ## Clip masks
 

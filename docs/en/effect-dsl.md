@@ -175,7 +175,9 @@ Text edits remap existing ranges through the normal subtitle editing rules. They
 |---|---|
 | `position` | Pixel vector: `base`, `(100, 20)`, `offset(-250, 0)` |
 | `scale` | Vector: `base`, `(1, 1)`, `factor(0.2, 0.2)` |
-| `rotation` | Degrees: `0`, `base`, `offset(15)` |
+| `rotation` | Z degrees: `0`, `base`, `offset(15)` |
+| `rotation-x`, `rotation-y` | X/Y degrees: `0`, `base`, `offset(45)` |
+| `perspective-distance` | Project pixels, 0.001–1e9: `312.5`, `base`, `factor(0.75)` |
 | `opacity` | 0–1 or `base` |
 | `fill`, `stroke` | Linear `rgba(r, g, b, a)` or `base` |
 | `blur` | 0–512 pixels or `base` |
@@ -197,7 +199,9 @@ Text edits remap existing ranges through the normal subtitle editing rules. They
 
 Version 1 uses the Effects panel's current whole-line / text-range scope and Normal / Active / Inactive visual state. Version 2 selects source text and state per scope as described above. Templates do not store project range IDs, so the same template can target ranges in different subtitles. A current-range application targets one subtitle Clip; whole-subtitle application can target multiple subtitle Clips, each resolving its own groups and base values.
 
-A Normal text range supports font size, letter spacing, fill / stroke colors and blurs, stroke width, shadow, and independent position, scale, and Z rotation. Local `position` is the range's pixel Offset, with a default of `(0, 0)`; it translates that group's laid-out geometry. Font size and spacing reflow on every frame. Local translation, scale, and rotation retain layout space and use the range's configured pivot. Active / Inactive targets support colors, stroke width, fill / stroke blur, and shadow, sharing Normal geometry. Opacity, composited layer blur, paths, and masks cannot target text ranges. Unsupported properties produce a source location diagnostic and reject the entire application.
+A Normal text range supports font size, letter spacing, fill / stroke colors and blurs, stroke width, shadow, and independent position, scale, XYZ rotation, and perspective distance. Local `position` is the range's pixel Offset, with a default of `(0, 0)`; it translates that group's laid-out geometry. Font size and spacing reflow on every frame. Local translation, scale, and rotation retain layout space and use the range's configured pivot. Active / Inactive targets support colors, stroke width, fill / stroke blur, and shadow, sharing Normal geometry. Opacity, composited layer blur, paths, and masks cannot target text ranges. Unsupported properties produce a source location diagnostic and reject the entire application.
+
+Both language versions support the spatial properties. Rotation values remain unwrapped: `rotation-x offset(720)` adds two complete turns. The script declares axes separately; compilation combines them into one XYZ Vector3 track, sharing the union of keyframe times while retaining component curves. Declaring one axis preserves existing animation on the other axes. A generated range begins with each rotation at 0 and perspective distance at 312.5. Distance must stay positive and within its limits at every resolved keyframe. Static Pivot compensation is native placement data and has no DSL animation property; see [3D editing](workbench.md#3d-rotation-and-perspective) and [projection math](rendering.md#flat-plane-projection).
 
 Inherited base values may be mixed within a range or a whole-line visual state because of rich text or karaoke overrides. Reading mixed values with `base`, `offset`, or `factor` rejects the entire application. With no existing target track, an undeclared leading interval also requires a uniform base. Unify the property first, or use explicit values starting at the Clip origin. Color scripts interpolate in linear RGB. If an existing matching target uses sRGB, cover its complete duration or clear the track first; partial overlays are rejected to preserve the retained intervals' interpolation.
 
@@ -213,14 +217,17 @@ IDs, scope names, and segment names use lowercase ASCII letters, digits, `.` and
 
 ## Native project and ASS exchange
 
-Projects save as v14. Local Offset, reversed curves, and generated-block origins were introduced in v13 and remain supported. Versions v3–v13 migrate through the normal project loader; v12 ranges retain their identities, with new Offset `(0, 0)`, Reverse `false`, and no generated origin. Files claiming a schema before v13 cannot declare these v13 fields. See [storage compatibility](architecture.md#time-and-storage).
+Projects save as v17. Versions v3–v16 migrate through the normal project loader, including scalar rotation axes becoming a shared Vector3 track. Layers and ranges predating v16 receive X/Y rotation 0, perspective distance 312.5, and zero projection compensation; files claiming older schemas cannot declare later spatial or Vector3 capabilities. Local Offset, reversed curves, and generated-block origins were introduced in v13 and remain supported; v12 ranges retain their identities with zero Offset, false Reverse, and no generated origin. See [storage compatibility](architecture.md#time-and-storage).
 
 ASS cannot represent independent range translation; export reports `Ass.RangeTranslation` and omits that movement. Range scale/pivots have the existing layout differences, and reversed nonlinear curves use sampling or explicit approximation diagnostics. Advanced ASS source edits retain native Offset, generated ownership, and unrepresentable reversed tracks. Save `.aeginext` to preserve the complete editable result; see [ASS interoperability](ass-compatibility.md).
+
+ASS `\frx` / `\fry` / `\frz`, including supported `\t` and reset sequences, convert through native XYZ axes and anchors. Adjustable distance, projection compensation, and coupled whole/range spatial transforms have explicit loss diagnostics. Export keeps source Bézier curves plus rotation tags; it does not turn projected control points into a different cubic curve.
 
 ## Examples
 
 - [Builtin fade](../../src/AegiNext.Core/Effects/Scripts/fade-in-out.aegifx)
 - [Slide/pop](examples/effects/slide-pop.aegifx)
+- [3D tilt and perspective](examples/effects/spatial-tilt.aegifx)
 - [Linear color cycle](examples/effects/color-cycle.aegifx)
 - [Mask slide](examples/effects/mask-slide.aegifx)
 - [Mask morph](examples/effects/mask-morph.aegifx)

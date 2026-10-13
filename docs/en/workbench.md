@@ -56,6 +56,21 @@ For a Normal text range, Position edits its local pixel offset; Scale and Rotati
 
 Category folding is a personal preference and creates no project undo entry. Folding or refreshing theme/language does not submit drafts. Invalid input keeps its raw text and opens its category when validation fails. Scope/state/property changes handle the current draft first; deferred commits retain the complete target that originally owned the draft.
 
+### 3D rotation and perspective
+
+Subtitles, images, and shapes can rotate as flat planes. In **Effects → Transform**, the Rotation Vector3 shows **X**, **Y**, and **Z** in degrees. The axes share one track and keyframe times, just like Position Vector2; each component's value and interpolation curve can be edited separately. **Perspective distance** is measured in project pixels and defaults to 312.5. A smaller positive distance increases perspective; it does not change the project's output resolution. Angles keep complete turns: an animation from 0° to 720° makes two turns.
+
+After selecting a keyframe, choose All or X/Y/Z in the curve component selector, then set the interpolation type and power exponent. Vector2 offers All or X/Y, and colors offer R/G/B/A; changing one component's curve preserves the others. Compact numeric inputs clip long decimal displays while retaining the full original value for editing and saving.
+
+1. Select a Clip. To edit a text group, select its animation range in Effects first.
+2. In **Drawing tools**, choose **3D transform**. Drag the red **X** handle vertically, the green **Y** handle horizontally, or the blue **Z** handle around the pivot. Hold Shift to snap rotations to 15°.
+3. Drag the gold **D** handle horizontally to adjust perspective distance. Moving right increases the distance; moving left strengthens perspective.
+4. Release to commit one Undo operation. Esc, capture loss, or changing the target discards the temporary edit. Enable the corresponding property's animation or select a keyframe in Effects to edit its value with the same handles.
+
+The tool uses the selected range's Normal geometry even when Active or Inactive appearance is selected. The Select/Move tool continues to edit the whole layer. Imported ordered ASS rotation transforms can be edited by operation in Effects; clear that rotation track before direct handle editing. Perspective distance and other ranges have their own tracks.
+
+Anchor chooses the canvas position; Pivot chooses the local rotation center. Changing Pivot preserves the projected picture at the current editing frame through native compensation, retaining existing tracks. Other frames may change because they use different rotations or scales. ASS `\org` is converted into this native anchor/pivot model at import/export; it is not a separate absolute-origin setting. Use `.aeginext` to preserve adjustable perspective, compensation, and nested range transforms. ASS exchange reports the combinations it cannot represent.
+
 ## Save and recover
 
 Settings → Projects sets the workspace root, initially `Documents/AegiNext/Workspace`. Creating `Example` makes `Example/Example.aeginext` and `Example/backup/`; an existing target directory rejects creation.

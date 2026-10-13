@@ -1,0 +1,20 @@
+# Tilt the selected whole subtitle or Normal text range, then return to its native base.
+effect "spatial-tilt" version 2
+short-clip compress
+
+scope tilt current
+    segment sway flex 1
+        at 0 rotation-x base ease-in-out
+        at 0 rotation-y base ease-in-out
+        at 0 rotation base ease-in-out
+        at 0 perspective-distance base ease-in-out
+        at 0.5 rotation-x offset(30) ease-in-out
+        at 0.5 rotation-y offset(-45) ease-in-out
+        at 0.5 rotation offset(15) ease-in-out
+        at 0.5 perspective-distance factor(0.75) ease-in-out
+        at 1 rotation-x base
+        at 1 rotation-y base
+        at 1 rotation base
+        at 1 perspective-distance base
+    end
+end
