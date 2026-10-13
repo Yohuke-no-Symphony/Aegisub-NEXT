@@ -11,13 +11,23 @@ public class LayerPositionDraft : ObservableObject
     private bool canCustomize = true;
     private LayerPositionDraftGeometry? geometry;
     private LayerPosition source = new();
+    private ScenePoint loadedPivot;
+    private ScenePoint compensatedPivot;
+    private SceneVector3 loadedProjectionTranslation;
 
     /// <summary>创建独立的六项数值草稿，并统一发布位置变化。</summary>
     public LayerPositionDraft()
     {
         foreach (var field in new[] { AnchorX, AnchorY, PivotX, PivotY, OffsetX, OffsetY })
         {
-            field.PropertyChanged += (_, _) => RaiseChanged();
+            field.PropertyChanged += (_, args) =>
+            {
+                if (!loading && args.PropertyName == nameof(NumericValueDraft.RawText))
+                {
+                    CompensateAffinePivot();
+                    RaiseChanged();
+                }
+            };
         }
 
         LoadCore(new(), true, true, null);
@@ -31,6 +41,28 @@ public class LayerPositionDraft : ObservableObject
     public NumericValueDraft OffsetX { get; } = new();
     public NumericValueDraft OffsetY { get; } = new();
     public LayerPositionDraftGeometry? Geometry => geometry;
+    public LayerPositionDraftGeometry? DiagramGeometry
+    {
+        get
+        {
+            if (geometry is null || !IsExplicit || Validate() is not null)
+            {
+                return geometry;
+            }
+            var transform = geometry.Transform with
+            {
+                ProjectionTranslation = loadedProjectionTranslation + ProjectionTranslationDelta
+            };
+            return transform == geometry.Transform ? geometry : geometry with { Transform = transform };
+        }
+    }
+
+    /// <summary>以当前编辑姿态计算轴心改变所需的静态三维补偿，不修改任何动画轨道。</summary>
+    public SceneVector3 ProjectionTranslationDelta => IsExplicit && geometry is not null &&
+        SceneProjection.RequiresPerspective(geometry.Transform) && Validate() is null
+        ? SceneProjection.RotateScaled(new((Read(PivotX, source.Pivot.X) - loadedPivot.X) * geometry.GlyphSize.X,
+            (Read(PivotY, source.Pivot.Y) - loadedPivot.Y) * geometry.GlyphSize.Y), geometry.Transform)
+        : default;
     public bool CanSelectPreset => CanCustomize && geometry is { OffsetScale: > 0 } && double.IsFinite(geometry.OffsetScale);
     public ScenePoint? AnchorSelection => Selection(AnchorX, AnchorY);
     public ScenePoint? PivotSelection => Selection(PivotX, PivotY);
@@ -68,6 +100,9 @@ public class LayerPositionDraft : ObservableObject
         try
         {
             source = position;
+            loadedPivot = position.Pivot;
+            compensatedPivot = position.Pivot;
+            loadedProjectionTranslation = geometry?.Transform.ProjectionTranslation ?? default;
             CanCustomize = canCustomize;
             UpdateGeometry(geometry);
             IsExplicit = explicitPosition;
@@ -95,6 +130,7 @@ public class LayerPositionDraft : ObservableObject
     {
         geometry = value;
         OnPropertyChanged(nameof(Geometry));
+        OnPropertyChanged(nameof(DiagramGeometry));
         OnPropertyChanged(nameof(CanSelectPreset));
     }
 
@@ -110,7 +146,7 @@ public class LayerPositionDraft : ObservableObject
         var previous = IsExplicit ? CreatePosition()! : source;
         var offset = new ScenePoint(previous.Offset.X + (previous.Anchor.X - anchor.X) * geometry!.ParentSize.X / geometry.OffsetScale,
             previous.Offset.Y + (previous.Anchor.Y - anchor.Y) * geometry.ParentSize.Y / geometry.OffsetScale);
-        if (setPivot)
+        if (setPivot && !SceneProjection.RequiresPerspective(geometry.Transform))
         {
             var displacement = geometry.PivotDisplacement(previous.Pivot, anchor);
             offset = new(offset.X + displacement.X, offset.Y + displacement.Y);
@@ -130,6 +166,7 @@ public class LayerPositionDraft : ObservableObject
         try
         {
             source = next;
+            compensatedPivot = next.Pivot;
             IsExplicit = true;
             AnchorX.Load(next.Anchor.X);
             AnchorY.Load(next.Anchor.Y);
@@ -142,6 +179,7 @@ public class LayerPositionDraft : ObservableObject
         {
             loading = false;
         }
+        CompensateAffinePivot();
         RaiseChanged();
         return true;
     }
@@ -202,6 +240,7 @@ public class LayerPositionDraft : ObservableObject
         {
             loading = false;
         }
+        CompensateAffinePivot();
         RaiseChanged();
         return true;
     }
@@ -225,6 +264,56 @@ public class LayerPositionDraft : ObservableObject
             Pivot = new(Read(PivotX, source.Pivot.X), Read(PivotY, source.Pivot.Y)),
             Offset = new(Read(OffsetX, source.Offset.X), Read(OffsetY, source.Offset.Y))
         };
+    }
+
+    /// <summary>将验证后的轴心补偿应用到工程基础变换；重复准备不会累加草稿补偿。</summary>
+    public LayerTransform PrepareTransform(LayerTransform transform)
+    {
+        if (Validate() is { } key)
+        {
+            throw new InvalidDataException(key);
+        }
+        if (!IsExplicit || geometry is null || !SceneProjection.RequiresPerspective(geometry.Transform))
+        {
+            return transform;
+        }
+        var translation = loadedProjectionTranslation + ProjectionTranslationDelta;
+        return translation == transform.ProjectionTranslation ? transform : transform with { ProjectionTranslation = translation };
+    }
+
+    private void CompensateAffinePivot()
+    {
+        if (loading || !IsExplicit || geometry is null || PivotX.Parse() is not { } x || PivotY.Parse() is not { } y ||
+            x is < 0 or > 1 || y is < 0 or > 1 || OffsetX.Parse() is not { } offsetX || OffsetY.Parse() is not { } offsetY)
+        {
+            return;
+        }
+        var next = new ScenePoint((double)x, (double)y);
+        if (next == compensatedPivot)
+        {
+            return;
+        }
+        if (!SceneProjection.RequiresPerspective(geometry.Transform))
+        {
+            var displacement = geometry.PivotDisplacement(compensatedPivot, next);
+            var offset = new ScenePoint((double)offsetX + displacement.X, (double)offsetY + displacement.Y);
+            if (!double.IsFinite(offset.X) || !double.IsFinite(offset.Y) ||
+                offset.X is < -1000000000 or > 1000000000 || offset.Y is < -1000000000 or > 1000000000)
+            {
+                return;
+            }
+            loading = true;
+            try
+            {
+                OffsetX.Load(offset.X);
+                OffsetY.Load(offset.Y);
+            }
+            finally
+            {
+                loading = false;
+            }
+        }
+        compensatedPivot = next;
     }
 
     private static double Read(NumericValueDraft field, double original)
@@ -254,5 +343,7 @@ public class LayerPositionDraft : ObservableObject
         OnPropertyChanged(nameof(AnchorSelection));
         OnPropertyChanged(nameof(PivotSelection));
         OnPropertyChanged(nameof(DiagramPosition));
+        OnPropertyChanged(nameof(DiagramGeometry));
+        OnPropertyChanged(nameof(ProjectionTranslationDelta));
     }
 }

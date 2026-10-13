@@ -80,6 +80,10 @@ internal sealed partial class WorkbenchSession
             Position = vm.Position.CreatePosition()
         };
         prepared = WorkspaceDraftOperations.UpdateSubtitle(prepared, id, cue => cue with { Style = style });
+        prepared = WorkspaceDraftOperations.UpdateLayer(prepared, selected.Id, layer => layer with
+        {
+            Transform = vm.Position.PrepareTransform(layer.Transform)
+        });
         return prepared;
     }
 

@@ -24,7 +24,11 @@ internal abstract class GraphicStyleEditorViewModel : StyleEditorViewModel
     {
         var position = Session.ReadGraphicPositionDraft(layer, Position);
         var prepared = PrepareGraphicCore(document, layer, preview);
-        return WorkspaceDraftOperations.UpdateLayer(prepared, layer.Id, current => current with { Position = position });
+        return WorkspaceDraftOperations.UpdateLayer(prepared, layer.Id, current => current with
+        {
+            Position = position,
+            Transform = Position.PrepareTransform(current.Transform)
+        });
     }
 
     protected override void RefreshGeometry(ProjectDocument document, ProjectLayer layer)

@@ -18,6 +18,50 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class LayerPositionDiagramUiTests
 {
     [AvaloniaFact]
+    public void SpatialDiagramProjectsTheGlyphAndKeepsItsOutlineDuringPivotDraftChanges()
+    {
+        using var environment = new UiTestEnvironment();
+        var geometry = CreateGeometry() with
+        {
+            Transform = new() { RotationX = 35, RotationY = -28, PerspectiveDistance = 180 }
+        };
+        var draft = new SubtitlePositionDraft();
+        draft.Load(new() { Position = CreatePosition() }, geometry: geometry);
+        var editor = new LayerPositionEditor { Draft = draft };
+        var window = new Window { Width = 440, Height = 760, Content = editor };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var bound = editor.FindControl<LayerPositionDiagram>("PositionDiagram")!;
+            var diagram = CreateDiagram();
+            diagram.Geometry = bound.Geometry;
+            diagram.Position = bound.Position;
+            using var before = Render(diagram);
+            using var flat = Render(CreateDiagram());
+            var outline = FindPixels(before, SKColors.SeaGreen);
+            Assert.NotEmpty(outline);
+            Assert.NotEqual(FindPixels(flat, SKColors.SeaGreen), outline);
+
+            draft.PivotX.RawText = "0.4";
+            draft.PivotY.RawText = "0.6";
+            Dispatcher.UIThread.RunJobs();
+            diagram.Geometry = bound.Geometry;
+            diagram.Position = bound.Position;
+            using var changed = Render(diagram);
+
+            Assert.NotEqual(geometry.Transform.ProjectionTranslation, bound.Geometry!.Transform.ProjectionTranslation);
+            Assert.Equal(outline, FindPixels(changed, SKColors.SeaGreen));
+            Assert.Equal(geometry.Transform, draft.Geometry!.Transform);
+            Assert.Equal(CreatePosition().Offset, draft.CreatePosition()!.Offset);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void SharedVectorRowsKeepValidationFocusAndEscapeRestoresOnlyFocusedComponent()
     {
         using var environment = new UiTestEnvironment();

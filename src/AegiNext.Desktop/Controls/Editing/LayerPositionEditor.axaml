@@ -28,7 +28,7 @@
     <WrapPanel>
       <controls:AnchorPresetPicker Name="AnchorPresets" IsEnabled="{Binding CanSelectPreset}" Margin="0,0,12,8" />
       <controls:LayerPositionDiagram Name="PositionDiagram" Width="180" Height="138" Margin="0,0,0,8"
-                                       Geometry="{Binding Geometry, Mode=OneWay}" Position="{Binding DiagramPosition, Mode=OneWay}"
+                                       Geometry="{Binding DiagramGeometry, Mode=OneWay}" Position="{Binding DiagramPosition, Mode=OneWay}"
                                        IsExplicit="{Binding IsExplicit, Mode=OneWay}"
                                        ShowMargins="{Binding ShowMargins, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}"
                                        Margins="{Binding Margins, RelativeSource={RelativeSource AncestorType=controls:LayerPositionEditor}}"

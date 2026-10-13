@@ -117,6 +117,7 @@ public sealed class LayerPositionDiagram : Control
         var anchor = default(Point);
         var offset = default(Point);
         var pivot = default(Point);
+        var hasProjectedPivot = false;
         var glyph = Array.Empty<Point>();
         if (drawGeometry)
         {
@@ -125,29 +126,30 @@ public sealed class LayerPositionDiagram : Control
             anchor = new(placement.Anchor.X * parentSize.X, placement.Anchor.Y * parentSize.Y);
             var basePosition = LayerPositionGeometry.BasePosition(placement, parentSize);
             offset = new(basePosition.X, basePosition.Y);
-            pivot = offset + new Vector(measured.Transform.X, measured.Transform.Y);
+            var center = new ScenePoint(offset.X + measured.Transform.X, offset.Y + measured.Transform.Y);
             var normalizedPivot = LayerPositionGeometry.LocalPivot(placement, measured.GlyphOrigin, measured.GlyphSize);
-            var localPivot = new Point(normalizedPivot.X + measured.Transform.Pivot.X,
+            var localPivot = new ScenePoint(normalizedPivot.X + measured.Transform.Pivot.X,
                 normalizedPivot.Y + measured.Transform.Pivot.Y);
-            var radians = measured.Transform.Rotation * Math.PI / 180;
-            var cosine = Math.Cos(radians);
-            var sine = Math.Sin(radians);
-            glyph =
-            [
-                MapGlyph(measured.GlyphOrigin.X, measured.GlyphOrigin.Y),
-                MapGlyph(measured.GlyphOrigin.X + measured.GlyphSize.X, measured.GlyphOrigin.Y),
-                MapGlyph(measured.GlyphOrigin.X + measured.GlyphSize.X, measured.GlyphOrigin.Y + measured.GlyphSize.Y),
-                MapGlyph(measured.GlyphOrigin.X, measured.GlyphOrigin.Y + measured.GlyphSize.Y)
-            ];
-
-            Point MapGlyph(double x, double y)
+            var projection = SceneProjection.CreateMatrix(measured.Transform, localPivot, center);
+            if (projection.TryMap(localPivot, out var projectedPivot, SceneProjection.NEAR_PLANE_RATIO))
             {
-                var relativeX = (x - localPivot.X) * measured.Transform.ScaleX;
-                var relativeY = (y - localPivot.Y) * measured.Transform.ScaleY;
-                return pivot + new Vector(cosine * relativeX - sine * relativeY, sine * relativeX + cosine * relativeY);
+                pivot = new(projectedPivot.X, projectedPivot.Y);
+                hasProjectedPivot = true;
             }
+            ScenePoint[] localCorners =
+            [
+                measured.GlyphOrigin,
+                new(measured.GlyphOrigin.X + measured.GlyphSize.X, measured.GlyphOrigin.Y),
+                new(measured.GlyphOrigin.X + measured.GlyphSize.X, measured.GlyphOrigin.Y + measured.GlyphSize.Y),
+                new(measured.GlyphOrigin.X, measured.GlyphOrigin.Y + measured.GlyphSize.Y)
+            ];
+            glyph = projection.Clip(localCorners).Select(point =>
+            {
+                var projected = projection.Map(point);
+                return new Point(projected.X, projected.Y);
+            }).ToArray();
         }
-        var points = drawGeometry ? glyph.Append(offset).Append(pivot).ToArray() : [];
+        var points = drawGeometry ? glyph.Append(offset).Concat(hasProjectedPivot ? [pivot] : Array.Empty<Point>()).ToArray() : [];
         var minimumX = points.Length == 0 ? 0 : Math.Min(0, points.Min(point => point.X));
         var minimumY = points.Length == 0 ? 0 : Math.Min(0, points.Min(point => point.Y));
         var maximumX = points.Length == 0 ? parentSize.X : Math.Max(parentSize.X, points.Max(point => point.X));
@@ -175,19 +177,22 @@ public sealed class LayerPositionDiagram : Control
             return;
         }
 
-        var outline = new StreamGeometry();
-        using (var path = outline.Open())
+        if (glyph.Length >= 3)
         {
-            path.BeginFigure(Map(glyph[0]), true);
-            foreach (var point in glyph.Skip(1))
+            var outline = new StreamGeometry();
+            using (var path = outline.Open())
             {
-                path.LineTo(Map(point));
+                path.BeginFigure(Map(glyph[0]), true);
+                foreach (var point in glyph.Skip(1))
+                {
+                    path.LineTo(Map(point));
+                }
+                path.EndFigure(true);
             }
-            path.EndFigure(true);
+            var glyphPen = new Pen(Brushes.SeaGreen, 1.5,
+                geometry!.HasInk ? null : new DashStyle([3, 3], 0));
+            context.DrawGeometry(new SolidColorBrush(Color.Parse("#1832CD32")), glyphPen, outline);
         }
-        var glyphPen = new Pen(Brushes.SeaGreen, 1.5,
-            geometry!.HasInk ? null : new DashStyle([3, 3], 0));
-        context.DrawGeometry(new SolidColorBrush(Color.Parse("#1832CD32")), glyphPen, outline);
         var mappedAnchor = Map(anchor);
         var mappedOffset = Map(offset);
         context.DrawLine(new Pen(Foreground, 1), mappedAnchor, mappedOffset);
@@ -200,12 +205,15 @@ public sealed class LayerPositionDiagram : Control
             context.DrawLine(new Pen(Foreground, 1), mappedOffset, mappedOffset - unit * 5 + perpendicular * 3);
             context.DrawLine(new Pen(Foreground, 1), mappedOffset, mappedOffset - unit * 5 - perpendicular * 3);
         }
-        if (offset != pivot)
+        if (hasProjectedPivot && offset != pivot)
         {
             context.DrawLine(new Pen(Foreground, 1, new DashStyle([2, 2], 0)), mappedOffset, Map(pivot));
         }
         DrawAnchor(context, mappedAnchor);
-        DrawPivot(context, Map(pivot));
+        if (hasProjectedPivot)
+        {
+            DrawPivot(context, Map(pivot));
+        }
         var legendY = Bounds.Height - LEGEND_HEIGHT + 3;
         DrawAnchor(context, new(9, legendY + 6));
         DrawText(context, "A", new(16, legendY), Brushes.RoyalBlue);
