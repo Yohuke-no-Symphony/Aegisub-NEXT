@@ -203,7 +203,8 @@ public static partial class EffectScriptCompiler
 
     internal static void ValidateScopedTrackBudget(IEnumerable<AnimationTrack> tracks)
     {
-        if (tracks.Select(track => track.Target).Distinct().Count(target => target.TextRangeId.HasValue || target.State != SubtitleAnimationState.NORMAL) > MAXIMUM_SCOPED_TRACKS)
+        if (tracks.Select(track => EffectScriptRotationTracks.CanonicalTarget(track.Target)).Distinct()
+            .Count(target => target.TextRangeId.HasValue || target.State != SubtitleAnimationState.NORMAL) > MAXIMUM_SCOPED_TRACKS)
         {
             throw new EffectScriptException($"字幕范围和视觉状态轨道总数超过 {MAXIMUM_SCOPED_TRACKS} 条的预算。");
         }

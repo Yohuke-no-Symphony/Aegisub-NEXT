@@ -12,7 +12,8 @@ public static partial class EffectScriptCompiler
     public static ImmutableArray<AnimationTrack> Compile(EffectScript script, ProjectLayer target, SubtitleStyle? subtitleStyle = null,
         AnimationTrackTarget? targetContext = null, SubtitleLine? subtitle = null)
     {
-        return CompileWithCoverage(script, target, subtitleStyle, false, targetContext, subtitle).Tracks;
+        var compilation = CompileWithCoverage(script, target, subtitleStyle, false, targetContext, subtitle);
+        return EffectScriptRotationTracks.Normalize(compilation, target, subtitle).Tracks;
     }
 
     internal static EffectScriptCompilation CompileWithCoverage(EffectScript script, ProjectLayer target, SubtitleStyle? subtitleStyle,
@@ -20,6 +21,7 @@ public static partial class EffectScriptCompiler
     {
         EffectScriptValidator.Validate(script);
         ArgumentNullException.ThrowIfNull(target);
+        target = EffectScriptRotationTracks.Expand(target, subtitle);
         if (script.Version != 1)
         {
             throw new EffectScriptException("版本 2 会生成字幕范围，请使用 CompileTarget 接口保留完整编译结果。");

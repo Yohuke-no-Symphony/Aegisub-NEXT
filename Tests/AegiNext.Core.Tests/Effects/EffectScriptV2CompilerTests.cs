@@ -103,10 +103,10 @@ public sealed class EffectScriptV2CompilerTests
         var result = EffectScriptCompiler.CompileTarget(script, Layer(line), subtitle: line);
         var track = Assert.Single(result.Tracks);
 
-        Assert.Equal(25, SceneEvaluator.EvaluateScalarTrack(track, new(1, 2)));
-        Assert.Equal(25, SceneEvaluator.EvaluateScalarTrack(track, new(3, 2)));
-        Assert.True(track.Keyframes.Single(frame => frame.Time == new MediaTime(1)).Reverse);
-        Assert.Equal(2, track.Keyframes.Single(frame => frame.Time == new MediaTime(1)).Exponent);
+        Assert.Equal(25, SceneEvaluator.EvaluateVector3Track(track, new(1, 2)).Z);
+        Assert.Equal(25, SceneEvaluator.EvaluateVector3Track(track, new(3, 2)).Z);
+        Assert.True(track.Keyframes.Single(frame => frame.Time == new MediaTime(1)).GetCurve(2).Reverse);
+        Assert.Equal(2, track.Keyframes.Single(frame => frame.Time == new MediaTime(1)).GetCurve(2).Exponent);
         Validate(result);
     }
 
@@ -145,7 +145,8 @@ public sealed class EffectScriptV2CompilerTests
         var manual = new SubtitleAnimationRange(Guid.NewGuid(), 0, 2);
         var other = new SubtitleAnimationRange(Guid.NewGuid(), 0, 1) { GeneratedOrigin = new("other", "letters", null, "other-unit") };
         var extra = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.FILL, TextRangeId: changed.Id, State: SubtitleAnimationState.ACTIVE), [new(new(0), SceneColor.Black)]);
-        var unrelated = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.ROTATION, TextRangeId: manual.Id), [new(new(0), 10)]);
+        var unrelated = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.ROTATION_3D, TextRangeId: manual.Id),
+            [new(new(0), AnimationValue.FromVector3(new(0, 0, 10)))]);
         var inputLine = first.Subtitle with { AnimationRanges = [changed, manual, oldRanges[1], other] };
         var inputLayer = first.PreparedLayer! with { Tracks = first.Tracks.Add(extra).Add(unrelated) };
 
@@ -362,17 +363,17 @@ public sealed class EffectScriptV2CompilerTests
         var result = EffectScriptComposer.ComposeTarget(script, layer, subtitle: line);
         var actual = Assert.Single(result.Tracks);
 
-        Assert.Equal(500, SceneEvaluator.EvaluateScalarTrack(actual, new(3, 2)));
-        Assert.Equal(-500, SceneEvaluator.EvaluateScalarTrack(actual, new(7, 2)));
+        Assert.Equal(500, SceneEvaluator.EvaluateVector3Track(actual, new(3, 2)).Z);
+        Assert.Equal(-500, SceneEvaluator.EvaluateVector3Track(actual, new(7, 2)).Z);
         for (var sample = 0; sample <= 100; sample++)
         {
             var time = new MediaTime(sample, 20);
             if (time <= new MediaTime(1) || time >= new MediaTime(2) && time <= new MediaTime(3) || time >= new MediaTime(4))
             {
-                Assert.Equal(SceneEvaluator.EvaluateScalarTrack(original, time), SceneEvaluator.EvaluateScalarTrack(actual, time), 10);
+                Assert.Equal(SceneEvaluator.EvaluateScalarTrack(original, time), SceneEvaluator.EvaluateVector3Track(actual, time).Z, 10);
             }
         }
-        Assert.True(actual.Keyframes.Single(frame => frame.Time == new MediaTime(2)).Reverse);
+        Assert.True(actual.Keyframes.Single(frame => frame.Time == new MediaTime(2)).GetCurve(2).Reverse);
         Validate(result);
     }
 
@@ -446,7 +447,7 @@ public sealed class EffectScriptV2CompilerTests
 
         var result = EffectScriptCompiler.CompileTarget(closed, layer, subtitle: line);
 
-        Assert.All(Assert.Single(result.Tracks).Keyframes, frame => Assert.Equal(25, frame.Value.Scalar));
+        Assert.All(Assert.Single(result.Tracks).Keyframes, frame => Assert.Equal(25, frame.Value.Vector3.Z));
         var entrance = EffectScriptParser.Parse("""
             effect "entrance" version 2
             short-clip compress
@@ -460,7 +461,7 @@ public sealed class EffectScriptV2CompilerTests
             end
             """);
         var single = Assert.Single(EffectScriptCompiler.CompileTarget(entrance, layer, subtitle: line).Tracks);
-        Assert.Equal(100, single.Keyframes[^1].Value.Scalar);
+        Assert.Equal(100, single.Keyframes[^1].Value.Vector3.Z);
     }
 
     private static EffectScript Pulse(string unit, string fields = "") => EffectScriptParser.Parse($"""

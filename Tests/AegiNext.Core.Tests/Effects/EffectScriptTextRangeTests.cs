@@ -75,7 +75,7 @@ public sealed class EffectScriptTextRangeTests
         });
         Assert.Equal(60, SceneEvaluator.EvaluateScalarTrack(tracks.Single(track => track.Property == AnimationProperty.FONT_SIZE), layer.AnimationOffset));
         Assert.Equal(new ScenePoint(1, 1.5), SceneEvaluator.EvaluateVectorTrack(tracks.Single(track => track.Property == AnimationProperty.SCALE), layer.AnimationOffset));
-        Assert.Equal(25, SceneEvaluator.EvaluateScalarTrack(tracks.Single(track => track.Property == AnimationProperty.ROTATION), layer.AnimationOffset));
+        Assert.Equal(25, SceneEvaluator.EvaluateVector3Track(tracks.Single(track => track.Property == AnimationProperty.ROTATION_3D), layer.AnimationOffset).Z);
         Assert.Equal(30, tracks.Single(track => track.Property == AnimationProperty.FONT_SIZE).Keyframes[^1].Value.Scalar);
     }
 

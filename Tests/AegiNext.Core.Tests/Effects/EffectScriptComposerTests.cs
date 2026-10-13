@@ -25,9 +25,9 @@ public sealed class EffectScriptComposerTests
         var composed = Assert.Single(EffectScriptComposer.Compose(script, layer));
 
         AssertUncoveredSamplesEqual(original, composed, new(3, 2), new(5, 2), new(4));
-        Assert.Equal(500, SceneEvaluator.EvaluateScalarTrack(composed, new(2)));
-        Assert.Equal(exponent, composed.Keyframes[0].Exponent);
-        Assert.Equal(exponent, composed.Keyframes.Single(frame => frame.Time == new MediaTime(5, 2)).Exponent);
+        Assert.Equal(500, SceneEvaluator.EvaluateVector3Track(composed, new(2)).Z);
+        Assert.Equal(exponent, composed.Keyframes[0].GetCurve(2).Exponent);
+        Assert.Equal(exponent, composed.Keyframes.Single(frame => frame.Time == new MediaTime(5, 2)).GetCurve(2).Exponent);
         Validate(layer, [composed]);
     }
 
@@ -132,9 +132,9 @@ public sealed class EffectScriptComposerTests
             }
         }
 
-        Assert.Equal(30, SceneEvaluator.EvaluateScalarTrack(composed, new(3, 2)));
-        Assert.Equal(14, SceneEvaluator.EvaluateScalarTrack(composed, new(5, 2)));
-        Assert.Equal(-30, SceneEvaluator.EvaluateScalarTrack(composed, new(7, 2)));
+        Assert.Equal(30, SceneEvaluator.EvaluateVector3Track(composed, new(3, 2)).Z);
+        Assert.Equal(14, SceneEvaluator.EvaluateVector3Track(composed, new(5, 2)).Z);
+        Assert.Equal(-30, SceneEvaluator.EvaluateVector3Track(composed, new(7, 2)).Z);
         Validate(layer, [composed]);
     }
 
@@ -154,10 +154,10 @@ public sealed class EffectScriptComposerTests
         var composed = Assert.Single(EffectScriptComposer.Compose(MiddleScript(original, EffectScriptProperty.ROTATION, 100), layer));
 
         AssertUncoveredSamplesEqual(original, composed, new(3, 2), new(5, 2), new(4));
-        Assert.Equal(10, SceneEvaluator.EvaluateScalarTrack(composed, new(999, 1000)));
-        Assert.Equal(20, SceneEvaluator.EvaluateScalarTrack(composed, new(1)));
-        Assert.Equal(30, SceneEvaluator.EvaluateScalarTrack(composed, new(2999, 1000)));
-        Assert.Equal(40, SceneEvaluator.EvaluateScalarTrack(composed, new(3)));
+        Assert.Equal(10, SceneEvaluator.EvaluateVector3Track(composed, new(999, 1000)).Z);
+        Assert.Equal(20, SceneEvaluator.EvaluateVector3Track(composed, new(1)).Z);
+        Assert.Equal(30, SceneEvaluator.EvaluateVector3Track(composed, new(2999, 1000)).Z);
+        Assert.Equal(40, SceneEvaluator.EvaluateVector3Track(composed, new(3)).Z);
         Validate(layer, [composed]);
     }
 
@@ -352,10 +352,10 @@ public sealed class EffectScriptComposerTests
     public void SingleKeyTargetExtendsItsConstantValueAndUnrelatedOrderedTrackKeepsItsIdentity()
     {
         var original = new AnimationTrack(AnimationProperty.OPACITY, [new(new(2), 0.8)]);
-        var ordered = new AnimationTrack(AnimationProperty.ROTATION, [])
+        var ordered = new AnimationTrack(AnimationProperty.ROTATION_3D, [])
         {
-            InitialValue = 15,
-            Transforms = [new(Guid.NewGuid(), new(0), new(4), 30)]
+            InitialValue = AnimationValue.FromVector3(new(0, 0, 15)),
+            Transforms = [new(Guid.NewGuid(), new(0), new(4), AnimationValue.FromVector3(new(0, 0, 30))) { ComponentMask = 4 }]
         };
         var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 1, 1), End = new(4), Tracks = [original, ordered] };
 
@@ -422,6 +422,12 @@ public sealed class EffectScriptComposerTests
 
     private static void AssertValueEqual(AnimationValue expected, AnimationValue actual)
     {
+        if (expected.Kind == AnimationValueKind.SCALAR && actual.IsVector3)
+        {
+            Assert.Equal(0, actual.Vector3.X);
+            Assert.Equal(0, actual.Vector3.Y);
+            actual = AnimationValue.FromScalar(actual.Vector3.Z);
+        }
         Assert.Equal(expected.Kind, actual.Kind);
         for (var component = 0; component < expected.ComponentCount; component++)
         {

@@ -12,19 +12,24 @@ public static class EffectScriptComposer
     public static ImmutableArray<AnimationTrack> Compose(EffectScript script, ProjectLayer target, SubtitleStyle? subtitleStyle = null,
         AnimationTrackTarget? targetContext = null, SubtitleLine? subtitle = null)
     {
+        var source = target;
+        target = EffectScriptRotationTracks.Expand(target, subtitle);
         var compilation = EffectScriptCompiler.CompileWithCoverage(script, target, subtitleStyle, true, targetContext, subtitle);
-        return ComposeCompilation(compilation, target);
+        var tracks = ComposeCompilation(compilation, target);
+        return EffectScriptRotationTracks.Normalize(compilation with { Tracks = tracks }, source, subtitle).Tracks;
     }
 
     /// <summary>组合完整目标结果，保留未声明的既有动画并同步返回生成后的字幕范围。</summary>
     public static EffectScriptCompilation ComposeTarget(EffectScript script, ProjectLayer target, SubtitleStyle? subtitleStyle = null,
         AnimationTrackTarget? targetContext = null, SubtitleLine? subtitle = null)
     {
+        var source = target;
+        target = EffectScriptRotationTracks.Expand(target, subtitle);
         var compilation = EffectScriptCompiler.CompileTarget(script, target, subtitleStyle, true, targetContext, subtitle);
         var prepared = compilation.PreparedLayer ?? target;
         var tracks = ComposeCompilation(compilation, prepared);
         EffectScriptCompiler.ValidateScopedTrackBudget(tracks);
-        return compilation with { Tracks = tracks, PreparedLayer = prepared };
+        return EffectScriptRotationTracks.Normalize(compilation with { Tracks = tracks, PreparedLayer = prepared }, source, subtitle);
     }
 
     internal static ImmutableArray<AnimationTrack> ComposeCompilation(EffectScriptCompilation compilation, ProjectLayer target)
@@ -127,7 +132,8 @@ public static class EffectScriptComposer
         }
 
         var combined = frames.ToImmutable();
-        if (combined.Length > AnimationPropertyMetadata.GetMaximumTrackEntries(existing.Property))
+        var budgetProperty = EffectScriptRotationTracks.CanonicalTarget(existing.Target).Property;
+        if (combined.Length > AnimationPropertyMetadata.GetMaximumTrackEntries(budgetProperty))
         {
             throw new EffectScriptException("组合后的属性轨道超出分量时间并集预算。");
         }

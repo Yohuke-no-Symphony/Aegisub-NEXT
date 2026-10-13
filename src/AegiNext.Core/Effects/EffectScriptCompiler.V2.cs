@@ -12,7 +12,8 @@ public static partial class EffectScriptCompiler
     public static EffectScriptCompilation CompileTarget(EffectScript script, ProjectLayer target, SubtitleStyle? subtitleStyle = null,
         AnimationTrackTarget? targetContext = null, SubtitleLine? subtitle = null)
     {
-        return CompileTarget(script, target, subtitleStyle, false, targetContext, subtitle);
+        var compilation = CompileTarget(script, target, subtitleStyle, false, targetContext, subtitle);
+        return EffectScriptRotationTracks.Normalize(compilation, target, subtitle);
     }
 
     internal static EffectScriptCompilation CompileTarget(EffectScript script, ProjectLayer target, SubtitleStyle? subtitleStyle,
@@ -20,6 +21,7 @@ public static partial class EffectScriptCompiler
     {
         EffectScriptValidator.Validate(script);
         ArgumentNullException.ThrowIfNull(target);
+        target = EffectScriptRotationTracks.Expand(target, subtitle);
         if (script.Version == 1)
         {
             return CompileWithCoverage(script, target, subtitleStyle, preserveExistingAnimation, targetContext, subtitle) with
@@ -153,7 +155,8 @@ public static partial class EffectScriptCompiler
             PreflightKeys(timing.Segments, streams, start, origin, end);
             var targets = prepared.Tracks.Select(track => track.Target).Concat(existingTargets).Concat(tracks.Keys)
                 .Concat(streams.SelectMany(segment => segment).Select(flow => flow.Target)).Distinct();
-            if (targets.Count(target => target.TextRangeId.HasValue || target.State != SubtitleAnimationState.NORMAL) > MAXIMUM_SCOPED_TRACKS)
+            if (targets.Select(EffectScriptRotationTracks.CanonicalTarget).Distinct()
+                .Count(target => target.TextRangeId.HasValue || target.State != SubtitleAnimationState.NORMAL) > MAXIMUM_SCOPED_TRACKS)
             {
                 throw new EffectScriptException($"字幕范围和视觉状态轨道总数超过 {MAXIMUM_SCOPED_TRACKS} 条的预算。", plan.Scope.Line, plan.Scope.Column);
             }
