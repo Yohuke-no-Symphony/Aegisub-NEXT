@@ -8,7 +8,7 @@ namespace AegiNext.Desktop.Tests;
 /// <summary>验证统一示例的隔离内容、样式参考和真实脚本前置条件。</summary>
 public sealed class EffectPresetPreviewSceneTests
 {
-    /// <summary>默认场景使用约定文字、三秒时长和独立的逻辑样式参考。</summary>
+    /// <summary>默认场景使用约定文字、一秒时长和独立的逻辑样式参考。</summary>
     [Fact]
     public void DefaultSceneFreezesTheStandardExampleAndSamplesItsMidpoint()
     {
@@ -18,8 +18,8 @@ public sealed class EffectPresetPreviewSceneTests
         var layer = Assert.Single(scene.Document.Layers);
 
         Assert.Equal("YOSYMPH666", subtitle.Text);
-        Assert.Equal(new MediaTime(3), subtitle.End);
-        Assert.Equal(new MediaTime(3, 2), options.PosterTime);
+        Assert.Equal(new MediaTime(1), subtitle.End);
+        Assert.Equal(new MediaTime(1, 2), options.PosterTime);
         Assert.Equal(320, scene.Document.Width);
         Assert.Equal(180, scene.Document.Height);
         Assert.Equal("sans-serif", subtitle.Style.FontFamily);

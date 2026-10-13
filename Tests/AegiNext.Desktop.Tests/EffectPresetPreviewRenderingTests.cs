@@ -29,7 +29,7 @@ public sealed class EffectPresetPreviewRenderingTests
         Assert.Equal(1, renderer.CompilationCount);
     }
 
-    /// <summary>三秒样例的退场区间使用真实退出轨道，返回零时刻后不遗留末帧。</summary>
+    /// <summary>一秒样例的退场区间使用真实退出轨道，返回零时刻后不遗留末帧。</summary>
     [Theory]
     [InlineData("fade-out")]
     [InlineData("pop-out")]
@@ -42,15 +42,15 @@ public sealed class EffectPresetPreviewRenderingTests
         var request = EffectPresetPreviewTestSources.Request(source: BuiltinEffectScripts.Get(id).Source);
         var start = renderer.Render(request, MediaTime.Zero, CancellationToken.None);
         var poster = renderer.Render(request, options.PosterTime, CancellationToken.None);
-        var outro = renderer.Render(request, new(29, 10), CancellationToken.None);
-        var last = renderer.Render(request, new(71, 24), CancellationToken.None);
+        var outro = renderer.Render(request, new(9, 10), CancellationToken.None);
+        var last = renderer.Render(request, new(23, 24), CancellationToken.None);
         var ended = renderer.Render(request, options.Duration, CancellationToken.None);
         var loop = renderer.Render(request, MediaTime.Zero, CancellationToken.None);
 
         CaptureOutroFrame(id, "0", start);
-        CaptureOutroFrame(id, "1.5", poster);
-        CaptureOutroFrame(id, "2.9", outro);
-        CaptureOutroFrame(id, "2.958", last);
+        CaptureOutroFrame(id, "0.5", poster);
+        CaptureOutroFrame(id, "0.9", outro);
+        CaptureOutroFrame(id, "0.958", last);
         Assert.NotEqual(poster.Pixels.ToArray(), outro.Pixels.ToArray());
         Assert.NotEqual(outro.Pixels.ToArray(), last.Pixels.ToArray());
         Assert.True(InkSignal(last) < InkSignal(poster));

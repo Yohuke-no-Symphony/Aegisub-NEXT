@@ -44,7 +44,7 @@ public sealed class EffectPresetsGridUiTests
             Assert.True(card.IsPreviewAnimating);
             var position = Assert.IsType<MediaTime>(card.PresentedPosition);
             samples.Add(position);
-            observedOutro |= position > new MediaTime(11, 4);
+            observedOutro |= position > new MediaTime(3, 4);
             observedLoop |= observedOutro && position < new MediaTime(3, 10);
             await Task.Delay(25, TestContext.Current.CancellationToken);
         }
@@ -132,7 +132,7 @@ public sealed class EffectPresetsGridUiTests
         host.Flush();
         Assert.Null(host.View.ActivePreviewId);
         await host.WaitUntilAsync(() => !host.Card(second.Id).IsPreviewAnimating &&
-            host.Card(second.Id).PresentedPosition == new MediaTime(3, 2));
+            host.Card(second.Id).PresentedPosition == new MediaTime(1, 2));
         Assert.Same(source, host.Session.DocumentSnapshot);
         Assert.Equal(position, host.Session.ViewModel.Preview.Position);
         Assert.False(host.Session.Editor.CanUndo);
@@ -219,7 +219,7 @@ public sealed class EffectPresetsGridUiTests
         firstCard = host.Card(first);
         await host.View.PreviewCompletion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Drain(drains);
-        Assert.True(firstCard.PresentedPosition == new MediaTime(3, 2),
+        Assert.True(firstCard.PresentedPosition == new MediaTime(1, 2),
             $"Position={firstCard.PresentedPosition}; Active={host.View.ActivePreviewId}; Pending={host.View.PendingPreviewCount}; " +
             $"Request={firstCard.Request?.PresetId}; Attached={firstCard.IsAttachedToVisualTree()}; Rendered={host.Renderer.Rendered.Count}");
         Assert.False(firstCard.IsPreviewAnimating);
@@ -301,7 +301,7 @@ public sealed class EffectPresetsGridUiTests
         await host.View.PreviewCompletion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.Single(drains);
         Drain(drains);
-        Assert.Equal(new MediaTime(3, 2), replacement.PresentedPosition);
+        Assert.Equal(new MediaTime(1, 2), replacement.PresentedPosition);
         Assert.NotNull(replacement.GetVisualDescendants().OfType<VideoFramePresenter>().Single().Source);
         Assert.Same(snapshot, host.Session.DocumentSnapshot);
         Assert.False(host.Session.Editor.CanUndo);

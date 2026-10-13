@@ -16,7 +16,7 @@ namespace AegiNext.Desktop.Ui.Tests;
 /// <summary>通过实际预设工作者和卡片位图验证退场像素，避免仅验证模拟渲染器的播放位置。</summary>
 public sealed class EffectPresetPreviewPixelsUiTests
 {
-    /// <summary>单次悬停完成退场及循环，呈现位图在退场末尾发生变化，离开后恢复中点海报。</summary>
+    /// <summary>单次悬停连续完成两轮预览，每轮退场像素均发生变化，离开后恢复中点海报。</summary>
     [AvaloniaTheory]
     [InlineData("fade-out")]
     [InlineData("pop-out")]
@@ -42,7 +42,7 @@ public sealed class EffectPresetPreviewPixelsUiTests
             Flush(window);
             await view.PreviewCompletion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             Flush(window);
-            Assert.Equal(new MediaTime(3, 2), card.PresentedPosition);
+            Assert.Equal(new MediaTime(1, 2), card.PresentedPosition);
             var presenter = card.GetVisualDescendants().OfType<VideoFramePresenter>().Single();
             var poster = PixelSignal(presenter);
             Assert.True(poster > 0);
@@ -55,8 +55,8 @@ public sealed class EffectPresetPreviewPixelsUiTests
             var samples = new List<(MediaTime Position, long Signal)>();
             var minimumOutro = poster;
             var previous = MediaTime.Zero;
-            var looped = false;
-            while (!looped && elapsed.Elapsed < TimeSpan.FromSeconds(6))
+            var observedLoops = 0;
+            while (observedLoops < 2 && elapsed.Elapsed < TimeSpan.FromSeconds(5))
             {
                 Flush(window);
                 Assert.Same(request, card.Request);
@@ -65,26 +65,30 @@ public sealed class EffectPresetPreviewPixelsUiTests
                 {
                     var signal = PixelSignal(presenter);
                     samples.Add((position, signal));
-                    if (position >= new MediaTime(11, 4))
+                    if (position >= new MediaTime(3, 4))
                     {
                         minimumOutro = Math.Min(minimumOutro, signal);
                     }
-                    looped = previous > new MediaTime(11, 4) && position < new MediaTime(3, 10);
+                    if (previous > new MediaTime(3, 4) && position < new MediaTime(3, 10))
+                    {
+                        Assert.True(minimumOutro < poster * 0.8,
+                            $"Loop {observedLoops + 1} did not show the outro. Poster={poster}; samples={string.Join(", ", samples)}");
+                        observedLoops++;
+                        minimumOutro = poster;
+                    }
                     previous = position;
                 }
                 await Task.Delay(15, TestContext.Current.CancellationToken);
             }
 
-            Assert.True(looped, $"The real preview did not loop: {string.Join(", ", samples)}");
-            Assert.True(minimumOutro < poster * 0.8,
-                $"The presented pixels did not show the outro. Poster={poster}; samples={string.Join(", ", samples)}");
+            Assert.True(observedLoops >= 2, $"The real preview did not complete two short loops: {string.Join(", ", samples)}");
             window.MouseMove(new(2, 2));
             Flush(window);
             await view.PreviewCompletion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
             Flush(window);
             Assert.Null(view.ActivePreviewId);
             Assert.False(card.IsPreviewAnimating);
-            Assert.Equal(new MediaTime(3, 2), card.PresentedPosition);
+            Assert.Equal(new MediaTime(1, 2), card.PresentedPosition);
             Assert.Equal(poster, PixelSignal(presenter));
             Assert.Same(source, context.Session.DocumentSnapshot);
             Assert.Equal(playhead, context.ViewModel.Preview.Position);

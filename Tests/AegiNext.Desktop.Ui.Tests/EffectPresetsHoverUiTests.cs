@@ -70,7 +70,7 @@ public sealed class EffectPresetsHoverUiTests
             Assert.True(ToolTip.GetIsOpen(tooltipOwner));
             Assert.Contains("Missing mask node.", Assert.IsType<string>(ToolTip.GetTip(tooltipOwner)));
             var request = Assert.IsType<EffectPresetPreviewRequest>(card.Request);
-            var position = new MediaTime(3, 2);
+            var position = new MediaTime(1, 2);
             Assert.True(failures.TryRemove("fade-out", out _));
             var frame = renderer.Render(request, position, TestContext.Current.CancellationToken);
             Assert.True(ToolTip.GetIsOpen(tooltipOwner));
@@ -90,12 +90,13 @@ public sealed class EffectPresetsHoverUiTests
         }
     }
 
-    /// <summary>不点击或反复移动鼠标，预设在同一请求下播放至退场并完成三秒循环，海报帧不覆盖活动预览。</summary>
+    /// <summary>鼠标进入后保持不动，预设在同一请求下连续完成两轮短预览，离开后停止并恢复海报。</summary>
     [AvaloniaTheory]
     [InlineData("fade-in-out")]
     [InlineData("fade-out")]
     [InlineData("pop-out")]
-    public async Task OnePointerMoveWithoutFocusPlaysThroughTheOutroAndLoopsWithoutPosterReplacement(string presetId)
+    [InlineData("slide-out")]
+    public async Task OnePointerMoveWithoutFocusRepeatsTheOutroWithoutPosterReplacementUntilLeave(string presetId)
     {
         await using var host = await EffectPresetPanelTestHost.CreateAsync();
         var source = host.Session.DocumentSnapshot;
@@ -115,9 +116,9 @@ public sealed class EffectPresetsHoverUiTests
         var revision = request.Revision;
         var previous = card.PresentedPosition!.Value;
         var observedOutro = false;
-        var observedLoop = false;
+        var observedLoops = 0;
         var samples = new List<MediaTime>();
-        while (!observedLoop && elapsed.Elapsed < TimeSpan.FromSeconds(6))
+        while (observedLoops < 2 && elapsed.Elapsed < TimeSpan.FromSeconds(5))
         {
             host.Flush();
             Assert.Same(card, host.Card(presetId));
@@ -132,25 +133,25 @@ public sealed class EffectPresetsHoverUiTests
             if (position < previous)
             {
                 Assert.True(observedOutro, $"The hover restarted before its outro: {string.Join(", ", samples)}");
-                Assert.True(previous > new MediaTime(11, 4));
+                Assert.True(previous > new MediaTime(3, 4));
                 Assert.True(position < new MediaTime(3, 10));
-                observedLoop = true;
+                observedLoops++;
+                observedOutro = false;
             }
-            observedOutro |= position > new MediaTime(11, 4);
+            observedOutro |= position > new MediaTime(3, 4);
             previous = position;
             await Task.Delay(25, TestContext.Current.CancellationToken);
         }
-        Assert.True(observedOutro, $"The hover never reached its outro: {string.Join(", ", samples)}");
-        Assert.True(observedLoop, $"The hover never completed a loop: {string.Join(", ", samples)}");
-        Assert.True(elapsed.Elapsed >= TimeSpan.FromSeconds(3));
+        Assert.True(observedLoops >= 2, $"The hover did not complete two short loops: {string.Join(", ", samples)}");
         var rendered = host.Renderer.Rendered.Where(frame => frame.Request.PresetId == presetId).Skip(renderedBefore).ToArray();
         var start = Array.FindIndex(rendered, frame => frame.Position == MediaTime.Zero);
         Assert.True(start >= 0);
         var animation = rendered.Skip(start).ToArray();
         Assert.All(animation, frame => Assert.Same(request, frame.Request));
-        var outro = Array.FindIndex(animation, frame => frame.Position > new MediaTime(11, 4));
+        var outro = Array.FindIndex(animation, frame => frame.Position > new MediaTime(3, 4));
         Assert.True(outro >= 0);
         Assert.Contains(animation.Skip(outro + 1), frame => frame.Position < new MediaTime(3, 10));
+        Assert.True(animation.Count(frame => frame.Position == MediaTime.Zero) >= 3);
 
         host.Window.MouseMove(new(2, 2));
         host.Flush();
@@ -158,7 +159,7 @@ public sealed class EffectPresetsHoverUiTests
         host.Flush();
         Assert.Null(host.View.ActivePreviewId);
         Assert.False(card.IsPreviewAnimating);
-        Assert.Equal(new MediaTime(3, 2), card.PresentedPosition);
+        Assert.Equal(new MediaTime(1, 2), card.PresentedPosition);
         var stoppedRenderCount = host.Renderer.Rendered.Count;
         await Task.Delay(100, TestContext.Current.CancellationToken);
         host.Flush();

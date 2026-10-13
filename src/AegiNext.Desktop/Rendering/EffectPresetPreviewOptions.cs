@@ -6,7 +6,7 @@ namespace AegiNext.Desktop.Rendering;
 internal sealed record EffectPresetPreviewOptions
 {
     public string Text { get; init; } = "YOSYMPH666";
-    public MediaTime Duration { get; init; } = new(3);
+    public MediaTime Duration { get; init; } = new(1);
     public int CanvasWidth { get; init; } = 320;
     public int CanvasHeight { get; init; } = 180;
     public string FontFamily { get; init; } = "sans-serif";

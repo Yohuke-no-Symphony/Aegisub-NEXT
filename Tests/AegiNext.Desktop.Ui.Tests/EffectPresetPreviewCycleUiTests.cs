@@ -23,7 +23,7 @@ public sealed class EffectPresetPreviewCycleUiTests
         host.Window.MouseMove(host.Center(card));
         host.Flush();
         await host.WaitUntilAsync(() => host.Renderer.Rendered.Any(frame => frame.Request.PresetId == "fade-out" && frame.Position == MediaTime.Zero));
-        await Task.Delay(TimeSpan.FromMilliseconds(3300), TestContext.Current.CancellationToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(1300), TestContext.Current.CancellationToken);
         host.Flush();
         Assert.Single(drains);
         Assert.Equal(1, host.View.PendingPreviewCount);
@@ -32,7 +32,7 @@ public sealed class EffectPresetPreviewCycleUiTests
         presentClosing();
 
         Assert.True(card.IsPreviewAnimating);
-        Assert.Equal(new MediaTime(71, 24), card.PresentedPosition);
+        Assert.Equal(new MediaTime(23, 24), card.PresentedPosition);
         await host.WaitUntilAsync(() => host.Renderer.Rendered.Count(frame => frame.Request.PresetId == "fade-out" && frame.Position == MediaTime.Zero) > previousStarts);
         Drain(drains);
         Assert.True(card.PresentedPosition < new MediaTime(3, 10));
@@ -40,7 +40,7 @@ public sealed class EffectPresetPreviewCycleUiTests
         host.Flush();
         await host.View.PreviewCompletion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Drain(drains);
-        Assert.Equal(new MediaTime(3, 2), card.PresentedPosition);
+        Assert.Equal(new MediaTime(1, 2), card.PresentedPosition);
         Assert.False(card.IsPreviewAnimating);
         Assert.Same(source, host.Session.DocumentSnapshot);
         Assert.False(host.Session.Editor.CanUndo);

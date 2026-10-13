@@ -32,13 +32,13 @@ public sealed class EffectPresetPreviewSchedulerTests
             await scheduler.Completion.WaitAsync(TimeSpan.FromSeconds(5));
             scheduler.SetActive(request.PresetId);
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            await Task.Delay(TimeSpan.FromMilliseconds(3200));
+            await Task.Delay(TimeSpan.FromMilliseconds(1200));
             unblock.Set();
             var first = await Next(inbox.Reader, result => result.IsAnimated);
             var closing = await Next(inbox.Reader, result => result.IsAnimated);
 
             Assert.Equal(MediaTime.Zero, first.Position);
-            Assert.Equal(new MediaTime(71, 24), closing.Position);
+            Assert.Equal(new MediaTime(23, 24), closing.Position);
             var restarted = await Next(inbox.Reader, result => result.IsAnimated);
             Assert.Equal(MediaTime.Zero, restarted.Position);
         }
@@ -68,7 +68,7 @@ public sealed class EffectPresetPreviewSchedulerTests
         var second = await Next(inbox.Reader, result => result.Request.PresetId == "b");
         var renderer = await created.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        Assert.Equal(new MediaTime(3, 2), first.Position);
+        Assert.Equal(new MediaTime(1, 2), first.Position);
         Assert.Equal(first.Position, second.Position);
         Assert.False(first.IsAnimated);
         Assert.True(scheduler.IsCurrent(first));
@@ -169,7 +169,7 @@ public sealed class EffectPresetPreviewSchedulerTests
 
         Assert.False(scheduler.IsCurrent(returning));
         Assert.True(scheduler.IsCurrent(restored));
-        Assert.Equal(new MediaTime(3, 2), restored.Position);
+        Assert.Equal(new MediaTime(1, 2), restored.Position);
     }
 
     /// <summary>真实播放经过退场后循环，同源可见同步不重启，重新附着拒绝上一轮退出帧。</summary>
@@ -200,7 +200,7 @@ public sealed class EffectPresetPreviewSchedulerTests
                 Assert.Null(current.Error);
                 Assert.Equal(first.Generation, current.Generation);
                 Assert.True(scheduler.IsCurrent(current));
-                if (current.Position >= new MediaTime(29, 10))
+                if (current.Position >= new MediaTime(9, 10))
                 {
                     outro = current;
                 }
@@ -316,7 +316,7 @@ public sealed class EffectPresetPreviewSchedulerTests
             var latest = await Next(inbox.Reader, result => result.IsAnimated && result.Position >= new MediaTime(3, 24));
 
             Assert.True(scheduler.IsCurrent(latest));
-            Assert.True(latest.Position >= new MediaTime(3, 24) && latest.Position < new MediaTime(3));
+            Assert.True(latest.Position >= new MediaTime(3, 24) && latest.Position < new MediaTime(1));
             scheduler.SetActive(null);
             await scheduler.Completion.WaitAsync(TimeSpan.FromSeconds(5));
         }
@@ -337,7 +337,7 @@ public sealed class EffectPresetPreviewSchedulerTests
         await using var scheduler = new EffectPresetPreviewScheduler(result => inbox.Writer.TryWrite(result),
             new() { StaticCacheBytes = 0 }, () => new EffectPresetPreviewTestRenderer((request, position, token) =>
             {
-                if (request.PresetId == "a" && position == new MediaTime(3, 2) && Interlocked.Increment(ref aPosters) == 2)
+                if (request.PresetId == "a" && position == new MediaTime(1, 2) && Interlocked.Increment(ref aPosters) == 2)
                 {
                     restoring.SetResult();
                     Assert.True(unblock.Wait(TimeSpan.FromSeconds(5), CancellationToken.None));
