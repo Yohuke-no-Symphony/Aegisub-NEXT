@@ -325,9 +325,17 @@ public sealed class EffectsPropertyGridUiTests
                     Dispatcher.UIThread.RunJobs();
                     window.UpdateLayout();
                     AvaloniaHeadlessPlatform.ForceRenderTimerTick();
-                    var preset = view.FindControl<ComboBox>("PresetCombo")!;
-                    Assert.True(preset.Bounds.Width > 0);
-                    Assert.True(preset.TranslatePoint(default, view)!.Value.Y < view.Bounds.Height);
+                    Assert.Null(view.FindControl<ComboBox>("PresetCombo"));
+                    var settings = view.GetVisualDescendants().OfType<Button>()
+                        .Where(button => button.Classes.Contains("animation-options") && button.IsEffectivelyVisible).ToArray();
+                    Assert.NotEmpty(settings);
+                    foreach (var button in settings)
+                    {
+                        Assert.Equal(32, button.Bounds.Width);
+                        Assert.Equal(32, button.Bounds.Height);
+                        var point = button.TranslatePoint(default, view)!.Value;
+                        Assert.InRange(point.X, 0, view.Bounds.Width - button.Bounds.Width);
+                    }
                     var directory = Environment.GetEnvironmentVariable("AEGINEXT_UI_CAPTURE_DIRECTORY");
                     if (!string.IsNullOrEmpty(directory))
                     {

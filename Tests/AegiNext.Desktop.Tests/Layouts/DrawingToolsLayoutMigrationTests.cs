@@ -107,7 +107,7 @@ public sealed class DrawingToolsLayoutMigrationTests
         Assert.Same(previous.Main, upgraded.Current.Main);
         Assert.Same(previous.Floating, upgraded.Current.Floating);
         Assert.Equal(previous.FocusedPanelId, upgraded.Current.FocusedPanelId);
-        Assert.Equal<string>(["subtitleDetails", "drawingTools"], upgraded.Current.HiddenPanelIds);
+        Assert.Equal<string>(["subtitleDetails", "drawingTools", "effectPresets"], upgraded.Current.HiddenPanelIds);
         WorkspaceLayoutValidator.Validate(upgraded.Current);
     }
 
@@ -134,12 +134,13 @@ public sealed class DrawingToolsLayoutMigrationTests
         Assert.Equal("personal", upgraded.CurrentPresetId);
         Assert.Same(previous.Main, upgraded.Current.Main);
         Assert.Same(previous.Floating, upgraded.Current.Floating);
-        Assert.Equal<string>(["log", "subtitleDetails", "drawingTools"], upgraded.Current.HiddenPanelIds);
+        Assert.Equal<string>(["log", "subtitleDetails", "drawingTools", "effectPresets"], upgraded.Current.HiddenPanelIds);
         Assert.Equal(file.Presets.Select(preset => (preset.Id, preset.Name)), upgraded.Presets.Select(preset => (preset.Id, preset.Name)));
         Assert.Same(saved.Main, upgraded.Presets[1].Layout.Main);
         Assert.All(upgraded.Presets, preset =>
         {
             Assert.Contains(WorkbenchPanelIds.DRAWING_TOOLS, preset.Layout.HiddenPanelIds);
+            Assert.Contains(WorkbenchPanelIds.EFFECT_PRESETS, preset.Layout.HiddenPanelIds);
             WorkspaceLayoutValidator.Validate(preset.Layout);
         });
         WorkspaceLayoutValidator.Validate(upgraded.Current);

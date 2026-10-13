@@ -7,8 +7,6 @@ using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
-using AegiNext.Media.Analysis;
-using Avalonia.Media;
 
 namespace AegiNext.Desktop.Panels.Effects;
 
@@ -50,9 +48,6 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     private bool refreshingChoices;
     private bool canAddKeyframe;
     private bool canDeleteKeyframe;
-    private int preset = -1;
-    private string[] presets = [];
-    private string? presetName;
 
     internal event EventHandler? ChoicesRefreshing;
     internal event EventHandler? ChoicesRefreshed;
@@ -67,7 +62,6 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
         ResetPositionCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.EditAsync(session.ResetPositionEffects)));
         AddPathPointCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.EditAsync(session.AddPathPoint)));
         RemovePathPointCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.EditAsync(session.RemovePathPoint)));
-        ManageEffectScriptsCommand = new AsyncRelayCommand(() => session.RequestSettingsAsync(AegiNext.Desktop.Settings.SettingsPage.EFFECTS));
         PathCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.EditAsync(session.EditPath)));
         ClearPathCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.EditAsync(session.ClearPath)));
         KeyframeCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.EditAsync(session.AddKeyframe)));
@@ -79,7 +73,6 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
                 OnPropertyChanged(nameof(PowerExponent));
             }
         };
-        ApplyPresetCommand = new AsyncRelayCommand(() => session.RunCommandAsync(session.ApplySelectedPresetAsync));
     }
 
     public string? ValidationError
@@ -93,7 +86,6 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
         get => invalidFieldKey;
         internal set => SetProperty(ref invalidFieldKey, value);
     }
-
 
     public ProjectDocument Document
     {
@@ -416,52 +408,17 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
         set => SetProperty(ref canDeleteKeyframe, value);
     }
 
-    public int Preset
-    {
-        get => preset;
-        set => SetProperty(ref preset, value);
-    }
-
-    public string[] Presets
-    {
-        get => presets;
-        set => SetProperty(ref presets, value);
-    }
-
-    public string? PresetName
-    {
-        get => presetName;
-        set => SetProperty(ref presetName, value);
-    }
-
-
-
-
-
-
-
-
     public ICommand ResetPositionCommand { get; }
     public ICommand AddPathPointCommand { get; }
     public ICommand RemovePathPointCommand { get; }
-    public ICommand ManageEffectScriptsCommand { get; }
-
 
     public ICommand PathCommand { get; }
 
-
     public ICommand ClearPathCommand { get; }
-
 
     public ICommand KeyframeCommand { get; }
 
     public ICommand DeleteKeyframeCommand { get; }
-
-
-    public ICommand ApplyPresetCommand { get; }
-
-
-
 
     /// <summary>同步图层及多选标识。</summary>
     public void SelectLayer(Guid id, Guid[] selectedIds) => session.SelectLayer(id, selectedIds);

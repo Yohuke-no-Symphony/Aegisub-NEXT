@@ -1,9 +1,7 @@
 using System.Collections.Immutable;
 using AegiNext.Application;
-using AegiNext.Application.Tasks;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Editing;
-using AegiNext.Core.Effects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
@@ -397,7 +395,6 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
 
     internal void EditPath() => BeginPathEdit();
     internal void ClearPath() => UpdateLayer(layer => layer with { MotionPath = null, Tracks = layer.Tracks.Where(track => track.Property != AnimationProperty.PATH_PROGRESS).ToImmutableArray() });
-    internal Task ApplySelectedPresetAsync() => session.EffectScripts.ApplySelectedAsync();
     internal void ClearKaraoke()
     {
         if (session.SelectedCue is { } cue)

@@ -2,7 +2,6 @@ using AegiNext.Application;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
-using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Shortcuts;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
@@ -32,13 +31,14 @@ public sealed class BuiltinEffectScriptUiTests
         context.Session.Editor.Reset(document);
         context.Session.SelectLayer(layer.Id, [layer.Id]);
         context.Window.GetCommand(WorkbenchCommand.VIEW_EFFECTS).Execute(null);
-        var selector = UiTestActions.Find<ComboBox>(context.Window, "PresetCombo");
-        Assert.DoesNotContain(Localization.Get("Workbench.LetterPulse"), selector.Items.Cast<string>());
-        selector.SelectedItem = Localization.Get("Workbench.Fade");
+        UiTestActions.SelectBuiltinPreset(context.Window, "fade-in-out");
+        var selector = UiTestActions.Find<ListBox>(context.Window, "EffectPresetList");
+        Assert.Contains(context.ViewModel.EffectPresets.Items, item => item.Id == "letter-pulse");
+        Assert.Equal(context.ViewModel.EffectPresets.Items.Length, selector.Items.Count);
         Dispatcher.UIThread.RunJobs();
 
         UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
 
         Assert.Null(context.Session.LastError);
         Assert.Equal(AnimationProperty.OPACITY, Assert.Single(context.Session.DocumentSnapshot.Layers[0].Tracks).Property);
@@ -74,7 +74,7 @@ public sealed class BuiltinEffectScriptUiTests
 
         UiTestActions.SelectBuiltinPreset(context.Window, id);
         UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
 
         var actual = Assert.Single(context.Session.DocumentSnapshot.Layers);
         Assert.Equal(cueId, actual.Id);
@@ -114,14 +114,14 @@ public sealed class BuiltinEffectScriptUiTests
 
         UiTestActions.SelectBuiltinPreset(context.Window, "fade-in");
         UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
         var entrance = context.Session.DocumentSnapshot;
         Assert.Equal(0.75, Assert.Single(SceneEvaluator.Evaluate(entrance, new(23, 20))).Opacity, 12);
         Assert.Equal(1, Assert.Single(SceneEvaluator.Evaluate(entrance, new(97, 20))).Opacity, 12);
 
         UiTestActions.SelectBuiltinPreset(context.Window, "fade-out");
         UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
 
         var composed = context.Session.DocumentSnapshot;
         Assert.Equal(0.75, Assert.Single(SceneEvaluator.Evaluate(composed, new(23, 20))).Opacity, 12);

@@ -21,7 +21,7 @@ public sealed class DrawingToolsShortcutPreferencesTests
         var upgraded = WorkbenchPreferencesMigration.Upgrade(new() { ShortcutBindings = previous });
 
         upgraded.Validate();
-        Assert.Equal(previous.AsEnumerable(), upgraded.ShortcutBindings.Where(binding => binding.Command != WorkbenchCommand.VIEW_DRAWING_TOOLS));
+        Assert.Equal(previous.AsEnumerable(), upgraded.ShortcutBindings.Where(binding => binding.Command <= WorkbenchCommand.IMPORT_IMAGES));
         Assert.Equal(string.Empty, Assert.Single(upgraded.ShortcutBindings, binding => binding.Command == WorkbenchCommand.VIEW_DRAWING_TOOLS).Gesture);
         Assert.Same(upgraded, WorkbenchPreferencesMigration.Upgrade(upgraded));
     }

@@ -1221,6 +1221,16 @@
     "Workbench.ShapeCornerTopLeft": "Top left",
     "Workbench.ShapeCornerTopRight": "Top right",
     "Workbench.ShapeCornerBottomRight": "Bottom right",
-    "Workbench.ShapeCornerBottomLeft": "Bottom left"
+    "Workbench.ShapeCornerBottomLeft": "Bottom left",
+    "Workbench.PositionAnimationOptions": "Position animation settings",
+    "Workbench.ScaleAnimationOptions": "Scale animation settings",
+    "Workbench.OpacityAnimationOptions": "Opacity animation settings",
+    "Workbench.BlurAnimationOptions": "Blur animation settings",
+    "Workbench.EffectPresetPreviewUnavailable": "Preview unavailable: {0}",
+    "Workbench.EffectPresetNoSelection": "Select a layer to apply the preset.",
+    "Workbench.EffectPresetRequiresPath": "This preview needs a motion path; the sample has none.",
+    "Settings.VIEW_EFFECT_PRESETS": "Effect presets panel",
+    "Layout.effectPresets": "Effect presets",
+    "Workbench.EffectPresetRequiresSubtitle": "This preset needs a subtitle layer."
   }
 }

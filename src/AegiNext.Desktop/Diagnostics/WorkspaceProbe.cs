@@ -92,8 +92,8 @@ internal sealed class WorkspaceProbe
             var log = MainWindow.Panels[WorkbenchPanelIds.LOG];
             var logOwner = (Dock.Model.Core.IDock)MainWindow.Layouts.PanelAdapters[WorkbenchPanelIds.LOG].Owner!;
             var subtitlePanel = MainWindow.Layouts.PanelAdapters[WorkbenchPanelIds.SUBTITLES];
-            Verify(MainWindow.Panels.Count == WorkbenchPanelIds.All.Count && WorkbenchPanelIds.All.Count == 8,
-                "All eight stable panel views were registered");
+            Verify(MainWindow.Panels.Count == WorkbenchPanelIds.All.Count,
+                "All stable panel views were registered");
             Verify(MainWindow.Layouts.IsVisible(WorkbenchPanelIds.LOG) && !IsDisplayed(log) &&
                    ReferenceEquals(logOwner.ActiveDockable, subtitlePanel),
                 "Standard layout kept the Log tab inactive");

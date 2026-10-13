@@ -19,9 +19,9 @@ public sealed class CompactDrawingToolsLayoutMigrationTests
         });
         var expected = WorkspaceLayoutPresets.BuiltIn.Single(preset => preset.Id == presetId).Layout;
 
-        Assert.Equal(7, upgraded.Version);
+        Assert.Equal(WorkspaceLayoutSnapshot.CURRENT_VERSION, upgraded.Version);
         Assert.Same(expected, upgraded.Current);
-        Assert.Equal(previous.HiddenPanelIds, upgraded.Current.HiddenPanelIds);
+        Assert.Equal(previous.HiddenPanelIds, upgraded.Current.HiddenPanelIds.Where(id => id != WorkbenchPanelIds.EFFECT_PRESETS));
         Assert.Equal(previous.FocusedPanelId, upgraded.Current.FocusedPanelId);
         WorkspaceLayoutValidator.Validate(upgraded.Current);
         if (presetId is "standard" or "effects")
@@ -37,7 +37,11 @@ public sealed class CompactDrawingToolsLayoutMigrationTests
             Assert.Equal(0.16, drawingAndPreview.Children[0].Proportion);
             Assert.Equal(0.84, drawingAndPreview.Children[1].Proportion);
             Assert.Equal(presetId == "standard" ? 0.75 : 0.66, drawingAndPreview.Proportion);
-            Assert.Equal(JsonSerializer.Serialize(previous.Main.Children[0].Children[2]), JsonSerializer.Serialize(top.Children[1]));
+            var previousTabs = top.Children[1] with
+            {
+                Children = top.Children[1].Children.Where(node => node.PanelId != WorkbenchPanelIds.EFFECT_PRESETS).ToArray()
+            };
+            Assert.Equal(JsonSerializer.Serialize(previous.Main.Children[0].Children[2]), JsonSerializer.Serialize(previousTabs));
             Assert.Equal(previous.Main.Children.Select(node => node.Proportion), upgraded.Current.Main.Children.Select(node => node.Proportion));
             Assert.Equal(JsonSerializer.Serialize(previous.Main.Children.Skip(1)), JsonSerializer.Serialize(upgraded.Current.Main.Children.Skip(1)));
         }
@@ -82,7 +86,7 @@ public sealed class CompactDrawingToolsLayoutMigrationTests
             Version = 6, Current = previous, CurrentPresetId = "standard"
         });
 
-        Assert.Equal(WorkspaceLayoutStore.Fingerprint(previous with { Version = 7 }), WorkspaceLayoutStore.Fingerprint(upgraded.Current));
+        Assert.Equal(WorkspaceLayoutStore.Fingerprint(WithHiddenEffectPresets(previous)), WorkspaceLayoutStore.Fingerprint(upgraded.Current));
         Assert.Same(previous.Main, upgraded.Current.Main);
         Assert.Same(previous.Floating, upgraded.Current.Floating);
         WorkspaceLayoutValidator.Validate(upgraded.Current);
@@ -113,17 +117,26 @@ public sealed class CompactDrawingToolsLayoutMigrationTests
         var restored = WorkspaceLayoutStore.Deserialize(WorkspaceLayoutStore.Serialize(upgraded));
 
         Assert.Equal("personal", upgraded.CurrentPresetId);
-        Assert.Equal(WorkspaceLayoutStore.Fingerprint(previous with { Version = 7 }), WorkspaceLayoutStore.Fingerprint(upgraded.Current));
+        Assert.Equal(WorkspaceLayoutStore.Fingerprint(WithHiddenEffectPresets(previous)), WorkspaceLayoutStore.Fingerprint(upgraded.Current));
         Assert.Equal(file.Presets.Select(preset => (preset.Id, preset.Name, preset.IsReadOnly)),
             upgraded.Presets.Select(preset => (preset.Id, preset.Name, preset.IsReadOnly)));
         for (var index = 0; index < file.Presets.Count; index++)
         {
-            Assert.Equal(WorkspaceLayoutStore.Fingerprint(file.Presets[index].Layout with { Version = 7 }),
+            Assert.Equal(WorkspaceLayoutStore.Fingerprint(WithHiddenEffectPresets(file.Presets[index].Layout)),
                 WorkspaceLayoutStore.Fingerprint(upgraded.Presets[index].Layout));
             WorkspaceLayoutValidator.Validate(upgraded.Presets[index].Layout);
         }
         Assert.Equal(JsonSerializer.Serialize(upgraded), JsonSerializer.Serialize(restored));
         Assert.Same(upgraded, WorkspaceLayoutMigration.Upgrade(upgraded));
+    }
+
+    private static WorkspaceLayoutSnapshot WithHiddenEffectPresets(WorkspaceLayoutSnapshot previous)
+    {
+        return previous with
+        {
+            Version = WorkspaceLayoutSnapshot.CURRENT_VERSION,
+            HiddenPanelIds = [.. previous.HiddenPanelIds, WorkbenchPanelIds.EFFECT_PRESETS]
+        };
     }
 
     private static WorkspaceLayoutSnapshot VersionSix(string presetId) => presetId switch

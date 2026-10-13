@@ -5,7 +5,13 @@ internal static class WorkspaceLayoutPresetHistory
 {
     internal static WorkspaceLayoutSnapshot? Find(string presetId, int version, IReadOnlyList<string> panelIds)
     {
-        var previous = version == 6 ? VersionSix(presetId) : VersionFive(presetId);
+        var previous = version switch
+        {
+            7 => VersionSeven(presetId),
+            6 => VersionSix(presetId),
+            1 or 2 or 3 or 4 or 5 => VersionFive(presetId),
+            _ => null
+        };
         if (previous is null)
         {
             return null;
@@ -18,6 +24,41 @@ internal static class WorkspaceLayoutPresetHistory
             HiddenPanelIds = previous.HiddenPanelIds.Where(included.Contains).ToArray()
         };
     }
+
+    private static WorkspaceLayoutSnapshot? VersionSeven(string presetId) => presetId switch
+    {
+        WorkspaceLayoutPresets.STANDARD => new()
+        {
+            Version = 7,
+            Main = WorkspaceLayoutPresets.Split("vertical", 1,
+                WorkspaceLayoutPresets.Split("horizontal", 0.58,
+                    WorkspaceLayoutPresets.Split("vertical", 0.75,
+                        WorkspaceLayoutPresets.Tabs(0.16, "drawingTools"),
+                        WorkspaceLayoutPresets.Tabs(0.84, "preview")),
+                    WorkspaceLayoutPresets.Tabs(0.25, "styles", "effects", "masks", "export", "assets")),
+                WorkspaceLayoutPresets.Tabs(0.19, "timeline"),
+                WorkspaceLayoutPresets.Tabs(0.23, "subtitles", "log")),
+            HiddenPanelIds = ["subtitleDetails"],
+            FocusedPanelId = "preview"
+        },
+        WorkspaceLayoutPresets.EFFECTS => new()
+        {
+            Version = 7,
+            Main = WorkspaceLayoutPresets.Split("vertical", 1,
+                WorkspaceLayoutPresets.Split("horizontal", 0.72,
+                    WorkspaceLayoutPresets.Split("vertical", 0.66,
+                        WorkspaceLayoutPresets.Tabs(0.16, "drawingTools"),
+                        WorkspaceLayoutPresets.Tabs(0.84, "preview")),
+                    WorkspaceLayoutPresets.Tabs(0.34, "effects", "masks", "styles", "assets")),
+                WorkspaceLayoutPresets.Tabs(0.28, "timeline", "log")),
+            HiddenPanelIds = ["subtitles", "export", "subtitleDetails"],
+            FocusedPanelId = "effects"
+        },
+        WorkspaceLayoutPresets.TIMING or WorkspaceLayoutPresets.ENCODE => VersionSix(presetId) is { } previous
+            ? previous with { Version = 7 }
+            : null,
+        _ => null
+    };
 
     private static WorkspaceLayoutSnapshot? VersionSix(string presetId) => presetId switch
     {

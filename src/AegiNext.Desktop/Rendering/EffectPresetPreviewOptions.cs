@@ -16,7 +16,6 @@ internal sealed record EffectPresetPreviewOptions
     public MediaTime PosterTime => Duration / 2;
     public int FramesPerSecond { get; init; } = 24;
     public long StaticCacheBytes { get; init; } = 32L * 1024 * 1024;
-    public int MaximumCompiledScenes { get; init; } = 64;
     public int MaximumOutputPixels { get; init; } = 4_194_304;
 
     internal void Validate()
@@ -31,7 +30,6 @@ internal sealed record EffectPresetPreviewOptions
         }
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(FramesPerSecond);
         ArgumentOutOfRangeException.ThrowIfNegative(StaticCacheBytes);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumCompiledScenes);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(MaximumOutputPixels);
         _ = new SdrPreviewOptions(CanvasWidth, CanvasHeight);
         if (!double.IsFinite(FontSize) || FontSize <= 0 || !double.IsFinite(Margin) || Margin < 0 ||

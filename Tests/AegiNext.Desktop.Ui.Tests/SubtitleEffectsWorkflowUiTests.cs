@@ -223,7 +223,7 @@ public sealed class SubtitleEffectsWorkflowUiTests
             var expected = EffectScriptCompiler.Compile(BuiltinEffectScripts.Get(scriptId).Script, before.Layers[0]);
             UiTestActions.SelectBuiltinPreset(context.Window, scriptId);
             UiTestActions.Click(context.Window, "ApplyPresetButton");
-            await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+            await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
             var after = context.Session.DocumentSnapshot;
             Assert.Equal(expected.SelectMany(track => track.Keyframes), after.Layers[0].Tracks.SelectMany(track => track.Keyframes));
             Assert.All(after.Layers[0].Tracks, track => Assert.Equal(duration, track.Keyframes[^1].Time));

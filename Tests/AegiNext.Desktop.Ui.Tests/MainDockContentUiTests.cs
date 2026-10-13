@@ -15,13 +15,14 @@ public sealed class MainDockContentUiTests
     private static readonly string[] standardActivePanelIds =
     [
         WorkbenchPanelIds.PREVIEW,
+        WorkbenchPanelIds.DRAWING_TOOLS,
         WorkbenchPanelIds.TIMELINE,
         WorkbenchPanelIds.SUBTITLES,
         WorkbenchPanelIds.STYLES
     ];
 
     [AvaloniaFact]
-    public async Task InitialMainWorkspaceContainsFourRealActiveViewsBeforeAnyLayoutSwitch()
+    public async Task InitialMainWorkspaceContainsFiveRealActiveViewsBeforeAnyLayoutSwitch()
     {
         await using var context = new MainWindowTestContext();
         var main = context.Window;
@@ -29,7 +30,7 @@ public sealed class MainDockContentUiTests
         Assert.Equal(WorkspaceLayoutPresets.STANDARD, main.Layouts.CurrentPresetId);
         Assert.All(main.Layouts.Host.DataTemplates, template => Assert.False(template.Match(null)));
         Assert.Single(main.Layouts.Host.GetVisualDescendants().OfType<RootDockControl>());
-        Assert.Equal(4, main.Layouts.Host.GetVisualDescendants().OfType<ToolDockControl>().Count());
+        Assert.Equal(standardActivePanelIds.Length, main.Layouts.Host.GetVisualDescendants().OfType<ToolDockControl>().Count());
         foreach (var id in standardActivePanelIds)
         {
             AssertAttached(main.Panels[id], main);

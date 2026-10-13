@@ -79,7 +79,11 @@ internal sealed partial class AnimationOptionsPopupView : UserControl, IDisposab
         DataContext = value ? viewModel : null;
         active = value;
         viewModel.SetActive(value);
-        if (!value)
+        if (value)
+        {
+            RefreshErrors();
+        }
+        else
         {
             CancelGestures();
         }
@@ -97,6 +101,7 @@ internal sealed partial class AnimationOptionsPopupView : UserControl, IDisposab
 
     internal bool FocusField(string? fieldKey)
     {
+        RefreshErrors();
         foreach (var vector in this.GetVisualDescendants().OfType<VectorDraftInput>())
         {
             if (fieldKey is not null && vector.FocusField(fieldKey))
@@ -198,6 +203,11 @@ internal sealed partial class AnimationOptionsPopupView : UserControl, IDisposab
         {
             return;
         }
+        RefreshErrors();
+    }
+
+    private void RefreshErrors()
+    {
         foreach (var input in this.GetVisualDescendants().OfType<NumericDraftInput>())
         {
             var vector = input.GetVisualAncestors().OfType<VectorDraftInput>().FirstOrDefault();

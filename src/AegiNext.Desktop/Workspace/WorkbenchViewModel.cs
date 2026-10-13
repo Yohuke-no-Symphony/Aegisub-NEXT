@@ -5,6 +5,7 @@ using AegiNext.Desktop.Panels.Timeline;
 using AegiNext.Desktop.Panels.Subtitles;
 using AegiNext.Desktop.Panels.Styles;
 using AegiNext.Desktop.Panels.Effects;
+using AegiNext.Desktop.Panels.EffectPresets;
 using AegiNext.Desktop.Panels.Masks;
 using AegiNext.Desktop.Panels.Export;
 using AegiNext.Desktop.Panels.Log;
@@ -34,6 +35,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
         Styles = new(session);
         Assets = new(session);
         Effects = new(session);
+        EffectPresets = new(session);
         Masks = new(session);
         Export = new(session);
         Log = new(session.Journal);
@@ -59,6 +61,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
     public StylesPanelViewModel Styles { get; }
     public Panels.Assets.AssetsPanelViewModel Assets { get; }
     public EffectsPanelViewModel Effects { get; }
+    public EffectPresetsPanelViewModel EffectPresets { get; }
     public MaskPanelViewModel Masks { get; }
     public ExportPanelViewModel Export { get; }
     public LogPanelViewModel Log { get; }
@@ -126,6 +129,7 @@ internal sealed class WorkbenchViewModel : ObservableObject
         Subtitles.RefreshMoveCommand();
         Subtitles.MergeCueCommand.NotifyCanExecuteChanged();
         Timeline.RefreshMoveCommand();
+        EffectPresets.RefreshAvailability();
         foreach (var command in commands.Values)
         {
             command.NotifyCanExecuteChanged();

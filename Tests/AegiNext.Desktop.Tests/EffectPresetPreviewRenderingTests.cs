@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace AegiNext.Desktop.Tests;
 
-/// <summary>使用真实离屏工程渲染验证动画像素、DPI 和有界编译缓存。</summary>
+/// <summary>使用真实离屏工程渲染验证动画像素、DPI 和源版本编译复用。</summary>
 public sealed class EffectPresetPreviewRenderingTests
 {
     /// <summary>淡入在不同精确时刻产生真实像素变化，背景保持不透明灰色。</summary>
@@ -26,6 +26,36 @@ public sealed class EffectPresetPreviewRenderingTests
         Assert.NotEqual(middle.Pixels.ToArray(), poster.Pixels.ToArray());
         Assert.Contains(poster.Pixels.ToArray().Chunk(4), pixel => pixel[0] > 100 && pixel[1] > 100 && pixel[2] > 100);
         Assert.All(poster.Pixels.ToArray().Chunk(4), pixel => Assert.Equal(255, pixel[3]));
+        Assert.Equal(1, renderer.CompilationCount);
+    }
+
+    /// <summary>三秒样例的退场区间使用真实退出轨道，返回零时刻后不遗留末帧。</summary>
+    [Theory]
+    [InlineData("fade-out")]
+    [InlineData("pop-out")]
+    [InlineData("slide-out")]
+    [InlineData("fade-in-out")]
+    public void WholeSubtitleOutrosChangeRealPixelsNearTheEndAndResetOnLoop(string id)
+    {
+        var options = new EffectPresetPreviewOptions();
+        using var renderer = new EffectPresetPreviewRenderer(options);
+        var request = EffectPresetPreviewTestSources.Request(source: BuiltinEffectScripts.Get(id).Source);
+        var start = renderer.Render(request, MediaTime.Zero, CancellationToken.None);
+        var poster = renderer.Render(request, options.PosterTime, CancellationToken.None);
+        var outro = renderer.Render(request, new(29, 10), CancellationToken.None);
+        var last = renderer.Render(request, new(71, 24), CancellationToken.None);
+        var ended = renderer.Render(request, options.Duration, CancellationToken.None);
+        var loop = renderer.Render(request, MediaTime.Zero, CancellationToken.None);
+
+        CaptureOutroFrame(id, "0", start);
+        CaptureOutroFrame(id, "1.5", poster);
+        CaptureOutroFrame(id, "2.9", outro);
+        CaptureOutroFrame(id, "2.958", last);
+        Assert.NotEqual(poster.Pixels.ToArray(), outro.Pixels.ToArray());
+        Assert.NotEqual(outro.Pixels.ToArray(), last.Pixels.ToArray());
+        Assert.True(InkSignal(last) < InkSignal(poster));
+        Assert.Equal(0, InkSignal(ended));
+        Assert.Equal(start.Pixels.ToArray(), loop.Pixels.ToArray());
         Assert.Equal(1, renderer.CompilationCount);
     }
 
@@ -63,27 +93,37 @@ public sealed class EffectPresetPreviewRenderingTests
         Assert.Equal(1, renderer.CompilationCount);
     }
 
-    /// <summary>源版本按 LRU 淘汰，淘汰后重新访问才会再次编译。</summary>
-    [Fact]
-    public void CompiledScenesAreBoundedAndRefreshedByUse()
+    /// <summary>超过六十四个源版本往返时，成功场景和失败诊断在工作者生命周期内均只编译一次。</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EverySourceVersionCompilesOnlyOnceAcrossLargeCatalogRevisits(bool invalid)
     {
-        var options = new EffectPresetPreviewOptions { MaximumCompiledScenes = 2 };
+        const int SOURCE_VERSIONS = 70;
+        var options = new EffectPresetPreviewOptions();
         using var renderer = new EffectPresetPreviewRenderer(options);
-        var a = EffectPresetPreviewTestSources.Request("a", source: BuiltinEffectScripts.Get("fade-in").Source);
-        var b = EffectPresetPreviewTestSources.Request("b", source: BuiltinEffectScripts.Get("fade-out").Source);
-        var c = EffectPresetPreviewTestSources.Request("c", source: BuiltinEffectScripts.Get("pop-in").Source);
-        _ = renderer.Render(a, options.PosterTime, CancellationToken.None);
-        _ = renderer.Render(b, options.PosterTime, CancellationToken.None);
-        _ = renderer.Render(a, options.PosterTime, CancellationToken.None);
-        _ = renderer.Render(c, options.PosterTime, CancellationToken.None);
+        var source = invalid ? EffectPresetPreviewTestSources.RANGE : BuiltinEffectScripts.Get("fade-in").Source;
+        var versions = Enumerable.Range(0, SOURCE_VERSIONS).Select(index => EffectPresetPreviewTestSources.Request(
+            "version-" + index, revision: index, source: source + "\n# source version " + index)).ToArray();
+        foreach (var request in versions)
+        {
+            RenderVersion(renderer, request, options.PosterTime, invalid);
+        }
 
-        Assert.Equal(3, renderer.CompilationCount);
-        Assert.Equal(2, renderer.CachedSceneCount);
-        _ = renderer.Render(a, options.PosterTime, CancellationToken.None);
-        Assert.Equal(3, renderer.CompilationCount);
-        _ = renderer.Render(b, options.PosterTime, CancellationToken.None);
-        Assert.Equal(4, renderer.CompilationCount);
-        Assert.Equal(2, renderer.CachedSceneCount);
+        Assert.Equal(SOURCE_VERSIONS, renderer.CompilationCount);
+        var otherCatalog = new SystemFontCatalog(SKFontManager.Default, []);
+        foreach (var request in versions)
+        {
+            var revisited = EffectPresetPreviewTestSources.Request("revisited-" + request.PresetId,
+                revision: request.Revision + SOURCE_VERSIONS, scaling: 2, source: request.Source, catalog: otherCatalog);
+            RenderVersion(renderer, revisited, new(1), invalid);
+        }
+
+        Assert.Equal(SOURCE_VERSIONS, renderer.CompilationCount);
+        Assert.Equal(SOURCE_VERSIONS, renderer.CachedSceneCount);
+        var changed = EffectPresetPreviewTestSources.Request(source: source + "\n# new source version");
+        RenderVersion(renderer, changed, options.PosterTime, invalid);
+        Assert.Equal(SOURCE_VERSIONS + 1, renderer.CompilationCount);
     }
 
     /// <summary>同源失败不会重复编译，修订后的有效源取得独立缓存项。</summary>
@@ -131,5 +171,45 @@ public sealed class EffectPresetPreviewRenderingTests
     private static int NonBackgroundPixels(SdrVideoFrame frame)
     {
         return frame.Pixels.ToArray().Chunk(4).Count(pixel => pixel[0] != 64 || pixel[1] != 64 || pixel[2] != 64);
+    }
+
+    private static long InkSignal(SdrVideoFrame frame)
+    {
+        var pixels = frame.Pixels.Span;
+        var signal = 0L;
+        for (var index = 0; index < pixels.Length; index += 4)
+        {
+            signal += Math.Abs(pixels[index] - 64) + Math.Abs(pixels[index + 1] - 64) + Math.Abs(pixels[index + 2] - 64);
+        }
+        return signal;
+    }
+
+    private static void CaptureOutroFrame(string id, string time, SdrVideoFrame frame)
+    {
+        var directory = Environment.GetEnvironmentVariable("AEGINEXT_PREVIEW_CAPTURE_DIRECTORY");
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return;
+        }
+        Directory.CreateDirectory(directory);
+        using var srgb = SKColorSpace.CreateSrgb();
+        using var image = SKImage.FromPixelCopy(new(frame.Width, frame.Height, SKColorType.Bgra8888, SKAlphaType.Opaque, srgb),
+            frame.Pixels.Span, frame.Width * 4);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        using var file = File.Create(Path.Combine(directory, id + "-" + time + ".png"));
+        data.SaveTo(file);
+    }
+
+    private static void RenderVersion(EffectPresetPreviewRenderer renderer, EffectPresetPreviewRequest request,
+        MediaTime position, bool invalid)
+    {
+        if (invalid)
+        {
+            Assert.Throws<EffectScriptException>(() => renderer.Render(request, position, CancellationToken.None));
+        }
+        else
+        {
+            _ = renderer.Render(request, position, CancellationToken.None);
+        }
     }
 }

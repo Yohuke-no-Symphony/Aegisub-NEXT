@@ -1221,6 +1221,16 @@
     "Workbench.ShapeCornerTopLeft": "左上",
     "Workbench.ShapeCornerTopRight": "右上",
     "Workbench.ShapeCornerBottomRight": "右下",
-    "Workbench.ShapeCornerBottomLeft": "左下"
+    "Workbench.ShapeCornerBottomLeft": "左下",
+    "Workbench.PositionAnimationOptions": "位置动画设置",
+    "Workbench.ScaleAnimationOptions": "缩放动画设置",
+    "Workbench.OpacityAnimationOptions": "透明度动画设置",
+    "Workbench.BlurAnimationOptions": "模糊动画设置",
+    "Workbench.EffectPresetPreviewUnavailable": "无法预览：{0}",
+    "Workbench.EffectPresetNoSelection": "请选择图层以应用预设。",
+    "Workbench.EffectPresetRequiresPath": "此预览需要运动路径，示例字幕没有路径。",
+    "Settings.VIEW_EFFECT_PRESETS": "特效预设面板",
+    "Layout.effectPresets": "特效预设",
+    "Workbench.EffectPresetRequiresSubtitle": "此预设需要字幕图层。"
   }
 }

@@ -57,5 +57,6 @@ public enum WorkbenchCommand
     CHECK_UPDATES,
     VIEW_ASSETS,
     IMPORT_IMAGES,
-    VIEW_DRAWING_TOOLS
+    VIEW_DRAWING_TOOLS,
+    VIEW_EFFECT_PRESETS
 }

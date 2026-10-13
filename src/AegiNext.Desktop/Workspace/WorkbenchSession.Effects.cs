@@ -1,12 +1,9 @@
-using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 
 namespace AegiNext.Desktop.Workspace;
 
 internal sealed partial class WorkbenchSession
 {
-    private AnimationProperty ActiveProperty => layerEditing.ActiveProperty;
-    private Keyframe? SelectedKeyframe => layerEditing.SelectedKeyframe;
     internal void ClearKeyframeSelection() => layerEditing.ClearKeyframeSelection();
     internal void RefreshKeyframeInspector() => layerEditing.RefreshKeyframeInspector();
     internal void AddKeyframe() => layerEditing.AddKeyframe();
@@ -19,7 +16,6 @@ internal sealed partial class WorkbenchSession
     internal void RemovePathPoint() => layerEditing.RemovePathPoint();
     internal void EditPath() => layerEditing.EditPath();
     internal void ClearPath() => layerEditing.ClearPath();
-    internal Task ApplySelectedPresetAsync() => layerEditing.ApplySelectedPresetAsync();
     internal void ClearKaraoke() => layerEditing.ClearKaraoke();
     internal Task ImportFontAsync() => layerEditing.ImportFontAsync();
     internal bool SelectKeyframe(TimelineKeyframeEventArgs value) => layerEditing.SelectKeyframe(value);

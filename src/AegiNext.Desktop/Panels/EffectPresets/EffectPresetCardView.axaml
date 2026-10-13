@@ -1,0 +1,19 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:AegiNext.Desktop.Panels.EffectPresets" xmlns:controls="using:AegiNext.Desktop.Controls"
+             x:Class="AegiNext.Desktop.Panels.EffectPresets.EffectPresetCardView" x:DataType="vm:EffectPresetCardViewModel"
+             AutomationProperties.Name="{Binding Name}">
+  <Grid RowDefinitions="Auto,Auto" RowSpacing="4" ToolTip.Tip="{Binding PreviewStatus}">
+    <Border CornerRadius="4" ClipToBounds="True" Background="{DynamicResource PreviewBackground}">
+      <Viewbox Stretch="Uniform">
+        <Grid Width="320" Height="180">
+          <controls:VideoFramePresenter Name="PreviewPresenter" Stretch="Fill" IsHitTestVisible="False" />
+          <Border Background="{DynamicResource PreviewSurface}" Padding="12" IsVisible="{Binding HasPreviewError}">
+            <TextBlock Text="{Binding PreviewStatus}" TextWrapping="Wrap" TextAlignment="Center"
+                       VerticalAlignment="Center" Foreground="{DynamicResource PreviewMuted}" />
+          </Border>
+        </Grid>
+      </Viewbox>
+    </Border>
+    <TextBlock Grid.Row="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" TextAlignment="Center" />
+  </Grid>
+</UserControl>

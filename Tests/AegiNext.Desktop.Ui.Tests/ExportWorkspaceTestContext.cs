@@ -7,6 +7,7 @@ using AegiNext.Desktop.Panels;
 using AegiNext.Desktop.Panels.Assets;
 using AegiNext.Desktop.Panels.DrawingTools;
 using AegiNext.Desktop.Panels.Effects;
+using AegiNext.Desktop.Panels.EffectPresets;
 using AegiNext.Desktop.Panels.Export;
 using AegiNext.Desktop.Panels.Log;
 using AegiNext.Desktop.Panels.Masks;
@@ -56,6 +57,7 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
                 [WorkbenchPanelIds.ASSETS] = new AssetsPanelView(viewModel.Assets, Session),
                 [WorkbenchPanelIds.DRAWING_TOOLS] = new DrawingToolsPanelView(viewModel.DrawingTools),
                 [WorkbenchPanelIds.EFFECTS] = new EffectsPanelView(viewModel.Effects, Session),
+                [WorkbenchPanelIds.EFFECT_PRESETS] = new EffectPresetsPanelView(viewModel.EffectPresets, Session),
                 [WorkbenchPanelIds.MASKS] = new MaskPanelView(viewModel.Masks, Session),
                 [WorkbenchPanelIds.EXPORT] = new ExportPanelView(viewModel.Export, Session),
                 [WorkbenchPanelIds.LOG] = new LogPanelView(viewModel.Log, Session.Journal),
@@ -117,7 +119,14 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
                 Layouts.Dispose();
                 foreach (var panel in Panels.Values.Cast<IWorkbenchPanelView>())
                 {
-                    panel.Dispose();
+                    if (panel is IAsyncDisposable asynchronous)
+                    {
+                        await asynchronous.DisposeAsync();
+                    }
+                    else
+                    {
+                        panel.Dispose();
+                    }
                 }
                 Owner.Close();
                 Assert.Equal(1, ExportService.DisposeCount);

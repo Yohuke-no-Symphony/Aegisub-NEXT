@@ -5,7 +5,6 @@ using Avalonia.Controls;
 using Avalonia;
 using Avalonia.Headless;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -85,9 +84,15 @@ internal static class UiTestActions
 
     internal static void SelectBuiltinPreset(Window window, string scriptId)
     {
-        var index = BuiltinEffectScripts.Templates.Select((template, index) => (template, index))
-            .Single(value => value.template.Script.Id == scriptId).index;
-        Find<ComboBox>(window, "PresetCombo").SelectedIndex = index;
+        SelectEffectPreset(window, BuiltinEffectScripts.Get(scriptId).Script.Id);
+    }
+
+    internal static void SelectEffectPreset(Window window, string presetId)
+    {
+        var mainWindow = Assert.IsType<MainWindow>(window);
+        mainWindow.Layouts.Activate("effectPresets");
+        var item = mainWindow.Session.ViewModel.EffectPresets.Items.Single(item => item.Id == presetId);
+        Find<ListBox>(window, "EffectPresetList").SelectedItem = item;
         Dispatcher.UIThread.RunJobs();
     }
 

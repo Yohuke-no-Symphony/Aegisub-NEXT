@@ -12,7 +12,8 @@ public sealed class SubtitleDetailsLayoutMigrationTests
         Assert.Equal(WorkspaceLayoutSnapshot.CURRENT_VERSION, upgraded.Version);
         Assert.Same(previous.Main, upgraded.Current.Main);
         Assert.Equal(WorkbenchPanelIds.SUBTITLES, upgraded.Current.FocusedPanelId);
-        Assert.Equal([WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.ASSETS, WorkbenchPanelIds.DRAWING_TOOLS], upgraded.Current.HiddenPanelIds);
+        Assert.Equal([WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.ASSETS,
+            WorkbenchPanelIds.DRAWING_TOOLS, WorkbenchPanelIds.EFFECT_PRESETS], upgraded.Current.HiddenPanelIds);
         WorkspaceLayoutValidator.Validate(upgraded.Current);
     }
 

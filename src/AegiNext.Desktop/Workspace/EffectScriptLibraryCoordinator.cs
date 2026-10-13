@@ -1,5 +1,4 @@
 using AegiNext.Application.Presets;
-using AegiNext.Application.Tasks;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.I18n;
@@ -36,6 +35,7 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
     internal void Queue(Func<Task> action, Action<WorkbenchLogEntry>? onFailure = null)
     {
         queuedOperations++;
+        session.ViewModel.EffectPresets.RefreshAvailability();
         var operation = RunAsync(action, onFailure);
         lock (operationsGate)
         {
@@ -65,13 +65,12 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
         finally
         {
             queuedOperations--;
+            session.ViewModel.EffectPresets.RefreshAvailability();
         }
     }
 
     internal void RefreshChoices()
     {
-        var vm = session.ViewModel.Effects;
-        var selectedId = vm.Preset >= 0 && vm.Preset < choices.Length ? choices[vm.Preset].Id : null;
         var library = session.EffectScriptLibrary.Snapshot;
         if (!ReferenceEquals(analyzedLibrary, library))
         {
@@ -85,31 +84,39 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
             }
             analyzedLibrary = library;
         }
-        var targets = SelectedTargets();
-        var supportsSubtitleEffects = targets.All(layer => layer.Kind == LayerKind.SUBTITLE && layer.SubtitleId.HasValue);
         choices = BuiltinEffectScripts.Templates.Select(template => new EffectScriptChoice(template.Script.Id,
             BuiltinName(template.Script.Id), template.Source, EffectScriptCompatibility.RequiresSubtitle(template.Script)))
             .Concat(library.Presets.Select(preset => new EffectScriptChoice(preset.Id.ToString("D"), preset.Name,
                 preset.Source, subtitleOnlyPresets.Contains(preset.Id))))
-            .Where(choice => supportsSubtitleEffects || !choice.RequiresSubtitle)
             .ToArray();
-        var names = choices.Select(choice => choice.Name).ToArray();
-        if (!vm.Presets.SequenceEqual(names))
-        {
-            vm.Presets = names;
-        }
-        var index = Array.FindIndex(choices, choice => choice.Id == selectedId);
-        vm.Preset = choices.Length == 0 ? -1 : Math.Max(0, index);
+        session.ViewModel.EffectPresets.RefreshCatalog(choices);
     }
 
     internal Task ApplySelectedAsync()
     {
-        var index = session.ViewModel.Effects.Preset;
-        if (index >= 0 && index < choices.Length)
+        var preset = session.ViewModel.EffectPresets.SelectedPreset;
+        if (Availability(preset?.Id) == EffectPresetApplyAvailability.READY &&
+            choices.FirstOrDefault(choice => choice.Id == preset!.Id && choice.Source == preset.Source) is { } selected)
         {
-            return ApplyAsync(choices[index].Source);
+            return ApplyAsync(selected.Source);
         }
         return Task.CompletedTask;
+    }
+
+    internal EffectPresetApplyAvailability Availability(string? presetId)
+    {
+        if (session.IsProjectBusy || session.IsClosing || IsBusy)
+        {
+            return EffectPresetApplyAvailability.BUSY;
+        }
+        var preset = choices.FirstOrDefault(choice => choice.Id == presetId);
+        var targets = SelectedTargets();
+        if (preset is null || targets.Length == 0)
+        {
+            return EffectPresetApplyAvailability.NO_SELECTION;
+        }
+        return preset.RequiresSubtitle && targets.Any(layer => layer.Kind != LayerKind.SUBTITLE || !layer.SubtitleId.HasValue)
+            ? EffectPresetApplyAvailability.REQUIRES_SUBTITLE : EffectPresetApplyAvailability.READY;
     }
 
     internal Task ApplyAsync(string source)

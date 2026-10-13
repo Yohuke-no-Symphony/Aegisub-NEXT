@@ -23,13 +23,13 @@ public sealed class GraphicEffectWorkflowTests
         var session = context.Session;
         var layer = document.Layers[0];
         session.SelectLayer(layer.Id, [layer.Id]);
-        var model = session.ViewModel.Effects;
-        Assert.DoesNotContain(Localization.Get("Workbench.LetterBounce"), model.Presets);
-        Assert.DoesNotContain(Localization.Get("Workbench.LetterPulse"), model.Presets);
-        model.Preset = Array.IndexOf(model.Presets, Localization.Get("Workbench.Fade"));
-        Assert.True(model.Preset >= 0);
+        var model = session.ViewModel.EffectPresets;
+        Assert.Contains(model.Items, item => item.Id == "letter-bounce");
+        Assert.Contains(model.Items, item => item.Id == "letter-pulse");
+        model.SelectedPreset = model.Items.Single(item => item.Id == "fade-in-out");
+        Assert.True(model.ApplyCommand.CanExecute(null));
 
-        await session.ApplySelectedPresetAsync();
+        await model.ApplyCommand.ExecuteAsync(null);
 
         var applied = context.Editor.Snapshot;
         Assert.Null(session.LastError);
@@ -62,7 +62,10 @@ public sealed class GraphicEffectWorkflowTests
         await context.Session.EffectScripts.Completion;
         var session = context.Session;
         session.SelectLayer(subtitle.Id, document.Layers.Select(layer => layer.Id).ToArray());
-        Assert.DoesNotContain(Localization.Get("Workbench.LetterPulse"), session.ViewModel.Effects.Presets);
+        var model = session.ViewModel.EffectPresets;
+        model.SelectedPreset = model.Items.Single(item => item.Id == "letter-pulse");
+        Assert.False(model.ApplyCommand.CanExecute(null));
+        Assert.Equal(Localization.Get("Workbench.EffectPresetRequiresSubtitle"), model.ApplyHint);
 
         await Assert.ThrowsAsync<EffectScriptException>(() => session.EffectScripts.ApplyAsync(BuiltinEffectScripts.Get("letter-pulse").Source));
         Assert.Same(document, context.Editor.Snapshot);
@@ -74,7 +77,8 @@ public sealed class GraphicEffectWorkflowTests
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
         session.SelectLayer(subtitle.Id, [subtitle.Id]);
-        Assert.Contains(Localization.Get("Workbench.LetterPulse"), session.ViewModel.Effects.Presets);
+        Assert.Contains(model.Items, item => item.Id == "letter-pulse");
+        Assert.True(model.ApplyCommand.CanExecute(null));
     }
 
     [Fact]
@@ -88,16 +92,23 @@ public sealed class GraphicEffectWorkflowTests
         session.SelectLayer(document.Layers[0].Id, [document.Layers[0].Id]);
         var preset = new EffectScriptPreset(Guid.NewGuid(), "Personal scope", ScopedSource("opacity"));
         await session.EffectScripts.UpsertAsync(preset);
-        Assert.Contains(preset.Name, session.ViewModel.Effects.Presets);
-        session.ViewModel.Effects.Preset = Array.IndexOf(session.ViewModel.Effects.Presets, preset.Name);
-        await session.ApplySelectedPresetAsync();
+        var model = session.ViewModel.EffectPresets;
+        model.SelectedPreset = model.Items.Single(item => item.Id == preset.Id.ToString("D"));
+        Assert.Equal(preset.Name, model.SelectedPreset.Name);
+        var originalRevision = model.SelectedPreset.Revision;
+        Assert.True(model.ApplyCommand.CanExecute(null));
+        await model.ApplyCommand.ExecuteAsync(null);
         Assert.Single(context.Editor.Snapshot.Layers[0].Tracks);
         Assert.True(context.Editor.Undo());
 
         await session.EffectScripts.UpsertAsync(preset with { Source = ScopedSource("font-size") });
-        Assert.DoesNotContain(preset.Name, session.ViewModel.Effects.Presets);
+        Assert.Equal(preset.Id.ToString("D"), model.SelectedPreset!.Id);
+        Assert.Equal(ScopedSource("font-size"), model.SelectedPreset.Source);
+        Assert.True(model.SelectedPreset.Revision > originalRevision);
+        Assert.False(model.ApplyCommand.CanExecute(null));
         await session.EffectScripts.UpsertAsync(preset);
-        Assert.Contains(preset.Name, session.ViewModel.Effects.Presets);
+        Assert.Equal(preset.Name, model.SelectedPreset.Name);
+        Assert.True(model.ApplyCommand.CanExecute(null));
     }
 
     private static string ScopedSource(string property) => $$"""

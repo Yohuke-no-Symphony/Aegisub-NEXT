@@ -2,7 +2,6 @@ using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
-using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 
@@ -48,10 +47,9 @@ public sealed class EffectLibraryIntegrationUiTests
         Assert.Same(original, context.Session.DocumentSnapshot);
         settings.Close();
 
-        var combo = UiTestActions.Find<ComboBox>(context.Window, "PresetCombo");
-        combo.SelectedIndex = Array.IndexOf(context.ViewModel.Effects.Presets, preset.Name);
+        UiTestActions.SelectEffectPreset(context.Window, preset.Id.ToString("D"));
         UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+        await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
 
         var applied = context.Session.DocumentSnapshot;
         Assert.Equal([(0, 2), (2, 2)], applied.Subtitles[0].AnimationRanges.Select(range => (range.Utf16Start, range.Utf16Length)));
@@ -87,18 +85,17 @@ public sealed class EffectLibraryIntegrationUiTests
         Assert.Equal("Personal timing script", preset.Name);
         Assert.False(settings.ViewModel.Effects.IsDirty);
         Assert.Same(original, context.Session.DocumentSnapshot);
-        var combo = UiTestActions.Find<ComboBox>(context.Window, "PresetCombo");
-        combo.SelectedIndex = Array.IndexOf(context.ViewModel.Effects.Presets, preset.Name);
-        Assert.True(combo.SelectedIndex >= BuiltinEffectScripts.Templates.Length);
+        settings.Close();
+        UiTestActions.SelectEffectPreset(context.Window, preset.Id.ToString("D"));
+        Assert.Equal(preset.Id.ToString("D"), context.ViewModel.EffectPresets.SelectedPreset!.Id);
         UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+        await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
         var layer = context.Session.SelectedLayer!;
         var track = Assert.Single(layer.Tracks);
         Assert.Equal(AnimationProperty.OPACITY, track.Property);
         Assert.Equal(layer.End - layer.Start + layer.AnimationOffset, track.Keyframes[^1].Time);
         context.Session.Editor.Undo();
         Assert.Same(original, context.Session.DocumentSnapshot);
-        settings.Close();
         await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
         var reopened = Assert.Single(context.Window.OwnedWindows.OfType<SettingsWindow>());
         reopened.SelectPage(SettingsPage.EFFECTS);
@@ -130,10 +127,10 @@ public sealed class EffectLibraryIntegrationUiTests
         await context.Session.EffectScripts.Completion;
         Assert.Same(original, context.Session.DocumentSnapshot);
         var preset = Assert.Single(context.Session.EffectScriptLibrary.Snapshot.Presets);
-        var combo = UiTestActions.Find<ComboBox>(context.Window, "PresetCombo");
-        combo.SelectedIndex = Array.IndexOf(context.ViewModel.Effects.Presets, preset.Name);
+        settings.Close();
+        UiTestActions.SelectEffectPreset(context.Window, preset.Id.ToString("D"));
         UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.Effects.ApplyPresetCommand).ExecutionTask!;
+        await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
         Assert.Single(context.Session.SelectedLayer!.Tracks);
         Assert.False(settings.ViewModel.Effects.IsDirty);
     }

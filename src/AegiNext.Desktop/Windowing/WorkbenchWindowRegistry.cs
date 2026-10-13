@@ -212,6 +212,13 @@ internal sealed class WorkbenchWindowRegistry : IDisposable
             return;
         }
 
+        var focusedElement = window.FocusManager.GetFocusedElement();
+        if (focusedElement is Visual focused && focused.GetSelfAndVisualAncestors().OfType<IWorkbenchLocalKeyboardTarget>()
+            .Any(target => target.OwnsLocalKey(e.Key, e.KeyModifiers, focusedElement)))
+        {
+            return;
+        }
+
         var textInput = visual is TextBox or AegiNext.Desktop.Controls.RichSubtitleEditor || visual?.GetVisualAncestors().Any(value => value is TextBox or AegiNext.Desktop.Controls.RichSubtitleEditor) == true;
         if (!router.TryResolve(e.Key, e.KeyModifiers, textInput, out var id))
         {

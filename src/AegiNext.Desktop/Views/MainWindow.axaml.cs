@@ -14,6 +14,7 @@ using AegiNext.Desktop.Panels.Subtitles;
 using AegiNext.Desktop.Panels.SubtitleDetails;
 using AegiNext.Desktop.Panels.Styles;
 using AegiNext.Desktop.Panels.Effects;
+using AegiNext.Desktop.Panels.EffectPresets;
 using AegiNext.Desktop.Panels.Masks;
 using AegiNext.Desktop.Panels.Export;
 using AegiNext.Desktop.Panels.Log;
@@ -93,6 +94,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
             [WorkbenchPanelIds.DRAWING_TOOLS] = new DrawingToolsPanelView(ViewModel.DrawingTools),
             ["styles"] = new StylesPanelView(ViewModel.Styles, Session),
             ["effects"] = new EffectsPanelView(ViewModel.Effects, Session),
+            [WorkbenchPanelIds.EFFECT_PRESETS] = new EffectPresetsPanelView(ViewModel.EffectPresets, Session),
             [WorkbenchPanelIds.MASKS] = new MaskPanelView(ViewModel.Masks, Session),
             ["export"] = new ExportPanelView(ViewModel.Export, Session),
             [WorkbenchPanelIds.SUBTITLE_DETAILS] = new SubtitleDetailsPanelView(Session),
@@ -275,7 +277,14 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
         {
             foreach (var panel in panels.Values.OfType<IWorkbenchPanelView>())
             {
-                panel.Dispose();
+                if (panel is IAsyncDisposable asynchronous)
+                {
+                    await asynchronous.DisposeAsync();
+                }
+                else
+                {
+                    panel.Dispose();
+                }
             }
             ViewModel.PropertyChanged -= OnViewModelChanged;
             ViewModel.DraftErrorFocusRequested -= OnDraftErrorFocusRequested;
@@ -382,6 +391,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
                 WorkbenchCommand.VIEW_ASSETS => WorkbenchPanelIds.ASSETS,
                 WorkbenchCommand.VIEW_DRAWING_TOOLS => WorkbenchPanelIds.DRAWING_TOOLS,
                 WorkbenchCommand.VIEW_MASKS => WorkbenchPanelIds.MASKS,
+                WorkbenchCommand.VIEW_EFFECT_PRESETS => WorkbenchPanelIds.EFFECT_PRESETS,
                 WorkbenchCommand.VIEW_EFFECTS => "effects", WorkbenchCommand.VIEW_EXPORT => "export",
                 WorkbenchCommand.VIEW_LOG => WorkbenchPanelIds.LOG, _ => null
             };

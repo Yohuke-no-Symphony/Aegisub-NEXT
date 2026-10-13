@@ -83,6 +83,7 @@ internal static class WorkbenchIcon
             "Style" or "VIEW_STYLES" => MaterialIconKind.FormatText,
             "ApplyStyle" or "ApplySelectionPreset" => MaterialIconKind.FormatPaint,
             "Effects" or "VIEW_EFFECTS" or "ApplyPreset" or "Fade" or "Pop" or "Slide" => MaterialIconKind.Creation,
+            "EffectPresets" or "VIEW_EFFECT_PRESETS" => MaterialIconKind.ViewGridOutline,
             "Subtitles" or "VIEW_SUBTITLES" or "Karaoke" or "ClearKaraoke" => MaterialIconKind.SubtitlesOutline,
             "SubtitleEditor" or "OPEN_SUBTITLE_DETAILS" => MaterialIconKind.TextBoxEditOutline,
             "View" => MaterialIconKind.Eye,

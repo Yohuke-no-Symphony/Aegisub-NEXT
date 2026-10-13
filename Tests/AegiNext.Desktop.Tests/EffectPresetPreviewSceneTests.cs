@@ -36,7 +36,6 @@ public sealed class EffectPresetPreviewSceneTests
         Assert.Equal(0xFF404040u, options.BackgroundBgra);
         Assert.Equal(24, options.FramesPerSecond);
         Assert.Equal(32L * 1024 * 1024, options.StaticCacheBytes);
-        Assert.Equal(64, options.MaximumCompiledScenes);
     }
 
     /// <summary>新时长与画布派生静态采样点，同时各次编译保持独立工程身份。</summary>

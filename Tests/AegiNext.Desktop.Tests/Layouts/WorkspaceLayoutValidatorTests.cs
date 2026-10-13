@@ -27,7 +27,9 @@ public sealed class WorkspaceLayoutValidatorTests
                 WorkspaceLayoutPresets.Tabs(0.28, WorkbenchPanelIds.TIMELINE)),
             Floating = [new() { X = -1440, Y = 200, Width = 800, Height = 560, Scaling = 2,
                 Content = WorkspaceLayoutPresets.Tabs(1, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.EXPORT) }],
-            HiddenPanelIds = [WorkbenchPanelIds.SUBTITLES, WorkbenchPanelIds.LOG, WorkbenchPanelIds.SUBTITLE_DETAILS, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.ASSETS, WorkbenchPanelIds.DRAWING_TOOLS], FocusedPanelId = WorkbenchPanelIds.EFFECTS
+            HiddenPanelIds = [WorkbenchPanelIds.SUBTITLES, WorkbenchPanelIds.LOG, WorkbenchPanelIds.SUBTITLE_DETAILS,
+                WorkbenchPanelIds.MASKS, WorkbenchPanelIds.ASSETS, WorkbenchPanelIds.DRAWING_TOOLS, WorkbenchPanelIds.EFFECT_PRESETS],
+            FocusedPanelId = WorkbenchPanelIds.EFFECTS
         };
         WorkspaceLayoutValidator.Validate(layout);
         var copy = System.Text.Json.JsonSerializer.Deserialize<WorkspaceLayoutSnapshot>(WorkspaceLayoutStore.Fingerprint(layout));
@@ -37,7 +39,7 @@ public sealed class WorkspaceLayoutValidatorTests
         Assert.Equal(reorderedPanelIds, copy.Main.Children[0].Children.Select(child => child.PanelId));
         Assert.Equal("preview", copy.Main.Children[0].ActivePanelId);
         Assert.Equal(-1440, Assert.Single(copy.Floating).X);
-        Assert.Equal<string>(["subtitles", "log", "subtitleDetails", "masks", "assets", "drawingTools"], copy.HiddenPanelIds);
+        Assert.Equal<string>(["subtitles", "log", "subtitleDetails", "masks", "assets", "drawingTools", "effectPresets"], copy.HiddenPanelIds);
         Assert.Equal("effects", copy.FocusedPanelId);
         WorkspaceLayoutValidator.Validate(copy);
     }

@@ -7,6 +7,7 @@ internal static class WorkbenchPanelIds
     public const string SUBTITLES = "subtitles";
     public const string STYLES = "styles";
     public const string EFFECTS = "effects";
+    public const string EFFECT_PRESETS = "effectPresets";
     public const string EXPORT = "export";
     public const string LOG = "log";
     public const string ASSETS = "assets";
@@ -15,5 +16,5 @@ internal static class WorkbenchPanelIds
     public const string SUBTITLE_DETAILS = "subtitleDetails";
 
     public static IReadOnlyList<string> All { get; } =
-        [PREVIEW, TIMELINE, SUBTITLES, STYLES, EFFECTS, EXPORT, LOG, SUBTITLE_DETAILS, MASKS, ASSETS, DRAWING_TOOLS];
+        [PREVIEW, TIMELINE, SUBTITLES, STYLES, EFFECTS, EXPORT, LOG, SUBTITLE_DETAILS, MASKS, ASSETS, DRAWING_TOOLS, EFFECT_PRESETS];
 }

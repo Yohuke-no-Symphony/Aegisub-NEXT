@@ -132,6 +132,62 @@ public sealed class EffectPresetPreviewSchedulerTests
         Assert.Equal(new MediaTime(3, 2), restored.Position);
     }
 
+    /// <summary>真实播放经过退场后循环，同源可见同步不重启，重新附着拒绝上一轮退出帧。</summary>
+    [Fact]
+    public async Task RealAnimationVisitsTheOutroAndLoopsWhileTheSameVisibleTargetIsRefreshed()
+    {
+        var inbox = Channel.CreateUnbounded<EffectPresetPreviewResult>();
+        await using var scheduler = new EffectPresetPreviewScheduler(result => inbox.Writer.TryWrite(result));
+        var request = EffectPresetPreviewTestSources.Request(source: BuiltinEffectScripts.Get("fade-in-out").Source);
+        scheduler.UpdateVisible([request]);
+        await scheduler.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        var poster = await Next(inbox.Reader, _ => true);
+        scheduler.SetActive(request.PresetId);
+        var first = await Next(inbox.Reader, result => result.IsAnimated);
+        Assert.Equal(MediaTime.Zero, first.Position);
+        Assert.Null(first.Error);
+        EffectPresetPreviewResult? outro = null;
+        var previous = first;
+        EffectPresetPreviewResult loop;
+        using (var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
+        {
+            while (true)
+            {
+                scheduler.UpdateVisible([request]);
+                scheduler.SetActive(request.PresetId);
+                var current = await inbox.Reader.ReadAsync(cancellation.Token);
+                Assert.True(current.IsAnimated);
+                Assert.Null(current.Error);
+                Assert.Equal(first.Generation, current.Generation);
+                Assert.True(scheduler.IsCurrent(current));
+                if (current.Position >= new MediaTime(29, 10))
+                {
+                    outro = current;
+                }
+                if (current.Position < previous.Position)
+                {
+                    loop = current;
+                    break;
+                }
+                previous = current;
+            }
+        }
+
+        Assert.NotNull(outro);
+        Assert.NotEqual(poster.Frame!.Pixels.ToArray(), outro.Frame!.Pixels.ToArray());
+        Assert.True(loop.Position >= MediaTime.Zero && loop.Position <= new MediaTime(1, 4));
+        scheduler.Invalidate();
+        Assert.False(scheduler.IsCurrent(outro));
+        scheduler.UpdateVisible([request]);
+        scheduler.SetActive(request.PresetId);
+        var reopened = await Next(inbox.Reader, result => result.IsAnimated && result.Generation != first.Generation);
+        Assert.Equal(MediaTime.Zero, reopened.Position);
+        Assert.False(scheduler.IsCurrent(outro));
+        Assert.True(scheduler.IsCurrent(reopened));
+        scheduler.SetActive(null);
+        await scheduler.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+    }
+
     /// <summary>源修订或 DPI 替换会拒绝已派发旧帧，并生成新的静态缓存项。</summary>
     [Fact]
     public async Task ChangedSourceAndDpiInvalidatePostedResultsAndTheirStaticCacheIdentity()

@@ -10,8 +10,7 @@ internal sealed class EffectPresetPreviewRenderer : IEffectPresetPreviewRenderer
 {
     private readonly EffectPresetPreviewOptions options;
     private readonly int ownerThread = Environment.CurrentManagedThreadId;
-    private readonly Dictionary<string, LinkedListNode<EffectPresetPreviewCompiledScene>> scenes = new(StringComparer.Ordinal);
-    private readonly LinkedList<EffectPresetPreviewCompiledScene> sceneOrder = new();
+    private readonly Dictionary<string, EffectPresetPreviewCompiledScene> scenes = new(StringComparer.Ordinal);
     private ProjectSceneRenderer? renderer;
     private SystemFontCatalog? fontCatalog;
     private byte[] background = [];
@@ -61,38 +60,28 @@ internal sealed class EffectPresetPreviewRenderer : IEffectPresetPreviewRenderer
 
     private EffectPresetPreviewScene GetScene(EffectPresetPreviewRequest request, CancellationToken cancellationToken)
     {
-        if (scenes.TryGetValue(request.SourceHash, out var cached))
-        {
-            sceneOrder.Remove(cached);
-            sceneOrder.AddFirst(cached);
-        }
-        else
+        if (!scenes.TryGetValue(request.SourceHash, out var cached))
         {
             EffectPresetPreviewScene? scene = null;
             Exception? error = null;
             try
             {
-                CompilationCount++;
                 scene = EffectPresetPreviewScene.Create(options, request.Source, cancellationToken);
             }
             catch (Exception failure) when (failure is EffectScriptException or InvalidDataException or EffectPresetPreviewRequirementException)
             {
                 error = failure;
             }
-            cancellationToken.ThrowIfCancellationRequested();
-            if (sceneOrder.Count >= options.MaximumCompiledScenes)
-            {
-                scenes.Remove(sceneOrder.Last!.Value.SourceHash);
-                sceneOrder.RemoveLast();
-            }
-            cached = sceneOrder.AddFirst(new EffectPresetPreviewCompiledScene(request.SourceHash, scene, error));
+            cached = new(scene, error);
             scenes.Add(request.SourceHash, cached);
+            CompilationCount++;
         }
-        if (cached.Value.Error is { } diagnostic)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (cached.Error is { } diagnostic)
         {
             throw diagnostic;
         }
-        return cached.Value.Scene!;
+        return cached.Scene!;
     }
 
     private void VerifyThread()
@@ -115,7 +104,6 @@ internal sealed class EffectPresetPreviewRenderer : IEffectPresetPreviewRenderer
         renderer?.Dispose();
         renderer = null;
         scenes.Clear();
-        sceneOrder.Clear();
         background = [];
     }
 }
