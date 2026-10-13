@@ -8,11 +8,17 @@ using AegiNext.Core.Timing;
 namespace AegiNext.Core.Editing;
 
 /// <summary>将同一完整目标的标量旋转轴规范为 XYZ 轨道，精确保留独立曲线及有序变换语义。</summary>
-public static class RotationAnimationTrackMigration
+public static partial class RotationAnimationTrackMigration
 {
     /// <summary>合并指定三维旋转目标的旧轴轨道；缺失轴采用真实静态值，其他范围、状态及属性保持原样。</summary>
     public static ImmutableArray<AnimationTrack> Merge(ImmutableArray<AnimationTrack> tracks,
         AnimationTrackTarget target, SceneVector3 fallback)
+    {
+        return MergeCore(tracks, target, fallback, null);
+    }
+
+    private static ImmutableArray<AnimationTrack> MergeCore(ImmutableArray<AnimationTrack> tracks,
+        AnimationTrackTarget target, SceneVector3 fallback, AnimationTrack? projectionSource)
     {
         if (tracks.IsDefault || tracks.Any(track => track is null) || target.Property != AnimationProperty.ROTATION_3D)
         {
@@ -33,7 +39,8 @@ public static class RotationAnimationTrackMigration
         foreach (var track in sources.SelectMany(source => source).Concat(canonical))
         {
             SubtitleAnimationTargetValidation.ValidateIdentity(track.Target);
-            ProjectValidator.ValidateAnimationTrackData(track, true);
+            ProjectValidator.ValidateAnimationTrackData(track, true, projectionSource is null ? null :
+                AnimationPropertyMetadata.GetMaximumTrackEntries(AnimationProperty.ROTATION_3D));
         }
 
         if (sources.All(source => source.Length == 0))
@@ -43,7 +50,7 @@ public static class RotationAnimationTrackMigration
 
         var axes = sources.Select(source => source.SingleOrDefault()).ToArray();
         var merged = axes.Any(source => source is { IsOrdered: true })
-            ? MergeOrdered(axes, target, fallback)
+            ? projectionSource is null ? MergeOrdered(axes, target, fallback) : MergeProjectedOrdered(axes, target, fallback, projectionSource)
             : MergeKeyframes(axes, target, fallback);
         ProjectValidator.ValidateAnimationTrackData(merged, true);
         var result = ImmutableArray.CreateBuilder<AnimationTrack>(tracks.Length - axes.Count(axis => axis is not null) + 1);
@@ -70,6 +77,12 @@ public static class RotationAnimationTrackMigration
     /// <summary>规范一个图层的所有旋转目标，范围缺失轴读取所属范围的静态 XYZ，整层读取原生变换。</summary>
     public static ImmutableArray<AnimationTrack> Normalize(ProjectLayer layer, SubtitleLine? subtitle)
     {
+        return NormalizeCore(layer, subtitle, []);
+    }
+
+    private static ImmutableArray<AnimationTrack> NormalizeCore(ProjectLayer layer, SubtitleLine? subtitle,
+        Dictionary<AnimationTrackTarget, AnimationTrack> projectionSources)
+    {
         ArgumentNullException.ThrowIfNull(layer);
         if (layer.Tracks.IsDefault || layer.Tracks.Any(track => track is null))
         {
@@ -83,7 +96,7 @@ public static class RotationAnimationTrackMigration
         foreach (var target in targets)
         {
             var fallback = SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target).Vector3;
-            tracks = Merge(tracks, target, fallback);
+            tracks = MergeCore(tracks, target, fallback, projectionSources.GetValueOrDefault(target));
         }
 
         return tracks;
@@ -93,6 +106,11 @@ public static class RotationAnimationTrackMigration
     {
         var times = axes.Where(axis => axis is not null).SelectMany(axis => axis!.Keyframes)
             .Select(frame => frame.Time).Distinct().Order().ToArray();
+        if (times.Length > AnimationPropertyMetadata.GetMaximumTrackEntries(AnimationProperty.ROTATION_3D))
+        {
+            throw new InvalidDataException("The canonical rotation time union exceeds its component budget.");
+        }
+
         var frames = ImmutableArray.CreateBuilder<Keyframe>(times.Length);
         for (var index = 0; index < times.Length; index++)
         {

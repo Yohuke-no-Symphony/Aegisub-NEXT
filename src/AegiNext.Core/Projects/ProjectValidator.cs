@@ -504,15 +504,16 @@ public static partial class ProjectValidator
         }
     }
 
-    internal static void ValidateAnimationTrackData(AnimationTrack track, bool allowNegativeKeyTimes = false)
+    internal static void ValidateAnimationTrackData(AnimationTrack track, bool allowNegativeKeyTimes = false,
+        int? maximumTrackEntries = null)
     {
         Require(Enum.IsDefined(track.ColorSpace) &&
             (track.ColorSpace == AnimationColorSpace.LINEAR_RGB || AnimationPropertyMetadata.GetValueKind(track.Property) == AnimationValueKind.COLOR),
             "The animation color space does not match the property.");
         var dimension = AnimationPropertyMetadata.GetComponentCount(track.Property);
+        var maximumEntries = maximumTrackEntries ?? AnimationPropertyMetadata.GetMaximumTrackEntries(track.Property);
         Require(!track.Keyframes.IsDefault && !track.Transforms.IsDefault &&
-            track.Keyframes.Length <= AnimationPropertyMetadata.GetMaximumTrackEntries(track.Property) &&
-            track.Transforms.Length <= AnimationPropertyMetadata.GetMaximumTrackEntries(track.Property),
+            track.Keyframes.Length <= maximumEntries && track.Transforms.Length <= maximumEntries,
             "The property track exceeds the component time-union budget.");
         if (track.IsOrdered)
         {
