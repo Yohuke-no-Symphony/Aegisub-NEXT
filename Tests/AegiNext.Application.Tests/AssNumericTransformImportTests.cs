@@ -188,7 +188,7 @@ public sealed class AssNumericTransformImportTests
     [Fact]
     public void MixedMaskNumericAndUnsupportedTagsAreDispatchedWithoutLosingSupportedProperties()
     {
-        var parsed = Parse("{\\clip(0,0,100,100)\\t(0,2000,2,\\clip(100,100,200,200)\\fsp10\\frx30)}a");
+        var parsed = Parse("{\\clip(0,0,100,100)\\t(0,2000,2,\\clip(100,100,200,200)\\fsp10\\fax30)}a");
         var clip = Assert.Single(parsed.Clips);
 
         Assert.Equal(3, clip.Tracks.Length);

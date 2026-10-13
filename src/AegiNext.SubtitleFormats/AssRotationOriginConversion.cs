@@ -49,12 +49,15 @@ internal static class AssRotationOriginConversion
         }
         var scale = transform.Scale;
         var rotation = transform.Rotation;
-        var animatedRotation = false;
+        var rotationX = transform.RotationX;
+        var rotationY = transform.RotationY;
+        var animatedRotations = new HashSet<AnimationProperty>();
         var normalizedTracks = numericTracks.ToBuilder();
         for (var index = 0; index < numericTracks.Length; index++)
         {
             var track = numericTracks[index];
-            if (track.Target.TextRangeId is not null || track.Property is not (AnimationProperty.SCALE or AnimationProperty.ROTATION))
+            if (track.Target.TextRangeId is not null || track.Property is not (AnimationProperty.SCALE or AnimationProperty.ROTATION or
+                AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y))
             {
                 continue;
             }
@@ -75,11 +78,22 @@ internal static class AssRotationOriginConversion
             }
             else if (constant)
             {
-                rotation = value.Scalar;
+                switch (track.Property)
+                {
+                    case AnimationProperty.ROTATION:
+                        rotation = value.Scalar;
+                        break;
+                    case AnimationProperty.ROTATION_X:
+                        rotationX = value.Scalar;
+                        break;
+                    case AnimationProperty.ROTATION_Y:
+                        rotationY = value.Scalar;
+                        break;
+                }
             }
             else
             {
-                animatedRotation = true;
+                animatedRotations.Add(track.Property);
             }
             if (constant && track.IsOrdered)
             {
@@ -94,13 +108,20 @@ internal static class AssRotationOriginConversion
             reason = "animated scaling requires coordinated rotation-origin and position changes, which this conversion does not support";
             return false;
         }
-        if (sourceGeometry.ConstantScale != scale || sourceGeometry.ConstantRotation is { } expectedRotation &&
-            (animatedRotation || expectedRotation != rotation))
+        if (sourceGeometry.ConstantScale != scale ||
+            sourceGeometry.ConstantRotation is { } expectedRotation &&
+                (animatedRotations.Contains(AnimationProperty.ROTATION) || expectedRotation != rotation) ||
+            sourceGeometry.ConstantRotationX is { } expectedRotationX &&
+                (animatedRotations.Contains(AnimationProperty.ROTATION_X) || expectedRotationX != rotationX) ||
+            sourceGeometry.ConstantRotationY is { } expectedRotationY &&
+                (animatedRotations.Contains(AnimationProperty.ROTATION_Y) || expectedRotationY != rotationY))
         {
             reason = "fixed geometry within the source visible window differs from the imported result, preventing exact rotation-origin compensation";
             return false;
         }
-        if (sourceGeometry.HasRotationAnimation && !animatedRotation)
+        if (sourceGeometry.ConstantRotation is null && !animatedRotations.Contains(AnimationProperty.ROTATION) ||
+            sourceGeometry.ConstantRotationX is null && !animatedRotations.Contains(AnimationProperty.ROTATION_X) ||
+            sourceGeometry.ConstantRotationY is null && !animatedRotations.Contains(AnimationProperty.ROTATION_Y))
         {
             reason = "source rotation animation was not fully preserved, preventing exact rotation-origin compensation";
             return false;
@@ -110,7 +131,7 @@ internal static class AssRotationOriginConversion
             reason = "rotation-origin compensation supports only fixed positive scaling; an axis with zero scaling cannot use this pivot conversion";
             return false;
         }
-        if (!canvasScaleX.Equals(canvasScaleY) && (rotation != 0 || animatedRotation))
+        if (!canvasScaleX.Equals(canvasScaleY) && (rotation != 0 || rotationX != 0 || rotationY != 0 || animatedRotations.Count > 0))
         {
             reason = "nonuniform canvas resampling combined with rotation produces shear, preventing exact rotation-origin compensation";
             return false;
@@ -121,7 +142,15 @@ internal static class AssRotationOriginConversion
             reason = "rotation-origin compensation supports only a single whole-line straight-line movement";
             return false;
         }
-        if (animatedRotation && placementTracks.Any(track => !TryConstant(track, out var value) || value.Vector != default))
+        var movingPlacement = placementTracks.Any(track => !TryConstant(track, out var value) || value.Vector != default);
+        var perspective = rotationX != 0 || rotationY != 0 || animatedRotations.Contains(AnimationProperty.ROTATION_X) ||
+            animatedRotations.Contains(AnimationProperty.ROTATION_Y);
+        if (perspective && movingPlacement)
+        {
+            reason = "perspective rotation and movement around a fixed origin require coordinated local depth and position changes, which this conversion does not support";
+            return false;
+        }
+        if (animatedRotations.Count > 0 && movingPlacement)
         {
             reason = "rotation animation and movement coexist and require coordinated position changes, which this conversion does not support";
             return false;
@@ -168,12 +197,16 @@ internal static class AssRotationOriginConversion
     internal static bool HasRangeGeometry(SubtitleLine line, IEnumerable<AnimationTrack> tracks)
     {
         var geometryTracks = tracks.Where(track => track.Target.TextRangeId is not null &&
-            track.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION).ToArray();
+            track.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION or
+                AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y or AnimationProperty.PERSPECTIVE_DISTANCE).ToArray();
         foreach (var range in line.AnimationRanges)
         {
             var position = range.Offset;
             var scale = range.Scale;
             var rotation = range.Rotation;
+            var rotationX = range.RotationX;
+            var rotationY = range.RotationY;
+            var distance = range.PerspectiveDistance;
             foreach (var track in geometryTracks.Where(track => track.Target.TextRangeId == range.Id))
             {
                 if (!TryConstant(track, out var value) || track.Target.State != SubtitleAnimationState.NORMAL)
@@ -191,9 +224,19 @@ internal static class AssRotationOriginConversion
                     case AnimationProperty.ROTATION:
                         rotation = value.Scalar;
                         break;
+                    case AnimationProperty.ROTATION_X:
+                        rotationX = value.Scalar;
+                        break;
+                    case AnimationProperty.ROTATION_Y:
+                        rotationY = value.Scalar;
+                        break;
+                    case AnimationProperty.PERSPECTIVE_DISTANCE:
+                        distance = value.Scalar;
+                        break;
                 }
             }
-            if (position != default || scale != new ScenePoint(1, 1) || rotation != 0)
+            if (position != default || scale != new ScenePoint(1, 1) || rotation != 0 || rotationX != 0 || rotationY != 0 ||
+                distance != SceneProjection.DEFAULT_DISTANCE || range.ProjectionTranslation != default)
             {
                 return true;
             }

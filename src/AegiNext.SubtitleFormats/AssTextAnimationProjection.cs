@@ -29,6 +29,8 @@ internal static class AssTextAnimationProjection
             {
                 Id = id, Pivot = previous?.Pivot ?? range.Pivot,
                 Offset = previous?.Offset ?? range.Offset,
+                PerspectiveDistance = previous?.PerspectiveDistance ?? range.PerspectiveDistance,
+                ProjectionTranslation = previous?.ProjectionTranslation ?? range.ProjectionTranslation,
                 GeneratedOrigin = previous?.GeneratedOrigin ?? range.GeneratedOrigin
             };
         }).ToImmutableArray();
@@ -140,7 +142,8 @@ internal static class AssTextAnimationProjection
 
     private static bool Representable(AnimationTrack track, HashSet<AnimationTrackTarget> representableShadows)
     {
-        if (track.Target.TextRangeId is not null && track.Property == AnimationProperty.POSITION ||
+        if (track.Property == AnimationProperty.PERSPECTIVE_DISTANCE ||
+            track.Target.TextRangeId is not null && track.Property == AnimationProperty.POSITION ||
             AssCurveCompatibility.HasReversedNonlinearCurve(track))
         {
             return false;
@@ -155,7 +158,8 @@ internal static class AssTextAnimationProjection
     {
         var referencedIds = preserved
             .Select(track => track.Target.TextRangeId).ToHashSet();
-        referencedIds.UnionWith(originalRanges.Where(range => range.Offset != default || range.GeneratedOrigin is not null)
+        referencedIds.UnionWith(originalRanges.Where(range => range.Offset != default || range.GeneratedOrigin is not null ||
+            range.PerspectiveDistance != SceneProjection.DEFAULT_DISTANCE || range.ProjectionTranslation != default)
             .Select(range => (Guid?)range.Id));
         var byId = originalRanges.ToDictionary(range => range.Id);
         var pending = new Queue<Guid>(referencedIds.OfType<Guid>());
@@ -184,10 +188,11 @@ internal static class AssTextAnimationProjection
             var geometryWasProjected = !shadowRangeIds.Contains(range.Id) &&
                 range.Pivot == SubtitleAnimationPivot.SUBTITLE_ANCHOR && range.Scale.X >= 0 && range.Scale.Y >= 0 &&
                 projected is not null && projected.Scale == range.Scale && projected.Rotation == range.Rotation &&
+                projected.RotationX == range.RotationX && projected.RotationY == range.RotationY &&
                 !originalRanges.Any(candidate => candidate.Id != range.Id &&
                     candidate.Utf16Start < range.Utf16Start + range.Utf16Length &&
                     range.Utf16Start < candidate.Utf16Start + candidate.Utf16Length);
-            return geometryWasProjected ? range with { Scale = new(1, 1), Rotation = 0 } : range;
+            return geometryWasProjected ? range with { Scale = new(1, 1), Rotation = 0, RotationX = 0, RotationY = 0 } : range;
         }));
         var originalOrder = originalRanges.Select((range, index) => (range.Id, Index: index))
             .ToDictionary(pair => pair.Id, pair => pair.Index);
@@ -304,10 +309,12 @@ internal static class AssTextAnimationProjection
     private static bool Equivalent(SubtitleLine firstLine, ImmutableArray<AnimationTrack> first,
         SubtitleLine secondLine, ImmutableArray<AnimationTrack> second)
     {
-        var firstGeometry = firstLine.AnimationRanges.Where(range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0)
-            .Select(range => (range.Utf16Start, range.Utf16Length, range.Scale, range.Rotation));
-        var secondGeometry = secondLine.AnimationRanges.Where(range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0)
-            .Select(range => (range.Utf16Start, range.Utf16Length, range.Scale, range.Rotation));
+        var firstGeometry = firstLine.AnimationRanges.Where(range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0 ||
+            range.RotationX != 0 || range.RotationY != 0)
+            .Select(range => (range.Utf16Start, range.Utf16Length, range.Scale, range.Rotation, range.RotationX, range.RotationY));
+        var secondGeometry = secondLine.AnimationRanges.Where(range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0 ||
+            range.RotationX != 0 || range.RotationY != 0)
+            .Select(range => (range.Utf16Start, range.Utf16Length, range.Scale, range.Rotation, range.RotationX, range.RotationY));
         if (!firstGeometry.SequenceEqual(secondGeometry))
         {
             return false;

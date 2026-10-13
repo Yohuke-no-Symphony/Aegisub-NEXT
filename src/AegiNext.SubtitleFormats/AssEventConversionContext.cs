@@ -15,6 +15,8 @@ internal sealed class AssEventConversionContext
     private readonly HashSet<string> reported = [];
     private readonly ScenePoint scale;
     private readonly double rotation;
+    private readonly double rotationX;
+    private readonly double rotationY;
     private readonly (double Sine, double Cosine) rotationParts;
     private readonly ScenePoint placementOffset;
     private readonly ScenePoint position;
@@ -45,7 +47,8 @@ internal sealed class AssEventConversionContext
         var alignmentPivot = AssTextParser.Pivot(line.Style.Alignment);
         var stylePosition = line.Style.Position ?? SubtitlePosition.FromAlignment(line.Style.Alignment, line.Style.Margins);
         var automaticPlacement = line.Style.Position is null && layer.Transform == new LayerTransform() &&
-            layer.MotionPath is null && !layer.Tracks.Any(track => track.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION);
+            layer.MotionPath is null && !layer.Tracks.Any(track => track.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or
+                AnimationProperty.ROTATION or AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y);
         var spacingAnimation = Dynamic(AnimationProperty.LETTER_SPACING);
         if (spacingAnimation is not null)
         {
@@ -93,9 +96,26 @@ internal sealed class AssEventConversionContext
         var transform = layer.Transform;
         scale = Constant(AnimationProperty.SCALE)?.Vector ?? transform.Scale;
         rotation = Constant(AnimationProperty.ROTATION)?.Scalar ?? transform.Rotation;
+        rotationX = Constant(AnimationProperty.ROTATION_X)?.Scalar ?? transform.RotationX;
+        rotationY = Constant(AnimationProperty.ROTATION_Y)?.Scalar ?? transform.RotationY;
+        var distance = Constant(AnimationProperty.PERSPECTIVE_DISTANCE)?.Scalar ?? transform.PerspectiveDistance;
+        if (distance != SceneProjection.DEFAULT_DISTANCE || Dynamic(AnimationProperty.PERSPECTIVE_DISTANCE) is not null)
+        {
+            Report("Ass.PerspectiveDistance", "ASS uses a fixed perspective distance and cannot preserve native distance values or their animation. Export used the ASS distance of 312.5 project pixels; native parameters remain in the project.");
+        }
+        if (layer.Tracks.Any(track => track.Property == AnimationProperty.PERSPECTIVE_DISTANCE))
+        {
+            consumed.Add(AnimationProperty.PERSPECTIVE_DISTANCE);
+        }
+        if (transform.ProjectionTranslation != default)
+        {
+            Report("Ass.ProjectionTranslation", "ASS cannot preserve native translation in three-dimensional projection space. Projection translation was omitted; the native pivot compensation remains in the project.");
+        }
         var scaleXAnimation = Dynamic(AnimationProperty.SCALE, 0);
         var scaleYAnimation = Dynamic(AnimationProperty.SCALE, 1);
         var rotationAnimation = Dynamic(AnimationProperty.ROTATION);
+        var rotationXAnimation = Dynamic(AnimationProperty.ROTATION_X);
+        var rotationYAnimation = Dynamic(AnimationProperty.ROTATION_Y);
         if (scale.X < 0 || scale.Y < 0)
         {
             Report("Ass.TransformScale", "Negative scaling components were omitted from ASS export; mirrored transforms in the project are unchanged.");
@@ -122,8 +142,9 @@ internal sealed class AssEventConversionContext
             Report("Ass.MoveApproximation", "ASS move supports only straight-line movement at constant speed. The path and start/end times were preserved, with speed changes approximated as constant speed.");
         }
         hasPlacement = line.Style.Position is not null || position != default || transform.Pivot != default ||
-            scale != new ScenePoint(1, 1) || !rotation.Equals(0d) || move is not null && move.First != move.Last ||
-            scaleXAnimation is not null || rotationAnimation is not null;
+            scale != new ScenePoint(1, 1) || rotation != 0 || rotationX != 0 || rotationY != 0 || move is not null && move.First != move.Last ||
+            scaleXAnimation is not null || scaleYAnimation is not null || rotationAnimation is not null ||
+            rotationXAnimation is not null || rotationYAnimation is not null;
         var basis = new ScenePoint(stylePosition.Anchor.X * document.Width + stylePosition.Offset.X,
             stylePosition.Anchor.Y * document.Height + stylePosition.Offset.Y);
         var delta = new ScenePoint(-transform.Pivot.X, -transform.Pivot.Y);
@@ -149,7 +170,7 @@ internal sealed class AssEventConversionContext
         }
         if (hasPlacement)
         {
-            rotationOrigin = AssRotationOriginExport.Create(originalLayer, line, basis, delta, scale, rotation,
+            rotationOrigin = AssRotationOriginExport.Create(originalLayer, line, basis, delta, scale, rotation, rotationX, rotationY,
                 position, move, convertedPath, needsMeasurement, measurer is not null, out var originReason);
             if (rotationOrigin is not null)
             {
@@ -158,6 +179,10 @@ internal sealed class AssEventConversionContext
             else if (transform.Pivot != default)
             {
                 Report("Ass.RotationOrigin", $"This geometry combination cannot produce reversible ASS org compensation ({originReason}). Existing position, pivot, and animation conversion was used.");
+                if (rotationX != 0 || rotationY != 0 || rotationXAnimation is not null || rotationYAnimation is not null)
+                {
+                    Report("Ass.PerspectiveComposition", $"ASS cannot preserve the native perspective pivot together with this placement or scale animation ({originReason}). Convertible axes and placement were exported using an approximate pivot.");
+                }
             }
         }
         if (AcceptScale(scaleXAnimation, delta.X, needsMeasurement && measurer is null && stylePosition.Pivot != alignmentPivot))
@@ -185,6 +210,15 @@ internal sealed class AssEventConversionContext
                 Report("Ass.TransformPivotAnimation", "Rotation animation requires the compensation position of a custom pivot to change over time. ASS cannot preserve this translation, so only the rotation animation was omitted.");
             }
         }
+        var unknownPivot = needsMeasurement && measurer is null && stylePosition.Pivot != alignmentPivot;
+        if (AcceptProjectionRotation(rotationXAnimation, delta, unknownPivot))
+        {
+            rotationX = rotationXAnimation!.Initial;
+        }
+        if (AcceptProjectionRotation(rotationYAnimation, delta, unknownPivot))
+        {
+            rotationY = rotationYAnimation!.Initial;
+        }
         rotationParts = AssTransformMath.SinCos(rotation);
         if (scale != new ScenePoint(1, 1) || numeric.ContainsKey((AnimationProperty.SCALE, 0)) || numeric.ContainsKey((AnimationProperty.SCALE, 1)))
         {
@@ -203,13 +237,15 @@ internal sealed class AssEventConversionContext
         }
     }
 
-    internal string GeometryTags => scale == new ScenePoint(1, 1) && rotation.Equals(0d) ? string.Empty :
+    internal string GeometryTags => scale == new ScenePoint(1, 1) && rotation == 0 && rotationX == 0 && rotationY == 0 ? string.Empty :
         "\\fscx" + AssFormatValues.Number(scale.X * 100) + "\\fscy" + AssFormatValues.Number(scale.Y * 100) +
-        "\\frz" + AssFormatValues.Number(rotation == 0 ? 0 : -rotation);
+        "\\frz" + AssFormatValues.Number(rotation == 0 ? 0 : -rotation) +
+        "\\frx" + AssFormatValues.Number(rotationX == 0 ? 0 : -rotationX) +
+        "\\fry" + AssFormatValues.Number(rotationY == 0 ? 0 : -rotationY);
 
     internal string TextAnimationTags(int offset, SubtitleStyle style, bool karaoke, MediaTime origin, SubtitleStyle? sharedStyle = null)
     {
-        return textAnimation.Write(offset, style, karaoke, origin, scale, rotation, sharedStyle);
+        return textAnimation.Write(offset, style, karaoke, origin, scale, rotation, sharedStyle, rotationX, rotationY);
     }
 
     internal ImmutableHashSet<AnimationProperty> SharedVisualProperties(int offset, bool karaoke)
@@ -238,7 +274,7 @@ internal sealed class AssEventConversionContext
         var result = new System.Text.StringBuilder();
         var appearanceScale = Math.Sqrt(scale.X * scale.Y);
         var hasScale = numeric.ContainsKey((AnimationProperty.SCALE, 0)) || numeric.ContainsKey((AnimationProperty.SCALE, 1));
-        var hasRotation = numeric.ContainsKey((AnimationProperty.ROTATION, 0));
+        var hasRotation = numeric.Keys.Any(key => key.Property is AnimationProperty.ROTATION or AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y);
         foreach (var animation in numeric.Values)
         {
             if (sharedVisual?.Contains(animation.Property) == true)
@@ -253,6 +289,8 @@ internal sealed class AssEventConversionContext
                 AnimationProperty.STROKE_BLUR when style.StrokeWidth > 0 => "\\blur",
                 AnimationProperty.SCALE => animation.Component == 0 ? "\\fscx" : "\\fscy",
                 AnimationProperty.ROTATION => "\\frz",
+                AnimationProperty.ROTATION_X => "\\frx",
+                AnimationProperty.ROTATION_Y => "\\fry",
                 _ => null
             };
             if (tag is null)
@@ -264,7 +302,7 @@ internal sealed class AssEventConversionContext
             var factor = animation.Property switch
             {
                 AnimationProperty.SCALE => 100,
-                AnimationProperty.ROTATION => -1,
+                AnimationProperty.ROTATION or AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y => -1,
                 AnimationProperty.STROKE_WIDTH => appearanceScale,
                 AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR => appearanceScale / AssBlurConversion.SigmaPerUnit,
                 _ => 1
@@ -358,6 +396,23 @@ internal sealed class AssEventConversionContext
         return true;
     }
 
+    private bool AcceptProjectionRotation(AssNumericAnimation? animation, ScenePoint delta, bool unknownPivot)
+    {
+        if (animation is null)
+        {
+            return false;
+        }
+        if (rotationOrigin is null && !animation.Operations.IsEmpty &&
+            (Math.Abs(delta.X * scale.X) >= 1e-9 || Math.Abs(delta.Y * scale.Y) >= 1e-9 || unknownPivot))
+        {
+            Report("Ass.PerspectiveComposition", "Perspective rotation animation requires changing depth and placement compensation for this pivot. The conflicting axis animation was omitted; other convertible properties were preserved.");
+            consumed.Add(animation.Property);
+            return false;
+        }
+        AddNumeric(animation);
+        return true;
+    }
+
     private bool KaraokeOverrides(AnimationProperty property)
     {
         if (line.KaraokeStyle is not null && !line.Karaoke.IsEmpty)
@@ -382,6 +437,13 @@ internal sealed class AssEventConversionContext
 
     internal SubtitleStyle ConvertStyle(SubtitleStyle style)
     {
+        if ((Math.IEEERemainder(rotationX, 360) != 0 || Math.IEEERemainder(rotationY, 360) != 0 ||
+            numeric.Keys.Any(key => key.Property is AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y)) &&
+            (style.StrokeWidth > 0 || style.FillBlur > 0 || style.StrokeBlur > 0 ||
+                style.ShadowColor.Alpha > 0 && style.ShadowOffset != default))
+        {
+            Report("Ass.PerspectiveAppearance", "ASS perspective and native layer projection apply edges, blur, and shadow at different stages. Rotation geometry was preserved; projected appearance may differ.");
+        }
         if (scale == new ScenePoint(1, 1) && rotation.Equals(0d))
         {
             return style;

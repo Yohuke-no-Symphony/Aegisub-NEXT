@@ -16,12 +16,18 @@ internal sealed class AssGeometryParser
     private AssStyleDefinition baseline;
     private ScenePoint currentScale;
     private double currentRotation;
+    private double currentRotationX;
+    private double currentRotationY;
     private ScenePoint observedScale;
     private double observedRotation;
+    private double observedRotationX;
+    private double observedRotationY;
     private bool observed;
     private bool mixedScaleX;
     private bool mixedScaleY;
     private bool mixedRotation;
+    private bool mixedRotationX;
+    private bool mixedRotationY;
     private bool hasPlacement;
     private ScenePoint? placement;
     private AnimationTrack? move;
@@ -42,6 +48,8 @@ internal sealed class AssGeometryParser
     internal IEnumerable<SubtitleFormatDiagnostic> Diagnostics => diagnostics;
     internal ScenePoint CurrentScale => currentScale;
     internal double CurrentRotation => currentRotation;
+    internal double CurrentRotationX => currentRotationX;
+    internal double CurrentRotationY => currentRotationY;
     internal ScenePoint? Placement => placement;
 
     internal void Reset(string name)
@@ -49,6 +57,8 @@ internal sealed class AssGeometryParser
         baseline = name.Length > 0 && styles.TryGetValue(name, out var style) ? style : OriginalDefinition();
         currentScale = baseline.Scale;
         currentRotation = baseline.Rotation;
+        currentRotationX = 0;
+        currentRotationY = 0;
     }
 
     internal void Apply(string name, string value)
@@ -68,6 +78,12 @@ internal sealed class AssGeometryParser
             case "frz":
                 currentRotation = value.Length == 0 ? baseline.Rotation : AssFormatValues.Number(value);
                 break;
+            case "frx":
+                currentRotationX = value.Length == 0 ? 0 : AssFormatValues.Number(value);
+                break;
+            case "fry":
+                currentRotationY = value.Length == 0 ? 0 : AssFormatValues.Number(value);
+                break;
         }
     }
 
@@ -83,12 +99,16 @@ internal sealed class AssGeometryParser
         {
             observedScale = currentScale;
             observedRotation = currentRotation;
+            observedRotationX = currentRotationX;
+            observedRotationY = currentRotationY;
             observed = true;
             return;
         }
         mixedScaleX |= !observedScale.X.Equals(currentScale.X);
         mixedScaleY |= !observedScale.Y.Equals(currentScale.Y);
         mixedRotation |= !observedRotation.Equals(currentRotation);
+        mixedRotationX |= !observedRotationX.Equals(currentRotationX);
+        mixedRotationY |= !observedRotationY.Equals(currentRotationY);
     }
 
     internal LayerTransform Transform()
@@ -100,15 +120,18 @@ internal sealed class AssGeometryParser
         var x = Component(observedScale.X, mixedScaleX, 1, 10000, "horizontal scaling", true);
         var y = Component(observedScale.Y, mixedScaleY, 1, 10000, "vertical scaling", true);
         var rotation = Component(observedRotation, mixedRotation, 0, 1e9, "rotation", false);
+        var rotationX = Component(observedRotationX, mixedRotationX, 0, 1e9, "X rotation", false);
+        var rotationY = Component(observedRotationY, mixedRotationY, 0, 1e9, "Y rotation", false);
         if (!x.Equals(1d) || !y.Equals(1d))
         {
             Report("Ass.TransformLayout", "ASS glyph scaling was imported as a native clip transform. The layout engines wrap text at different stages and use different glyph anchors, so automatic wrapping or placement may change.", 0, 0);
         }
-        if (!canvasScaleX.Equals(canvasScaleY) && rotation != 0)
+        if (!canvasScaleX.Equals(canvasScaleY) && (rotation != 0 || rotationX != 0 || rotationY != 0))
         {
-            Report("Ass.TransformLayout", "ASS rotation combined with nonuniform canvas resampling may produce shear that native scaling and rotation cannot fully represent. Rotation was preserved approximately.", 0, 0);
+            Report(rotationX != 0 || rotationY != 0 ? "Ass.PerspectiveResampling" : "Ass.TransformLayout",
+                "ASS rotation combined with nonuniform canvas resampling may produce shear that native scaling and rotation cannot fully represent. Rotation was preserved approximately.", 0, 0);
         }
-        return new() { Scale = new(x, y), Rotation = -rotation };
+        return new() { Scale = new(x, y), Rotation = -rotation, RotationX = -rotationX, RotationY = -rotationY };
     }
 
     internal bool TryPlacement(string name, string value, int sourceStart, int sourceLength, out ScenePoint position)

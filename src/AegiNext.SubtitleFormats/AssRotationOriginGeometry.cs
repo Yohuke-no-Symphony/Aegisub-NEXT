@@ -7,10 +7,12 @@ internal sealed record AssRotationOriginGeometry(bool HasContent, bool HasCommon
     ScenePoint? ConstantScale, double? ConstantRotation, bool IsValid)
 {
     internal bool IsComplete { get; init; } = true;
+    internal double? ConstantRotationX { get; init; }
+    internal double? ConstantRotationY { get; init; }
 
     internal bool HasScaleAnimation => ConstantScale is null;
 
-    internal bool HasRotationAnimation => ConstantRotation is null;
+    internal bool HasRotationAnimation => ConstantRotation is null || ConstantRotationX is null || ConstantRotationY is null;
 
     internal static AssRotationOriginGeometry FromRuns(IReadOnlyList<AssTextAnimationRun> runs, MediaTime duration)
     {
@@ -20,13 +22,23 @@ internal sealed record AssRotationOriginGeometry(bool HasContent, bool HasCommon
         }
         var scales = runs.Select(run => run.Channels["scale"]).ToArray();
         var rotations = runs.Select(run => run.Channels["frz"]).ToArray();
+        var rotationsX = runs.Select(run => run.Channels["frx"]).ToArray();
+        var rotationsY = runs.Select(run => run.Channels["fry"]).ToArray();
         var constantScale = CommonConstant(scales, duration, out var scale);
         var constantRotation = CommonConstant(rotations, duration, out var rotation);
+        var constantRotationX = CommonConstant(rotationsX, duration, out var rotationX);
+        var constantRotationY = CommonConstant(rotationsY, duration, out var rotationY);
         return new(true,
             constantScale || scales.All(snapshot => snapshot.Equivalent(scales[0])),
-            constantRotation || rotations.All(snapshot => snapshot.Equivalent(rotations[0])),
+            (constantRotation || rotations.All(snapshot => snapshot.Equivalent(rotations[0]))) &&
+            (constantRotationX || rotationsX.All(snapshot => snapshot.Equivalent(rotationsX[0]))) &&
+            (constantRotationY || rotationsY.All(snapshot => snapshot.Equivalent(rotationsY[0]))),
             constantScale ? scale.Vector : null, constantRotation ? rotation.Scalar : null,
-            scales.All(snapshot => Valid(snapshot, true)) && rotations.All(snapshot => Valid(snapshot, false)));
+            scales.All(snapshot => Valid(snapshot, true)) && rotations.Concat(rotationsX).Concat(rotationsY).All(snapshot => Valid(snapshot, false)))
+        {
+            ConstantRotationX = constantRotationX ? rotationX.Scalar : null,
+            ConstantRotationY = constantRotationY ? rotationY.Scalar : null
+        };
     }
 
     internal static bool ContainsGeometry(IEnumerable<AssOverrideTag> tags)
@@ -34,7 +46,7 @@ internal sealed record AssRotationOriginGeometry(bool HasContent, bool HasCommon
         var pending = new Stack<AssOverrideTag>(tags);
         while (pending.TryPop(out var tag))
         {
-            if (tag.Name is "fsc" or "fscx" or "fscy" or "fr" or "frz")
+            if (tag.Name is "fsc" or "fscx" or "fscy" or "fr" or "frz" or "frx" or "fry")
             {
                 return true;
             }

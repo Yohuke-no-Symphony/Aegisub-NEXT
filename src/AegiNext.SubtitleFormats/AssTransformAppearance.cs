@@ -14,6 +14,13 @@ internal sealed class AssTransformAppearance(LayerTransform transform, Guid subt
 
     internal SubtitleLine Import(SubtitleLine line)
     {
+        if (SceneProjection.RequiresPerspective(transform) && (line.Style.StrokeWidth > 0 || line.Style.FillBlur > 0 ||
+            line.Style.StrokeBlur > 0 || line.Style.ShadowColor.Alpha > 0 && line.Style.ShadowOffset != default ||
+            line.InlineSpans.Any(span => span.Style.StrokeWidth > 0 || span.Style.FillBlur > 0 || span.Style.StrokeBlur > 0 ||
+                span.Style.ShadowColor?.Alpha > 0 && span.Style.ShadowOffset is { } offset && offset != default)))
+        {
+            Report("ASS perspective and native layer projection apply edges, blur, and shadow at different stages. Rotation geometry was preserved; projected appearance may differ.", "Ass.PerspectiveAppearance");
+        }
         if (transform.Scale.X == 0 || transform.Scale.Y == 0)
         {
             Report("Zero ASS scaling was preserved. Collapsed axes have no reversible stroke, blur, or shadow compensation; related appearance values were preserved at unit scale.");

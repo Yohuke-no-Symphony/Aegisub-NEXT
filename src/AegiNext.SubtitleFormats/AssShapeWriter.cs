@@ -34,6 +34,15 @@ internal static class AssShapeWriter
                 : new("Ass.AnimatedImage", "ASS does not support embedded animated images. This animated image clip and its playback settings were not exported.", LayerId: layer.Id));
             return null;
         }
+        if (layer.Transform.PerspectiveDistance != SceneProjection.DEFAULT_DISTANCE ||
+            layer.Tracks.Any(track => track.Property == AnimationProperty.PERSPECTIVE_DISTANCE))
+        {
+            diagnostics.Add(new("Ass.PerspectiveDistance", "ASS drawings use a fixed perspective distance. Native distance values and their animation cannot be preserved; static drawing export uses 312.5 project pixels.", LayerId: layer.Id));
+        }
+        if (layer.Transform.ProjectionTranslation != default)
+        {
+            diagnostics.Add(new("Ass.ProjectionTranslation", "ASS drawings cannot preserve native translation in three-dimensional projection space. Projection translation was omitted; native pivot compensation remains in the project.", LayerId: layer.Id));
+        }
         var unsupported = false;
         if (!layer.Tracks.IsEmpty || layer.MotionPath is not null)
         {
@@ -110,23 +119,47 @@ internal static class AssShapeWriter
         var position = layer.Position;
         var basePosition = position is null ? new ScenePoint() : LayerPositionGeometry.BasePosition(position, canvasSize);
         var pivot = position is null ? new ScenePoint() : LayerPositionGeometry.LocalPivot(position, new(), LayerPositionGeometry.GraphicSize(layer));
-        path = Transform(path, point =>
+        var perspective = layer.Transform.RotationX != 0 || layer.Transform.RotationY != 0;
+        var drawingTags = "\\an7\\pos(0,0)\\fscx100\\fscy100\\frz0";
+        var projectionValues = Array.Empty<double>();
+        if (perspective)
         {
-            var x = (point.X - pivot.X - layer.Transform.AnchorX) * layer.Transform.ScaleX;
-            var y = (point.Y - pivot.Y - layer.Transform.AnchorY) * layer.Transform.ScaleY;
-            return new(basePosition.X + layer.Transform.X + cosine * x - sine * y,
-                basePosition.Y + layer.Transform.Y + sine * x + cosine * y);
-        });
+            var center = new ScenePoint(basePosition.X + layer.Transform.X, basePosition.Y + layer.Transform.Y);
+            var placement = new ScenePoint(center.X - (pivot.X + layer.Transform.AnchorX) * layer.Transform.ScaleX,
+                center.Y - (pivot.Y + layer.Transform.AnchorY) * layer.Transform.ScaleY);
+            var scaleX = Math.Abs(layer.Transform.ScaleX);
+            var scaleY = Math.Abs(layer.Transform.ScaleY);
+            path = Transform(path, point => new(point.X * Math.Sign(layer.Transform.ScaleX), point.Y * Math.Sign(layer.Transform.ScaleY)));
+            projectionValues = [center.X, center.Y, placement.X, placement.Y, scaleX * 100, scaleY * 100,
+                layer.Transform.Rotation, layer.Transform.RotationX, layer.Transform.RotationY];
+            drawingTags = "\\an7\\pos(" + AssFormatValues.Number(placement.X) + "," + AssFormatValues.Number(placement.Y) + ")" +
+                "\\org(" + AssFormatValues.Number(center.X) + "," + AssFormatValues.Number(center.Y) + ")" +
+                "\\fscx" + AssFormatValues.Number(scaleX * 100) + "\\fscy" + AssFormatValues.Number(scaleY * 100) +
+                "\\frz" + AssFormatValues.Number(-layer.Transform.Rotation) +
+                "\\frx" + AssFormatValues.Number(-layer.Transform.RotationX) +
+                "\\fry" + AssFormatValues.Number(-layer.Transform.RotationY);
+        }
+        else
+        {
+            path = Transform(path, point =>
+            {
+                var x = (point.X - pivot.X - layer.Transform.AnchorX) * layer.Transform.ScaleX;
+                var y = (point.Y - pivot.Y - layer.Transform.AnchorY) * layer.Transform.ScaleY;
+                return new(basePosition.X + layer.Transform.X + cosine * x - sine * y,
+                    basePosition.Y + layer.Transform.Y + sine * x + cosine * y);
+            });
+        }
         var values = Points(path).SelectMany(point => new[] { point.X, point.Y }).ToArray();
         if (!double.IsFinite(border) || border > MAX_DRAWING_COORDINATE ||
-            values.Any(value => !double.IsFinite(value) || Math.Abs(value) > MAX_DRAWING_COORDINATE))
+            values.Any(value => !double.IsFinite(value) || Math.Abs(value) > MAX_DRAWING_COORDINATE) ||
+            projectionValues.Take(4).Any(value => !double.IsFinite(value) || Math.Abs(value) > MAX_DRAWING_COORDINATE))
         {
             diagnostics.Add(new("Ass.ShapeGeometryRange", "Transformed shape coordinates or stroke exceed the safe ASS drawing numeric range. This shape clip was not exported.", LayerId: layer.Id));
             return null;
         }
         var precision = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
         AssExportPrecision.AddTime(layer.Start + timeOffset, layer.End + timeOffset, layer.Id, precision);
-        AssExportPrecision.AddNumbers(layer.Id, precision, values.Append(border).ToArray());
+        AssExportPrecision.AddNumbers(layer.Id, precision, values.Append(border).Concat(projectionValues).ToArray());
         AssExportPrecision.AddColor(fill, layer.Id, precision);
         if (border > 0)
         {
@@ -141,7 +174,7 @@ internal static class AssShapeWriter
         {
             diagnostics.Add(new("Ass.DrawingPrecision", "ASS player drawing coordinates use limited subpixel precision. Curves or transformed shapes may have slight rounding differences.", LayerId: layer.Id));
         }
-        var result = new StringBuilder("{\\an7\\pos(0,0)\\fscx100\\fscy100\\frz0\\shad0\\blur0");
+        var result = new StringBuilder("{" + drawingTags + "\\shad0\\blur0");
         result.Append("\\1c").Append(AssFormatValues.Color(fill, false)).Append("\\1a").Append(AssFormatValues.Alpha(fill))
             .Append("\\3c").Append(AssFormatValues.Color(stroke, false)).Append("\\3a").Append(AssFormatValues.Alpha(stroke))
             .Append("\\bord").Append(AssFormatValues.Number(border)).Append("\\p1}m ");

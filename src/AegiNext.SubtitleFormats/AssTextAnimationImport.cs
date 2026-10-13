@@ -17,9 +17,11 @@ internal sealed class AssTextAnimationImport
     private int observedCandidate;
     private bool observedKaraoke;
     private bool normalizedScale;
+    private bool normalizedProjection;
     private readonly bool sourceConstraints;
 
-    internal AssTextAnimationImport(SubtitleLine original, SceneColor secondary, ScenePoint scale, double rotation, bool sourceConstraints = true)
+    internal AssTextAnimationImport(SubtitleLine original, SceneColor secondary, ScenePoint scale, double rotation, bool sourceConstraints = true,
+        double rotationX = 0, double rotationY = 0)
     {
         this.original = original;
         this.sourceConstraints = sourceConstraints;
@@ -27,7 +29,7 @@ internal sealed class AssTextAnimationImport
         {
             ["fs"] = new(original.Style.FontSize), ["fsp"] = new(original.Style.LetterSpacing),
             ["bord"] = new(original.Style.StrokeWidth), ["blur"] = new(0),
-            ["scale"] = new(scale), ["frz"] = new(-rotation),
+            ["scale"] = new(scale), ["frz"] = new(-rotation), ["frx"] = new(-rotationX), ["fry"] = new(-rotationY),
             ["shadow"] = new(original.Style.ShadowOffset), ["1c"] = new(original.Style.Fill),
             ["2c"] = new(secondary), ["3c"] = new(original.Style.Stroke), ["4c"] = new(original.Style.ShadowColor)
         };
@@ -114,7 +116,8 @@ internal sealed class AssTextAnimationImport
         }
     }
 
-    internal void Set(string name, SubtitleStyle style, SceneColor secondary, ScenePoint scale, double rotation, double blur)
+    internal void Set(string name, SubtitleStyle style, SceneColor secondary, ScenePoint scale, double rotation, double blur,
+        double rotationX = 0, double rotationY = 0)
     {
         revision++;
         switch (name)
@@ -128,6 +131,8 @@ internal sealed class AssTextAnimationImport
             case "fscy": channels["scale"].Set(scale, 2); break;
             case "fr":
             case "frz": channels["frz"].Set(-rotation); break;
+            case "frx": channels["frx"].Set(-rotationX); break;
+            case "fry": channels["fry"].Set(-rotationY); break;
             case "shad": channels["shadow"].Set(style.ShadowOffset); break;
             case "xshad": channels["shadow"].Set(style.ShadowOffset, 1); break;
             case "yshad": channels["shadow"].Set(style.ShadowOffset, 2); break;
@@ -152,7 +157,8 @@ internal sealed class AssTextAnimationImport
                     channels[key].Set(key switch
                     {
                         "fs" => style.FontSize, "fsp" => style.LetterSpacing, "bord" => style.StrokeWidth,
-                        "blur" => 0, "scale" => scale, "frz" => -rotation, "shadow" => style.ShadowOffset,
+                        "blur" => 0, "scale" => scale, "frz" => -rotation, "frx" => -rotationX, "fry" => -rotationY,
+                        "shadow" => style.ShadowOffset,
                         "1c" => style.Fill, "2c" => secondary, "3c" => style.Stroke, _ => style.ShadowColor
                     });
                 }
@@ -164,7 +170,7 @@ internal sealed class AssTextAnimationImport
     {
         revision++;
         var key = name is "fscx" or "fscy" ? "scale" : name == "fr" ? "frz" : name;
-        AnimationValue target = name is "fscx" or "fscy" ? new ScenePoint(value, value) : name is "fr" or "frz" ? -value : value;
+        AnimationValue target = name is "fscx" or "fscy" ? new ScenePoint(value, value) : name is "fr" or "frz" or "frx" or "fry" ? -value : value;
         channels[key].Add(new(timing, target, name == "fscx" ? 1 : name == "fscy" ? 2 : 0, KaraokeCandidate: candidate,
             ClampNonNegative: sourceConstraints && name is "fscx" or "fscy" or "bord" or "blur",
             Maximum: sourceConstraints ? maximum : null));
@@ -217,6 +223,11 @@ internal sealed class AssTextAnimationImport
 
     internal LayerTransform NormalizeTransform(LayerTransform transform)
     {
+        var rotationKeys = new[] { "frz", "frx", "fry" };
+        var hasPerspective = runs.Any(run => rotationKeys.Skip(1).Any(key =>
+            run.Channels[key].Initial.Scalar != 0 || run.Channels[key].Operations.Any(operation => operation.Value.Scalar != 0)));
+        normalizedProjection = hasPerspective && runs.Count > 0 && rotationKeys.Append("scale").Any(key =>
+            runs.Skip(1).Any(run => !run.Channels[key].Equivalent(runs[0].Channels[key])));
         for (var index = 0; index < runs.Count; index++)
         {
             var run = runs[index];
@@ -227,6 +238,15 @@ internal sealed class AssTextAnimationImport
                 normalizedScale = true;
                 runs[index] = run with { Channels = run.Channels.SetItem("scale", normalized) };
             }
+            foreach (var key in rotationKeys)
+            {
+                run = runs[index];
+                runs[index] = run with { Channels = run.Channels.SetItem(key, NormalizeRotation(run.Channels[key], key)) };
+            }
+        }
+        if (normalizedProjection)
+        {
+            return transform with { Scale = new(1, 1), Rotation = 0, RotationX = 0, RotationY = 0 };
         }
         var mixed = runs.Count > 0 && runs.Skip(1).Any(run => !run.Channels["scale"].Equivalent(runs[0].Channels["scale"]));
         var staticGeometry = runs.Any(run => run.Channels["scale"].Initial.Vector != transform.Scale);
@@ -253,16 +273,20 @@ internal sealed class AssTextAnimationImport
             var animated = runs.Any(run => !run.Channels[key].Operations.IsEmpty);
             var mixed = runs.Count > 0 && runs.Skip(1).Any(run => !run.Channels[key].Equivalent(runs[0].Channels[key]) ||
                 key is "1c" or "2c" && run.Karaoke != runs[0].Karaoke);
-            var staticGeometry = runs.Any(run => key == "scale" && run.Channels[key].Initial.Vector != transform.Scale ||
-                key == "frz" && run.Channels[key].Initial.Scalar != transform.Rotation);
-            var replaceScale = key == "scale" && (normalizedScale || mixed || staticGeometry);
-            if (!animated && !staticGeometry || existing.Any(track => track.Property == property) && key != "blur" && !replaceScale)
+            var staticGeometry = normalizedProjection && (key is "scale" or "frz" or "frx" or "fry") ||
+                runs.Any(run => key == "scale" && run.Channels[key].Initial.Vector != transform.Scale ||
+                    key == "frz" && run.Channels[key].Initial.Scalar != transform.Rotation ||
+                    key == "frx" && run.Channels[key].Initial.Scalar != transform.RotationX ||
+                    key == "fry" && run.Channels[key].Initial.Scalar != transform.RotationY);
+            var replaceGeometry = key == "scale" && (normalizedScale || mixed || staticGeometry) ||
+                normalizedProjection && (key is "frz" or "frx" or "fry");
+            if (!animated && !staticGeometry || existing.Any(track => track.Property == property) && key != "blur" && !replaceGeometry)
             {
                 continue;
             }
-            if (replaceScale)
+            if (replaceGeometry)
             {
-                var wholeLineTarget = new AnimationTrackTarget(AnimationProperty.SCALE);
+                var wholeLineTarget = new AnimationTrackTarget(property);
                 for (var index = tracks.Count - 1; index >= 0; index--)
                 {
                     if (tracks[index].Target == wholeLineTarget)
@@ -334,12 +358,16 @@ internal sealed class AssTextAnimationImport
                 Pivot = SubtitleAnimationPivot.SUBTITLE_ANCHOR,
                 Scale = new(baseScale.X == transform.Scale.X ? 1 : baseScale.X / (transform.Scale.X == 0 ? 1 : transform.Scale.X),
                     baseScale.Y == transform.Scale.Y ? 1 : baseScale.Y / (transform.Scale.Y == 0 ? 1 : transform.Scale.Y)),
-                Rotation = run.Channels["frz"].Initial.Scalar - transform.Rotation
+                Rotation = run.Channels["frz"].Initial.Scalar - transform.Rotation,
+                RotationX = run.Channels["frx"].Initial.Scalar - transform.RotationX,
+                RotationY = run.Channels["fry"].Initial.Scalar - transform.RotationY,
+                PerspectiveDistance = transform.PerspectiveDistance
             });
         }
         var result = line with { AnimationRanges = ranges.ToImmutable() };
-        if (result.AnimationRanges.Any(range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0) ||
-            tracks.Any(track => track.Target.TextRangeId is not null && track.Property is AnimationProperty.SCALE or AnimationProperty.ROTATION))
+        if (result.AnimationRanges.Any(range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0 || range.RotationX != 0 || range.RotationY != 0) ||
+            tracks.Any(track => track.Target.TextRangeId is not null && track.Property is AnimationProperty.SCALE or
+                AnimationProperty.ROTATION or AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y))
         {
             Report("Ass.TextRangeGeometry", "ASS segment transforms were stored as text ranges. Native transforms after layout may differ from the ASS order of glyph, edge, shadow, and shared layout operations.");
         }
@@ -347,6 +375,18 @@ internal sealed class AssTextAnimationImport
         {
             Start = original.Start, End = original.End, AnimationOffset = contentOffset, Tracks = tracks.ToImmutable()
         }).Tracks);
+    }
+
+    private AssTextAnimationSnapshot NormalizeRotation(AssTextAnimationSnapshot snapshot, string key)
+    {
+        static bool Valid(double value) => double.IsFinite(value) && Math.Abs(value) <= 1e9;
+        var initial = Valid(snapshot.Initial.Scalar) ? snapshot.Initial : AnimationValue.FromScalar(0);
+        var operations = snapshot.Operations.Where(operation => Valid(operation.Value.Scalar)).ToImmutableArray();
+        if (initial != snapshot.Initial || operations.Length != snapshot.Operations.Length)
+        {
+            Report("Ass.TransformRange", $"ASS {key} rotation exceeds the native range. Invalid base values reverted to zero and invalid operations were omitted; other properties were preserved.");
+        }
+        return new(initial, operations);
     }
 
     private AssTextAnimationSnapshot NormalizeScale(AssTextAnimationSnapshot snapshot, ScenePoint fallback)
@@ -441,7 +481,13 @@ internal sealed class AssTextAnimationImport
                 return new ScenePoint(value.Vector.X / (transform.Scale.X == 0 ? 1 : transform.Scale.X),
                     value.Vector.Y / (transform.Scale.Y == 0 ? 1 : transform.Scale.Y));
             }
-            return key == "frz" && rangeId is not null ? value.Scalar - transform.Rotation : value;
+            return rangeId is null ? value : key switch
+            {
+                "frz" => value.Scalar - transform.Rotation,
+                "frx" => value.Scalar - transform.RotationX,
+                "fry" => value.Scalar - transform.RotationY,
+                _ => value
+            };
         }
         var track = new AnimationTrack(new AnimationTrackTarget(property, TextRangeId: rangeId, State: state), [])
         {
@@ -541,6 +587,7 @@ internal sealed class AssTextAnimationImport
         "fs" => AnimationProperty.FONT_SIZE, "fsp" => AnimationProperty.LETTER_SPACING,
         "bord" => AnimationProperty.STROKE_WIDTH, "blur" => AnimationProperty.STROKE_BLUR,
         "scale" => AnimationProperty.SCALE, "frz" => AnimationProperty.ROTATION,
+        "frx" => AnimationProperty.ROTATION_X, "fry" => AnimationProperty.ROTATION_Y,
         "shadow" => AnimationProperty.SHADOW_OFFSET, "1c" or "2c" => AnimationProperty.FILL,
         "3c" => AnimationProperty.STROKE, _ => AnimationProperty.SHADOW_COLOR
     };

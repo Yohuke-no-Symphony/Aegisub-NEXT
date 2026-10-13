@@ -53,10 +53,14 @@ internal sealed class AssDrawingPlacement
 
     internal ScenePoint Transform(ScenePoint point)
     {
-        var x = point.X * scaleX + position.X - baseX - origin.X;
-        var y = point.Y * scaleY + offsetY + position.Y - baseY - origin.Y;
-        return new(origin.X + cosine * x - sine * y, origin.Y + sine * x + cosine * y);
+        var local = LocalPoint(point);
+        return new(origin.X + cosine * local.X - sine * local.Y, origin.Y + sine * local.X + cosine * local.Y);
     }
+
+    internal ScenePoint Origin => origin;
+
+    internal ScenePoint LocalPoint(ScenePoint point) => new(point.X * scaleX + position.X - baseX - origin.X,
+        point.Y * scaleY + offsetY + position.Y - baseY - origin.Y);
 
     private static double QuantizeMetric(double value)
     {

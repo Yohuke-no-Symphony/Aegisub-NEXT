@@ -48,7 +48,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
     }
 
     internal string Write(int offset, SubtitleStyle style, bool karaoke, MediaTime origin, ScenePoint scale, double rotation,
-        SubtitleStyle? sharedStyle = null)
+        SubtitleStyle? sharedStyle = null, double rotationX = 0, double rotationY = 0)
     {
         var selected = SelectTracks(offset);
         var matching = line.AnimationRanges.Where(range => range.Utf16Start <= offset && offset < range.Utf16Start + range.Utf16Length).ToArray();
@@ -67,7 +67,8 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
         if (matching.Length > 1)
         {
             Report("Ass.RangeOverlap", "Overlapping text-range styles were converted in range order. Combined geometry and pivots cannot be represented exactly in ASS, so overlapping range geometry was omitted.");
-            foreach (var property in new[] { AnimationProperty.SCALE, AnimationProperty.ROTATION })
+            foreach (var property in new[] { AnimationProperty.SCALE, AnimationProperty.ROTATION, AnimationProperty.ROTATION_X,
+                AnimationProperty.ROTATION_Y, AnimationProperty.PERSPECTIVE_DISTANCE })
             {
                 if (selected.GetValueOrDefault((property, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null)
                 {
@@ -87,12 +88,54 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             {
                 range = range with { Rotation = 0 };
             }
+            if (!projection && RemoveIdentityGeometryTrack(selected, AnimationProperty.ROTATION_X, 0))
+            {
+                range = range with { RotationX = 0 };
+            }
+            if (!projection && RemoveIdentityGeometryTrack(selected, AnimationProperty.ROTATION_Y, 0))
+            {
+                range = range with { RotationY = 0 };
+            }
+            if (range.PerspectiveDistance != SceneProjection.DEFAULT_DISTANCE || selected.Values.Any(track =>
+                track.Target.TextRangeId == range.Id && track.Property == AnimationProperty.PERSPECTIVE_DISTANCE &&
+                (!AssMoveConversion.TryConstant(track, out var distance) || distance.Scalar != SceneProjection.DEFAULT_DISTANCE)))
+            {
+                Report("Ass.PerspectiveDistance", "ASS uses a fixed perspective distance and cannot preserve native text-range distance values or their animation. Export used 312.5 project pixels; native parameters remain in the project.");
+            }
+            if (range.ProjectionTranslation != default)
+            {
+                Report("Ass.ProjectionTranslation", "ASS cannot preserve native text-range translation in three-dimensional projection space. Projection translation was omitted; native pivot compensation remains in the project.");
+            }
             matching[0] = range;
             var hasScale = range.Scale != new ScenePoint(1, 1) ||
                 selected.GetValueOrDefault((AnimationProperty.SCALE, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null;
             var hasRotation = range.Rotation != 0 ||
                 selected.GetValueOrDefault((AnimationProperty.ROTATION, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null;
-            if (hasScale || hasRotation)
+            var hasRotationX = range.RotationX != 0 ||
+                selected.GetValueOrDefault((AnimationProperty.ROTATION_X, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null;
+            var hasRotationY = range.RotationY != 0 ||
+                selected.GetValueOrDefault((AnimationProperty.ROTATION_Y, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null;
+            var rangePerspective = hasRotationX || hasRotationY;
+            var wholePerspective = rotationX != 0 || rotationY != 0 || HasWholeGeometryTrack(AnimationProperty.ROTATION_X, 0) ||
+                HasWholeGeometryTrack(AnimationProperty.ROTATION_Y, 0);
+            var wholeGeometry = wholePerspective || scale != new ScenePoint(1, 1) || rotation != 0 ||
+                HasWholeGeometryTrack(AnimationProperty.SCALE, new ScenePoint(1, 1)) || HasWholeGeometryTrack(AnimationProperty.ROTATION, 0);
+            if (!projection && (rangePerspective && wholeGeometry || wholePerspective && hasRotation))
+            {
+                Report("Ass.PerspectiveComposition", "ASS cannot preserve composed whole-layer and text-range perspective or rotation as independent Euler angles. Conflicting range geometry was omitted; whole-layer geometry and native range parameters were preserved.");
+                foreach (var property in new[] { AnimationProperty.SCALE, AnimationProperty.ROTATION,
+                    AnimationProperty.ROTATION_X, AnimationProperty.ROTATION_Y })
+                {
+                    if (selected.GetValueOrDefault((property, SubtitleAnimationState.NORMAL))?.Target.TextRangeId is not null)
+                    {
+                        selected.Remove((property, SubtitleAnimationState.NORMAL));
+                    }
+                }
+                range = range with { Scale = new(1, 1), Rotation = 0, RotationX = 0, RotationY = 0 };
+                matching[0] = range;
+                hasScale = hasRotation = hasRotationX = hasRotationY = false;
+            }
+            if (hasScale || hasRotation || hasRotationX || hasRotationY)
             {
                 Report("Ass.TextRangeGeometry", "Native text ranges transform after layout, while ASS applies scaling and rotation during glyph layout. Edges, shadows, and clip positions may differ.");
             }
@@ -100,7 +143,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             {
                 Report("Ass.TransformScale", "ASS cannot preserve mirrored text ranges. Negative scaling components were omitted and convertible components were preserved.");
             }
-            if (range.Pivot != SubtitleAnimationPivot.SUBTITLE_ANCHOR && (hasScale || hasRotation))
+            if (range.Pivot != SubtitleAnimationPivot.SUBTITLE_ANCHOR && (hasScale || hasRotation || hasRotationX || hasRotationY))
             {
                 Report("Ass.RangePivot", "Text ranges use independent center pivots, while ASS can only use a shared subtitle pivot. Range geometry positions may differ.");
             }
@@ -113,11 +156,23 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             {
                 result.Append("\\frz").Append(Number(-(range.Rotation + rotation)));
             }
+            if (projection || hasRotationX)
+            {
+                result.Append("\\frx").Append(Number(-range.RotationX));
+            }
+            if (projection || hasRotationY)
+            {
+                result.Append("\\fry").Append(Number(-range.RotationY));
+            }
         }
         foreach (var pair in selected)
         {
             var track = pair.Value;
             if (track.Target.TextRangeId is not null && track.Property == AnimationProperty.POSITION)
+            {
+                continue;
+            }
+            if (track.Property == AnimationProperty.PERSPECTIVE_DISTANCE)
             {
                 continue;
             }
@@ -309,6 +364,12 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
         return true;
     }
 
+    private bool HasWholeGeometryTrack(AnimationProperty property, AnimationValue identity)
+    {
+        return layer.Tracks.Any(track => track.Property == property && track.Target.TextRangeId is null &&
+            (!AssMoveConversion.TryConstant(track, out var value) || value != identity));
+    }
+
     private string ValueTags(AnimationProperty property, AnimationValue value, int mask, AnimationTransformMode mode,
         string channel, ScenePoint scale, double rotation, double appearanceScale)
     {
@@ -356,7 +417,7 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
             {
                 AnimationProperty.FONT_SIZE => "fs", AnimationProperty.LETTER_SPACING => "fsp",
                 AnimationProperty.STROKE_WIDTH => "bord", AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_BLUR => "blur",
-                AnimationProperty.ROTATION => "frz", _ => null
+                AnimationProperty.ROTATION => "frz", AnimationProperty.ROTATION_X => "frx", AnimationProperty.ROTATION_Y => "fry", _ => null
             };
             if (tag is not null)
             {
@@ -365,7 +426,9 @@ internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer lay
                     AnimationProperty.FONT_SIZE when mode == AnimationTransformMode.MULTIPLY_BY => (value.Scalar - 1) * 10,
                     AnimationProperty.STROKE_WIDTH => value.Scalar * appearanceScale,
                     AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_BLUR => value.Scalar * appearanceScale / AssBlurConversion.SigmaPerUnit,
-                    AnimationProperty.ROTATION => -(value.Scalar + rotation), _ => value.Scalar
+                    AnimationProperty.ROTATION => -(value.Scalar + rotation),
+                    AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y => -value.Scalar,
+                    _ => value.Scalar
                 };
                 if (tag == "blur" && !projection)
                 {

@@ -20,14 +20,16 @@ internal sealed class AssNumericTransformParser
     private int observedRevision = -1;
     private int observedCandidate;
 
-    internal AssNumericTransformParser(SubtitleLine original, ScenePoint scale, double rotation, double blurMaximum = double.PositiveInfinity)
+    internal AssNumericTransformParser(SubtitleLine original, ScenePoint scale, double rotation, double blurMaximum = double.PositiveInfinity,
+        double rotationX = 0, double rotationY = 0)
     {
         this.original = original;
         this.blurMaximum = blurMaximum;
         channels = new()
         {
             ["fsp"] = new(original.Style.LetterSpacing), ["bord"] = new(original.Style.StrokeWidth), ["blur"] = new(0),
-            ["fscx"] = new(scale.X), ["fscy"] = new(scale.Y), ["frz"] = new(rotation)
+            ["fscx"] = new(scale.X), ["fscy"] = new(scale.Y), ["frz"] = new(rotation),
+            ["frx"] = new(rotationX), ["fry"] = new(rotationY)
         };
     }
 
@@ -45,7 +47,7 @@ internal sealed class AssNumericTransformParser
         Set("fscy", scale.Y);
     }
 
-    internal void Reset(SubtitleStyle style, ScenePoint scale, double rotation)
+    internal void Reset(SubtitleStyle style, ScenePoint scale, double rotation, double rotationX = 0, double rotationY = 0)
     {
         Set("fsp", style.LetterSpacing);
         Set("bord", style.StrokeWidth);
@@ -53,6 +55,8 @@ internal sealed class AssNumericTransformParser
         Set("fscx", scale.X);
         Set("fscy", scale.Y);
         Set("frz", rotation);
+        Set("frx", rotationX);
+        Set("fry", rotationY);
     }
 
     internal void Add(string name, AssTransformTiming timing, double value, int karaokeCandidate = 0)
@@ -99,6 +103,8 @@ internal sealed class AssNumericTransformParser
         AddScalar(tracks, "fsp", AnimationProperty.LETTER_SPACING, value => value);
         AddScalar(tracks, "bord", AnimationProperty.STROKE_WIDTH, value => value / appearanceScale);
         AddScalar(tracks, "frz", AnimationProperty.ROTATION, value => -value);
+        AddScalar(tracks, "frx", AnimationProperty.ROTATION_X, value => -value);
+        AddScalar(tracks, "fry", AnimationProperty.ROTATION_Y, value => -value);
         if (Usable("blur"))
         {
             if (hasBorder && hasNoBorder)
@@ -116,7 +122,7 @@ internal sealed class AssNumericTransformParser
         {
             tracks.Add(scaleTrack);
         }
-        if ((Usable("fscx") || Usable("fscy") || Usable("frz")) && (hasBorder || hasBlur || hasShadow) ||
+        if ((Usable("fscx") || Usable("fscy") || Usable("frz") || Usable("frx") || Usable("fry")) && (hasBorder || hasBlur || hasShadow) ||
             Usable("bord") && hasBlur)
         {
             Report("Ass.TransformAppearanceAnimation", "ASS animated glyph transforms apply stroke, blur, and shadow in a different order from native whole-layer transforms. Geometry animation was preserved; edge or shadow appearance may diverge over time.");

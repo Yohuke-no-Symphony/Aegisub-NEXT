@@ -78,8 +78,10 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
     internal AssTextEditResult Parse(string source)
     {
         AssFormatValues.CheckText(source);
-        numericParser = new(original, geometryParser.CurrentScale, geometryParser.CurrentRotation, ExternalBlurMaximum);
-        textAnimation = new(original, secondaryColor, geometryParser.CurrentScale, geometryParser.CurrentRotation, !projectSource);
+        numericParser = new(original, geometryParser.CurrentScale, geometryParser.CurrentRotation, ExternalBlurMaximum,
+            geometryParser.CurrentRotationX, geometryParser.CurrentRotationY);
+        textAnimation = new(original, secondaryColor, geometryParser.CurrentScale, geometryParser.CurrentRotation, !projectSource,
+            geometryParser.CurrentRotationX, geometryParser.CurrentRotationY);
         for (var index = 0; index < source.Length;)
         {
             if (source[index] == '{')
@@ -171,7 +173,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                     ObserveBorder();
                     var drawingStyle = ResolveExternalBlur(current, edgeBlur);
                     drawingRun = new(index, 0, drawingScale, drawingBaselineOffset, drawingStyle,
-                        geometryParser.CurrentScale, geometryParser.CurrentRotation);
+                        geometryParser.CurrentScale, geometryParser.CurrentRotation, geometryParser.CurrentRotationX, geometryParser.CurrentRotationY);
                 }
                 drawingRun = drawingRun with { SourceLength = drawingRun.SourceLength + count };
             }
@@ -217,7 +219,16 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         {
             var sourceGeometry = rotationOriginParser.Origin.HasValue
                 ? textAnimation.RotationOriginGeometry() with { IsComplete = !incompleteGeometry } : null;
-            transform = textAnimation.NormalizeTransform(geometryParser.Transform());
+            var perspectiveDistance = SceneProjection.DEFAULT_DISTANCE * (blurScaleY ?? scaleY);
+            if (perspectiveDistance < SceneProjection.MIN_DISTANCE || perspectiveDistance > SceneProjection.MAX_DISTANCE)
+            {
+                Report("Ass.PerspectiveDistanceRange", "ASS layout resolution produces a perspective distance outside the native length range. Distance was clamped; text and rotation axes were preserved.", 0, 0);
+                perspectiveDistance = Math.Clamp(perspectiveDistance, SceneProjection.MIN_DISTANCE, SceneProjection.MAX_DISTANCE);
+            }
+            transform = textAnimation.NormalizeTransform(geometryParser.Transform() with
+            {
+                PerspectiveDistance = perspectiveDistance
+            });
             var appearance = new AssTransformAppearance(transform, original.Id);
             line = appearance.Import(line);
             numericTracks = numericParser.Tracks(transform, contentOffset);
@@ -532,7 +543,8 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                 if (!projectSource || projectAnimations)
                 {
                     geometryParser.Reset(value);
-                    numericParser.Reset(current, geometryParser.CurrentScale, geometryParser.CurrentRotation);
+                    numericParser.Reset(current, geometryParser.CurrentScale, geometryParser.CurrentRotation,
+                        geometryParser.CurrentRotationX, geometryParser.CurrentRotationY);
                     instantCandidate = 0;
                 }
                 if (value.Length > 0 && !styles.ContainsKey(value))
@@ -576,6 +588,8 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             case "fscy":
             case "frz":
             case "fr":
+            case "frx":
+            case "fry":
                 if (projectSource && !projectAnimations)
                 {
                     Report("Ass.UnsupportedTag", $"Project ASS code does not support {name}. Adjust it using native project transform properties.", sourceStart, sourceLength);
@@ -590,7 +604,8 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
                     else
                     {
                         numericParser.Set(name, name == "fscx" ? geometryParser.CurrentScale.X :
-                            name == "fscy" ? geometryParser.CurrentScale.Y : geometryParser.CurrentRotation);
+                            name == "fscy" ? geometryParser.CurrentScale.Y : name == "frx" ? geometryParser.CurrentRotationX :
+                            name == "fry" ? geometryParser.CurrentRotationY : geometryParser.CurrentRotation);
                     }
                 }
                 break;
@@ -698,7 +713,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
         if (!projectSource || projectAnimations)
         {
             textAnimation.Set(name, current, inactive ?? secondaryColor, geometryParser.CurrentScale,
-                geometryParser.CurrentRotation, edgeBlur);
+                geometryParser.CurrentRotation, edgeBlur, geometryParser.CurrentRotationX, geometryParser.CurrentRotationY);
         }
     }
 
@@ -934,7 +949,7 @@ internal sealed class AssTextParser(SubtitleLine original, IReadOnlyDictionary<s
             {
                 continue;
             }
-            if (tag.Name is not ("fsp" or "bord" or "blur" or "fscx" or "fscy" or "frz" or "fr"))
+            if (tag.Name is not ("fsp" or "bord" or "blur" or "fscx" or "fscy" or "frz" or "fr" or "frx" or "fry"))
             {
                 incompleteGeometry |= !projectSource && AssRotationOriginGeometry.ContainsGeometry([tag]);
                 if (candidate == 0 || !visualTags.Contains(tag))

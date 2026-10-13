@@ -5,7 +5,7 @@ namespace AegiNext.SubtitleFormats;
 internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint PositionOffset, double PositionRotation)
 {
     internal static AssRotationOriginExport? Create(ProjectLayer layer, SubtitleLine line, ScenePoint basis,
-        ScenePoint alignmentDelta, ScenePoint outputScale, double outputRotation, ScenePoint position,
+        ScenePoint alignmentDelta, ScenePoint outputScale, double outputRotation, double outputRotationX, double outputRotationY, ScenePoint position,
         AssLinearMove? move, bool convertedPath, bool needsMeasurement, bool hasMeasurement, out string reason)
     {
         reason = string.Empty;
@@ -15,7 +15,8 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
             return null;
         }
         var geometry = layer.Tracks.Where(track => track.Target.TextRangeId is null &&
-            track.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION).ToArray();
+            track.Property is AnimationProperty.POSITION or AnimationProperty.SCALE or AnimationProperty.ROTATION or
+                AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y).ToArray();
         if (geometry.Any(track => track.Target.State != SubtitleAnimationState.NORMAL))
         {
             reason = "geometry for independent text states cannot share a fixed origin";
@@ -23,7 +24,11 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
         }
         var scale = layer.Transform.Scale;
         var rotation = layer.Transform.Rotation;
+        var rotationX = layer.Transform.RotationX;
+        var rotationY = layer.Transform.RotationY;
         var animatedRotation = false;
+        var animatedRotationX = false;
+        var animatedRotationY = false;
         foreach (var track in geometry)
         {
             var constant = AssRotationOriginConversion.TryConstant(track, out var value);
@@ -47,6 +52,28 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
                     animatedRotation = true;
                 }
             }
+            else if (track.Property == AnimationProperty.ROTATION_X)
+            {
+                if (constant)
+                {
+                    rotationX = value.Scalar;
+                }
+                else
+                {
+                    animatedRotationX = true;
+                }
+            }
+            else if (track.Property == AnimationProperty.ROTATION_Y)
+            {
+                if (constant)
+                {
+                    rotationY = value.Scalar;
+                }
+                else
+                {
+                    animatedRotationY = true;
+                }
+            }
             else if (move is null)
             {
                 reason = "the position track cannot be fully converted to a single straight-line movement";
@@ -59,7 +86,9 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
             reason = "origin compensation requires fully preserved, fixed positive scaling";
             return null;
         }
-        if (!double.IsFinite(rotation) || !animatedRotation && !rotation.Equals(outputRotation))
+        if (!double.IsFinite(rotation) || !animatedRotation && !rotation.Equals(outputRotation) ||
+            !double.IsFinite(rotationX) || !animatedRotationX && !rotationX.Equals(outputRotationX) ||
+            !double.IsFinite(rotationY) || !animatedRotationY && !rotationY.Equals(outputRotationY))
         {
             reason = "whole-line rotation was not fully preserved";
             return null;
@@ -67,6 +96,13 @@ internal sealed record AssRotationOriginExport(ScenePoint Origin, ScenePoint Pos
         if (layer.MotionPath is not null && !convertedPath || move is { Approximate: true })
         {
             reason = "the movement path or speed cannot be converted exactly to a single straight-line movement";
+            return null;
+        }
+        var perspective = rotationX != 0 || rotationY != 0 || animatedRotationX || animatedRotationY;
+        animatedRotation |= animatedRotationX || animatedRotationY;
+        if (perspective && move is not null && move.First != move.Last)
+        {
+            reason = "perspective rotation and movement around a fixed origin require coordinated local depth and position changes";
             return null;
         }
         if (animatedRotation && move is not null && move.First != move.Last)

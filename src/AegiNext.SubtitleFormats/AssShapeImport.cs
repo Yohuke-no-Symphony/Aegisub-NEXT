@@ -37,16 +37,22 @@ internal static class AssShapeImport
         {
             return Reject("Ass.DrawingAnimation", "Animated or karaoke ASS drawings were not imported as static shapes. Drawing animation requires native shape-track adaptation.");
         }
-        if (tags.Any(tag => tag.Name is "frx" or "fry" or "fax" or "fay") ||
+        if (tags.Any(tag => tag.Name is "fax" or "fay") ||
             parsed.Diagnostics.Any(item => item.Code is "Ass.OpaqueBoxStyle" or "Ass.OpaqueBoxBorder" or "Ass.BorderAxes"))
         {
-            return Reject("Ass.DrawingGeometry", "Perspective, shear, axis-specific borders or opaque-box drawing styles were not imported as shapes.");
+            return Reject("Ass.DrawingGeometry", "Shear, axis-specific borders or opaque-box drawing styles were not imported as shapes.");
         }
         if (!tags.Any(tag => tag.Name == "pos") || parsed.Line.Style.Position is not { Anchor: { X: 0, Y: 0 } })
         {
             return Reject("Ass.DrawingPlacement", "ASS drawing without an explicit valid static position was not imported as shapes. Automatic drawing placement requires full event layout.");
         }
         var run = firstRun;
+        if (!double.IsFinite(run.RotationX) || Math.Abs(run.RotationX) > 1e9 ||
+            !double.IsFinite(run.RotationY) || Math.Abs(run.RotationY) > 1e9 ||
+            (run.RotationX != 0 || run.RotationY != 0) && (!double.IsFinite(run.Rotation) || Math.Abs(run.Rotation) > 1e9))
+        {
+            return Reject("Ass.DrawingGeometryRange", "ASS drawing rotation exceeds the native angular range; no partial shapes were created.");
+        }
         if (run.Style.FillBlur != 0 || run.Style.StrokeBlur != 0 ||
             run.Style.ShadowColor.Alpha > 0 && run.Style.ShadowOffset != default)
         {
@@ -73,11 +79,12 @@ internal static class AssShapeImport
                 return Reject("Ass.DrawingPlacement", "ASS drawing has an invalid rotation origin and was not imported as shapes.");
             }
             var placement = new AssDrawingPlacement(geometry, run, parsed.Line.Style, scaleX, scaleY, originParser.Origin);
+            var perspective = run.RotationX != 0 || run.RotationY != 0;
             var layers = ImmutableArray.CreateBuilder<ProjectLayer>();
             var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
             foreach (var contour in geometry.Contours)
             {
-                var path = CreatePath(contour, placement);
+                var path = CreatePath(contour, perspective ? placement.LocalPoint : placement.Transform);
                 var points = PathPoints(path).ToArray();
                 var minimum = new ScenePoint(points.Min(point => point.X), points.Min(point => point.Y));
                 var maximum = new ScenePoint(points.Max(point => point.X), points.Max(point => point.Y));
@@ -98,7 +105,12 @@ internal static class AssShapeImport
                     Start = original.Start,
                     End = original.End,
                     Shape = new(ShapeKind.PATH, width, height, localPath),
-                    Transform = new() { Position = minimum },
+                    Transform = perspective ? new()
+                    {
+                        Position = placement.Origin, Pivot = new(-minimum.X, -minimum.Y),
+                        Rotation = -run.Rotation, RotationX = -run.RotationX, RotationY = -run.RotationY,
+                        PerspectiveDistance = parsed.Transform.PerspectiveDistance
+                    } : new() { Position = minimum },
                     Fill = run.Style.Fill,
                     Stroke = run.Style.Stroke,
                     StrokeWidth = Math.Min(4096, run.Style.StrokeWidth * 2)
@@ -154,17 +166,17 @@ internal static class AssShapeImport
         }
     }
 
-    private static PathGeometry CreatePath(MaskContour contour, AssDrawingPlacement placement)
+    private static PathGeometry CreatePath(MaskContour contour, Func<ScenePoint, ScenePoint> transform)
     {
         var segments = ImmutableArray.CreateBuilder<CubicBezierSegment>();
         for (var index = 0; index < contour.Nodes.Length; index++)
         {
             var first = contour.Nodes[index];
             var second = contour.Nodes[(index + 1) % contour.Nodes.Length];
-            segments.Add(new(placement.Transform(Add(first.Position, first.OutHandle)),
-                placement.Transform(Add(second.Position, second.InHandle)), placement.Transform(second.Position)));
+            segments.Add(new(transform(Add(first.Position, first.OutHandle)),
+                transform(Add(second.Position, second.InHandle)), transform(second.Position)));
         }
-        return new(placement.Transform(contour.Nodes[0].Position), segments.ToImmutable(), true);
+        return new(transform(contour.Nodes[0].Position), segments.ToImmutable(), true);
     }
 
     private static IEnumerable<ScenePoint> PathPoints(PathGeometry path)
