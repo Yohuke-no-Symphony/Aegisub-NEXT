@@ -43,7 +43,7 @@ public sealed class AssRotationOriginExportTests
             Tracks =
             [
                 new(AnimationProperty.POSITION, [new(new(0), new ScenePoint(80, 60)), new(new(2), new ScenePoint(80, 60))]),
-                new(AnimationProperty.ROTATION, [new(new(0), 0), new(new(2), -97)])
+                new(AnimationProperty.ROTATION_3D, [new(new(0), new SceneVector3()), new(new(2), new SceneVector3(0, 0, -97))])
             ]
         };
         document = document with { Layers = [layer] };
@@ -61,7 +61,7 @@ public sealed class AssRotationOriginExportTests
     [Theory]
     [InlineData(AnimationProperty.POSITION)]
     [InlineData(AnimationProperty.SCALE)]
-    [InlineData(AnimationProperty.ROTATION)]
+    [InlineData(AnimationProperty.ROTATION_3D)]
     public void ActualRangeGeometryDoesNotEnterTheWholeLineOriginConversion(AnimationProperty property)
     {
         var document = Import("{\\pos(120,80)\\org(200,140)\\frz23\\t(0,2000,\\frz97)}Axis");
@@ -69,7 +69,7 @@ public sealed class AssRotationOriginExportTests
         {
             Offset = property == AnimationProperty.POSITION ? new(5, 2) : default,
             Scale = property == AnimationProperty.SCALE ? new(1.5, 1) : new(1, 1),
-            Rotation = property == AnimationProperty.ROTATION ? 15 : 0
+            Rotation = property == AnimationProperty.ROTATION_3D ? 15 : 0
         };
         document = document with { Subtitles = [document.Subtitles[0] with { AnimationRanges = [range] }] };
         var written = AssSubtitleFormat.Write(document);
@@ -104,7 +104,7 @@ public sealed class AssRotationOriginExportTests
         AssertGeometry(document, roundTrip);
         Assert.DoesNotContain(roundTrip.Subtitles[0].AnimationRanges, item => item.Rotation != 0);
         Assert.DoesNotContain(roundTrip.Layers[0].Tracks, track => track.Target.TextRangeId is not null &&
-            track.Property == AnimationProperty.ROTATION);
+            track.Property == AnimationProperty.ROTATION_3D);
     }
 
     [Fact]
@@ -127,14 +127,14 @@ public sealed class AssRotationOriginExportTests
     [Theory]
     [InlineData(AnimationProperty.POSITION)]
     [InlineData(AnimationProperty.SCALE)]
-    [InlineData(AnimationProperty.ROTATION)]
+    [InlineData(AnimationProperty.ROTATION_3D)]
     public void RangeGeometryTracksAreCheckedBeforeTheyAreFiltered(AnimationProperty property)
     {
         var document = Import("{\\pos(120,80)\\org(200,140)\\frz23\\t(0,2000,\\frz97)}Axis");
         var range = new SubtitleAnimationRange(Guid.NewGuid(), 0, 1);
-        var first = property == AnimationProperty.ROTATION ? AnimationValue.FromScalar(0) :
+        var first = property == AnimationProperty.ROTATION_3D ? AnimationValue.FromVector3(new()) :
             AnimationValue.FromVector(property == AnimationProperty.SCALE ? new(1, 1) : new());
-        var last = property == AnimationProperty.ROTATION ? AnimationValue.FromScalar(45) : AnimationValue.FromVector(new(2, 3));
+        var last = property == AnimationProperty.ROTATION_3D ? AnimationValue.FromVector3(new(0, 0, 45)) : AnimationValue.FromVector(new(2, 3));
         var track = new AnimationTrack(new AnimationTrackTarget(property, TextRangeId: range.Id), [new(new(0), first), new(new(2), last)]);
         document = document with
         {

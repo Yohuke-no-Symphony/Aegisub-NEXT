@@ -45,12 +45,12 @@ public sealed class AssRotationOriginTransformPrefixTests
     {
         var parsed = Parse(@"{\pos(120,80)\frz23\t(0,1000,\t(comment\org(200,140))\frz47)}Axis");
         var clip = Assert.Single(parsed.Clips);
-        var rotation = Assert.Single(clip.Tracks.Where(track => track.Property == AnimationProperty.ROTATION));
+        var rotation = Assert.Single(clip.Tracks.Where(track => track.Property == AnimationProperty.ROTATION_3D));
 
         Assert.Equal(new ScenePoint(80, 60), clip.Transform.Pivot);
-        Assert.Equal(-23, SceneEvaluator.EvaluateTrack(rotation, MediaTime.Zero).Scalar);
-        Assert.Equal(-35, SceneEvaluator.EvaluateTrack(rotation, new(1, 2)).Scalar);
-        Assert.Equal(-47, SceneEvaluator.EvaluateTrack(rotation, new(3, 2)).Scalar);
+        Assert.Equal(new SceneVector3(0, 0, -23), SceneEvaluator.EvaluateTrack(rotation, MediaTime.Zero).Vector3);
+        Assert.Equal(new SceneVector3(0, 0, -35), SceneEvaluator.EvaluateTrack(rotation, new(1, 2)).Vector3);
+        Assert.Equal(new SceneVector3(0, 0, -47), SceneEvaluator.EvaluateTrack(rotation, new(3, 2)).Vector3);
         AssertNoOriginLoss(parsed);
     }
 
@@ -73,10 +73,10 @@ public sealed class AssRotationOriginTransformPrefixTests
     {
         var parsed = Parse(@"{\pos(120,80)\frz23\t(0,1000,\t(comment\org(200,140)\frz97)\frz47)}Axis");
         var clip = Assert.Single(parsed.Clips);
-        var rotation = Assert.Single(clip.Tracks.Where(track => track.Property == AnimationProperty.ROTATION));
+        var rotation = Assert.Single(clip.Tracks.Where(track => track.Property == AnimationProperty.ROTATION_3D));
 
         Assert.Equal(default, clip.Transform.Pivot);
-        Assert.Equal(-35, SceneEvaluator.EvaluateTrack(rotation, new(1, 2)).Scalar);
+        Assert.Equal(new SceneVector3(0, 0, -35), SceneEvaluator.EvaluateTrack(rotation, new(1, 2)).Vector3);
         Assert.Contains(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.UnsupportedTag");
         Assert.Contains(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.RotationOrigin");
     }

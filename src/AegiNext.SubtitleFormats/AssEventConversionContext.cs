@@ -34,6 +34,7 @@ internal sealed class AssEventConversionContext
     internal AssEventConversionContext(ProjectDocument document, ProjectLayer layer, SubtitleLine line,
         ISubtitlePlacementMeasurer? measurer, ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
+        layer = AssRotationTracks.Expand(layer, line);
         var originalLayer = layer;
         textAnimation = new(line, layer, diagnostics);
         layer = layer with { Tracks = layer.Tracks.Where(track => !textAnimation.HandlesForExport(track)).ToImmutableArray() };

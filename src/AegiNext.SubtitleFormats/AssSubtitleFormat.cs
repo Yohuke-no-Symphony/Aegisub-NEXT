@@ -244,14 +244,17 @@ public static class AssSubtitleFormat
                 {
                     Transform = parsed.Transform
                 };
-                lines.Add(importedLine);
-                clips.Add(clip);
-                layers.Add(new()
+                var nativeLayer = new ProjectLayer
                 {
                     Id = importedLine.Id, Kind = LayerKind.SUBTITLE, Name = "Subtitle", SubtitleId = importedLine.Id,
                     Start = importedLine.Start, End = importedLine.End,
                     Mask = clip.Mask, Tracks = clip.Tracks, Transform = clip.Transform, AnimationOffset = clip.ContentOffset
-                });
+                };
+                nativeLayer = nativeLayer with { Tracks = RotationAnimationTrackMigration.Normalize(nativeLayer, importedLine) };
+                clip = clip with { Tracks = nativeLayer.Tracks };
+                lines.Add(importedLine);
+                clips.Add(clip);
+                layers.Add(nativeLayer);
             }
             layers.AddRange(drawing.Layers);
             if (layers.Count > 10000)

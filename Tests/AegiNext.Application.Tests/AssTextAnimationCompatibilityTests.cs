@@ -22,7 +22,7 @@ public sealed class AssTextAnimationCompatibilityTests
         Assert.Equal(6, Value(tracks, AnimationProperty.LETTER_SPACING, ranges[0].Id).Scalar, 9);
         Assert.Equal(12, Value(tracks, AnimationProperty.LETTER_SPACING, ranges[1].Id).Scalar, 9);
         Assert.Equal(1.25, Value(tracks, AnimationProperty.SCALE, ranges[0].Id).Vector.X, 9);
-        Assert.Equal(-20, Value(tracks, AnimationProperty.ROTATION, ranges[1].Id).Scalar, 9);
+        Assert.Equal(new SceneVector3(0, 0, -20), Value(tracks, AnimationProperty.ROTATION_3D, ranges[1].Id).Vector3);
     }
 
     [Fact]

@@ -6,11 +6,12 @@ using AegiNext.Core.Timing;
 
 namespace AegiNext.SubtitleFormats;
 
-internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer layer,
+internal sealed class AssTextAnimationExport(SubtitleLine line, ProjectLayer sourceLayer,
     ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics, bool projection = false)
 {
+    private readonly ProjectLayer layer = AssRotationTracks.Expand(sourceLayer, line);
     private readonly HashSet<string> reported = [];
-    private readonly ImmutableHashSet<AnimationProperty> sharedChannels = projection ? [] : layer.Tracks.Where(track =>
+    private readonly ImmutableHashSet<AnimationProperty> sharedChannels = projection ? [] : sourceLayer.Tracks.Where(track =>
         track.Target.State != SubtitleAnimationState.NORMAL && IsSharedVisual(track.Property) &&
         line.Karaoke.Any(segment => track.Target.TextRangeId is not { } rangeId ||
             line.AnimationRanges.Any(range => range.Id == rangeId && range.Utf16Start < segment.Utf16Start + segment.Utf16Length &&

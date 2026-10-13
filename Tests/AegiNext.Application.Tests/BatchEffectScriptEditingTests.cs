@@ -18,7 +18,7 @@ public sealed class BatchEffectScriptEditingTests
         initial.UpdateLayer(first, layer => layer with
         {
             AnimationOffset = new(1), Opacity = 0.8,
-            Tracks = [new(AnimationProperty.ROTATION, [new(new(1), 15)]), new(AnimationProperty.OPACITY, [new(new(1), 0.3)])],
+            Tracks = [new(AnimationProperty.ROTATION_3D, [new(new(1), new SceneVector3(0, 0, 15))]), new(AnimationProperty.OPACITY, [new(new(1), 0.3)])],
             MotionPath = new(new(new(0, 0), [new(new(10, 0), new(20, 0), new(30, 0))]), new(7))
         });
         initial.UpdateLayer(second, layer => layer with { AnimationOffset = new(2), Opacity = 0.5 });
@@ -54,7 +54,7 @@ public sealed class BatchEffectScriptEditingTests
             Assert.All(after.Tracks, track =>
             {
                 Assert.Equal(before.AnimationOffset, track.Keyframes[0].Time);
-                if (track.Property != AnimationProperty.ROTATION)
+                if (track.Property != AnimationProperty.ROTATION_3D)
                 {
                     Assert.Equal(before.End - before.Start + before.AnimationOffset, track.Keyframes[^1].Time);
                 }
@@ -65,7 +65,7 @@ public sealed class BatchEffectScriptEditingTests
             Assert.Equal(style.StrokeWidth * 2, stroke.Keyframes[0].Value.Scalar);
             Assert.Equal(style.StrokeWidth, stroke.Keyframes[^1].Value.Scalar);
         }
-        Assert.Same(original.Layers[0].Tracks[0], applied.Layers[0].Tracks.Single(track => track.Property == AnimationProperty.ROTATION));
+        Assert.Same(original.Layers[0].Tracks[0], applied.Layers[0].Tracks.Single(track => track.Property == AnimationProperty.ROTATION_3D));
         Assert.Same(original.Layers.Single(layer => layer.Id == untouched), applied.Layers.Single(layer => layer.Id == untouched));
         Assert.Equal(original.Subtitles, applied.Subtitles);
         Assert.Equal(1, changes);

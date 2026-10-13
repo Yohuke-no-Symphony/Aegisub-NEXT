@@ -34,8 +34,11 @@ internal static class AssGeometryAnimationWindow
         value = track.InitialValue!.Value;
         foreach (var operation in track.Transforms)
         {
+            var start = operation.Curve is { Interpolation: KeyframeInterpolation.HOLD, Reverse: false }
+                ? operation.End : operation.Start;
+            var acceleration = operation.Curve is null ? operation.Acceleration : 1;
             if (!ApplyConstant(ref value, operation.Value, operation.ComponentMask, operation.Mode,
-                operation.Start, operation.End, operation.Acceleration, minimum, maximum))
+                start, operation.End, acceleration, minimum, maximum))
             {
                 return false;
             }

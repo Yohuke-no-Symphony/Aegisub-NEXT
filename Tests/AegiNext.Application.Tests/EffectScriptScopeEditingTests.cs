@@ -61,7 +61,7 @@ public sealed class EffectScriptScopeEditingTests
         initial.ApplyEffectScript(id, Script());
         var generated = initial.Snapshot.Subtitles[0].AnimationRanges.Where(range => range.GeneratedOrigin?.EffectId == "scope-edit").ToArray();
         initial.SetSubtitleAnimationRange(id, generated[1] with { Scale = new(2, 2), Offset = new(5, 0), Pivot = SubtitleAnimationPivot.SUBTITLE_ANCHOR });
-        initial.SetKeyframe(id, new AnimationTrackTarget(AnimationProperty.ROTATION, TextRangeId: generated[1].Id), new(new(0), 45));
+        initial.SetKeyframe(id, new AnimationTrackTarget(AnimationProperty.ROTATION_3D, TextRangeId: generated[1].Id), new(new(0), new SceneVector3(0, 0, 45)));
         initial.MoveSubtitleAnimationRange(id, generated[1].Id, 0);
         var original = initial.Snapshot;
         var editor = new ProjectEditor(original);
@@ -80,7 +80,7 @@ public sealed class EffectScriptScopeEditingTests
         });
         Assert.Contains(manual, result.Subtitles[0].AnimationRanges);
         Assert.Contains(other, result.Subtitles[0].AnimationRanges);
-        Assert.DoesNotContain(result.Layers[0].Tracks, track => track.Target.TextRangeId == generated[1].Id && track.Property == AnimationProperty.ROTATION);
+        Assert.DoesNotContain(result.Layers[0].Tracks, track => track.Target.TextRangeId == generated[1].Id && track.Property == AnimationProperty.ROTATION_3D);
 
         editor.ApplyEffectScript(id, Script("chunk(2)"));
         Assert.Equal(4, editor.Snapshot.Subtitles[0].AnimationRanges.Length);

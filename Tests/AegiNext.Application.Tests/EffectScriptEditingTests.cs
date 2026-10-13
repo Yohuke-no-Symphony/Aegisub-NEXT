@@ -12,11 +12,11 @@ public sealed class EffectScriptEditingTests
     {
         var initial = new ProjectEditor();
         var id = initial.AddSubtitle(new(10), new(12), "字幕自然尺寸");
-        initial.SetKeyframe(id, AnimationProperty.ROTATION, new(new(0), 15));
+        initial.SetKeyframe(id, AnimationProperty.ROTATION_3D, new(new(0), new SceneVector3(0, 0, 15)));
         initial.UpdateLayer(id, layer => layer with
         {
             AnimationOffset = new(5),
-            Tracks = [new(AnimationProperty.ROTATION, [new(new(5), 15)])],
+            Tracks = [new(AnimationProperty.ROTATION_3D, [new(new(5), new SceneVector3(0, 0, 15))])],
             MotionPath = new(new(new(0, 0), [new(new(10, 0), new(20, 0), new(30, 0))]), new(7)),
             Transform = new(100, 200, 2, 3)
         });
@@ -32,7 +32,7 @@ public sealed class EffectScriptEditingTests
         Assert.Equal(id, Assert.Single(editor.Snapshot.Subtitles).Id);
         Assert.Same(original.Subtitles[0], editor.Snapshot.Subtitles[0]);
         Assert.Same(original.Layers[0].MotionPath, layer.MotionPath);
-        Assert.Same(original.Layers[0].Tracks[0], layer.Tracks.Single(track => track.Property == AnimationProperty.ROTATION));
+        Assert.Same(original.Layers[0].Tracks[0], layer.Tracks.Single(track => track.Property == AnimationProperty.ROTATION_3D));
         var first = Assert.Single(SceneEvaluator.Evaluate(editor.Snapshot, new(10)));
         Assert.Equal(0.4, first.Transform.ScaleX, 12);
         Assert.Equal(0.6, first.Transform.ScaleY, 12);

@@ -74,7 +74,7 @@ public sealed class AssScaleResetImportTests
         var imported = AssSubtitleFormat.Parse(AssBoundarySource.File(@"{\t(0,2000,\frz40\fs30\fscx200)\fsc}x"), 640, 360);
         var tracks = Assert.Single(imported.Clips).Tracks;
 
-        Assert.Contains(tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.Contains(tracks, track => track.Property == AnimationProperty.ROTATION_3D);
         Assert.Contains(tracks, track => track.Property == AnimationProperty.FONT_SIZE);
         Assert.DoesNotContain(tracks, track => track.Property == AnimationProperty.SCALE);
     }

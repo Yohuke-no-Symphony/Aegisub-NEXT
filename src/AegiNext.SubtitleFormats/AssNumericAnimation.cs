@@ -18,8 +18,21 @@ internal sealed record AssNumericAnimation(AnimationProperty Property, int Compo
         var approximate = false;
         if (track.IsOrdered)
         {
-            operations.AddRange(track.Transforms.Select(operation => new AssNumericOperation(operation.Start, operation.End,
-                operation.Value.GetComponent(component), operation.Acceleration)));
+            foreach (var operation in track.Transforms.Where(operation => operation.ComponentMask == 0 ||
+                (operation.ComponentMask & (1 << component)) != 0))
+            {
+                var exponent = operation.Acceleration;
+                var start = operation.Start;
+                if (operation.Curve is { } curve)
+                {
+                    approximate |= !AssCurveCompatibility.TryGetAcceleration(curve, out exponent);
+                    if (curve.Interpolation == KeyframeInterpolation.HOLD && !curve.Reverse)
+                    {
+                        start = operation.End;
+                    }
+                }
+                operations.Add(new(start, operation.End, operation.Value.GetComponent(component), exponent));
+            }
         }
         else
         {
@@ -39,20 +52,7 @@ internal sealed record AssNumericAnimation(AnimationProperty Property, int Compo
                     operations.Add(new(next.Time, next.Time, value, 1));
                     continue;
                 }
-                var exponent = 1d;
-                if (!reversedNonlinear && curve.Interpolation == KeyframeInterpolation.POWER && curve.CurveStart == 0)
-                {
-                    exponent = curve.Exponent;
-                }
-                else if (!reversedNonlinear && curve.Interpolation == KeyframeInterpolation.EASE_IN && curve.CurveStart == 0)
-                {
-                    exponent = 2;
-                }
-                else if (reversedNonlinear || curve.Interpolation != KeyframeInterpolation.LINEAR &&
-                    !(curve.Interpolation == KeyframeInterpolation.POWER && curve.Exponent.Equals(1d)))
-                {
-                    approximate = true;
-                }
+                approximate |= !AssCurveCompatibility.TryGetAcceleration(curve, out var exponent);
                 operations.Add(new(first.Time, next.Time, value, exponent));
             }
         }

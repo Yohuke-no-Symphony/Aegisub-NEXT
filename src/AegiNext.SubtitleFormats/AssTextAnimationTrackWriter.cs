@@ -31,7 +31,14 @@ internal static class AssTextAnimationTrackWriter
             {
                 foreach (var operation in track.Transforms)
                 {
-                    Append(result, operation.Start, operation.End, operation.Acceleration,
+                    var acceleration = operation.Acceleration;
+                    if (operation.Curve is { } curve)
+                    {
+                        AssCurveCompatibility.TryGetAcceleration(curve, out acceleration);
+                    }
+                    var start = operation.Curve is { Interpolation: KeyframeInterpolation.HOLD, Reverse: false }
+                        ? operation.End : operation.Start;
+                    Append(result, start, operation.End, acceleration,
                         OutputTags(operation.Value, operation.ComponentMask, operation.Mode), subtitleId, diagnostics, reportedPrecision);
                 }
             }
@@ -48,9 +55,9 @@ internal static class AssTextAnimationTrackWriter
                             continue;
                         }
                         var curve = first.GetCurve(component);
+                        AssCurveCompatibility.TryGetAcceleration(curve, out var acceleration);
                         Append(result, curve.Interpolation == KeyframeInterpolation.HOLD ? next.Time : first.Time,
-                            next.Time, curve.Interpolation == KeyframeInterpolation.EASE_IN ? 2 :
-                                curve.Interpolation == KeyframeInterpolation.POWER ? curve.Exponent : 1,
+                            next.Time, acceleration,
                             OutputTags(next.Value, 1 << component, AnimationTransformMode.INTERPOLATE_TO), subtitleId, diagnostics, reportedPrecision);
                     }
                 }
@@ -65,18 +72,20 @@ internal static class AssTextAnimationTrackWriter
         if (track.Property is AnimationProperty.FILL or AnimationProperty.STROKE or AnimationProperty.SHADOW_COLOR)
         {
             return track.ColorSpace == AnimationColorSpace.SRGB && track.IsOrdered &&
-                track.Transforms.All(operation => operation.Mode == AnimationTransformMode.INTERPOLATE_TO && operation.ComponentMask is 0 or 7 or 8 or 15);
+                track.Transforms.All(operation => operation.Mode == AnimationTransformMode.INTERPOLATE_TO &&
+                    operation.ComponentMask is 0 or 7 or 8 or 15 &&
+                    (operation.Curve is null || AssCurveCompatibility.TryGetAcceleration(operation.Curve, out _)));
         }
         if (track.IsOrdered)
         {
-            return track.Transforms.All(operation => operation.Mode == AnimationTransformMode.INTERPOLATE_TO ||
-                track.Property == AnimationProperty.FONT_SIZE);
+            return track.Transforms.All(operation => (operation.Mode == AnimationTransformMode.INTERPOLATE_TO ||
+                track.Property == AnimationProperty.FONT_SIZE) &&
+                (operation.Curve is null || AssCurveCompatibility.TryGetAcceleration(operation.Curve, out _)));
         }
         return track.Keyframes.All(frame => Enumerable.Range(0, frame.Value.ComponentCount).All(component =>
         {
             var curve = frame.GetCurve(component);
-            return !AssCurveCompatibility.IsReversedNonlinear(curve) && curve.CurveStart == 0 && curve.CurveEnd == 1 && curve.Interpolation is
-                KeyframeInterpolation.LINEAR or KeyframeInterpolation.HOLD or KeyframeInterpolation.POWER or KeyframeInterpolation.EASE_IN;
+            return AssCurveCompatibility.TryGetAcceleration(curve, out _);
         }));
     }
 

@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
@@ -58,13 +59,12 @@ public sealed class AssSpatialTransformTests
     {
         var parsed = Parse("{\\frx20\\fry-10\\t(0,2000,2,\\frx740)\\t(0,2000,\\fry50)\\t(500,1500,\\fry90)}Axis");
         var clip = Assert.Single(parsed.Clips);
-        var x = Assert.Single(clip.Tracks, track => track.Property == AnimationProperty.ROTATION_X);
-        var y = Assert.Single(clip.Tracks, track => track.Property == AnimationProperty.ROTATION_Y);
+        var rotation = Assert.Single(clip.Tracks);
 
-        Assert.Equal(-200, SceneEvaluator.EvaluateScalarTrack(x, new(1)), 9);
-        Assert.True(y.IsOrdered);
-        Assert.Equal(2, y.Transforms.Length);
-        Assert.Equal(-55, SceneEvaluator.EvaluateScalarTrack(y, new(1)), 9);
+        Assert.Equal(AnimationProperty.ROTATION_3D, rotation.Property);
+        Assert.True(rotation.IsOrdered);
+        Assert.Equal(3, rotation.Transforms.Length);
+        Assert.Equal(new SceneVector3(-200, -55, 0), SceneEvaluator.EvaluateTrack(rotation, new(1)).Vector3);
         Assert.DoesNotContain(parsed.Diagnostics, item => item.Code == "Ass.UnsupportedTag");
     }
 
@@ -87,7 +87,7 @@ public sealed class AssSpatialTransformTests
         Assert.Equal(-60, clip.Line.AnimationRanges[1].RotationX);
         Assert.Equal(-10, clip.Line.AnimationRanges[1].RotationY);
         Assert.DoesNotContain(clip.Tracks, track => track.Target.TextRangeId is null &&
-            track.Property is AnimationProperty.ROTATION or AnimationProperty.ROTATION_X or AnimationProperty.ROTATION_Y);
+            track.Property == AnimationProperty.ROTATION_3D);
     }
 
     [Fact]
@@ -98,7 +98,7 @@ public sealed class AssSpatialTransformTests
 
         Assert.Equal(new ScenePoint(80, 60), clip.Transform.Position);
         Assert.Equal(new ScenePoint(80 / 1.5, 80), clip.Transform.Pivot);
-        Assert.Equal(3, clip.Tracks.Length);
+        Assert.Equal(AnimationProperty.ROTATION_3D, Assert.Single(clip.Tracks).Property);
         Assert.DoesNotContain(parsed.Diagnostics, item => item.Code is "Ass.RotationOrigin" or "Ass.UnsupportedTag");
     }
 
@@ -132,9 +132,8 @@ public sealed class AssSpatialTransformTests
         Assert.Contains("\\frx-20", result.Text, StringComparison.Ordinal);
         Assert.Contains("\\fry30", result.Text, StringComparison.Ordinal);
         Assert.Contains("\\frz-23", result.Text, StringComparison.Ordinal);
-        Assert.Equal(3, reparsed.Tracks.Length);
-        Assert.Equal(380, SceneEvaluator.EvaluateScalarTrack(Assert.Single(reparsed.Tracks,
-            track => track.Property == AnimationProperty.ROTATION_X), new(1)), 9);
+        Assert.Equal(380, SceneEvaluator.EvaluateTrack(Assert.Single(reparsed.Tracks,
+            track => track.Property == AnimationProperty.ROTATION_3D), new(1)).Vector3.X, 9);
         Assert.DoesNotContain(result.Diagnostics, item => item.Code is "Subtitle.Composition" or "Ass.TransformPivotAnimation" or "Ass.PerspectiveComposition");
     }
 
@@ -200,8 +199,8 @@ public sealed class AssSpatialTransformTests
         Assert.Equal(23, firstRange.Rotation);
         Assert.Equal(-40, secondRange.RotationX);
         Assert.Equal(20, secondRange.RotationY);
-        Assert.Equal(390, SceneEvaluator.EvaluateScalarTrack(Assert.Single(imported.Tracks,
-            track => track.Property == AnimationProperty.ROTATION_X && track.Target.TextRangeId == firstRange.Id), new(1)), 9);
+        Assert.Equal(390, SceneEvaluator.EvaluateTrack(Assert.Single(imported.Tracks,
+            track => track.Property == AnimationProperty.ROTATION_3D && track.Target.TextRangeId == firstRange.Id), new(1)).Vector3.X, 9);
         Assert.DoesNotContain(result.Diagnostics, item => item.Code == "Ass.PerspectiveComposition");
     }
 
@@ -213,9 +212,8 @@ public sealed class AssSpatialTransformTests
 
         Assert.Equal(0, clip.Transform.RotationX);
         Assert.Equal(-35, clip.Transform.RotationY);
-        Assert.DoesNotContain(clip.Tracks, track => track.Property == AnimationProperty.ROTATION_X);
-        Assert.Equal(-62.5, SceneEvaluator.EvaluateScalarTrack(Assert.Single(clip.Tracks,
-            track => track.Property == AnimationProperty.ROTATION_Y), new(1)), 9);
+        Assert.Equal(new SceneVector3(0, -62.5, 0), SceneEvaluator.EvaluateTrack(Assert.Single(clip.Tracks,
+            track => track.Property == AnimationProperty.ROTATION_3D), new(1)).Vector3);
         Assert.Contains(parsed.Diagnostics, item => item.Code is "Ass.TransformRange" or "Ass.UnsupportedTransform");
     }
 
@@ -241,8 +239,10 @@ public sealed class AssSpatialTransformTests
         Assert.DoesNotContain(parsed.Diagnostics, item => item.Code is "Ass.DrawingGeometry" or "Ass.UnsupportedTag");
     }
 
-    [Fact]
-    public void AssTextEditPreservesNativeDistanceCompensationAndUnrelatedAxisTracks()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AssTextEditPreservesNativeDistanceCompensationAndUnrelatedAxisTracks(bool rangeRotation)
     {
         var range = new SubtitleAnimationRange(Guid.NewGuid(), 0, 4)
         {
@@ -252,7 +252,8 @@ public sealed class AssSpatialTransformTests
         var line = Line() with { AnimationRanges = [range] };
         var distance = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.PERSPECTIVE_DISTANCE, TextRangeId: range.Id),
             [new(new(0), 500), new(new(2), 800)]);
-        var axis = new AnimationTrack(AnimationProperty.ROTATION_X, [new(new(0), 10), new(new(2), 730)]);
+        var axis = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.ROTATION_3D, TextRangeId: rangeRotation ? range.Id : null),
+            [new(new(0), AnimationValue.FromVector3(new(10, 0, 0))), new(new(2), AnimationValue.FromVector3(new(730, 0, 0)))]);
         var font = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.FONT_SIZE, TextRangeId: range.Id),
             [new(new(0), 20), new(new(2), 40)]);
         var layer = Layer(line) with { Tracks = [distance, axis, font] };
@@ -267,6 +268,204 @@ public sealed class AssSpatialTransformTests
         Assert.Same(axis, Assert.Single(changed.TextAnimationTracks!.Value, track => track.Target == axis.Target));
     }
 
+    [Theory]
+    [InlineData(10001)]
+    [InlineData(30000)]
+    public void AssTextEditPreservesCanonicalOrderedRotationAtItsFullBudget(int count)
+    {
+        var range = new SubtitleAnimationRange(Guid.NewGuid(), 0, 4);
+        var line = Line() with { AnimationRanges = [range] };
+        var rotation = new AnimationTrack(AnimationProperty.ROTATION_3D, [])
+        {
+            InitialValue = AnimationValue.FromVector3(default),
+            Transforms = Enumerable.Range(0, count).Select(index => new AnimationTransformOperation(Guid.NewGuid(),
+                new(index, count), new(index + 1, count), AnimationValue.FromVector3(new(index % 13, index % 17, index % 19))))
+                .ToImmutableArray()
+        };
+        var font = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.FONT_SIZE, TextRangeId: range.Id),
+            [new(new(0), 20), new(new(2), 40)]);
+        var layer = Layer(line) with { Tracks = [rotation, font] };
+        var source = AssTextProjection.Create(line, layer: layer).Source;
+
+        var changed = AssTextProjection.Apply(line, source.Replace("\\fs40", "\\fs50", StringComparison.Ordinal), layer: layer);
+
+        Assert.Same(rotation, Assert.Single(changed.TextAnimationTracks!.Value, track => track.Target == rotation.Target));
+        Assert.Equal(count, rotation.Transforms.Length);
+    }
+
+    [Fact]
+    public void CanonicalVector3ExportsIndependentMasksAndPowerOperationsWithoutLoss()
+    {
+        var line = Line();
+        var rotation = new AnimationTrack(AnimationProperty.ROTATION_3D, [])
+        {
+            InitialValue = AnimationValue.FromVector3(new(20, -10, 23)),
+            Transforms =
+            [
+                new(Guid.NewGuid(), new(0), new(2), AnimationValue.FromVector3(new(740, -10, 23)), 2) { ComponentMask = 1 },
+                new(Guid.NewGuid(), new(0), new(2), AnimationValue.FromVector3(new(20, 50, 23))) { ComponentMask = 2 },
+                new(Guid.NewGuid(), new(1, 2), new(3, 2), AnimationValue.FromVector3(new(20, 90, 23))) { ComponentMask = 2 }
+            ]
+        };
+        var layer = Layer(line) with { Tracks = [rotation] };
+
+        var exported = AssSubtitleFormat.Write(new() { Width = 640, Height = 360, Subtitles = [line], Layers = [layer] });
+        var imported = Assert.Single(AssSubtitleFormat.Parse(exported.Text, 640, 360).Clips);
+        var converted = Assert.Single(imported.Tracks);
+
+        Assert.Equal(AnimationProperty.ROTATION_3D, converted.Property);
+        Assert.DoesNotContain(exported.Diagnostics, diagnostic => diagnostic.Code is "Subtitle.Composition" or "Ass.TransformCurveApproximation");
+        foreach (var time in new MediaTime[] { new(0), new(1, 4), new(1, 2), new(1), new(3, 2), new(2) })
+        {
+            AssertRotationEqual(SceneEvaluator.EvaluateTrack(rotation, time).Vector3, SceneEvaluator.EvaluateTrack(converted, time).Vector3);
+        }
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void CanonicalTimeUnionRecoversAnUnsplitPowerCurveForAssExport(int duration)
+    {
+        var line = Line();
+        line = line with { End = new(duration) };
+        var phase = 1d / duration;
+        var x = new AnimationTrack(AnimationProperty.ROTATION_X,
+            [new(new(0), 20, KeyframeInterpolation.POWER) { Exponent = 2 }, new(new(duration), 740)]);
+        var rotation = new AnimationTrack(AnimationProperty.ROTATION_3D,
+        [
+            new(new(0), AnimationValue.FromVector3(new(20, -30, 23)), KeyframeInterpolation.POWER)
+            {
+                Exponent = 2, CurveEnd = phase,
+                ComponentCurves = [new(KeyframeInterpolation.LINEAR), new(KeyframeInterpolation.HOLD)]
+            },
+            new(new(1), AnimationValue.FromVector3(new(SceneEvaluator.EvaluateScalarTrack(x, new(1)), -30 - 60 * phase, 23)), KeyframeInterpolation.POWER)
+            {
+                Exponent = 2, CurveStart = phase,
+                ComponentCurves = [new(KeyframeInterpolation.LINEAR), new(KeyframeInterpolation.HOLD)]
+            },
+            new(new(duration), AnimationValue.FromVector3(new(740, -90, 23)))
+        ]);
+        var layer = Layer(line) with { Tracks = [rotation] };
+
+        var exported = AssSubtitleFormat.Write(new() { Width = 640, Height = 360, Subtitles = [line], Layers = [layer] });
+        var converted = Assert.Single(Assert.Single(AssSubtitleFormat.Parse(exported.Text, 640, 360).Clips).Tracks);
+
+        Assert.DoesNotContain(exported.Diagnostics, diagnostic => diagnostic.Code is "Subtitle.Composition" or "Ass.TransformCurveApproximation");
+        foreach (var time in new MediaTime[] { new(0), new(1, 4), new(1, 2), new(1), new(3, 2), new(2) })
+        {
+            AssertRotationEqual(SceneEvaluator.EvaluateTrack(rotation, time).Vector3, SceneEvaluator.EvaluateTrack(converted, time).Vector3);
+        }
+    }
+
+    [Fact]
+    public void CanonicalPhaseChangesBeyondMachineRoundingRemainExplicitlyLossy()
+    {
+        var line = Line() with { End = new(3) };
+        var phase = 1d / 3 + 1e-10;
+        var rotation = new AnimationTrack(AnimationProperty.ROTATION_3D,
+        [
+            new(new(0), AnimationValue.FromVector3(default), KeyframeInterpolation.POWER)
+            {
+                Exponent = 2, CurveEnd = phase
+            },
+            new(new(1), AnimationValue.FromVector3(new(80, 0, 0)), KeyframeInterpolation.POWER)
+            {
+                Exponent = 2, CurveStart = phase
+            },
+            new(new(3), AnimationValue.FromVector3(new(720, 0, 0)))
+        ]);
+        var layer = Layer(line) with { Tracks = [rotation] };
+
+        var exported = AssSubtitleFormat.Write(new() { Width = 640, Height = 360, Subtitles = [line], Layers = [layer] });
+
+        Assert.Contains(exported.Diagnostics, diagnostic => diagnostic.Code == "Ass.TransformCurveApproximation");
+    }
+
+    [Theory]
+    [InlineData(KeyframeInterpolation.LINEAR, 7, false)]
+    [InlineData(KeyframeInterpolation.POWER, 7, false)]
+    [InlineData(KeyframeInterpolation.LINEAR, 0, false)]
+    [InlineData(KeyframeInterpolation.POWER, 0, false)]
+    [InlineData(KeyframeInterpolation.EASE_OUT, 7, true)]
+    public void OrderedVector3CurveOverridesAccelerationOrReportsSpecificApproximation(KeyframeInterpolation interpolation,
+        double acceleration, bool approximate)
+    {
+        var line = Line();
+        var rotation = new AnimationTrack(AnimationProperty.ROTATION_3D, [])
+        {
+            InitialValue = AnimationValue.FromVector3(default),
+            Transforms = [new(Guid.NewGuid(), new(0), new(2), AnimationValue.FromVector3(new(100, 0, 0)), acceleration)
+            {
+                ComponentMask = 1, Curve = new(interpolation) { Exponent = 2 }
+            }]
+        };
+        var layer = Layer(line) with { Tracks = [rotation] };
+
+        var exported = AssSubtitleFormat.Write(new() { Width = 640, Height = 360, Subtitles = [line], Layers = [layer] });
+        var converted = Assert.Single(Assert.Single(AssSubtitleFormat.Parse(exported.Text, 640, 360).Clips).Tracks);
+
+        Assert.Equal(approximate, exported.Diagnostics.Any(diagnostic => diagnostic.Code == "Ass.TransformCurveApproximation"));
+        Assert.DoesNotContain(exported.Diagnostics, diagnostic => diagnostic.Code == "Subtitle.Composition");
+        if (!approximate)
+        {
+            AssertRotationEqual(SceneEvaluator.EvaluateTrack(rotation, new(1)).Vector3, SceneEvaluator.EvaluateTrack(converted, new(1)).Vector3);
+        }
+    }
+
+    [Theory]
+    [InlineData(KeyframeInterpolation.LINEAR, false)]
+    [InlineData(KeyframeInterpolation.POWER, false)]
+    [InlineData(KeyframeInterpolation.EASE_OUT, true)]
+    public void RangeVector3OrderedCurveIsPreservedOrExplicitlySampled(KeyframeInterpolation interpolation, bool sampled)
+    {
+        var range = new SubtitleAnimationRange(Guid.NewGuid(), 0, 4) { Pivot = SubtitleAnimationPivot.SUBTITLE_ANCHOR };
+        var line = Line() with { AnimationRanges = [range] };
+        var rotation = new AnimationTrack(new AnimationTrackTarget(AnimationProperty.ROTATION_3D, TextRangeId: range.Id), [])
+        {
+            InitialValue = AnimationValue.FromVector3(new(20, -10, 23)),
+            Transforms = [new(Guid.NewGuid(), new(0), new(2), AnimationValue.FromVector3(new(100, -10, 23)), 7)
+            {
+                ComponentMask = 1, Curve = new(interpolation) { Exponent = 2 }
+            }]
+        };
+        var layer = Layer(line) with { Tracks = [rotation] };
+
+        var exported = AssSubtitleFormat.Write(new() { Width = 640, Height = 360, Subtitles = [line], Layers = [layer] });
+        var imported = Assert.Single(AssSubtitleFormat.Parse(exported.Text, 640, 360).Clips);
+        var converted = Assert.Single(imported.Tracks, track => track.Property == AnimationProperty.ROTATION_3D);
+
+        Assert.Equal(sampled, exported.Diagnostics.Any(diagnostic => diagnostic.Code == "Ass.AnimationSampling"));
+        Assert.DoesNotContain(exported.Diagnostics, diagnostic => diagnostic.Code is "Subtitle.Composition" or "Ass.PerspectiveComposition");
+        foreach (var time in new MediaTime[] { new(0), new(1, 4), new(1, 2), new(1), new(3, 2), new(1999, 1000) })
+        {
+            var expected = SceneEvaluator.EvaluateTrack(rotation, time).Vector3;
+            var actual = SceneEvaluator.EvaluateTrack(converted, time).Vector3;
+            Assert.InRange(Math.Abs(expected.X - actual.X), 0, sampled ? 1d / 255 : 1e-9);
+            Assert.Equal(expected.Y, actual.Y, 9);
+            Assert.Equal(expected.Z, actual.Z, 9);
+        }
+    }
+
+    [Fact]
+    public void CanonicalPureZWithMovementKeepsTheExistingTwoDimensionalOriginPath()
+    {
+        var line = Line();
+        var rotation = new AnimationTrack(AnimationProperty.ROTATION_3D,
+            [new(new(0), AnimationValue.FromVector3(new(0, 0, 30))), new(new(2), AnimationValue.FromVector3(new(0, 0, 30)))]);
+        var layer = Layer(line) with
+        {
+            Transform = new() { Pivot = new(20, 10) },
+            Tracks = [rotation, new(AnimationProperty.POSITION, [new(new(0), new ScenePoint(0, 0)), new(new(2), new ScenePoint(80, 50))])]
+        };
+
+        var exported = AssSubtitleFormat.Write(new() { Width = 640, Height = 360, Subtitles = [line], Layers = [layer] });
+
+        Assert.Contains("\\org(", exported.Text, StringComparison.Ordinal);
+        Assert.Contains("\\move(", exported.Text, StringComparison.Ordinal);
+        Assert.DoesNotContain(exported.Diagnostics, diagnostic => diagnostic.Code.StartsWith("Ass.Perspective", StringComparison.Ordinal) ||
+            diagnostic.Code is "Subtitle.Composition" or "Ass.RotationOrigin");
+    }
+
     private static SubtitleLine Line() => new()
     {
         Text = "Axis", End = new(2), Style = new()
@@ -278,6 +477,13 @@ public sealed class AssSpatialTransformTests
     };
 
     private static ProjectLayer Layer(SubtitleLine line) => new() { SubtitleId = line.Id, End = line.End };
+
+    private static void AssertRotationEqual(SceneVector3 expected, SceneVector3 actual)
+    {
+        Assert.Equal(expected.X, actual.X, 9);
+        Assert.Equal(expected.Y, actual.Y, 9);
+        Assert.Equal(expected.Z, actual.Z, 9);
+    }
 
     private static AssImportResult Parse(string text, int? layoutHeight = 360, int playResHeight = 360) => AssSubtitleFormat.Parse($$"""
         [Script Info]

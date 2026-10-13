@@ -36,7 +36,8 @@ public sealed class AssNumericAnimationRoundTripTests
         Assert.Contains("\\t(", written.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(written.Diagnostics, item => item.Code == "Subtitle.Composition");
         var imported = Assert.Single(AssSubtitleFormat.Parse(written.Text, 640, 360).Clips);
-        Assert.Contains(imported.Tracks, candidate => candidate.Property == property);
+        var importedProperty = property == AnimationProperty.ROTATION ? AnimationProperty.ROTATION_3D : property;
+        Assert.Contains(imported.Tracks, candidate => candidate.Property == importedProperty);
         var importedLayer = Layer(imported.Line) with
         {
             Transform = imported.Transform, Tracks = imported.Tracks, AnimationOffset = imported.ContentOffset

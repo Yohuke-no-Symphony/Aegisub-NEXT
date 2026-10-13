@@ -154,7 +154,7 @@ public sealed class AssRotationOriginImportTests
 
         Assert.Equal(new ScenePoint(), Assert.Single(parsed.Clips).Transform.Pivot);
         Assert.Contains(parsed.Diagnostics, item => item.Code == "Ass.RotationOrigin");
-        Assert.Contains(Assert.Single(parsed.Clips).Tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.Contains(Assert.Single(parsed.Clips).Tracks, track => track.Property == AnimationProperty.ROTATION_3D);
     }
 
     [Fact]

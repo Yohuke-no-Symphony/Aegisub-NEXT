@@ -40,7 +40,15 @@ internal static class AssMaskWriter
             for (var index = 0; index < master.Transforms.Length; index++)
             {
                 var operation = master.Transforms[index];
-                operations.Add(new(operation.Start - origin, operation.End - origin, operation.Acceleration,
+                var acceleration = operation.Acceleration;
+                if (operation.Mode != AnimationTransformMode.INTERPOLATE_TO || operation.ComponentMask is not (0 or 3) ||
+                    operation.Curve is { } curve && !AssCurveCompatibility.TryGetAcceleration(curve, out acceleration))
+                {
+                    return null;
+                }
+                var start = operation.Curve is { Interpolation: KeyframeInterpolation.HOLD, Reverse: false }
+                    ? operation.End : operation.Start;
+                operations.Add(new(start - origin, operation.End - origin, acceleration,
                     top?.Transforms[index].Value.Vector ?? rectangle.TopLeft, bottom?.Transforms[index].Value.Vector ?? rectangle.BottomRight));
             }
         }
@@ -143,8 +151,10 @@ internal static class AssMaskWriter
     {
         if (!first.Transforms.IsEmpty)
         {
-            return first.Transforms.Select(operation => (operation.Start, operation.End, operation.Acceleration))
-                .SequenceEqual(second.Transforms.Select(operation => (operation.Start, operation.End, operation.Acceleration)));
+            return first.Transforms.Select(operation => (operation.Start, operation.End, operation.Acceleration,
+                    operation.Curve, operation.Mode, operation.ComponentMask))
+                .SequenceEqual(second.Transforms.Select(operation => (operation.Start, operation.End, operation.Acceleration,
+                    operation.Curve, operation.Mode, operation.ComponentMask)));
         }
         return first.Keyframes.Select(key => key.Time).SequenceEqual(second.Keyframes.Select(key => key.Time)) &&
             first.Keyframes.Take(first.Keyframes.Length - 1).Select(NativeCurve)

@@ -9,6 +9,8 @@ internal static class AssTextAnimationProjection
     internal static (SubtitleLine Line, ImmutableArray<AnimationTrack>? Tracks) Restore(SubtitleLine original,
         AssTextEditResult baseline, AssTextEditResult parsed, SubtitleLine restored, ProjectLayer? layer)
     {
+        var nativeLayer = layer;
+        layer = layer is null ? null : AssRotationTracks.Expand(layer, original);
         var editMap = SubtitleTextEditMap.Between(original.Text, restored.Text);
         var originalRanges = SubtitleAnimationRangeEditing.Remap(original.AnimationRanges, editMap);
         var expected = SubtitleAnimationRangeEditing.Remap(baseline.Line.AnimationRanges,
@@ -54,7 +56,10 @@ internal static class AssTextAnimationProjection
             !(preserveFill && track.Property == AnimationProperty.FILL) &&
             !unchanged.Projected.Contains(parsed.NumericTracks[index].Target));
         ranges = RestorePreservedRanges(ranges, originalRanges, preserved, expected);
-        return (restored with { AnimationRanges = ranges }, preserved.AddRange(represented));
+        var restoredLine = restored with { AnimationRanges = ranges };
+        var restoredTracks = preserved.AddRange(represented);
+        var baseLayer = layer ?? new ProjectLayer { SubtitleId = restoredLine.Id, Start = restoredLine.Start, End = restoredLine.End };
+        return (restoredLine, AssRotationTracks.Normalize(baseLayer, restoredLine, restoredTracks, nativeLayer));
     }
 
     internal static bool IsTextTrack(AnimationTrack track) => track.Target.TextRangeId is not null ||

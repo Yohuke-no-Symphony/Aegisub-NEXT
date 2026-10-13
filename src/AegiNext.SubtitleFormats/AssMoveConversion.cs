@@ -42,7 +42,9 @@ internal static class AssMoveConversion
         }
         if (track.IsOrdered)
         {
-            if (track.Transforms.Length != 1 || track.Transforms[0] is not { Acceleration: > 0 } operation || operation.Start >= operation.End)
+            if (track.Transforms.Length != 1 || track.Transforms[0] is not { } operation || operation.Start >= operation.End ||
+                operation.Mode != AnimationTransformMode.INTERPOLATE_TO ||
+                (operation.Curve is { } curve ? !IsContinuous(curve) : operation.Acceleration <= 0))
             {
                 return null;
             }
@@ -51,7 +53,7 @@ internal static class AssMoveConversion
             var destination = new ScenePoint(operation.ComponentMask == 0 || (operation.ComponentMask & 1) != 0 ? target.X : initial.X,
                 operation.ComponentMask == 0 || (operation.ComponentMask & 2) != 0 ? target.Y : initial.Y);
             return new(initial, destination, operation.Start, operation.End,
-                !operation.Acceleration.Equals(1d));
+                operation.Curve is { } operationCurve ? !IsLinear(operationCurve) : !operation.Acceleration.Equals(1d));
         }
         var keys = track.Keyframes;
         var first = 0;

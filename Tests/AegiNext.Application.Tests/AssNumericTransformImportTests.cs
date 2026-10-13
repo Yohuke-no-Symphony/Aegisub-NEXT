@@ -72,7 +72,7 @@ public sealed class AssNumericTransformImportTests
         var clip = Assert.Single(parsed.Clips);
 
         Assert.DoesNotContain(clip.Tracks, track => track.Property == AnimationProperty.LETTER_SPACING);
-        Assert.Contains(clip.Tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.Contains(clip.Tracks, track => track.Property == AnimationProperty.ROTATION_3D);
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class AssNumericTransformImportTests
 
         var spacing = Assert.Single(clip.Tracks, track => track.Property == AnimationProperty.LETTER_SPACING);
         Assert.Equal(Assert.Single(clip.Line.AnimationRanges).Id, spacing.Target.TextRangeId);
-        Assert.Contains(clip.Tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.Contains(clip.Tracks, track => track.Property == AnimationProperty.ROTATION_3D);
         Assert.DoesNotContain(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.InlineTransform");
     }
 
@@ -235,7 +235,7 @@ public sealed class AssNumericTransformImportTests
         var parsed = Parse("{" + invalid + "\\t(0,2000,\\frz90)}a");
         var tracks = Assert.Single(parsed.Clips).Tracks;
 
-        Assert.Single(tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.Single(tracks, track => track.Property == AnimationProperty.ROTATION_3D);
         if (invalid.Contains("fscx-10", StringComparison.Ordinal))
         {
             Assert.Equal(0.45, SceneEvaluator.EvaluateVectorTrack(Assert.Single(tracks,
@@ -276,7 +276,7 @@ public sealed class AssNumericTransformImportTests
         var parsed = Parse("{" + invalid + "\\t(0,2000,\\frz90)}a");
 
         Assert.Equal("a", Assert.Single(parsed.Lines).Text);
-        Assert.Single(Assert.Single(parsed.Clips).Tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.Single(Assert.Single(parsed.Clips).Tracks, track => track.Property == AnimationProperty.ROTATION_3D);
         Assert.Contains(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.TransformTiming");
     }
 

@@ -30,9 +30,18 @@ internal static class AssOpacityConversion
                 var destination = operation.Value.Scalar;
                 if (!value.Equals(destination))
                 {
-                    var instant = operation.Start == operation.End || operation.Acceleration == 0;
-                    if (!Add(transitions, new(operation.Start, instant ? operation.Start : operation.End,
-                        value, destination, !instant && !operation.Acceleration.Equals(1d))))
+                    if (operation.Curve is { Interpolation: KeyframeInterpolation.HOLD, Reverse: true })
+                    {
+                        return null;
+                    }
+                    var start = operation.Curve is { Interpolation: KeyframeInterpolation.HOLD }
+                        ? operation.End : operation.Start;
+                    var instant = start == operation.End || operation.Curve is null && operation.Acceleration == 0;
+                    var linear = operation.Curve is { } curve
+                        ? curve.Interpolation == KeyframeInterpolation.LINEAR ||
+                            curve.Interpolation == KeyframeInterpolation.POWER && curve.Exponent.Equals(1d)
+                        : operation.Acceleration.Equals(1d);
+                    if (!Add(transitions, new(start, instant ? start : operation.End, value, destination, !instant && !linear)))
                     {
                         return null;
                     }

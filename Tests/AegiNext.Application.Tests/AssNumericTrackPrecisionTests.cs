@@ -20,8 +20,8 @@ public sealed class AssNumericTrackPrecisionTests
     [InlineData(AnimationProperty.STROKE_BLUR, true)]
     [InlineData(AnimationProperty.SCALE, false)]
     [InlineData(AnimationProperty.SCALE, true)]
-    [InlineData(AnimationProperty.ROTATION, false)]
-    [InlineData(AnimationProperty.ROTATION, true)]
+    [InlineData(AnimationProperty.ROTATION_3D, false)]
+    [InlineData(AnimationProperty.ROTATION_3D, true)]
     [InlineData(AnimationProperty.SHADOW_OFFSET, false)]
     [InlineData(AnimationProperty.SHADOW_OFFSET, true)]
     public void ScopedNumericTargetsDiagnosePrecisionOfTheirActualAssAmount(AnimationProperty property, bool quantized)
@@ -31,7 +31,7 @@ public sealed class AssNumericTrackPrecisionTests
             AnimationProperty.FONT_SIZE => 40,
             AnimationProperty.LETTER_SPACING => 12,
             AnimationProperty.SCALE => 240,
-            AnimationProperty.ROTATION => 110,
+            AnimationProperty.ROTATION_3D => 110,
             _ => 4
         } + (quantized ? 0.123456789123 : 0.125);
         var target = NativeValue(property, amount);
@@ -45,7 +45,12 @@ public sealed class AssNumericTrackPrecisionTests
         AssertValue(expected, actual);
         if (quantized)
         {
-            var component = property == AnimationProperty.SHADOW_OFFSET ? 1 : 0;
+            var component = property switch
+            {
+                AnimationProperty.SHADOW_OFFSET => 1,
+                AnimationProperty.ROTATION_3D => 2,
+                _ => 0
+            };
             Assert.NotEqual(target.GetComponent(component), actual.GetComponent(component));
         }
         Assert.Equal(quantized, written.Diagnostics.Any(diagnostic => diagnostic.Code == "Ass.NumberPrecision"));
@@ -104,7 +109,7 @@ public sealed class AssNumericTrackPrecisionTests
             AnimationProperty.STROKE_WIDTH => amount / 2,
             AnimationProperty.FILL_BLUR or AnimationProperty.STROKE_BLUR => amount * AssBlurConversion.SigmaPerUnit / 2,
             AnimationProperty.SCALE => new ScenePoint(amount / 200, 1),
-            AnimationProperty.ROTATION => amount - 90,
+            AnimationProperty.ROTATION_3D => new SceneVector3(0, 0, amount - 90),
             AnimationProperty.SHADOW_OFFSET => new ScenePoint(0, -amount / 2),
             _ => amount
         };
@@ -136,6 +141,7 @@ public sealed class AssNumericTrackPrecisionTests
             AnimationProperty.FONT_SIZE => 20,
             AnimationProperty.STROKE_WIDTH => 2,
             AnimationProperty.SCALE => new ScenePoint(1, 1),
+            AnimationProperty.ROTATION_3D => new SceneVector3(),
             AnimationProperty.SHADOW_OFFSET => new ScenePoint(0, 0),
             _ => 0
         };

@@ -249,7 +249,7 @@ public sealed class AssBlurAnimationProjectionTests
 
         Assert.Equal(new[] { first, last }, changed.Subtitles[0].AnimationRanges);
         Assert.DoesNotContain(changed.Layers[0].Tracks,
-            track => track.Property is AnimationProperty.SCALE or AnimationProperty.ROTATION &&
+            track => track.Property is AnimationProperty.SCALE or AnimationProperty.ROTATION_3D &&
                 (track.Target.TextRangeId == first.Id || track.Target.TextRangeId == last.Id));
         Assert.Same(firstShadow, Track(changed, AnimationProperty.SHADOW_BLUR, first.Id));
         Assert.Same(lastShadow, Track(changed, AnimationProperty.SHADOW_BLUR, last.Id));

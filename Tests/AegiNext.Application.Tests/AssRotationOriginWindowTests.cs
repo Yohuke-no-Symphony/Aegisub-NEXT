@@ -115,8 +115,8 @@ public sealed class AssRotationOriginWindowTests
         Assert.Equal("Fj", edited.Line.Text);
         Assert.Contains(edited.Diagnostics, diagnostic => diagnostic.Code == "Ass.UnsupportedTag");
         Assert.DoesNotContain(edited.Diagnostics, diagnostic => diagnostic.Code == "Ass.RotationOrigin");
-        var rotation = Assert.Single(edited.TextAnimationTracks!.Value.Where(track => track.Property == AnimationProperty.ROTATION));
-        Assert.Equal(-23.5, SceneEvaluator.EvaluateTrack(rotation, new(1, 2)).Scalar);
+        var rotation = Assert.Single(edited.TextAnimationTracks!.Value.Where(track => track.Property == AnimationProperty.ROTATION_3D));
+        Assert.Equal(new SceneVector3(0, 0, -23.5), SceneEvaluator.EvaluateTrack(rotation, new(1, 2)).Vector3);
     }
 
     private static void AssertIndependentGeometry(ProjectDocument document, int duration, bool move,

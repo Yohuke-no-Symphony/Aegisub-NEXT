@@ -37,7 +37,7 @@ public sealed class AssBorderAliasImportTests
         Assert.Equal(new SceneColor(1, 0, 0, 1 - 128 / 255d),
             At(clip.Line, 0).Fill);
         Assert.DoesNotContain(clip.Tracks, track => track.Property == AnimationProperty.STROKE_WIDTH);
-        Assert.Contains(clip.Tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.Contains(clip.Tracks, track => track.Property == AnimationProperty.ROTATION_3D);
         Assert.DoesNotContain(imported.Diagnostics, diagnostic => diagnostic.Code == "Ass.BorderAxes");
     }
 
