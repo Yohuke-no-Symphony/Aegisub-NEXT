@@ -198,6 +198,15 @@ public sealed class EffectScriptPageLayoutUiTests
         Assert.InRange(Math.Abs(editorBounds.Bottom - BoundsIn(list, page).Bottom), 0, 1);
         Assert.InRange(Math.Abs(editorBounds.Bottom - page.Bounds.Height), 0, 1);
         Assert.True(editorBounds.Height >= 180);
+        Assert.True(editorBounds.Width >= 180);
+        var previewPanel = UiTestActions.Find<Grid>(window, "EffectPreviewPanel");
+        var previewBounds = BoundsIn(previewPanel, page);
+        Assert.InRange(previewBounds.Width, 200, 260);
+        Assert.False(previewBounds.Intersects(editorBounds));
+        Assert.InRange(Math.Abs(previewBounds.Bottom - BoundsIn(list, page).Bottom), 0, 1);
+        var viewport = UiTestActions.Find<PreviewViewportControl>(window, "EffectPreviewViewport");
+        Assert.True(viewport.Bounds.Width > 0 && viewport.Bounds.Height >= 88);
+        Assert.True(new Rect(window.ClientSize).Contains(BoundsIn(previewPanel, window)));
         var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
         Assert.InRange(editorBounds.Bottom - BoundsIn(input, page).Bottom, 0, 8);
         var lineNumbers = UiTestActions.Find<ScriptLineNumberMargin>(window, "ScriptLineNumbers");

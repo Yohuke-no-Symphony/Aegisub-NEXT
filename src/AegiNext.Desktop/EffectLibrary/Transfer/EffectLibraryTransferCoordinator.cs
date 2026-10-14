@@ -41,7 +41,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
     {
         return RunAsync(async token =>
         {
-            if (!await prepareImportAsync())
+            if (!await prepareImportAsync().WaitAsync(token))
             {
                 return;
             }
@@ -67,7 +67,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
     {
         return RunAsync(async token =>
         {
-            var selection = frozen ?? await captureSelectionAsync();
+            var selection = frozen ?? await captureSelectionAsync().WaitAsync(token);
             token.ThrowIfCancellationRequested();
             if (selection is null)
             {
@@ -114,7 +114,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
     {
         return RunAsync(async token =>
         {
-            if (!model.HasPreview || !await prepareImportAsync() || model.ImportPlan is not { } plan)
+            if (!model.HasPreview || !await prepareImportAsync().WaitAsync(token) || model.ImportPlan is not { } plan)
             {
                 return;
             }
@@ -164,7 +164,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
     {
         return RunAsync(async token =>
         {
-            if (!await prepareImportAsync())
+            if (!await prepareImportAsync().WaitAsync(token))
             {
                 return;
             }

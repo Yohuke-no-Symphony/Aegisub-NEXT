@@ -15,6 +15,7 @@ using Avalonia.Input;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
@@ -135,6 +136,9 @@ public sealed class MainWorkspaceIntegrationUiTests
         floating.KeyPress(Key.F8, RawInputModifiers.None, PhysicalKey.None, null);
         floating.KeyPress(Key.F8, RawInputModifiers.None, PhysicalKey.None, null);
         floating.KeyRelease(Key.F8, RawInputModifiers.None, PhysicalKey.None, null);
+        var timingEntry = Assert.IsType<AsyncRelayCommand>(main.GetCommand(WorkbenchCommand.TIMING_ENTER));
+        Assert.NotNull(timingEntry.ExecutionTask);
+        await timingEntry.ExecutionTask.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Flush(main);
         Assert.Single(main.DocumentSnapshot.Subtitles);
         floating.Close();

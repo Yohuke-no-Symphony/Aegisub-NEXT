@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controlsCommon="using:AegiNext.Desktop.Controls.Common"
              xmlns:effects="using:AegiNext.Desktop.EffectLibrary.Effects"
+             xmlns:presets="clr-namespace:AegiNext.Core.Presets;assembly=AegiNext.Core"
              xmlns:controls="using:AegiNext.Desktop.Controls"
              x:Class="AegiNext.Desktop.EffectLibrary.Effects.EffectScriptLibraryView" Classes="business-surface" x:DataType="effects:EffectScriptLibraryViewModel">
   <Grid RowDefinitions="Auto,*" RowSpacing="12">
@@ -34,14 +35,74 @@
           </DataTemplate>
         </ListBox.ItemTemplate>
       </ListBox>
-      <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" RowSpacing="8">
-        <TextBlock Text="{Binding EditorStatus}" FontSize="12" Opacity="0.8" TextWrapping="Wrap" />
-        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="8">
-          <TextBlock Text="{Loc Key=Settings.Name}" VerticalAlignment="Center" />
-          <TextBox Name="EffectScriptNameInput" Grid.Column="1" Text="{Binding Name, Mode=TwoWay}" IsReadOnly="{Binding IsReadOnly}" IsEnabled="{Binding !IsBusy}" MaxLength="128" />
+      <Grid Grid.Column="1" ColumnDefinitions="*,240" ColumnSpacing="12">
+        <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
+          <TextBlock Text="{Binding EditorStatus}" FontSize="12" Opacity="0.8" TextWrapping="Wrap" />
+          <Grid Grid.Row="1" ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <TextBlock Text="{Loc Key=Settings.Name}" VerticalAlignment="Center" />
+            <TextBox Name="EffectScriptNameInput" Grid.Column="1" Text="{Binding Name, Mode=TwoWay}" IsReadOnly="{Binding IsReadOnly}" IsEnabled="{Binding !IsBusy}" MaxLength="128" />
+          </Grid>
+          <controls:EffectScriptEditor Name="EffectScriptEditor" Grid.Row="2" Source="{Binding Source, Mode=TwoWay}" IsReadOnly="{Binding IsReadOnly}"
+               IsEnabled="{Binding !IsBusy}" DiagnosticLine="{Binding DiagnosticLine}" DiagnosticColumn="{Binding DiagnosticColumn}" />
         </Grid>
-        <controls:EffectScriptEditor Name="EffectScriptEditor" Grid.Row="2" Source="{Binding Source, Mode=TwoWay}" IsReadOnly="{Binding IsReadOnly}"
-             IsEnabled="{Binding !IsBusy}" DiagnosticLine="{Binding DiagnosticLine}" DiagnosticColumn="{Binding DiagnosticColumn}" />
+        <Grid Name="EffectPreviewPanel" Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" RowSpacing="6">
+          <controlsCommon:PropertyRowControl Name="EffectPreviewTextRow" IsStacked="True" SeparatorThickness="0"
+                                            Header="{Loc Key=EffectLibrary.EffectPreviewText}">
+            <TextBox Name="EffectPreviewTextInput" Text="{Binding PreviewText, Mode=TwoWay}" AcceptsReturn="True"
+                     TextWrapping="Wrap" MaxHeight="72" MinHeight="32" MaxLength="262144"
+                     AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewText}" />
+          </controlsCommon:PropertyRowControl>
+          <controlsCommon:PropertyRowControl Name="EffectPreviewDurationRow" Grid.Row="1" IsStacked="True" SeparatorThickness="0">
+            <controlsCommon:PropertyRowControl.Header>
+              <controls:NumericDragLabel Input="{Binding #EffectPreviewDurationInput}" Classes="field"
+                                         Text="{Loc Key=EffectLibrary.EffectPreviewDuration}" />
+            </controlsCommon:PropertyRowControl.Header>
+            <controls:NumericDraftInput Name="EffectPreviewDurationInput" RawText="{Binding PreviewDuration.RawText, Mode=TwoWay}"
+                                        Value="{Binding PreviewDuration.Value, Mode=TwoWay}" Minimum="0.001" Maximum="86400"
+                                        Increment="0.1" AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewDuration}" />
+          </controlsCommon:PropertyRowControl>
+          <controlsCommon:PropertyRowControl Name="EffectPreviewStyleRow" Grid.Row="2" IsStacked="True" SeparatorThickness="0"
+                                            Header="{Loc Key=EffectLibrary.EffectPreviewStyle}">
+            <ComboBox Name="EffectPreviewStyleInput" HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewStyle}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="presets:SubtitleStylePreset">
+                  <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </controlsCommon:PropertyRowControl>
+          <Border Grid.Row="3" Background="{DynamicResource PreviewBackground}" BorderBrush="{DynamicResource PreviewBorder}"
+                  BorderThickness="1" CornerRadius="4" MinHeight="90">
+            <controls:PreviewViewportControl Name="EffectPreviewViewport" Focusable="True"
+                                             AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewTitle}">
+              <controls:VideoFramePresenter Name="EffectPreviewFrame" Stretch="Uniform" IsHitTestVisible="False" />
+            </controls:PreviewViewportControl>
+          </Border>
+          <Grid Grid.Row="4" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
+            <controlsCommon:ToolbarToggleButton Name="EffectPreviewPlayPauseButton" Command="{Binding PreviewPlayPauseCommand}"
+                                                IsChecked="{Binding IsPreviewPlaying, Mode=OneWay}"
+                                                ToolTip.Tip="{Binding PreviewPlayPauseText}" AutomationProperties.Name="{Binding PreviewPlayPauseText}">
+              <controlsCommon:IconText IconKey="{Binding PreviewPlayPauseIcon}" />
+            </controlsCommon:ToolbarToggleButton>
+            <controlsCommon:ToolbarToggleButton Name="EffectPreviewLoopButton" Grid.Column="1" IsChecked="{Binding PreviewLoop, Mode=TwoWay}"
+                                                IsEnabled="{Binding HasPreview}" ToolTip.Tip="{Loc Key=EffectLibrary.EffectPreviewLoop}"
+                                                AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewLoop}">
+              <controlsCommon:IconText IconKey="Loop" />
+            </controlsCommon:ToolbarToggleButton>
+            <TextBlock Name="EffectPreviewPositionText" Grid.Column="2" Text="{Binding PreviewPositionText}"
+                       Classes="field" VerticalAlignment="Center" HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+          </Grid>
+          <Slider Name="EffectPreviewPositionSlider" Grid.Row="5" Minimum="0" Maximum="{Binding PreviewDurationSeconds}"
+                  Value="{Binding PreviewPosition, Mode=TwoWay}" IsEnabled="{Binding HasPreview}" MinHeight="24"
+                  AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewPositionLabel}" />
+          <Grid Grid.Row="6">
+            <TextBlock Name="EffectPreviewError" Text="{Binding PreviewError}" IsVisible="{Binding HasPreviewError}"
+                       Foreground="{DynamicResource PreviewError}" Classes="field" TextWrapping="Wrap" />
+            <TextBlock Name="EffectPreviewPlaceholder" Text="{Binding PreviewPlaceholderText}" IsVisible="{Binding HasPreviewPlaceholder}"
+                       Classes="field" TextWrapping="Wrap" />
+          </Grid>
+        </Grid>
       </Grid>
     </Grid>
   </Grid>

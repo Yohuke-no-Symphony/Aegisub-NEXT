@@ -111,7 +111,8 @@ Use this entry inventory when checking that new business operations use the serv
 | `Workspace` automatic persistence | `AutomaticProjectPersistenceTask`; backup pruning uses `ProjectPersistenceTask` or a parent stage |
 | `Startup` / `Editing` application services | `ApplicationInitializationTask`, `EnumerateSystemFontsTask`, `PreferencesWriteTask`, `RecentProjectsWriteTask`, `PersonalLibraryTask` |
 | `Layouts` persistence | `LayoutWriteTask`; the coordinator retains layout interaction orchestration |
-| `Settings/Presets` / `Settings/Export` | `SettingsStyleImportTask`, `SettingsStyleExportTask`, `SettingsEffectImportTask`, `SettingsEffectExportTask`, `SettingsExportPresetExportTask`; library mutations use `PersonalLibraryTask` |
+| `EffectLibrary/Transfer` | `EffectLibraryImportAnalysisTask`, `EffectLibraryImportCommitTask`, `EffectLibraryExportTask`; style/script mutations use `PersonalLibraryTask` |
+| `Settings/Export` | `SettingsExportPresetExportTask`; library mutations use `PersonalLibraryTask` |
 | `Settings/Transfer` | `UserSettingsLayoutCaptureTask`, `UserSettingsExportTask`, `UserSettingsImportTask`, `UserSettingsRestoreStageTask`, `UserSettingsRestoreCancelTask` |
 
 Image import is available through File → Import images and the Project assets panel. Project backup recovery uses the manual file workflow described in [Workbench](workbench.md#save-and-recover); settings recovery follows the restoration tasks above. Playback loops, single-frame decoding, drag seeking, the audio clock, and live preview remain internal real-time pipelines whose owning business tasks manage cancellation and completion. Viewport requests and individual analysis blocks do not create separate task records.

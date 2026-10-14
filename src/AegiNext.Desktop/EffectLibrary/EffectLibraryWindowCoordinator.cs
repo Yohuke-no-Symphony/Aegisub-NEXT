@@ -12,6 +12,7 @@ using AegiNext.Desktop.Windowing;
 using AegiNext.Desktop.Workspace;
 using AegiNext.Desktop.Workspace.Diagnostics;
 using Avalonia.Controls;
+using Avalonia.Threading;
 
 namespace AegiNext.Desktop.EffectLibrary;
 
@@ -26,17 +27,24 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
     private bool deletionActive;
     private EffectLibraryTransferCoordinator? transfer;
     private Task closedTransferCompletion = Task.CompletedTask;
+    private Task closedDisposalCompletion = Task.CompletedTask;
     private EffectLibraryPage lastLibraryPage = EffectLibraryPage.STYLES;
     internal Task TransferCompletion => Task.WhenAll(closedTransferCompletion, transfer?.Completion ?? Task.CompletedTask);
+    internal Task DisposalCompletion => Task.WhenAll(closedDisposalCompletion, Window?.DisposalCompletion ?? Task.CompletedTask);
     internal Task DeletionCompletion { get; private set; } = Task.CompletedTask;
     internal event Action<WorkbenchLogEntry>? EffectScriptErrorReported;
     internal EffectLibraryWindow? Window { get; private set; }
 
-    internal Task OpenAsync(Window owner, WorkbenchSession? session = null, EffectLibraryPage? page = null,
+    internal async Task OpenAsync(Window owner, WorkbenchSession? session = null, EffectLibraryPage? page = null,
         Action<Window>? registerWindow = null)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         ArgumentNullException.ThrowIfNull(owner);
+        if (Window is { CloseCompletion.IsCompleted: false } closingWindow)
+        {
+            await closingWindow.CloseCompletion;
+            ObjectDisposedException.ThrowIf(disposed, this);
+        }
         if (Window is { } existing)
         {
             if (page is { } requested)
@@ -44,7 +52,7 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
                 existing.SelectPage(requested);
             }
             existing.Activate();
-            return Task.CompletedTask;
+            return;
         }
         var window = new EffectLibraryWindow(applicationContext.Preferences);
         Window = window;
@@ -54,6 +62,8 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         try
         {
             window.ViewModel.Styles.SetFonts(applicationContext.Fonts);
+            window.ViewModel.Effects.PreviewFonts = applicationContext.Fonts.Catalog;
+            window.ViewModel.Effects.UpdatePreviewStyles(applicationContext.StyleLibrary.Snapshot.Presets);
             window.ViewModel.Styles.SetPositionMeasurement((preset, text) => session is null
                 ? MeasureDefaultPosition(preset, text) : session.MeasureStylePosition(preset, text));
             transfer = new(applicationContext, window.ViewModel.Transfer, dialogs, CaptureSelectionAsync, PrepareImportAsync);
@@ -76,7 +86,7 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
                 registerWindow(window);
             }
             window.Show(owner);
-            return Task.CompletedTask;
+            _ = LoadPreviewFontsAsync(window);
         }
         catch
         {
@@ -87,6 +97,7 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
             this.session = null;
             dialogs = null;
             window.CloseImmediately();
+            closedDisposalCompletion = Task.WhenAll(closedDisposalCompletion, window.DisposalCompletion);
             chrome?.Dispose();
             chrome = null;
             throw;
@@ -121,6 +132,7 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         applicationContext.EffectsChanged += OnEffectsChanged;
         applicationContext.BusyChanged += OnBusyChanged;
         applicationContext.LibraryOperationFailed += OnLibraryOperationFailed;
+        applicationContext.Fonts.Changed += OnFontsChanged;
         window.UpsertStyleRequested += OnUpsertStyleRequested;
         window.DeleteStyleRequested += OnDeleteStyleRequested;
         window.CaptureStyleRequested += OnCaptureStyleRequested;
@@ -157,6 +169,7 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         applicationContext.EffectsChanged -= OnEffectsChanged;
         applicationContext.BusyChanged -= OnBusyChanged;
         applicationContext.LibraryOperationFailed -= OnLibraryOperationFailed;
+        applicationContext.Fonts.Changed -= OnFontsChanged;
         window.UpsertStyleRequested -= OnUpsertStyleRequested;
         window.DeleteStyleRequested -= OnDeleteStyleRequested;
         window.CaptureStyleRequested -= OnCaptureStyleRequested;
@@ -188,6 +201,7 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         {
             CancelDeletion();
             DisposeTransfer();
+            closedDisposalCompletion = Task.WhenAll(closedDisposalCompletion, window.DisposalCompletion);
             Unsubscribe(window);
             chrome?.Dispose();
             chrome = null;
@@ -219,6 +233,7 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
     private void OnStylesChanged(object? sender, EventArgs e)
     {
         Window?.UpdateStyles(applicationContext.StyleLibrary.Snapshot.Presets);
+        Window?.ViewModel.Effects.UpdatePreviewStyles(applicationContext.StyleLibrary.Snapshot.Presets);
         RefreshTransferSelection();
     }
     private void OnEffectsChanged(object? sender, EventArgs e)
@@ -309,7 +324,48 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         }
         await window.ViewModel.Styles.SelectionCompletion;
         await window.ViewModel.Effects.SelectionCompletion;
-        return await window.ViewModel.Styles.PrepareToLeaveAsync() && await window.ViewModel.Effects.PrepareToLeaveAsync();
+        if (disposed || !ReferenceEquals(Window, window) || !await window.ViewModel.Styles.PrepareToLeaveAsync())
+        {
+            return false;
+        }
+        return !disposed && ReferenceEquals(Window, window) && await window.ViewModel.Effects.PrepareToLeaveAsync()
+            && !disposed && ReferenceEquals(Window, window);
+    }
+
+    private void OnFontsChanged(object? sender, EventArgs e)
+    {
+        if (Window is { } window)
+        {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(() => RefreshPreviewFonts(window));
+                return;
+            }
+            RefreshPreviewFonts(window);
+        }
+    }
+
+    private void RefreshPreviewFonts(EffectLibraryWindow target)
+    {
+        if (!disposed && ReferenceEquals(Window, target))
+        {
+            target.ViewModel.Effects.PreviewFonts = applicationContext.Fonts.Catalog;
+        }
+    }
+
+    private async Task LoadPreviewFontsAsync(EffectLibraryWindow target)
+    {
+        try
+        {
+            await applicationContext.Fonts.EnsureLoadedAsync();
+        }
+        catch (Exception error)
+        {
+            if (!disposed && ReferenceEquals(Window, target))
+            {
+                target.ViewModel.Effects.SetPreviewError(error.Message);
+            }
+        }
     }
 
     private void OnImportRequested(object? sender, EventArgs e)

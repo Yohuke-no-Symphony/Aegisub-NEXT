@@ -38,9 +38,9 @@ Set font, size, line height, fill, stroke, shadow color/offset/blur, and alignme
 
 **Mask placement** in Masks and Effects shares anchor presets, a placement diagram, and Anchor/Pivot/Offset inputs. Anchor is relative to the project canvas; Pivot is relative to the mask's local reference frame captured at creation. Zero selects the left/top edge and one the right/bottom edge; pivots can also lie outside the frame. Node editing and morph animation do not recalculate it. Preset clicks preserve placement, Shift also sets Pivot, and Alt clears pixel Offset. Direct Pivot edits compensate Offset to preserve the current editing frame; frames with different rotation or scale can change. Static placement is separate from **Mask translation** animation, and placement edits retain existing tracks. Both panels share unfinished input; Esc restores only the current field.
 
-Assign a style preset from a track context menu. On a nonempty track, choose whether to update existing clips or only its default for new clips. The project stores a style snapshot, so later personal-library edits do not change it. Exchange libraries through Settings → Subtitle Styles as `.aegistyles`; system fonts still need installation on another machine.
+Assign a style preset from a track context menu. On a nonempty track, choose whether to update existing clips or only its default for new clips. The project stores a style snapshot, so later personal-library edits do not change it. Manage reusable materials in **Edit → Effect Library → Style Library**; system fonts still need installation on another machine unless embedded in the style.
 
-Settings → Subtitle Styles renders editable sample text. Cmd/Ctrl + wheel zooms around the pointer; left drag pans the preview. These gestures change only the preview view. Style, script, export, and layout libraries support selecting multiple personal presets and confirming their deletion.
+**Effect Library → Style Library** renders editable sample text. Cmd/Ctrl + wheel zooms around the pointer; left drag pans the preview. These gestures change only the preview view. Style, script, export, and layout libraries support selecting multiple personal presets and confirming their deletion.
 
 Select a clip to edit Effects, or a keyframe to seek and edit its value/interpolation. Drag Preview text, motion-path nodes, or mask handles for visual editing. Motion-path curves and handles also remain visible and draggable in the preview letterbox. In motion-path and vector-mask editing, Shift + left-click a curve to insert a node, or Ctrl + left-click an anchor to delete it; motion paths retain at least two endpoints. Insertion preserves the curve shape, while motion-path playback continues to use its existing progress mapping across segments. Node morph animation locks mask topology until those tracks are cleared. See [Subtitle editing](subtitle-editing.md) and [Effect scripts](effect-dsl.md).
 
@@ -73,6 +73,16 @@ The tool uses the selected range's Normal geometry even when Active or Inactive 
 
 Anchor chooses the canvas position; Pivot chooses the local rotation center. Changing Pivot preserves the projected picture at the current editing frame through native compensation, retaining existing tracks. Other frames may change because they use different rotations or scales. ASS `\org` is converted into this native anchor/pivot model at import/export; it is not a separate absolute-origin setting. Use `.aeginext` to preserve adjustable perspective, compensation, and nested range transforms. ASS exchange reports the combinations it cannot represent.
 
+## Share styles and scripts
+
+Open **Edit → Effect Library** and choose **Style Library**, **Effect Scripts**, or **Import & Export**. The welcome screen also opens the same three-page library without a project. Switching pages or closing handles unsaved material drafts; existing workbench apply/capture actions remain available.
+
+**Effect Scripts** previews the current draft with adjustable text, duration, and personal styles with embedded fonts. Play/pause, loop, and scrubbing work without saving or opening a project. See [Preview a draft](effect-dsl.md#preview-a-draft).
+
+Select one or more entries, click **Export**, then choose a format in **Import & Export**. Independent files use `.aegistyles` for styles and `.aegieffect` for personal scripts; a single item uses a file picker, while multiple items use a destination folder. A package uses `.aegilibrary`. **Script source** exports `.aegifx`, including read-only builtins. **Export all personal materials** creates one package containing personal styles, embedded fonts, and scripts.
+
+**Import** accepts multiple independent files and packages together. Review new, identical, and conflicting rows, choose **Import**, **Replace**, or **Skip** where offered, then confirm. Identical content skips automatically. Protected identities cannot be replaced; only one conflicting input version may be selected. A changed library requires another preview and confirmation. Settings packages are imported separately in Settings and never supply effect-library materials.
+
 ## Save and recover
 
 Settings → Projects sets the workspace root, initially `Documents/AegiNext/Workspace`. Creating `Example` makes `Example/Example.aeginext` and `Example/backup/`; an existing target directory rejects creation.
@@ -85,6 +95,6 @@ Videos inside the project directory use relative references; external videos sta
 
 ## Preferences and logs
 
-Settings manages language, theme, accent/audio/timeline colors, shortcuts, styles, scripts, media, projects, preview, and timing options. Shortcut recording captures a real chord; Esc cancels, and Clear disables it. macOS can choose system or window menus.
+Settings manages language, theme, accent/audio/timeline colors, shortcuts, media, projects, preview, and timing options. Shortcut recording captures a real chord; Esc cancels, and Clear disables it. macOS can choose system or window menus.
 
 Log supports filtering, copying, and clearing up to 2,000 session records. Errors mark View without stealing focus; records are not retained after restart.

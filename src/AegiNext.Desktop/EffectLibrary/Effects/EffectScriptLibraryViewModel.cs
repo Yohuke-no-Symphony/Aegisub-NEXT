@@ -11,7 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 namespace AegiNext.Desktop.EffectLibrary.Effects;
 
 /// <summary>个人脚本库的选择与独立编辑草稿；持久化由组合根提供。</summary>
-public sealed class EffectScriptLibraryViewModel : ObservableObject
+public sealed partial class EffectScriptLibraryViewModel : ObservableObject
 {
     private ImmutableArray<EffectScriptPreset> presets = [];
     private ImmutableArray<EffectScriptLibraryItem> items = [];
@@ -34,6 +34,7 @@ public sealed class EffectScriptLibraryViewModel : ObservableObject
     /// <summary>创建页面命令；实际个人库读写由组合根承担。</summary>
     public EffectScriptLibraryViewModel()
     {
+        InitializePreview();
         AddCommand = new(() =>
         {
             var operation = AddAsync();
@@ -113,6 +114,10 @@ public sealed class EffectScriptLibraryViewModel : ObservableObject
             if (SetProperty(ref source, value))
             {
                 RecordDraft(true);
+                if (!loading)
+                {
+                    RefreshPreviewInput();
+                }
             }
         }
     }
@@ -284,6 +289,7 @@ public sealed class EffectScriptLibraryViewModel : ObservableObject
     public void RefreshLanguage()
     {
         RebuildItems(null);
+        RefreshPreviewLanguage();
         if (validationStatus is not null && Error is null)
         {
             ValidationStatus = Localization.Get("Settings.ScriptValid");
@@ -400,6 +406,7 @@ public sealed class EffectScriptLibraryViewModel : ObservableObject
             ClearDiagnostics();
         }
         RefreshActions();
+        RefreshPreviewInput();
     }
 
     private void RecordDraft(bool sourceChanged)

@@ -5,12 +5,20 @@
 ## Apply and edit
 
 1. Select a subtitle, choose a preset in **Effects**, and click **Apply Preset**.
-2. Open **Settings → Effect Scripts** to manage templates. Builtins are read-only; **Save As** creates a personal copy.
-3. Edit, **Validate**, then save or export UTF-8 `.aegifx`. Validation reports line/column errors; **Locate Error** moves the caret.
+2. Open **Edit → Effect Library → Effect Scripts** to manage templates. Builtins are read-only. Use **Add** to create a personal draft.
+3. Edit, **Validate**, then save. Export through **Import & Export** as a complete `.aegieffect`, a `.aegilibrary` package, or UTF-8 `.aegifx` source. Validation reports line/column errors; **Locate Error** moves the caret.
 
-Completion opens while typing or with Cmd/Ctrl + Space. Arrows select, Enter/Tab insert, and Esc dismisses. Templates are personal settings; applying recompiles for the current Clip and creates one Undo transaction.
+Completion opens while typing or with Cmd/Ctrl + Space. Arrows select, Enter/Tab insert, and Esc dismisses. Templates belong to the effect library; applying recompiles for the current Clip and creates one Undo transaction.
 
-DSL version 1 keeps its existing whole-target segment syntax. Version 2 adds named scopes, text grouping, staggered starts, repeats, and pingpong. Choose **Letter bounce** or **Letter pulse** in the same preset selector for the built-in grouped effects; edit a personal copy to change grouping or timing.
+DSL version 1 keeps its existing whole-target segment syntax. Version 2 adds named scopes, text grouping, staggered starts, repeats, and pingpong. Choose **Letter bounce** or **Letter pulse** in the same preset selector for the built-in grouped effects; create a personal script to adjust grouping or timing.
+
+## Preview a draft
+
+Selecting one script automatically loops its current source in the preview, including unsaved edits. Adjust **Preview text**, **Duration (seconds)**, and **Preview style**; embedded fonts in the selected style are used for rendering. The default sample is `YOSYMPH666`, one second, centered 32 px text, and a gray background.
+
+Use play/pause and loop, or drag the position slider to inspect a particular time. Space toggles playback in the preview area; text inputs and the script editor retain normal space input. Cmd/Ctrl + wheel zooms and left drag pans. Leaving the page pauses at the current position; playback can be resumed after returning.
+
+The preview updates about 200 ms after typing stops. Syntax, duration, and rendering errors appear locally and recover when the input is corrected. Previewing neither saves the draft nor applies it to project subtitles; use **Apply Preset** in the workbench to apply an effect.
 
 ## Combining presets
 

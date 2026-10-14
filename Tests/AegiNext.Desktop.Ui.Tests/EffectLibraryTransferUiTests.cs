@@ -108,6 +108,75 @@ public sealed class EffectLibraryTransferUiTests
     }
 
     [AvaloniaFact]
+    public async Task ClosingCancelsUnresolvedPreparationAndIgnoresItsLaterCompletion()
+    {
+        using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
+        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await context.Initialization;
+        var input = Path.Combine(environment.DirectoryPath, "style.aegistyles");
+        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [new(Guid.NewGuid(), "Imported", new())] }, input);
+        var preparation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dialogs = new StartupTestDialogService { OpenPaths = [input] };
+        using var model = new EffectLibraryTransferViewModel();
+        using var coordinator = new EffectLibraryTransferCoordinator(context, model, dialogs,
+            () => Task.FromResult<EffectLibraryTransferSelection?>(new([], [])), () => preparation.Task);
+        var changes = 0;
+        model.PropertyChanged += (_, _) => changes++;
+
+        var pendingImport = coordinator.ImportAsync();
+        Assert.False(pendingImport.IsCompleted);
+        coordinator.Dispose();
+        await coordinator.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(preparation.Task.IsCompleted);
+        Assert.True(pendingImport.IsCompleted);
+        Assert.False(model.IsBusy);
+        var beforeLateCompletion = changes;
+        preparation.TrySetResult(true);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(beforeLateCompletion, changes);
+        Assert.Empty(context.StyleLibrary.Snapshot.Presets);
+        Assert.False(model.HasPreview);
+        Assert.Null(model.Error);
+    }
+
+    [AvaloniaFact]
+    public async Task ClosingCancelsUnresolvedSelectionAndNeverExportsItsLateResult()
+    {
+        using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
+        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await context.Initialization;
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Original", new());
+        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(style));
+        var selection = new TaskCompletionSource<EffectLibraryTransferSelection?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var output = Path.Combine(environment.DirectoryPath, "late.aegistyles");
+        var dialogs = new StartupTestDialogService { SavePath = output };
+        using var model = new EffectLibraryTransferViewModel();
+        model.UpdateSelection(1, 0, 0);
+        using var coordinator = new EffectLibraryTransferCoordinator(context, model, dialogs,
+            () => selection.Task, () => Task.FromResult(true));
+        var changes = 0;
+        model.PropertyChanged += (_, _) => changes++;
+
+        var pendingExport = coordinator.ExportSelectionAsync();
+        Assert.False(pendingExport.IsCompleted);
+        coordinator.Dispose();
+        await coordinator.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.False(selection.Task.IsCompleted);
+        Assert.True(pendingExport.IsCompleted);
+        Assert.False(model.IsBusy);
+        var beforeLateCompletion = changes;
+        selection.TrySetResult(new([style], []));
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(beforeLateCompletion, changes);
+        Assert.False(File.Exists(output));
+        Assert.Equal(0, dialogs.SaveCount);
+        Assert.Equal(style, Assert.Single(context.StyleLibrary.Snapshot.Presets));
+        Assert.Null(model.Error);
+    }
+
+    [AvaloniaFact]
     public async Task StalePreviewIsReanalyzedLocallyAndRequiresAnotherConfirmation()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);

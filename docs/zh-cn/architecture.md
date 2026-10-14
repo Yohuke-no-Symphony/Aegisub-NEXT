@@ -111,7 +111,8 @@ MP4/MOV 的章节可能由专用 `bin_data` 轨承载。仅当源中存在章节
 | `Workspace` 自动持久化 | `AutomaticProjectPersistenceTask`；备份清理通过 `ProjectPersistenceTask` 或父任务阶段执行 |
 | `Startup`／`Editing` 应用服务 | `ApplicationInitializationTask`、`EnumerateSystemFontsTask`、`PreferencesWriteTask`、`RecentProjectsWriteTask`、`PersonalLibraryTask` |
 | `Layouts` 布局持久化 | `LayoutWriteTask`；保留协调器对布局交互的编排 |
-| `Settings/Presets`／`Settings/Export` | `SettingsStyleImportTask`、`SettingsStyleExportTask`、`SettingsEffectImportTask`、`SettingsEffectExportTask`、`SettingsExportPresetExportTask`；库增删改使用 `PersonalLibraryTask` |
+| `EffectLibrary/Transfer` | `EffectLibraryImportAnalysisTask`、`EffectLibraryImportCommitTask`、`EffectLibraryExportTask`；样式／脚本增删改使用 `PersonalLibraryTask` |
+| `Settings/Export` | `SettingsExportPresetExportTask`；库增删改使用 `PersonalLibraryTask` |
 | `Settings/Transfer` | `UserSettingsLayoutCaptureTask`、`UserSettingsExportTask`、`UserSettingsImportTask`、`UserSettingsRestoreStageTask`、`UserSettingsRestoreCancelTask` |
 
 图片可通过“文件 → 导入图片”或项目素材面板导入。工程备份按[工作台](workbench.md#保存与恢复)中的手动文件流程恢复，设置恢复遵守上述恢复任务边界。播放循环、单帧解码、拖动定位、音频时钟与实时预览继续走内部实时管线，其所属耗时业务任务负责取消和完成。分析视口请求及每个分析块不会各自产生任务记录。

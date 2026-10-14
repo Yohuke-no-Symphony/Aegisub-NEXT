@@ -17,7 +17,10 @@ public sealed partial class EffectLibraryWindow : Window
 {
     private bool allowClose;
     private bool preparingClose;
+    private Window? pendingClosingOwner;
+    private readonly EffectScriptLibraryView effectsView;
     internal Task CloseCompletion { get; private set; } = Task.CompletedTask;
+    internal Task DisposalCompletion { get; private set; } = Task.CompletedTask;
 
     /// <summary>供 XAML 构造效果库窗口。</summary>
     public EffectLibraryWindow() : this(new WorkbenchPreferences())
@@ -37,6 +40,7 @@ public sealed partial class EffectLibraryWindow : Window
         DataContext = viewModel;
         AvaloniaXamlLoader.Load(this);
         TitleBar = this.FindControl<WindowTitleBar>("EffectLibraryTitleBar")!;
+        effectsView = this.FindControl<EffectScriptLibraryView>("EffectsView")!;
         viewModel.Styles.UpsertRequested += OnUpsertStyleRequested;
         viewModel.Styles.DeleteRequested += OnDeleteStyleRequested;
         viewModel.Styles.ApplyRequested += OnApplyStyleRequested;
@@ -94,6 +98,7 @@ public sealed partial class EffectLibraryWindow : Window
     internal void CloseImmediately()
     {
         allowClose = true;
+        DisposalCompletion = effectsView.DisposePreviewAsync();
         Close();
     }
 
@@ -113,23 +118,27 @@ public sealed partial class EffectLibraryWindow : Window
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        if (allowClose || ViewModel.Styles.SaveDraftAsync is null && ViewModel.Effects.SaveDraftAsync is null)
+        if (allowClose)
         {
             return;
         }
-        if (!ViewModel.HasUnsavedTemplates && ViewModel.NavigationCompletion.IsCompleted &&
-            ViewModel.Styles.SelectionCompletion.IsCompleted && ViewModel.Effects.SelectionCompletion.IsCompleted)
+        if (ViewModel.Styles.SaveDraftAsync is null && ViewModel.Effects.SaveDraftAsync is null)
         {
+            DisposalCompletion = effectsView.DisposePreviewAsync();
             return;
         }
         e.Cancel = true;
+        if (e.CloseReason == WindowCloseReason.OwnerWindowClosing)
+        {
+            pendingClosingOwner = Owner as Window;
+        }
         if (!preparingClose)
         {
-            CloseCompletion = PrepareCloseAsync(e.CloseReason == WindowCloseReason.OwnerWindowClosing ? Owner as Window : null);
+            CloseCompletion = PrepareCloseAsync();
         }
     }
 
-    private async Task PrepareCloseAsync(Window? closingOwner)
+    private async Task PrepareCloseAsync()
     {
         preparingClose = true;
         try
@@ -139,9 +148,14 @@ public sealed partial class EffectLibraryWindow : Window
             await ViewModel.Effects.SelectionCompletion;
             if (allowClose || await ViewModel.Styles.PrepareToLeaveAsync() && await ViewModel.Effects.PrepareToLeaveAsync())
             {
-                allowClose = true;
-                Close();
-                if (closingOwner is not null)
+                DisposalCompletion = effectsView.DisposePreviewAsync();
+                await DisposalCompletion;
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    allowClose = true;
+                    Close();
+                });
+                if (pendingClosingOwner is { } closingOwner)
                 {
                     Dispatcher.UIThread.Post(closingOwner.Close);
                 }
@@ -149,12 +163,14 @@ public sealed partial class EffectLibraryWindow : Window
         }
         finally
         {
+            pendingClosingOwner = null;
             preparingClose = false;
         }
     }
 
     private void OnClosed(object? sender, EventArgs e)
     {
+        DisposalCompletion = effectsView.DisposePreviewAsync();
         this.FindControl<Styles.StyleLibraryView>("StylesView")!.Dispose();
         Localization.LanguageChanged -= OnLanguageChanged;
         ViewModel.Styles.UpsertRequested -= OnUpsertStyleRequested;

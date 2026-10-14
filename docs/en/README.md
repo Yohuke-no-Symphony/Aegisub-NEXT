@@ -9,12 +9,12 @@ Start with [Quickstart](quick-start.md): create a project, time a subtitle, and 
 | Guide | What to do |
 |---|---|
 | [Quickstart](quick-start.md) | Your first project and subtitled video |
-| [Workbench](workbench.md) | Panels, tracks, effect blocks, 3D handles, playback, styles, layouts, and backups |
+| [Workbench](workbench.md) | Panels, playback, layouts, project backups, and effect-library sharing |
 | [Subtitle editing](subtitle-editing.md) | Rich text, karaoke, audition, ASS, and SRT |
 | [ASS interoperability](ass-compatibility.md) | Correspondence, gaps, conversion limits, and priorities |
 | [ASS tag audit](ass-tag-audit.md) | Native capabilities, conversion in each direction, implementation status, and conversion boundaries |
 | [Timing post-processor](timing-post-processor.md) | Associate timing options with styles and process selected timeline clips |
-| [Effect scripts](effect-dsl.md) | Apply `.aegifx` effects; write whole-subtitle or grouped text animation |
+| [Effect scripts](effect-dsl.md) | Preview and share scripts; write whole-subtitle or grouped text animation |
 | [Video export](export.md) | CPU/GPU encoding, audio, and HDR |
 | [Command line](cli.md) | aegnc conversion, video export, and interactive wizards |
 
@@ -25,7 +25,7 @@ Start with [Quickstart](quick-start.md): create a project, time a subtitle, and 
 | [Building](building.md) | Set up dependencies, run, debug, and test |
 | [Publishing](publishing.md) | Create and verify application packages |
 | [Architecture](architecture.md) | Find modules and storage contracts |
-| [Workspace integration](composable-workspace.md) | Add panels, controls, layouts, and localization |
+| [Workspace integration](composable-workspace.md) | Panels, controls, layouts, localization, and effect-library storage |
 | [Media](media.md) | Work with probing, decoding, clocks, and preview |
 | [Rendering](rendering.md) | Use scene geometry and linear F16 composition |
 

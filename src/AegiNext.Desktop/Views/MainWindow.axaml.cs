@@ -272,6 +272,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
         effectLibraryCoordinator.EffectScriptErrorReported -= RevealEffectScriptError;
         effectLibraryCoordinator.Dispose();
         await effectLibraryCoordinator.TransferCompletion;
+        await effectLibraryCoordinator.DisposalCompletion;
         await effectLibraryCoordinator.DeletionCompletion;
         settingsCoordinator.Dispose();
         await settingsCoordinator.TransferCompletion;
@@ -350,7 +351,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
         else if (request.Command is WorkbenchCommand.OPEN_STYLE_LIBRARY or WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY or
                  WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER)
         {
-            OpenEffectLibrary(request.Command switch
+            await OpenEffectLibraryAsync(request.Command switch
             {
                 WorkbenchCommand.OPEN_STYLE_LIBRARY => EffectLibraryPage.STYLES,
                 WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY => EffectLibraryPage.EFFECTS,

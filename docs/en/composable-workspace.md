@@ -12,7 +12,8 @@ Paths below are under `src/AegiNext.Desktop/`.
 | `Layouts/` | Dock tree, floating hosts, layout snapshots, and presets |
 | `Panels/` | Feature Views and ViewModels |
 | `Controls/Common/`, `Controls/Editing/`, `Editing/` | Reusable controls and field/gesture editing behavior |
-| `Settings/` | Personal libraries/preferences and their drafts |
+| `Settings/` | Preferences, encoding/color-tag libraries, and their drafts |
+| `EffectLibrary/` | Style/script drafts, independent window, and sharing workflows |
 | `Views/`, `Windowing/` | Hosts, platform chrome, menus, and input coordination |
 | `I18n/` | Language service, JSON packs, and live bindings |
 
@@ -42,13 +43,25 @@ Reuse shared typography, spacing, panel corners, and chrome. Layout owns outer f
 
 macOS defaults to system menus; window-menu mode shows menus on the main workbench. Windows chrome integrates native caption actions and resizing. Theme/shortcut refreshes preserve command identity; language regrouping waits for safe menu lifecycle points.
 
+## Effect library storage and sharing
+
+`EffectLibrary/` composes style and script editors in one nonmodal window, available from the welcome screen or **Edit → Effect Library**. The application context owns a single shared `EffectLibraryRepository`; the window does not require a project. Existing subtitle application remains in Workspace workflows.
+
+The managed `effect-library/` directory contains a versioned manifest plus one immutable file per style/script. The manifest publishes ordered entries and a revision in one atomic replacement; uncommitted files never become visible. Initial migration reads the former style/script files together, archives their original bytes, and commits one shared snapshot. A corrupt existing manifest does not fall back to legacy data. The application owns these files and does not watch external edits.
+
+Sharing uses `.aegistyles` JSON for a style with embedded fonts, `.aegieffect` JSON for a personal script's library Guid/name/source, and `.aegilibrary` ZIP for selected or all personal materials. Raw UTF-8 `.aegifx` preserves only DSL source and its semantic identifier; builtins export through this format. The package includes neither settings nor repository revisions. Complete exports retain style timing associations and font bytes.
+
+Import accepts multiple independent files and packages in one request. Analysis freezes validated input and the current repository revision. Identical entries skip; conflicts require a choice from the offered import/replace/skip actions. Crossed identities and builtin replacements are protected, and only one variant in an input conflict group may be selected. Commit merges both material collections atomically while preserving existing local Guids. An outdated preview must be analyzed and confirmed again; importing never performs a destructive whole-library restore. File/task failures remain local to sharing.
+
+Effect script preview composes the unsaved source, sample text/duration, and a personal style with its embedded fonts. The View owns transport, viewport, and presenter lifetimes; the ViewModel retains draft/input state. A dedicated worker creates, renders, and disposes one native scene, with 200 ms debounce, one pending frame, generation checks, and presentation acknowledgements. Hide pauses at the last presented position, while close clears the presenter and awaits worker disposal. Rendering uses the shared subtitle pipeline without touching project state or Undo. Parser/render errors remain local to preview; existing workbench effect cards retain their own preview sizing and behavior.
+
 ## User settings backup and migration
 
-Export a `.aegisettings` bundle from the Settings import/export page. The bundle includes all committed preferences, personal subtitle styles with embedded fonts, personal effect scripts, encoding presets, the current workspace layout, and personal layout presets. Builtin scripts and layouts, recent projects, caches, and project assets are excluded. Export does not commit project drafts or include unsaved preset drafts.
+Export a version-3 `.aegisettings` bundle from the Settings import/export page. It contains committed preferences, encoding presets, subtitle color tags, the current workspace layout, and personal layout presets. Effect-library materials, builtin resources, recent projects, caches, and project assets are excluded. Use the effect library's **Export all personal materials** to share styles and scripts.
 
-Import validates the complete bundle and previews its personal preset counts before scheduling restoration at the next launch. Migration keeps this device's default project directory by default; disable that option to restore the bundled directory, which must be valid on the destination system. Audio calibration remains scoped to an exactly matching device chain. After import, a restart prompt can close the application through its normal exit workflow, including existing unsaved-project confirmation. Deferred restoration can be cancelled from the settings page.
+Import validates and previews settings before scheduling restoration at the next launch. Version-1/2 settings packages remain readable, but their embedded styles and scripts are ignored during manual import. The destination project directory stays local by default; audio calibration remains scoped to an exactly matching device chain. Optional missing color tags preserve the local collection. Deferred restoration can be cancelled, or completed by exiting through the normal unsaved-project workflow.
 
-`Settings/Transfer/` composes existing storage contracts without introducing Desktop dependencies into Application or Media. The pending bundle does not replace files while the application is running. Before loading preferences and libraries on the next launch, restoration backs up the original bytes and replaces the files as one journaled transaction. Failed or interrupted restoration rolls back the old files and retains the backup and pending bundle for retry. Builtin resources remain supplied by the application.
+`Settings/Transfer/` composes storage without introducing Desktop dependencies into Application or Media. New restores replace only settings files in a journaled startup transaction. Failure or interruption while applying rolls back original bytes and retains the pending package for retry; an already committed journal finishes cleanup. Legacy pending journals retain their original recovery rules; a managed effect-library manifest prevents an old restore from overwriting newer materials. Builtin resources remain supplied by the application.
 
 ## Localization
 

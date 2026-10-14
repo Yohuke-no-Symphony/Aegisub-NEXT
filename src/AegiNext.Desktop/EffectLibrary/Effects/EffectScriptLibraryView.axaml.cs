@@ -1,24 +1,48 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
+using AegiNext.Desktop.Controls;
+using AegiNext.Desktop.Rendering;
+using AegiNext.Desktop.Windowing;
 using Avalonia.Controls;
 using Avalonia.Controls.Selection;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
 namespace AegiNext.Desktop.EffectLibrary.Effects;
 
 /// <summary>特效页面的列表多选与编辑草稿切换适配。</summary>
-public sealed partial class EffectScriptLibraryView : UserControl
+public sealed partial class EffectScriptLibraryView : UserControl, IDisposable, IAsyncDisposable, IWorkbenchLocalKeyboardTarget
 {
     private EffectScriptLibraryViewModel? model;
     private ImmutableArray<EffectScriptLibraryItem> displayedItems;
     private bool synchronizingSelection;
 
     /// <summary>隔离父级上下文，并以稳定标识同步本地列表选择。</summary>
-    public EffectScriptLibraryView()
+    public EffectScriptLibraryView() : this(null)
+    {
+    }
+
+    internal EffectScriptLibraryView(Func<IEffectScriptPreviewRenderer>? createRenderer,
+        Action<Action>? postDrain = null, TimeProvider? timeProvider = null, TimeSpan? debounce = null)
     {
         DataContext = null;
         AvaloniaXamlLoader.Load(this);
-        DataContextChanged += (_, _) => ChangeModel();
+        previewPresenter = this.FindControl<VideoFramePresenter>("EffectPreviewFrame")!;
+        previewViewport = this.FindControl<PreviewViewportControl>("EffectPreviewViewport")!;
+        previewSlider = this.FindControl<Slider>("EffectPreviewPositionSlider")!;
+        previewStylePicker = this.FindControl<ComboBox>("EffectPreviewStyleInput")!;
+        postPreviewDrain = postDrain ?? (action => Dispatcher.UIThread.Post(action));
+        preview = new(QueuePreviewUpdate, createRenderer, timeProvider, debounce);
+        InitializePreviewEvents();
+        DataContextChanged += OnDataContextChanged;
+    }
+
+    private void OnDataContextChanged(object? sender, EventArgs args)
+    {
+        if (!previewDisposed)
+        {
+            ChangeModel();
+        }
     }
 
     private void ChangeModel()
@@ -35,6 +59,7 @@ public sealed partial class EffectScriptLibraryView : UserControl
             model.PropertyChanged += ModelChanged;
         }
         SynchronizeSelection();
+        ChangePreviewModel();
     }
 
     private void ModelChanged(object? sender, PropertyChangedEventArgs e)
@@ -44,6 +69,7 @@ public sealed partial class EffectScriptLibraryView : UserControl
         {
             SynchronizeSelection();
         }
+        PreviewModelChanged(e);
     }
 
     private async void SelectionChanged(object? sender, SelectionChangedEventArgs e)

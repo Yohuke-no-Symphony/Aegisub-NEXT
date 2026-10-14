@@ -144,6 +144,7 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
                     return;
                 }
                 await effectLibrary.TransferCompletion;
+                await effectLibrary.DisposalCompletion;
                 await effectLibrary.DeletionCompletion;
             }
             ProjectOpenResult? result = null;
@@ -472,6 +473,7 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         }
         effectLibrary.Dispose();
         await effectLibrary.TransferCompletion;
+        await effectLibrary.DisposalCompletion;
         await effectLibrary.DeletionCompletion;
         settings.Dispose();
         await settings.TransferCompletion;

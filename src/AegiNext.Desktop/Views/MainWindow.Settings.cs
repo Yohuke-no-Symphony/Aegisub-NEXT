@@ -20,9 +20,9 @@ public sealed partial class MainWindow
         });
     }
 
-    private void OpenEffectLibrary(EffectLibraryPage page)
+    private Task OpenEffectLibraryAsync(EffectLibraryPage page)
     {
-        _ = effectLibraryCoordinator.OpenAsync(this, Session, page, window =>
+        return effectLibraryCoordinator.OpenAsync(this, Session, page, window =>
         {
             var library = (EffectLibraryWindow)window;
             windowRegistry.Register(library, () => Localization.Get("EffectLibrary.Title"), library.TitleBar,

@@ -9,12 +9,12 @@
 | 指南 | 内容 |
 |---|---|
 | [快速开始](quick-start.md) | 完成第一个字幕工程与视频 |
-| [工作台](workbench.md) | 面板、轨道、特效块、三维控制柄、播放、样式、布局与备份 |
+| [工作台](workbench.md) | 面板、播放、布局、工程备份与效果库分享 |
 | [字幕编辑](subtitle-editing.md) | 富文本、卡拉 OK、试听、ASS 与 SRT |
 | [ASS 互转换能力](ass-compatibility.md) | 对应、超集与缺失功能，转换边界和优先级 |
 | [ASS 标签核查](ass-tag-audit.md) | 原生能力、双向转换、实现状态与转换边界 |
 | [时间后处理](timing-post-processor.md) | 保存样式关联并处理时间线选中片段 |
-| [特效脚本](effect-dsl.md) | 应用 `.aegifx` 特效，编写整句或逐组文字动画 |
+| [特效脚本](effect-dsl.md) | 预览与分享脚本，编写整句或逐组文字动画 |
 | [视频导出](export.md) | CPU/GPU 编码、音频与 HDR |
 | [命令行](cli.md) | aegnc 字幕转换、视频导出与逐步向导 |
 
@@ -25,7 +25,7 @@
 | [构建](building.md) | 配置依赖、运行、调试与测试 |
 | [发布](publishing.md) | 生成与校验应用包 |
 | [架构](architecture.md) | 查找模块与工程存储约定 |
-| [工作区集成](composable-workspace.md) | 接入面板、控件、布局与本地化 |
+| [工作区集成](composable-workspace.md) | 面板、控件、布局、本地化与效果库存储 |
 | [媒体](media.md) | 媒体探测、解码、时钟与预览 |
 | [渲染](rendering.md) | 场景几何与线性 F16 合成 |
 
