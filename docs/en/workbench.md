@@ -81,7 +81,7 @@ Open **Edit → Effect Library** and choose **Style Library**, **Effect Scripts*
 
 Click **Export…** on any library page to open **Export effect library**. Each export starts with an unchecked tree of personal styles and scripts saved when the dialog opened. The dialog retains your current editor page and unsaved draft; save a draft before opening it if you want to share that version.
 
-Check the materials to share, or search by name or script ID. The style and script root checkboxes affect only the matching visible entries; checked entries hidden by search stay selected. The toolbar's **Select all** and **Select none** actions apply to the entire personal library, including hidden entries. The search field's × clears the search without changing any checks. The footer shows the selected count.
+Check the materials to share, or search by name or script ID. Tree rows show the name and count or script ID on one line. The style and script root checkboxes affect only the matching visible entries; checked entries hidden by search stay selected. The toolbar's **Select all** and **Select none** actions apply to the entire personal library, including hidden entries. The search field's × clears the search without changing any checks.
 
 Choose **Library package (.aegilibrary)**, the default, or **Individual files**: `.aegistyles` for styles and `.aegieffect` for personal scripts. **Script source (.aegifx)** is available when every checked item is a script. Click **Export selected**. A package uses one output file. For independent files or script source, choose a file for one item or a destination folder for several. To export the entire personal library, use the toolbar's **Select all**, then **Export selected** with the chosen format.
 

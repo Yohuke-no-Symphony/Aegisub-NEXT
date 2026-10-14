@@ -6,9 +6,11 @@ using AegiNext.Desktop.I18n;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Documents;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -20,6 +22,75 @@ namespace AegiNext.Desktop.Ui.Tests;
 /// <summary>验证导出模态窗口的真实勾选、格式同步、输入和关闭边界。</summary>
 public sealed class EffectLibraryExportDialogUiTests
 {
+    /// <summary>树行合并名称与详情，保留主次文字颜色和字号，并移除底部选择统计。</summary>
+    [AvaloniaTheory]
+    [InlineData("en-US", false)]
+    [InlineData("zh-CN", false)]
+    [InlineData("ja-JP", false)]
+    [InlineData("en-US", true)]
+    [InlineData("zh-CN", true)]
+    [InlineData("ja-JP", true)]
+    public void TreeRowsKeepNamesAndDetailsOnOneLineWithTheirExistingColors(string language, bool dark)
+    {
+        using var environment = new UiTestEnvironment();
+        Localization.SetLanguage(language);
+        var snapshot = Snapshot();
+        using var model = new EffectLibraryExportDialogViewModel(snapshot, (_, _) => Task.FromResult(false));
+        var owner = new Window();
+        var dialog = new EffectLibraryExportDialog(model)
+        {
+            Width = 600,
+            Height = 680,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
+        };
+        try
+        {
+            owner.Show();
+            _ = dialog.ShowDialog<bool>(owner);
+            Pump(dialog);
+            foreach (var node in model.Roots.Concat(model.Roots.SelectMany(root => root.AllChildren)))
+            {
+                var checkbox = Checkbox(dialog, node);
+                checkbox.BringIntoView();
+                Pump(dialog);
+                var label = Assert.Single(checkbox.GetVisualDescendants().OfType<TextBlock>());
+                Assert.Single(label.TextLayout.TextLines);
+                Assert.InRange(checkbox.Bounds.Height, 1, 36);
+                var runs = label.Inlines!.OfType<Run>().ToArray();
+                Assert.Equal(node.Name, runs[0].Text);
+                Assert.Equal(node.Details, runs[^1].Text);
+                Assert.Equal(label.Foreground, runs[0].Foreground);
+                Assert.Equal(11, runs[^1].FontSize);
+                var muted = Assert.IsAssignableFrom<ISolidColorBrush>(label.FindResource(label.ActualThemeVariant, "PreviewMuted"));
+                Assert.Equal(muted.Color, Assert.IsAssignableFrom<ISolidColorBrush>(runs[^1].Foreground).Color);
+                if (node.HasDetails)
+                {
+                    Assert.Contains(label.TextLayout.TextLines.SelectMany(line => line.TextRuns),
+                        run => run.Properties?.ForegroundBrush is ISolidColorBrush brush && brush.Color == muted.Color);
+                }
+            }
+            UiTestActions.Click(dialog, "EffectLibraryExportSelectAll");
+            var rootLabel = Assert.Single(Checkbox(dialog, model.StyleRoot).GetVisualDescendants().OfType<TextBlock>());
+            Assert.Equal(model.StyleRoot.Details, rootLabel.Inlines!.OfType<Run>().Last().Text);
+            Assert.True(UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelected").IsEffectivelyEnabled);
+            Assert.Null(dialog.FindControl<TextBlock>("EffectLibraryExportSelectionSummary"));
+            Search(dialog, "missing");
+            var emptyRoot = Checkbox(dialog, model.EffectRoot);
+            Assert.False(emptyRoot.IsEffectivelyEnabled);
+            var emptyLabel = Assert.Single(emptyRoot.GetVisualDescendants().OfType<TextBlock>());
+            Assert.Single(emptyLabel.TextLayout.TextLines);
+            Assert.Equal(model.EffectRoot.Details, emptyLabel.Inlines!.OfType<Run>().Last().Text);
+            UiTestActions.Click(dialog, "EffectLibraryExportClearSearch");
+            Assert.Equal(4, model.SelectedCount);
+            Assert.Equal(4, model.VisibleCount);
+        }
+        finally
+        {
+            dialog.CloseImmediately();
+            owner.Close();
+        }
+    }
+
     /// <summary>搜索与方形选择图标同排居中，底部动作等高；清词保留勾选与输入焦点。</summary>
     [AvaloniaTheory]
     [InlineData("en-US", 600, false)]
@@ -147,8 +218,7 @@ public sealed class EffectLibraryExportDialogUiTests
             UiTestActions.Click(dialog, "EffectLibraryExportSelectAll");
             Assert.Equal(4, model.SelectedCount);
             Assert.Equal(3, model.HiddenSelectedCount);
-            Assert.Equal(Localization.Format("EffectLibrary.ExportSelectionSummary", 4),
-                UiTestActions.Find<TextBlock>(dialog, "EffectLibraryExportSelectionSummary").Text);
+            Assert.Null(dialog.FindControl<TextBlock>("EffectLibraryExportSelectionSummary"));
             UiTestActions.Click(dialog, "EffectLibraryExportSelectNone");
             Assert.False(bright.IsChecked);
             Assert.False(compact.IsChecked);
@@ -427,7 +497,10 @@ public sealed class EffectLibraryExportDialogUiTests
             Assert.Equal("glow-script", model.SearchText);
             Assert.Equal(1, model.SelectedCount);
             Assert.True(Checkbox(dialog, model.EffectRoot).IsChecked);
-            Assert.Equal(Localization.Format("EffectLibrary.ExportSelectionSummary", 1), UiTestActions.Find<TextBlock>(dialog, "EffectLibraryExportSelectionSummary").Text);
+            var label = Assert.Single(Checkbox(dialog, model.EffectRoot).GetVisualDescendants().OfType<TextBlock>());
+            Assert.Equal(model.EffectRoot.Name, label.Inlines!.OfType<Run>().First().Text);
+            Assert.Equal(model.EffectRoot.Details, label.Inlines!.OfType<Run>().Last().Text);
+            Assert.Null(dialog.FindControl<TextBlock>("EffectLibraryExportSelectionSummary"));
             dialog.CloseImmediately();
             var changed = 0;
             model.PropertyChanged += (_, _) => changed++;
@@ -541,7 +614,8 @@ public sealed class EffectLibraryExportDialogUiTests
                 Assert.True(new Rect(tree.Bounds.Size).Contains(bounds), $"Long-name checkbox escaped tree bounds: {bounds} / {tree.Bounds}.");
                 Assert.Equal(node.Name, ToolTip.GetTip(checkbox));
                 Assert.Equal(node.Name, Avalonia.Automation.AutomationProperties.GetName(checkbox));
-                var label = Assert.Single(checkbox.GetVisualDescendants().OfType<TextBlock>(), text => text.Text == node.Name);
+                var label = Assert.Single(checkbox.GetVisualDescendants().OfType<TextBlock>());
+                Assert.Equal(node.Name, label.Inlines!.OfType<Run>().First().Text);
                 Assert.Single(label.TextLayout.TextLines);
                 Assert.True(label.TextLayout.Width <= label.Bounds.Width + 1);
                 Assert.True(BoundsIn(checkbox, dialog).Right <= dialog.ClientSize.Width);

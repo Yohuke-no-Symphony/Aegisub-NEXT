@@ -1254,7 +1254,6 @@
     "EffectLibrary.ExportClearSearch": "Clear search",
     "EffectLibrary.ExportSelectAll": "Select all",
     "EffectLibrary.ExportSelectNone": "Select none",
-    "EffectLibrary.ExportSelectionSummary": "{0} selected",
     "EffectLibrary.ExportVisibleGroupSummary": "{0} / {1} selected",
     "EffectLibrary.ExportNoMatches": "No materials match the search.",
     "EffectLibrary.ExportEmptyLibrary": "The personal library is empty.",

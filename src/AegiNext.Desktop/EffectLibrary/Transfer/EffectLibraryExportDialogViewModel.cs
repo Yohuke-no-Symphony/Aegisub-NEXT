@@ -74,7 +74,6 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
     public bool IsSourceFormat => selectedFormat == EffectLibraryExportFormat.SOURCE;
     public bool HasError => error is not null;
     public string? Error => error is null ? null : Localization.Format("EffectLibrary.ExportDialogFailed", error.Message);
-    public string SelectionSummary => Localization.Format("EffectLibrary.ExportSelectionSummary", SelectedCount);
 
     public string SearchText
     {
@@ -192,7 +191,6 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
         OnPropertyChanged(nameof(HiddenSelectedCount));
         OnPropertyChanged(nameof(VisibleCount));
         OnPropertyChanged(nameof(HasNoMatches));
-        OnPropertyChanged(nameof(SelectionSummary));
         RefreshCommands();
     }
 
@@ -291,7 +289,6 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
         {
             format.RefreshLanguage();
         }
-        OnPropertyChanged(nameof(SelectionSummary));
         OnPropertyChanged(nameof(Error));
     }
 

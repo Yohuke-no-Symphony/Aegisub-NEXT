@@ -1254,7 +1254,6 @@
     "EffectLibrary.ExportClearSearch": "清除搜索",
     "EffectLibrary.ExportSelectAll": "全选",
     "EffectLibrary.ExportSelectNone": "全不选",
-    "EffectLibrary.ExportSelectionSummary": "已选 {0} 项",
     "EffectLibrary.ExportVisibleGroupSummary": "已选 {0} / {1} 项",
     "EffectLibrary.ExportNoMatches": "没有匹配搜索的素材。",
     "EffectLibrary.ExportEmptyLibrary": "个人效果库为空。",

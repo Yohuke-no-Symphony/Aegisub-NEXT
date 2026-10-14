@@ -1022,7 +1022,6 @@
     "EffectLibrary.ExportClearSearch": "検索をクリア",
     "EffectLibrary.ExportSelectAll": "すべて選択",
     "EffectLibrary.ExportSelectNone": "すべて選択解除",
-    "EffectLibrary.ExportSelectionSummary": "選択 {0} 件",
     "EffectLibrary.ExportVisibleGroupSummary": "{0} / {1} 件を選択",
     "EffectLibrary.ExportNoMatches": "検索に一致する素材はありません。",
     "EffectLibrary.ExportEmptyLibrary": "個人ライブラリは空です。",
