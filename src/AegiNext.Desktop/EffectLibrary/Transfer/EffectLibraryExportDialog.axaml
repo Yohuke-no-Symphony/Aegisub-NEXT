@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:common="using:AegiNext.Desktop.Controls.Common"
+        xmlns:transfer="using:AegiNext.Desktop.EffectLibrary.Transfer"
+        x:Class="AegiNext.Desktop.EffectLibrary.Transfer.EffectLibraryExportDialog"
+        x:DataType="transfer:EffectLibraryExportDialogViewModel"
+        Classes="business-surface" Title="{Loc Key=EffectLibrary.ExportDialogTitle}"
+        Width="760" Height="720" MinWidth="600" MinHeight="680" CanResize="True"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource PreviewBackground}">
+  <Grid RowDefinitions="Auto,*">
+    <common:WindowTitleBar Name="EffectLibraryExportTitleBar" Title="{Loc Key=EffectLibrary.ExportDialogTitle}" />
+    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+      <StackPanel Spacing="8">
+        <TextBlock Classes="heading" FontSize="20" Text="{Loc Key=EffectLibrary.ExportDialogTitle}" />
+        <TextBlock Name="EffectLibraryExportSavedHint" Classes="field" Text="{Loc Key=EffectLibrary.ExportSavedSnapshotHint}" TextWrapping="Wrap" />
+      </StackPanel>
+      <TextBox Name="EffectLibraryExportSearch" Grid.Row="1" Text="{Binding SearchText, Mode=TwoWay}"
+               PlaceholderText="{Loc Key=EffectLibrary.ExportSearch}" AutomationProperties.Name="{Loc Key=EffectLibrary.ExportSearch}"
+               IsEnabled="{Binding CanInteract}" />
+      <WrapPanel Grid.Row="2">
+        <Button Name="EffectLibraryExportSelectVisible" Command="{Binding SelectVisibleCommand}" Content="{Loc Key=EffectLibrary.ExportSelectVisible}" Margin="0,0,8,0" />
+        <Button Name="EffectLibraryExportClearSelection" Command="{Binding ClearSelectionCommand}" Content="{Loc Key=EffectLibrary.ExportClearSelection}" />
+      </WrapPanel>
+      <Border Grid.Row="3" Classes="card" Padding="8">
+        <Grid RowDefinitions="*,Auto">
+          <TreeView Name="EffectLibraryExportTree" ItemsSource="{Binding Roots}" Background="Transparent"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled" IsEnabled="{Binding CanInteract}">
+            <TreeView.Styles>
+              <Style Selector="TreeViewItem" x:DataType="transfer:EffectLibraryExportNode">
+                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+              </Style>
+            </TreeView.Styles>
+            <TreeView.ItemTemplate>
+              <TreeDataTemplate x:DataType="transfer:EffectLibraryExportNode" ItemsSource="{Binding Children}">
+                <CheckBox Name="EffectLibraryExportNodeCheckBox" IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                          IsEnabled="{Binding CanSelect}" IsThreeState="False" HorizontalContentAlignment="Stretch"
+                          AutomationProperties.Name="{Binding Name}" ToolTip.Tip="{Binding Name}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding Name}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Details}" Classes="field" IsVisible="{Binding HasDetails}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                  </StackPanel>
+                </CheckBox>
+              </TreeDataTemplate>
+            </TreeView.ItemTemplate>
+          </TreeView>
+          <TextBlock Grid.Row="1" Text="{Loc Key=EffectLibrary.ExportNoMatches}" IsVisible="{Binding HasNoMatches}" Classes="field" TextWrapping="Wrap" Margin="8" />
+          <TextBlock Grid.Row="1" Text="{Loc Key=EffectLibrary.ExportEmptyLibrary}" IsVisible="{Binding IsEmpty}" Classes="field" TextWrapping="Wrap" Margin="8" />
+        </Grid>
+      </Border>
+      <TextBlock Name="EffectLibraryExportSelectionSummary" Grid.Row="4" Text="{Binding SelectionSummary}" Classes="field" TextWrapping="Wrap" />
+      <common:PropertyRowControl Grid.Row="5" Header="{Loc Key=EffectLibrary.ExportFormat}" SeparatorThickness="0">
+        <ComboBox Name="EffectLibraryExportDialogFormat" IsEnabled="{Binding CanInteract}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="transfer:EffectLibraryExportFormatChoice">
+              <TextBlock Text="{Binding Text}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </common:PropertyRowControl>
+      <TextBlock Grid.Row="6" Text="{Loc Key=EffectLibrary.SourceExportHint}" IsVisible="{Binding IsSourceFormat}" Classes="field" TextWrapping="Wrap" />
+      <StackPanel Grid.Row="7" Spacing="8">
+        <TextBlock Text="{Loc Key=EffectLibrary.ExportInProgress}" IsVisible="{Binding IsBusy}" Classes="field" />
+        <ScrollViewer Name="EffectLibraryExportErrorScroll" MaxHeight="80" IsVisible="{Binding HasError}"
+                      HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+          <TextBlock Name="EffectLibraryExportDialogError" Text="{Binding Error}"
+                     Foreground="{DynamicResource SettingsError}" TextWrapping="Wrap" />
+        </ScrollViewer>
+      </StackPanel>
+      <WrapPanel Grid.Row="8" HorizontalAlignment="Right">
+        <Button Name="EffectLibraryExportCancel" Content="{Loc Key=Workbench.Cancel}" Click="OnCancel" Margin="0,0,8,0" />
+        <Button Name="EffectLibraryExportAll" Command="{Binding ExportAllCommand}" Content="{Loc Key=EffectLibrary.ExportAll}"
+                ToolTip.Tip="{Loc Key=EffectLibrary.ExportAllDescription}" Margin="0,0,8,0" />
+        <Button Name="EffectLibraryExportSelected" Command="{Binding ExportSelectedCommand}" Content="{Loc Key=EffectLibrary.ExportSelected}" Classes="accent" />
+      </WrapPanel>
+    </Grid>
+  </Grid>
+</Window>

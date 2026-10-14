@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using AegiNext.Application.Presets;
 using AegiNext.Application.Tasks;
 using AegiNext.Core.Effects;
+using AegiNext.Core.Presets;
+using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Startup;
 using AegiNext.Desktop.Workspace;
 
@@ -12,7 +14,6 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
     private readonly DesktopApplicationContext context;
     private readonly EffectLibraryTransferViewModel model;
     private readonly IWorkbenchDialogService dialogs;
-    private readonly Func<Task<EffectLibraryTransferSelection?>> captureSelectionAsync;
     private readonly Func<Task<bool>> prepareImportAsync;
     private readonly CancellationTokenSource cancellation = new();
     private ImmutableArray<string> previewPaths = [];
@@ -21,17 +22,14 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
     private bool disposed;
 
     internal EffectLibraryTransferCoordinator(DesktopApplicationContext context, EffectLibraryTransferViewModel model,
-        IWorkbenchDialogService dialogs, Func<Task<EffectLibraryTransferSelection?>> captureSelectionAsync,
-        Func<Task<bool>> prepareImportAsync)
+        IWorkbenchDialogService dialogs, Func<Task<bool>> prepareImportAsync)
     {
         this.context = context;
         this.model = model;
         this.dialogs = dialogs;
-        this.captureSelectionAsync = captureSelectionAsync;
         this.prepareImportAsync = prepareImportAsync;
         model.ImportRequested += OnImportRequested;
-        model.ExportSelectionRequested += OnExportSelectionRequested;
-        model.ExportAllRequested += OnExportAllRequested;
+        model.ExportRequested += OnExportRequested;
         model.CommitImportRequested += OnCommitImportRequested;
     }
 
@@ -63,51 +61,64 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         });
     }
 
-    internal Task ExportSelectionAsync(EffectLibraryTransferSelection? frozen = null)
+    internal Task ExportDialogAsync(Action<string?>? reportError = null)
     {
         return RunAsync(async token =>
         {
-            var selection = frozen ?? await captureSelectionAsync().WaitAsync(token);
-            token.ThrowIfCancellationRequested();
-            if (selection is null)
-            {
-                return;
-            }
-            if (selection.Styles.IsDefault || selection.Effects.IsDefault)
-            {
-                throw new ArgumentException("导出选择必须为已冻结集合。", nameof(frozen));
-            }
-            if (selection.Styles.Length + selection.Effects.Length == 0)
-            {
-                return;
-            }
-            var builtinCount = selection.ContainsBuiltinEffects
-                ? selection.Effects.Count(preset =>
-                {
-                    var id = EffectScriptParser.Parse(preset.Source).Id;
-                    return BuiltinEffectScripts.Templates.Any(template => template.Script.Id == id);
-                }) : 0;
-            model.UpdateSelection(selection.Styles.Length, selection.Effects.Length - builtinCount, builtinCount);
-            var format = model.SelectedFormat;
             model.SetOperationBusy(true);
             await context.Initialization.WaitAsync(token);
-            var count = selection.Styles.Length + selection.Effects.Length;
-            var mode = format switch
+            var frozen = context.EffectLibrary.Snapshot;
+            using var dialogCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+            var dialogToken = dialogCancellation.Token;
+            var dialogOperation = dialogs.ShowEffectLibraryExportAsync(frozen, async (request, scopedDialogs, requestToken) =>
             {
-                EffectLibraryExportFormat.PACKAGE => EffectLibraryExportMode.PACKAGE,
-                EffectLibraryExportFormat.SOURCE => count == 1 ? EffectLibraryExportMode.SCRIPT_SOURCE : EffectLibraryExportMode.SCRIPT_SOURCE_FILES,
-                _ => count == 1 ? EffectLibraryExportMode.SINGLE_FILE : EffectLibraryExportMode.INDEPENDENT_FILES
-            };
-            var destination = await ChooseExportDestinationAsync(selection, mode, token);
+                dialogToken.ThrowIfCancellationRequested();
+                using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(dialogToken, requestToken);
+                return await ExportRequestAsync(request, scopedDialogs, requestCancellation.Token);
+            }, dialogToken);
+            bool exported;
+            try
+            {
+                exported = await dialogOperation.WaitAsync(token);
+            }
+            finally
+            {
+                dialogCancellation.Cancel();
+                if (activeTask is { } handle)
+                {
+                    await ObserveCompletionAsync(handle.Completion);
+                }
+                _ = ObserveCompletionAsync(dialogOperation);
+            }
+            token.ThrowIfCancellationRequested();
+            if (exported)
+            {
+                model.ShowStatus("EffectLibrary.Exported");
+            }
+        }, reportError);
+    }
+
+    internal Task ExportSourceAsync(ImmutableArray<EffectScriptPreset> effects, Action<string?>? reportError = null)
+    {
+        return RunAsync(async token =>
+        {
+            if (effects.IsDefaultOrEmpty)
+            {
+                return;
+            }
+            model.SetOperationBusy(true);
+            await context.Initialization.WaitAsync(token);
+            var mode = effects.Length == 1 ? EffectLibraryExportMode.SCRIPT_SOURCE : EffectLibraryExportMode.SCRIPT_SOURCE_FILES;
+            var destination = await ChooseExportDestinationAsync([], effects, mode, dialogs, token);
             token.ThrowIfCancellationRequested();
             if (destination is null)
             {
                 return;
             }
-            await SubmitAsync(new EffectLibraryExportTask(context, selection.Styles, selection.Effects, destination, mode), token);
+            await SubmitAsync(new EffectLibraryExportTask(context, [], effects, destination, mode), token);
             token.ThrowIfCancellationRequested();
             model.ShowStatus("EffectLibrary.Exported");
-        });
+        }, reportError);
     }
 
     internal Task CommitImportAsync()
@@ -153,60 +164,60 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         disposed = true;
         cancellation.Cancel();
         activeTask?.RequestCancel();
+        model.SetOperationBusy(false);
         model.ImportRequested -= OnImportRequested;
-        model.ExportSelectionRequested -= OnExportSelectionRequested;
-        model.ExportAllRequested -= OnExportAllRequested;
+        model.ExportRequested -= OnExportRequested;
         model.CommitImportRequested -= OnCommitImportRequested;
         cancellation.Dispose();
     }
 
-    private Task ExportAllAsync()
+    private async Task<bool> ExportRequestAsync(EffectLibraryExportRequest request, IWorkbenchDialogService scopedDialogs,
+        CancellationToken token)
     {
-        return RunAsync(async token =>
+        token.ThrowIfCancellationRequested();
+        var count = request.Styles.Length + request.Effects.Length;
+        var mode = request.Format switch
         {
-            if (!await prepareImportAsync().WaitAsync(token))
-            {
-                return;
-            }
-            token.ThrowIfCancellationRequested();
-            model.SetOperationBusy(true);
-            await context.Initialization.WaitAsync(token);
-            var frozen = context.EffectLibrary.Snapshot;
-            var path = await dialogs.SaveFileAsync("ExportEffectLibrary", "EffectLibraryPackageFiles", ["*.aegilibrary"],
-                ".aegilibrary", "effects.aegilibrary").WaitAsync(token);
-            token.ThrowIfCancellationRequested();
-            if (path is null)
-            {
-                return;
-            }
-            await SubmitAsync(new EffectLibraryExportTask(context, frozen.Styles.Presets, frozen.Effects.Presets,
-                path, EffectLibraryExportMode.PACKAGE), token);
-            token.ThrowIfCancellationRequested();
-            model.ShowStatus("EffectLibrary.Exported");
-        });
+            EffectLibraryExportFormat.PACKAGE => EffectLibraryExportMode.PACKAGE,
+            EffectLibraryExportFormat.INDEPENDENT when count > 0 => count == 1
+                ? EffectLibraryExportMode.SINGLE_FILE : EffectLibraryExportMode.INDEPENDENT_FILES,
+            EffectLibraryExportFormat.SOURCE when request.Styles.IsEmpty && !request.Effects.IsEmpty => count == 1
+                ? EffectLibraryExportMode.SCRIPT_SOURCE : EffectLibraryExportMode.SCRIPT_SOURCE_FILES,
+            _ => throw new ArgumentException("导出格式不适用于当前素材选择。", nameof(request))
+        };
+        var destination = await ChooseExportDestinationAsync(request.Styles, request.Effects, mode, scopedDialogs, token);
+        token.ThrowIfCancellationRequested();
+        if (destination is null)
+        {
+            return false;
+        }
+        await SubmitAsync(new EffectLibraryExportTask(context, request.Styles, request.Effects, destination, mode), token);
+        token.ThrowIfCancellationRequested();
+        return true;
     }
 
-    private async Task<string?> ChooseExportDestinationAsync(EffectLibraryTransferSelection selection,
-        EffectLibraryExportMode mode, CancellationToken token)
+    private static async Task<string?> ChooseExportDestinationAsync(ImmutableArray<SubtitleStylePreset> styles,
+        ImmutableArray<EffectScriptPreset> effects, EffectLibraryExportMode mode, IWorkbenchDialogService service,
+        CancellationToken token)
     {
         if (mode is EffectLibraryExportMode.INDEPENDENT_FILES or EffectLibraryExportMode.SCRIPT_SOURCE_FILES)
         {
-            return await dialogs.OpenFolderAsync("ExportEffectLibraryFolder").WaitAsync(token);
+            return await service.OpenFolderAsync("ExportEffectLibraryFolder").WaitAsync(token);
         }
         if (mode == EffectLibraryExportMode.PACKAGE)
         {
-            return await dialogs.SaveFileAsync("ExportEffectLibrary", "EffectLibraryPackageFiles", ["*.aegilibrary"],
+            return await service.SaveFileAsync("ExportEffectLibrary", "EffectLibraryPackageFiles", ["*.aegilibrary"],
                 ".aegilibrary", "effects.aegilibrary").WaitAsync(token);
         }
-        if (selection.Styles.Length == 1)
+        if (styles.Length == 1)
         {
-            return await dialogs.SaveFileAsync("ExportStyles", "StyleFiles", ["*.aegistyles"], ".aegistyles", "style.aegistyles").WaitAsync(token);
+            return await service.SaveFileAsync("ExportStyles", "StyleFiles", ["*.aegistyles"], ".aegistyles", "style.aegistyles").WaitAsync(token);
         }
-        var effect = selection.Effects.Single();
+        var effect = effects.Single();
         var script = EffectScriptParser.Parse(effect.Source);
         return mode == EffectLibraryExportMode.SCRIPT_SOURCE
-            ? await dialogs.SaveFileAsync("ExportEffectScripts", "EffectScriptFiles", ["*.aegifx"], ".aegifx", script.Id + ".aegifx").WaitAsync(token)
-            : await dialogs.SaveFileAsync("ExportCompleteEffect", "CompleteEffectFiles", ["*.aegieffect"], ".aegieffect", script.Id + ".aegieffect").WaitAsync(token);
+            ? await service.SaveFileAsync("ExportEffectScripts", "EffectScriptFiles", ["*.aegifx"], ".aegifx", script.Id + ".aegifx").WaitAsync(token)
+            : await service.SaveFileAsync("ExportCompleteEffect", "CompleteEffectFiles", ["*.aegieffect"], ".aegieffect", script.Id + ".aegieffect").WaitAsync(token);
     }
 
     private void OnImportRequested(object? sender, EventArgs e)
@@ -214,14 +225,9 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         _ = ImportAsync();
     }
 
-    private void OnExportSelectionRequested(object? sender, EventArgs e)
+    private void OnExportRequested(object? sender, EventArgs e)
     {
-        _ = ExportSelectionAsync();
-    }
-
-    private void OnExportAllRequested(object? sender, EventArgs e)
-    {
-        _ = ExportAllAsync();
+        _ = ExportDialogAsync();
     }
 
     private void OnCommitImportRequested(object? sender, EventArgs e)
@@ -247,7 +253,18 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         return await handle.Completion;
     }
 
-    private Task RunAsync(Func<CancellationToken, Task> operation)
+    private static async Task ObserveCompletionAsync(Task completion)
+    {
+        try
+        {
+            await completion.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private Task RunAsync(Func<CancellationToken, Task> operation, Action<string?>? reportError = null)
     {
         if (disposed || activeOperation || model.ExternalBusy)
         {
@@ -255,12 +272,13 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         }
         activeOperation = true;
         model.ShowError(null);
+        reportError?.Invoke(null);
         model.ShowStatus(null);
-        Completion = ExecuteAsync(operation, cancellation.Token);
+        Completion = ExecuteAsync(operation, reportError, cancellation.Token);
         return Completion;
     }
 
-    private async Task ExecuteAsync(Func<CancellationToken, Task> operation, CancellationToken token)
+    private async Task ExecuteAsync(Func<CancellationToken, Task> operation, Action<string?>? reportError, CancellationToken token)
     {
         try
         {
@@ -273,7 +291,14 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         {
             if (!disposed)
             {
-                model.ShowError(error.Message);
+                if (reportError is null)
+                {
+                    model.ShowError(error.Message);
+                }
+                else
+                {
+                    reportError(Localization.Format("EffectLibrary.TransferFailed", error.Message));
+                }
             }
         }
         finally

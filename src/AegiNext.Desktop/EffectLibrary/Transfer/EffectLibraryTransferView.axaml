@@ -5,36 +5,9 @@
              x:DataType="transfer:EffectLibraryTransferViewModel" Classes="business-surface">
   <ScrollViewer HorizontalScrollBarVisibility="Disabled">
     <StackPanel Spacing="16">
-      <Border Classes="card">
-        <StackPanel Spacing="12">
-          <TextBlock Text="{Loc Key=EffectLibrary.ExportSelected}" FontWeight="SemiBold" />
-          <TextBlock Name="EffectLibrarySelectionSummary" Text="{Binding SelectionSummary}" Classes="field" TextWrapping="Wrap" />
-          <common:PropertyRowControl Header="{Loc Key=EffectLibrary.ExportFormat}" SeparatorThickness="0">
-            <ComboBox Name="EffectLibraryExportFormat" ItemsSource="{Binding ExportFormats}"
-                      SelectedItem="{Binding SelectedFormatChoice, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}">
-              <ComboBox.ItemTemplate>
-                <DataTemplate x:DataType="transfer:EffectLibraryExportFormatChoice">
-                  <TextBlock Text="{Binding Text}" />
-                </DataTemplate>
-              </ComboBox.ItemTemplate>
-            </ComboBox>
-          </common:PropertyRowControl>
-          <TextBlock Text="{Loc Key=EffectLibrary.BuiltinExportHint}" IsVisible="{Binding HasBuiltinSelection}"
-                     Classes="field" TextWrapping="Wrap" />
-          <TextBlock Text="{Loc Key=EffectLibrary.SourceExportHint}" IsVisible="{Binding IsSourceFormat}"
-                     Classes="field" TextWrapping="Wrap" />
-          <Button Name="ExportSelectedEffectLibraryButton" Command="{Binding ExportSelectionCommand}" HorizontalAlignment="Left">
-            <common:IconText IconKey="Export" Text="{Loc Key=EffectLibrary.ExportSelected}" />
-          </Button>
-        </StackPanel>
-      </Border>
-      <Border Classes="card">
-        <StackPanel Spacing="12">
-          <TextBlock Text="{Loc Key=EffectLibrary.ExportAllDescription}" Classes="field" TextWrapping="Wrap" />
-          <Button Name="ExportAllEffectLibraryButton" Command="{Binding ExportAllCommand}" HorizontalAlignment="Left"
-                  Content="{Loc Key=EffectLibrary.ExportAll}" />
-        </StackPanel>
-      </Border>
+      <Button Name="ExportEffectLibraryButton" Command="{Binding ExportCommand}" HorizontalAlignment="Left">
+        <common:IconText IconKey="Export" Text="{Loc Key=EffectLibrary.OpenExportDialog}" />
+      </Button>
       <Border Classes="card">
         <StackPanel Spacing="12">
           <TextBlock Text="{Loc Key=EffectLibrary.ImportDescription}" Classes="field" TextWrapping="Wrap" />

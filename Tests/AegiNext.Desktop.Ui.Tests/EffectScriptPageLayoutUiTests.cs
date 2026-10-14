@@ -28,7 +28,7 @@ public sealed class EffectScriptPageLayoutUiTests
     private static readonly string[] toolbarButtons =
     [
         "AddEffectScriptButton", "DeleteEffectScriptButton", "ImportEffectScriptButton", "ExportEffectScriptButton",
-        "ValidateEffectScriptButton", "SaveEffectScriptButton"
+        "ExportEffectScriptSourceButton", "ValidateEffectScriptButton", "SaveEffectScriptButton"
     ];
 
     [AvaloniaTheory]

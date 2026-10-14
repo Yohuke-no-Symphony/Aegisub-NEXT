@@ -121,9 +121,7 @@ public sealed class StyleLibraryViewModel : ObservableObject
         CaptureCommand = new(() => CaptureRequested?.Invoke(this, EventArgs.Empty),
             () => HasSelectedSubtitle && !IsBusy);
         ImportCommand = new(() => ImportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy);
-        ExportCommand = new(() => ExportRequested?.Invoke(this,
-            new(styles.Where(value => selectedIds.Contains(value.Id)).ToImmutableArray())),
-            () => !selectedIds.IsEmpty && !IsBusy && !switching);
+        ExportCommand = new(() => ExportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy && !switching);
         RefreshLanguage();
     }
 
@@ -132,7 +130,7 @@ public sealed class StyleLibraryViewModel : ObservableObject
     public event EventHandler<LibraryStyleDeleteEventArgs>? DeleteRequested;
     public event EventHandler? CaptureRequested;
     public event EventHandler? ImportRequested;
-    public event EventHandler<LibraryStylesExportEventArgs>? ExportRequested;
+    public event EventHandler? ExportRequested;
     public RelayCommand AddCommand { get; }
     public RelayCommand DuplicateCommand { get; }
     public RelayCommand DeleteCommand { get; }

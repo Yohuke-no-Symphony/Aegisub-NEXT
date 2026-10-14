@@ -1,4 +1,6 @@
 using AegiNext.Application;
+using AegiNext.Application.Presets;
+using AegiNext.Desktop.EffectLibrary.Transfer;
 using AegiNext.Desktop.Workspace;
 
 namespace AegiNext.Desktop.Ui.Tests;
@@ -31,6 +33,20 @@ internal sealed class StartupTestDialogService : IWorkbenchDialogService
     internal int PresetChoice { get; set; } = 2;
     internal TaskCompletionSource<int>? PendingPresetDecision { get; set; }
     internal int PresetConfirmationRequests { get; private set; }
+    internal int ExportDialogRequests { get; private set; }
+    internal EffectLibrarySnapshot? ExportDialogSnapshot { get; private set; }
+    internal Func<EffectLibrarySnapshot,
+        Func<EffectLibraryExportRequest, IWorkbenchDialogService, CancellationToken, Task<bool>>,
+        CancellationToken, Task<bool>>? ExportDialogHandler { get; set; }
+
+    public Task<bool> ShowEffectLibraryExportAsync(EffectLibrarySnapshot snapshot,
+        Func<EffectLibraryExportRequest, IWorkbenchDialogService, CancellationToken, Task<bool>> exportAsync,
+        CancellationToken cancellationToken = default)
+    {
+        ExportDialogRequests++;
+        ExportDialogSnapshot = snapshot;
+        return ExportDialogHandler?.Invoke(snapshot, exportAsync, cancellationToken) ?? Task.FromResult(false);
+    }
 
     public Task<IReadOnlyList<string>> OpenFilesAsync(string title, string typeName, string[] patterns)
     {

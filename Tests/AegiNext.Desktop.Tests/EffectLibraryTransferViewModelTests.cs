@@ -7,22 +7,24 @@ namespace AegiNext.Desktop.Tests;
 public sealed class EffectLibraryTransferViewModelTests
 {
     [Fact]
-    public void SelectionRestrictsBuiltinAndMixedFormatsWithoutChangingBusinessContent()
+    public void ExportEntryDoesNotRequireSelectionAndRespectsBusyStateAndDisposal()
     {
         using var model = new EffectLibraryTransferViewModel();
-        model.UpdateSelection(0, 1, 0);
-        Assert.Equal(3, model.ExportFormats.Count);
-        model.SelectedFormat = EffectLibraryExportFormat.PACKAGE;
-        model.UpdateSelection(0, 0, 1);
-        Assert.Equal(EffectLibraryExportFormat.SOURCE, model.SelectedFormat);
-        Assert.Single(model.ExportFormats);
-        Assert.True(model.ExportSelectionCommand.CanExecute(null));
-        model.UpdateSelection(1, 1, 0);
-        Assert.DoesNotContain(model.ExportFormats, choice => choice.Format == EffectLibraryExportFormat.SOURCE);
-        Assert.Equal(EffectLibraryExportFormat.INDEPENDENT, model.SelectedFormat);
+        var exports = 0;
+        model.ExportRequested += (_, _) => exports++;
+        Assert.True(model.ExportCommand.CanExecute(null));
+        model.ExportCommand.Execute(null);
+        Assert.Equal(1, exports);
         model.ExternalBusy = true;
         Assert.False(model.ImportCommand.CanExecute(null));
-        Assert.False(model.ExportSelectionCommand.CanExecute(null));
+        Assert.False(model.ExportCommand.CanExecute(null));
+        model.ExternalBusy = false;
+        model.SetOperationBusy(true);
+        Assert.False(model.ExportCommand.CanExecute(null));
+        model.SetOperationBusy(false);
+        Assert.True(model.ExportCommand.CanExecute(null));
+        model.Dispose();
+        Assert.False(model.ExportCommand.CanExecute(null));
     }
 
     [Fact]

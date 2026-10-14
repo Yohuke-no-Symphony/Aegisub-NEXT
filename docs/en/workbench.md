@@ -79,7 +79,13 @@ Open **Edit → Effect Library** and choose **Style Library**, **Effect Scripts*
 
 **Effect Scripts** previews the current draft with adjustable text, duration, and personal styles with embedded fonts. Play/pause, loop, and scrubbing work without saving or opening a project. See [Preview a draft](effect-dsl.md#preview-a-draft).
 
-Select one or more entries, click **Export**, then choose a format in **Import & Export**. Independent files use `.aegistyles` for styles and `.aegieffect` for personal scripts; a single item uses a file picker, while multiple items use a destination folder. A package uses `.aegilibrary`. **Script source** exports `.aegifx`, including read-only builtins. **Export all personal materials** creates one package containing personal styles, embedded fonts, and scripts.
+Click **Export…** on any library page to open **Export effect library**. Each export starts with an unchecked tree of personal styles and scripts saved when the dialog opened. The dialog retains your current editor page and unsaved draft; save a draft before opening it if you want to share that version.
+
+Check the materials to share, or search by name or script ID. A group checkbox and **Select search results** affect the matching visible entries. Checked entries hidden by search stay selected; the footer shows both the total and hidden counts. **Clear selection** clears every checked entry.
+
+Choose **Library package (.aegilibrary)**, the default, or **Individual files**: `.aegistyles` for styles and `.aegieffect` for personal scripts. **Script source (.aegifx)** is available when every checked item is a script. Click **Export selected**. A package uses one output file. For independent files or script source, choose a file for one item or a destination folder for several. **Export entire personal library** always creates a package containing all saved personal styles, embedded fonts, and scripts, regardless of the search or checked entries.
+
+On **Effect Scripts**, you can also select one or more scripts and use **Export source…** to share `.aegifx` source directly. This exports saved personal scripts and read-only builtins; unsaved edits are excluded. Cancelling a destination picker retains the export dialog's search, selection, and format. Export failures appear in that dialog so you can retry; closing it cancels pending work and waits for cleanup.
 
 **Import** accepts multiple independent files and packages together. Review new, identical, and conflicting rows, choose **Import**, **Replace**, or **Skip** where offered, then confirm. Identical content skips automatically. Protected identities cannot be replaced; only one conflicting input version may be selected. A changed library requires another preview and confirmation. Settings packages are imported separately in Settings and never supply effect-library materials.
 

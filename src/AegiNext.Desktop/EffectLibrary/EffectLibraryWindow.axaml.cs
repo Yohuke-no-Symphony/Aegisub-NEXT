@@ -51,6 +51,7 @@ public sealed partial class EffectLibraryWindow : Window
         viewModel.Effects.DeleteRequested += OnDeleteEffectRequested;
         viewModel.Effects.ImportRequested += OnImportEffectRequested;
         viewModel.Effects.ExportRequested += OnExportEffectRequested;
+        viewModel.Effects.ExportSourceRequested += OnExportEffectSourceRequested;
         viewModel.Effects.ValidationFailed += OnEffectValidationFailed;
         Closed += OnClosed;
         Closing += OnClosing;
@@ -63,11 +64,12 @@ public sealed partial class EffectLibraryWindow : Window
     public event EventHandler? CaptureStyleRequested;
     public event EventHandler<LibraryStyleEventArgs>? ApplyStyleRequested;
     public event EventHandler? ImportStylesRequested;
-    public event EventHandler<LibraryStylesExportEventArgs>? ExportStylesRequested;
+    public event EventHandler? ExportStylesRequested;
     public event EventHandler<LibraryEffectEventArgs>? UpsertEffectRequested;
     public event EventHandler<LibraryEffectDeleteEventArgs>? DeleteEffectRequested;
     public event EventHandler? ImportEffectRequested;
-    public event EventHandler<LibraryEffectsExportEventArgs>? ExportEffectRequested;
+    public event EventHandler? ExportEffectRequested;
+    public event EventHandler<LibraryEffectsExportEventArgs>? ExportEffectSourceRequested;
     public event EventHandler<EffectScriptValidationFailedEventArgs>? EffectValidationFailed;
     public EffectLibraryWindowViewModel ViewModel { get; }
     public WindowTitleBar TitleBar { get; }
@@ -183,6 +185,7 @@ public sealed partial class EffectLibraryWindow : Window
         ViewModel.Effects.DeleteRequested -= OnDeleteEffectRequested;
         ViewModel.Effects.ImportRequested -= OnImportEffectRequested;
         ViewModel.Effects.ExportRequested -= OnExportEffectRequested;
+        ViewModel.Effects.ExportSourceRequested -= OnExportEffectSourceRequested;
         ViewModel.Effects.ValidationFailed -= OnEffectValidationFailed;
         Closed -= OnClosed;
         Closing -= OnClosing;
@@ -213,7 +216,7 @@ public sealed partial class EffectLibraryWindow : Window
         ImportStylesRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnExportStylesRequested(object? sender, LibraryStylesExportEventArgs e)
+    private void OnExportStylesRequested(object? sender, EventArgs e)
     {
         ExportStylesRequested?.Invoke(this, e);
     }
@@ -233,9 +236,14 @@ public sealed partial class EffectLibraryWindow : Window
         ImportEffectRequested?.Invoke(this, EventArgs.Empty);
     }
 
-    private void OnExportEffectRequested(object? sender, LibraryEffectsExportEventArgs e)
+    private void OnExportEffectRequested(object? sender, EventArgs e)
     {
         ExportEffectRequested?.Invoke(this, e);
+    }
+
+    private void OnExportEffectSourceRequested(object? sender, LibraryEffectsExportEventArgs e)
+    {
+        ExportEffectSourceRequested?.Invoke(this, e);
     }
 
     private void OnEffectValidationFailed(object? sender, EffectScriptValidationFailedEventArgs e)

@@ -7,7 +7,7 @@ using Avalonia.Threading;
 
 namespace AegiNext.Desktop.Workspace;
 
-internal sealed class WindowWorkbenchDialogService : IWorkbenchDialogService
+internal sealed partial class WindowWorkbenchDialogService : IWorkbenchDialogService
 {
     private readonly Func<Window> ownerProvider;
     private readonly Func<IStorageProvider>? storageProvider;

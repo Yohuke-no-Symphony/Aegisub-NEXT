@@ -22,7 +22,7 @@
           <controlsCommon:IconText Text="{Loc Key=Settings.Import}" IconKey="Import" />
         </Button>
         <Button Name="ExportStylesButton" Command="{Binding ExportCommand}">
-          <controlsCommon:IconText Text="{Loc Key=Settings.Export}" IconKey="Export" />
+          <controlsCommon:IconText Text="{Loc Key=EffectLibrary.OpenExportDialog}" IconKey="Export" />
         </Button>
         <Button Name="CaptureStyleButton" Command="{Binding CaptureCommand}">
           <controlsCommon:IconText Text="{Loc Key=Settings.Capture}" IconKey="Subtitles" />

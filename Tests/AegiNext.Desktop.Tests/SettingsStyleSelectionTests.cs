@@ -6,7 +6,31 @@ namespace AegiNext.Desktop.Tests;
 public sealed class SettingsStyleSelectionTests
 {
     [Fact]
-    public void ExportUsesOnlySelectedSavedStylesAndIgnoresInvalidEditorText()
+    public void FullLibraryExportOpensWithoutSavedSelectionAndKeepsTheInvalidDraft()
+    {
+        var model = new StyleLibraryViewModel();
+        model.AddCommand.Execute(null);
+        model.Name = "Unsaved style";
+        model.FontSizeText = "7e-";
+        var pending = model.Draft;
+        var exports = 0;
+        var saves = 0;
+        model.ExportRequested += (_, _) => exports++;
+        model.UpsertRequested += (_, _) => saves++;
+
+        Assert.True(model.ExportCommand.CanExecute(null));
+        model.ExportCommand.Execute(null);
+
+        Assert.Equal(1, exports);
+        Assert.Equal(0, saves);
+        Assert.Equal(pending, model.Draft);
+        Assert.Equal("7e-", model.FontSizeText);
+        Assert.True(model.IsDirty);
+        Assert.Empty(model.SelectedIds);
+    }
+
+    [Fact]
+    public void FullExportDoesNotUseSelectedStylesOrValidateEditorText()
     {
         var values = Enumerable.Range(1, 3).Select(index => new SubtitleStylePreset(Guid.NewGuid(), $"Style {index}", new())).ToArray();
         var model = new StyleLibraryViewModel();
@@ -14,17 +38,19 @@ public sealed class SettingsStyleSelectionTests
         model.Name = "unsaved";
         model.FontSizeText = "invalid";
         model.SelectStyles(values[0].Id, [values[0].Id, values[2].Id]);
-        SubtitleStylePreset[]? exported = null;
-        model.ExportRequested += (_, args) => exported = args.Presets.ToArray();
+        var exports = 0;
+        model.ExportRequested += (_, _) => exports++;
 
         model.ExportCommand.Execute(null);
 
-        Assert.Equal(new[] { values[0], values[2] }, exported);
+        Assert.Equal(1, exports);
+        Assert.Equal(values, model.Styles);
+        Assert.Equal(new[] { values[0].Id, values[2].Id }, model.SelectedIds);
         Assert.False(model.CanEdit);
         Assert.True(model.DeleteCommand.CanExecute(null));
         Assert.False(model.SaveCommand.CanExecute(null));
         model.SelectStyles(null, []);
-        Assert.False(model.ExportCommand.CanExecute(null));
+        Assert.True(model.ExportCommand.CanExecute(null));
     }
 
     [Fact]

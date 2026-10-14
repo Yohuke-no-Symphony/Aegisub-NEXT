@@ -6,11 +6,13 @@
 
 1. Select a subtitle, choose a preset in **Effects**, and click **Apply Preset**.
 2. Open **Edit → Effect Library → Effect Scripts** to manage templates. Builtins are read-only. Use **Add** to create a personal draft.
-3. Edit, **Validate**, then save. Export through **Import & Export** as a complete `.aegieffect`, a `.aegilibrary` package, or UTF-8 `.aegifx` source. Validation reports line/column errors; **Locate Error** moves the caret.
+3. Edit, **Validate**, then save. Click **Export…** to choose saved personal scripts and a complete `.aegieffect`, `.aegilibrary` package, or UTF-8 `.aegifx` source format. Validation reports line/column errors; **Locate Error** moves the caret.
 
 Completion opens while typing or with Cmd/Ctrl + Space. Arrows select, Enter/Tab insert, and Esc dismisses. Templates belong to the effect library; applying recompiles for the current Clip and creates one Undo transaction.
 
 DSL version 1 keeps its existing whole-target segment syntax. Version 2 adds named scopes, text grouping, staggered starts, repeats, and pingpong. Choose **Letter bounce** or **Letter pulse** in the same preset selector for the built-in grouped effects; create a personal script to adjust grouping or timing.
+
+The export dialog starts unchecked and preserves the editor's current page and draft. Search personal scripts by name or DSL ID, then check the entries to share; **Script source (.aegifx)** is available for a selection containing only scripts. The script page's separate **Export source…** action exports selected saved personal scripts and read-only builtins. See [Share styles and scripts](workbench.md#share-styles-and-scripts) for selection, packages, and full-library export.
 
 ## Preview a draft
 

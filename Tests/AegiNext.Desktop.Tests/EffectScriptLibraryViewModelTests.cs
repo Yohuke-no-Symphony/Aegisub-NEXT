@@ -168,7 +168,7 @@ public sealed class EffectScriptLibraryViewModelTests
     }
 
     [Fact]
-    public void MultiSelectionExportsOnlyTheSavedSelectedSnapshotsAndDisablesEditingCommands()
+    public void MultiSelectionExportsOnlyTheSavedSelectedSourcesAndDisablesEditingCommands()
     {
         var first = Preset("first");
         var second = Preset("second");
@@ -178,22 +178,23 @@ public sealed class EffectScriptLibraryViewModelTests
         var builtin = model.Effects.First(item => item.IsBuiltin);
         model.SelectEffects(second.Id, [builtin.Id, second.Id]);
         ImmutableArray<EffectScriptPreset> exported = [];
-        model.ExportRequested += (_, args) => exported = args.Presets;
-        Assert.True(model.ExportCommand.CanExecute(null));
+        model.ExportSourceRequested += (_, args) => exported = args.Presets;
+        Assert.True(model.ExportSourceCommand.CanExecute(null));
         Assert.False(model.SaveCommand.CanExecute(null));
         Assert.False(model.DeleteCommand.CanExecute(null));
         Assert.False(model.ValidateCommand.CanExecute(null));
         Assert.True(model.IsReadOnly);
         Assert.Null(model.Draft);
 
-        model.ExportCommand.Execute(null);
+        model.ExportSourceCommand.Execute(null);
 
         Assert.Equal(new[] { builtin.Preset, second }, exported);
         model.RefreshLanguage();
         model.UpdateEffects([first, second, omitted]);
         Assert.Equal(new[] { builtin.Id, second.Id }, model.SelectedIds);
         model.SelectEffects(null, []);
-        Assert.False(model.ExportCommand.CanExecute(null));
+        Assert.False(model.ExportSourceCommand.CanExecute(null));
+        Assert.True(model.ExportCommand.CanExecute(null));
     }
 
     [Fact]
@@ -208,9 +209,9 @@ public sealed class EffectScriptLibraryViewModelTests
         var failures = 0;
         EffectScriptPreset? exported = null;
         model.ValidationFailed += (_, _) => failures++;
-        model.ExportRequested += (_, args) => exported = Assert.Single(args.Presets);
+        model.ExportSourceRequested += (_, args) => exported = Assert.Single(args.Presets);
 
-        model.ExportCommand.Execute(null);
+        model.ExportSourceCommand.Execute(null);
 
         Assert.Equal(saved, exported);
         Assert.Equal(0, failures);
@@ -220,14 +221,38 @@ public sealed class EffectScriptLibraryViewModelTests
     }
 
     [Fact]
-    public async Task IndependentNewDraftCannotBeExportedBeforeItIsSaved()
+    public async Task FullLibraryExportOpensWithoutSavedSelectionAndKeepsTheUnsavedDraft()
+    {
+        var model = new EffectScriptLibraryViewModel();
+        await model.AddCommand.ExecuteAsync(null);
+        model.Source = "effect broken";
+        var pending = model.Draft;
+        var exports = 0;
+        var saves = 0;
+        model.ExportRequested += (_, _) => exports++;
+        model.SaveRequested += (_, _) => saves++;
+
+        Assert.True(model.ExportCommand.CanExecute(null));
+        model.ExportCommand.Execute(null);
+
+        Assert.Equal(1, exports);
+        Assert.Equal(0, saves);
+        Assert.Equal(pending, model.Draft);
+        Assert.Equal("effect broken", model.Source);
+        Assert.True(model.IsDirty);
+        Assert.Empty(model.SelectedIds);
+    }
+
+    [Fact]
+    public async Task IndependentNewDraftCannotExportItsSourceBeforeItIsSaved()
     {
         var model = new EffectScriptLibraryViewModel();
         await model.AddCommand.ExecuteAsync(null);
         var exports = 0;
-        model.ExportRequested += (_, _) => exports++;
-        model.ExportCommand.Execute(null);
-        Assert.False(model.ExportCommand.CanExecute(null));
+        model.ExportSourceRequested += (_, _) => exports++;
+        model.ExportSourceCommand.Execute(null);
+        Assert.False(model.ExportSourceCommand.CanExecute(null));
+        Assert.True(model.ExportCommand.CanExecute(null));
         Assert.Equal(0, exports);
     }
 

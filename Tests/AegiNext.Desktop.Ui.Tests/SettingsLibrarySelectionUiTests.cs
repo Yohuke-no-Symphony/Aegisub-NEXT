@@ -31,6 +31,11 @@ public sealed class SettingsLibrarySelectionUiTests
         var output = Path.Combine(environment.DirectoryPath, "selected-export");
         Directory.CreateDirectory(output);
         var dialogs = new StartupTestDialogService { FolderPath = output };
+        var requestedIds = new HashSet<Guid>();
+        dialogs.ExportDialogHandler = (snapshot, exportAsync, token) => exportAsync(new(
+            [.. snapshot.Styles.Presets.Where(preset => requestedIds.Contains(preset.Id))],
+            [.. snapshot.Effects.Presets.Where(preset => requestedIds.Contains(preset.Id))],
+            effects ? EffectLibraryExportFormat.SOURCE : EffectLibraryExportFormat.INDEPENDENT), dialogs, token);
         using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
         try
@@ -61,12 +66,11 @@ public sealed class SettingsLibrarySelectionUiTests
             {
                 window.ViewModel.Styles.SelectStyles(ids[0], [ids[0], ids[2]]);
             }
+            requestedIds.UnionWith([ids[0], ids[2]]);
             UiTestActions.Click(window, effects ? "ExportEffectScriptButton" : "ExportStylesButton");
-            await window.ViewModel.NavigationCompletion;
-            Assert.Equal(EffectLibraryPage.TRANSFER, window.CurrentPage);
-            window.ViewModel.Transfer.SelectedFormat = effects ? EffectLibraryExportFormat.SOURCE : EffectLibraryExportFormat.INDEPENDENT;
-            UiTestActions.Click(window, "ExportSelectedEffectLibraryButton");
             await coordinator.TransferCompletion;
+            Assert.Equal(effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES, window.CurrentPage);
+            Assert.Equal(1, dialogs.ExportDialogRequests);
             var files = Directory.GetFiles(output);
             Assert.Equal(2, files.Length);
             Assert.Equal(1, dialogs.FolderRequests);
@@ -88,7 +92,7 @@ public sealed class SettingsLibrarySelectionUiTests
                 await context.RunStyleOperationAsync(() => context.StyleLibrary.RemoveAsync(ids[2]));
             }
             dialogs.OpenPaths = files;
-            UiTestActions.Click(window, "ImportEffectLibraryButton");
+            UiTestActions.Click(window, effects ? "ImportEffectScriptButton" : "ImportStylesButton");
             await coordinator.TransferCompletion;
             Assert.Equal(1, effects ? context.EffectScriptLibrary.Snapshot.Presets.Length : context.StyleLibrary.Snapshot.Presets.Length);
             UiTestActions.Click(window, "CommitEffectLibraryImportButton");
@@ -99,6 +103,8 @@ public sealed class SettingsLibrarySelectionUiTests
         finally
         {
             coordinator.Dispose();
+            await coordinator.TransferCompletion;
+            await coordinator.DisposalCompletion;
             owner.Close();
             await context.DisposeAsync();
         }

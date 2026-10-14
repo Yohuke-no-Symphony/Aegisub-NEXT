@@ -1,4 +1,6 @@
 using AegiNext.Application;
+using AegiNext.Application.Presets;
+using AegiNext.Desktop.EffectLibrary.Transfer;
 
 namespace AegiNext.Desktop.Workspace;
 
@@ -14,6 +16,9 @@ internal interface IWorkbenchDialogService
     Task<bool> ConfirmPresetDeletionAsync(PresetDeletionRequest request, CancellationToken cancellationToken = default)
         => Task.FromResult(false);
     Task<bool> ConfirmSettingsRestartAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
+    Task<bool> ShowEffectLibraryExportAsync(EffectLibrarySnapshot snapshot,
+        Func<EffectLibraryExportRequest, IWorkbenchDialogService, CancellationToken, Task<bool>> exportAsync,
+        CancellationToken cancellationToken = default) => Task.FromResult(false);
     Task<string?> SaveFileAsync(string title, string typeName, string[] patterns, string extension, string suggestedName,
         string? suggestedDirectory = null);
     Task ShowErrorAsync(string titleKey, string message, CancellationToken cancellationToken = default);

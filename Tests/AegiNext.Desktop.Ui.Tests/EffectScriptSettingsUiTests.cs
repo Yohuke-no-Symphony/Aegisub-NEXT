@@ -323,14 +323,14 @@ public sealed class EffectScriptSettingsUiTests
     }
 
     [AvaloniaFact]
-    public void SaveAndExportForwardValidatedSourcesWithoutDependingOnCurrentSubtitle()
+    public void SaveAndSourceExportForwardValidatedSourcesWithoutDependingOnCurrentSubtitle()
     {
         using var environment = new UiTestEnvironment();
         var window = new EffectLibraryWindow(new WorkbenchPreferences());
         EffectScriptPreset? saved = null;
         EffectScriptPreset? exported = null;
         window.UpsertEffectRequested += (_, args) => saved = args.Preset;
-        window.ExportEffectRequested += (_, args) => exported = Assert.Single(args.Presets);
+        window.ExportEffectSourceRequested += (_, args) => exported = Assert.Single(args.Presets);
         try
         {
             window.Show();
@@ -341,7 +341,7 @@ public sealed class EffectScriptSettingsUiTests
             Assert.NotNull(saved);
             window.UpdateEffects([saved], saved.Id);
             Assert.False(window.ViewModel.Effects.IsDirty);
-            UiTestActions.Click(window, "ExportEffectScriptButton");
+            UiTestActions.Click(window, "ExportEffectScriptSourceButton");
             Assert.Equal(saved, exported);
             Assert.NotNull(EffectScriptParser.Parse(exported!.Source));
             Assert.DoesNotContain(window.GetVisualDescendants().OfType<Button>(), button => button.Name == "ApplyEffectScriptButton");
@@ -355,7 +355,7 @@ public sealed class EffectScriptSettingsUiTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task PointerMultiSelectionExportsOnlySavedSelectedScriptsAndSurvivesRefresh(bool range)
+    public async Task PointerMultiSelectionSourceExportsOnlySavedSelectedScriptsAndSurvivesRefresh(bool range)
     {
         using var environment = new UiTestEnvironment();
         var window = new EffectLibraryWindow(new WorkbenchPreferences());
@@ -363,7 +363,7 @@ public sealed class EffectScriptSettingsUiTests
         var second = PersonalScript("multi-second");
         var third = PersonalScript("multi-third");
         ImmutableArray<EffectScriptPreset> exported = [];
-        window.ExportEffectRequested += (_, args) => exported = args.Presets;
+        window.ExportEffectSourceRequested += (_, args) => exported = args.Presets;
         try
         {
             window.UpdateEffects([first, second, third], first.Id);
@@ -383,7 +383,7 @@ public sealed class EffectScriptSettingsUiTests
 
             window.RefreshLanguage();
             window.UpdateEffects([first, second, third]);
-            UiTestActions.Click(window, "ExportEffectScriptButton");
+            UiTestActions.Click(window, "ExportEffectScriptSourceButton");
 
             Assert.Equal(expected, exported.Select(item => item.Id).ToArray());
             var list = UiTestActions.Find<ListBox>(window, "EffectScriptList");

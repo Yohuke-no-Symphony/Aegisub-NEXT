@@ -28,7 +28,6 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
     private EffectLibraryTransferCoordinator? transfer;
     private Task closedTransferCompletion = Task.CompletedTask;
     private Task closedDisposalCompletion = Task.CompletedTask;
-    private EffectLibraryPage lastLibraryPage = EffectLibraryPage.STYLES;
     internal Task TransferCompletion => Task.WhenAll(closedTransferCompletion, transfer?.Completion ?? Task.CompletedTask);
     internal Task DisposalCompletion => Task.WhenAll(closedDisposalCompletion, Window?.DisposalCompletion ?? Task.CompletedTask);
     internal Task DeletionCompletion { get; private set; } = Task.CompletedTask;
@@ -66,12 +65,11 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
             window.ViewModel.Effects.UpdatePreviewStyles(applicationContext.StyleLibrary.Snapshot.Presets);
             window.ViewModel.Styles.SetPositionMeasurement((preset, text) => session is null
                 ? MeasureDefaultPosition(preset, text) : session.MeasureStylePosition(preset, text));
-            transfer = new(applicationContext, window.ViewModel.Transfer, dialogs, CaptureSelectionAsync, PrepareImportAsync);
+            transfer = new(applicationContext, window.ViewModel.Transfer, dialogs, PrepareImportAsync);
             Subscribe(window);
             window.UpdateStyles(applicationContext.StyleLibrary.Snapshot.Presets);
             window.UpdateEffects(applicationContext.EffectScriptLibrary.Snapshot.Presets);
             RefreshAvailability();
-            RefreshTransferSelection();
             window.ShowError(applicationContext.EffectLibraryLoadError?.Message);
             if (page is { } selected)
             {
@@ -139,14 +137,12 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         window.ApplyStyleRequested += OnApplyStyleRequested;
         window.ImportStylesRequested += OnImportRequested;
         window.ImportEffectRequested += OnImportRequested;
-        window.ExportStylesRequested += OnExportStylesRequested;
-        window.ExportEffectRequested += OnExportEffectRequested;
+        window.ExportStylesRequested += OnExportRequested;
+        window.ExportEffectRequested += OnExportRequested;
+        window.ExportEffectSourceRequested += OnExportSourceRequested;
         window.EffectValidationFailed += OnEffectValidationFailed;
         window.UpsertEffectRequested += OnUpsertEffectRequested;
         window.DeleteEffectRequested += OnDeleteEffectRequested;
-        window.ViewModel.PropertyChanged += OnNavigationChanged;
-        window.ViewModel.Styles.PropertyChanged += OnLibrarySelectionChanged;
-        window.ViewModel.Effects.PropertyChanged += OnLibrarySelectionChanged;
         window.Closed += OnWindowClosed;
         if (session is { } active)
         {
@@ -176,14 +172,12 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         window.ApplyStyleRequested -= OnApplyStyleRequested;
         window.ImportStylesRequested -= OnImportRequested;
         window.ImportEffectRequested -= OnImportRequested;
-        window.ExportStylesRequested -= OnExportStylesRequested;
-        window.ExportEffectRequested -= OnExportEffectRequested;
+        window.ExportStylesRequested -= OnExportRequested;
+        window.ExportEffectRequested -= OnExportRequested;
+        window.ExportEffectSourceRequested -= OnExportSourceRequested;
         window.EffectValidationFailed -= OnEffectValidationFailed;
         window.UpsertEffectRequested -= OnUpsertEffectRequested;
         window.DeleteEffectRequested -= OnDeleteEffectRequested;
-        window.ViewModel.PropertyChanged -= OnNavigationChanged;
-        window.ViewModel.Styles.PropertyChanged -= OnLibrarySelectionChanged;
-        window.ViewModel.Effects.PropertyChanged -= OnLibrarySelectionChanged;
         window.Closed -= OnWindowClosed;
         if (session is { } active)
         {
@@ -234,12 +228,10 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
     {
         Window?.UpdateStyles(applicationContext.StyleLibrary.Snapshot.Presets);
         Window?.ViewModel.Effects.UpdatePreviewStyles(applicationContext.StyleLibrary.Snapshot.Presets);
-        RefreshTransferSelection();
     }
     private void OnEffectsChanged(object? sender, EventArgs e)
     {
         Window?.UpdateEffects(applicationContext.EffectScriptLibrary.Snapshot.Presets);
-        RefreshTransferSelection();
     }
     private void OnBusyChanged(object? sender, EventArgs e) => RefreshAvailability();
     private void OnLibraryOperationFailed(PersonalLibraryKind kind, Exception error)
@@ -266,54 +258,6 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         {
             window.ViewModel.Transfer.ExternalBusy = deletionActive || applicationContext.StylesBusy || applicationContext.EffectsBusy;
         }
-    }
-
-    private void OnNavigationChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(EffectLibraryWindowViewModel.CurrentPage) && Window is { } window)
-        {
-            if (window.CurrentPage != EffectLibraryPage.TRANSFER)
-            {
-                lastLibraryPage = window.CurrentPage;
-            }
-            RefreshTransferSelection();
-        }
-    }
-
-    private void OnLibrarySelectionChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == "SelectedIds")
-        {
-            RefreshTransferSelection();
-        }
-    }
-
-    private EffectLibraryTransferSelection GetSelection()
-    {
-        if (Window is not { } window)
-        {
-            return new([], []);
-        }
-        if (lastLibraryPage == EffectLibraryPage.STYLES)
-        {
-            return new(applicationContext.StyleLibrary.Snapshot.Presets
-                .Where(preset => window.ViewModel.Styles.SelectedIds.Contains(preset.Id)).ToImmutableArray(), []);
-        }
-        var ids = window.ViewModel.Effects.SelectedIds;
-        var selected = window.ViewModel.Effects.Effects.Where(item => ids.Contains(item.Id)).ToImmutableArray();
-        return new([], selected.Select(item => item.Preset).ToImmutableArray(), selected.Any(item => item.IsBuiltin));
-    }
-
-    private void RefreshTransferSelection()
-    {
-        var selected = GetSelection();
-        var builtinCount = selected.Effects.Count(preset => Window?.ViewModel.Effects.Effects.Any(item => item.Id == preset.Id && item.IsBuiltin) == true);
-        Window?.ViewModel.Transfer.UpdateSelection(selected.Styles.Length, selected.Effects.Length - builtinCount, builtinCount);
-    }
-
-    private async Task<EffectLibraryTransferSelection?> CaptureSelectionAsync()
-    {
-        return await PrepareImportAsync() ? GetSelection() : null;
     }
 
     private async Task<bool> PrepareImportAsync()
@@ -376,16 +320,32 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         }
     }
 
-    private void OnExportStylesRequested(object? sender, LibraryStylesExportEventArgs e)
+    private void OnExportRequested(object? sender, EventArgs e)
     {
-        lastLibraryPage = EffectLibraryPage.STYLES;
-        Window?.SelectPage(EffectLibraryPage.TRANSFER);
+        if (transfer is { } current && Window is { } target)
+        {
+            _ = current.ExportDialogAsync(message =>
+            {
+                if (ReferenceEquals(Window, target))
+                {
+                    target.ShowError(message);
+                }
+            });
+        }
     }
 
-    private void OnExportEffectRequested(object? sender, LibraryEffectsExportEventArgs e)
+    private void OnExportSourceRequested(object? sender, LibraryEffectsExportEventArgs e)
     {
-        lastLibraryPage = EffectLibraryPage.EFFECTS;
-        Window?.SelectPage(EffectLibraryPage.TRANSFER);
+        if (transfer is { } current && Window is { } target)
+        {
+            _ = current.ExportSourceAsync(e.Presets, message =>
+            {
+                if (ReferenceEquals(Window, target))
+                {
+                    target.ShowError(message);
+                }
+            });
+        }
     }
 
     private Task SaveStylePresetAsync(SubtitleStylePreset preset)

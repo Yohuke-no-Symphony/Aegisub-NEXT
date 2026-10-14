@@ -5,52 +5,38 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.EffectLibrary.Transfer;
 
-/// <summary>效果库分享格式、导入预览与本地状态；存储、文件选择和任务由协调器拥有。</summary>
+/// <summary>效果库导出入口、导入预览与本地状态；存储、文件选择和任务由协调器拥有。</summary>
 public sealed class EffectLibraryTransferViewModel : ObservableObject, IDisposable
 {
-    private IReadOnlyList<EffectLibraryExportFormatChoice> exportFormats = [];
-    private EffectLibraryExportFormatChoice? selectedFormat;
     private IReadOnlyList<EffectLibraryImportRowViewModel> rows = [];
     private bool operationBusy;
     private bool externalBusy;
     private bool updatingDecisions;
     private bool disposed;
-    private int styleCount;
-    private int personalEffectCount;
-    private int builtinEffectCount;
     private string? error;
     private string? statusKey;
     private object[] statusArguments = [];
 
-    /// <summary>创建语义命令，默认使用完整独立素材格式。</summary>
+    /// <summary>创建与库页选中无关的导出入口及导入命令。</summary>
     public EffectLibraryTransferViewModel()
     {
         ImportCommand = new(() => ImportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy);
-        ExportSelectionCommand = new(() => ExportSelectionRequested?.Invoke(this, EventArgs.Empty), () => CanExportSelection);
-        ExportAllCommand = new(() => ExportAllRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy);
+        ExportCommand = new(() => ExportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy);
         CommitImportCommand = new(() => CommitImportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy && HasPreview && SelectedImportCount > 0);
         ClearPreviewCommand = new(ClearPreview, () => !IsBusy && HasPreview);
-        UpdateSelection(0, 0, 0);
     }
 
     internal event EventHandler? ImportRequested;
-    internal event EventHandler? ExportSelectionRequested;
-    internal event EventHandler? ExportAllRequested;
+    internal event EventHandler? ExportRequested;
     internal event EventHandler? CommitImportRequested;
     internal EffectLibraryImportPlan? ImportPlan { get; private set; }
     public RelayCommand ImportCommand { get; }
-    public RelayCommand ExportSelectionCommand { get; }
-    public RelayCommand ExportAllCommand { get; }
+    public RelayCommand ExportCommand { get; }
     public RelayCommand CommitImportCommand { get; }
     public RelayCommand ClearPreviewCommand { get; }
-    public IReadOnlyList<EffectLibraryExportFormatChoice> ExportFormats => exportFormats;
     public IReadOnlyList<EffectLibraryImportRowViewModel> Rows => rows;
     public bool HasPreview => ImportPlan is not null;
     public bool IsBusy => operationBusy || externalBusy || disposed;
-    public bool CanExportSelection => !IsBusy && selectedFormat is not null && styleCount + personalEffectCount + builtinEffectCount > 0;
-    public bool HasBuiltinSelection => builtinEffectCount > 0;
-    public bool IsSourceFormat => SelectedFormat == EffectLibraryExportFormat.SOURCE;
-    public string SelectionSummary => Localization.Format("EffectLibrary.SelectionSummary", styleCount, personalEffectCount + builtinEffectCount);
     public string PreviewSummary => Localization.Format("EffectLibrary.PreviewSummary",
         Rows.Count(row => row.Row.Status == EffectLibraryImportStatus.NEW),
         Rows.Count(row => row.Row.Status == EffectLibraryImportStatus.IDENTICAL),
@@ -72,65 +58,6 @@ public sealed class EffectLibraryTransferViewModel : ObservableObject, IDisposab
                 RefreshBusy();
             }
         }
-    }
-
-    public EffectLibraryExportFormatChoice? SelectedFormatChoice
-    {
-        get => selectedFormat;
-        set
-        {
-            if (value is not null)
-            {
-                SelectedFormat = value.Format;
-            }
-        }
-    }
-
-    public EffectLibraryExportFormat SelectedFormat
-    {
-        get => selectedFormat?.Format ?? EffectLibraryExportFormat.INDEPENDENT;
-        set
-        {
-            var next = ExportFormats.FirstOrDefault(choice => choice.Format == value) ??
-                throw new ArgumentException("此格式不适用于当前效果库选择。", nameof(value));
-            if (SetProperty(ref selectedFormat, next, nameof(SelectedFormatChoice)))
-            {
-                OnPropertyChanged(nameof(SelectedFormat));
-                OnPropertyChanged(nameof(IsSourceFormat));
-            }
-        }
-    }
-
-    /// <summary>根据宿主已选条目重建可用格式，保留仍可用的格式身份。</summary>
-    public void UpdateSelection(int styles, int personalEffects, int builtinEffects)
-    {
-        ArgumentOutOfRangeException.ThrowIfNegative(styles);
-        ArgumentOutOfRangeException.ThrowIfNegative(personalEffects);
-        ArgumentOutOfRangeException.ThrowIfNegative(builtinEffects);
-        var previous = SelectedFormat;
-        styleCount = styles;
-        personalEffectCount = personalEffects;
-        builtinEffectCount = builtinEffects;
-        var formats = new List<EffectLibraryExportFormatChoice>();
-        if (builtinEffects == 0)
-        {
-            formats.Add(new(EffectLibraryExportFormat.INDEPENDENT));
-            formats.Add(new(EffectLibraryExportFormat.PACKAGE));
-        }
-        if (styles == 0 && personalEffects + builtinEffects > 0)
-        {
-            formats.Add(new(EffectLibraryExportFormat.SOURCE));
-        }
-        exportFormats = formats;
-        selectedFormat = formats.FirstOrDefault(choice => choice.Format == previous) ?? formats.FirstOrDefault();
-        OnPropertyChanged(nameof(ExportFormats));
-        OnPropertyChanged(nameof(SelectedFormatChoice));
-        OnPropertyChanged(nameof(SelectedFormat));
-        OnPropertyChanged(nameof(IsSourceFormat));
-        OnPropertyChanged(nameof(SelectionSummary));
-        OnPropertyChanged(nameof(HasBuiltinSelection));
-        OnPropertyChanged(nameof(CanExportSelection));
-        RefreshCommands();
     }
 
     internal void SetPreview(EffectLibraryImportPlan plan)
@@ -188,15 +115,10 @@ public sealed class EffectLibraryTransferViewModel : ObservableObject, IDisposab
     /// <summary>刷新所有展示标签，保留格式、计划、输入名称与行决策。</summary>
     public void RefreshLanguage()
     {
-        foreach (var format in ExportFormats)
-        {
-            format.RefreshLanguage();
-        }
         foreach (var row in Rows)
         {
             row.RefreshLanguage();
         }
-        OnPropertyChanged(nameof(SelectionSummary));
         OnPropertyChanged(nameof(PreviewSummary));
         OnPropertyChanged(nameof(SelectedImportSummary));
         OnPropertyChanged(nameof(Status));
@@ -213,8 +135,7 @@ public sealed class EffectLibraryTransferViewModel : ObservableObject, IDisposab
         disposed = true;
         UnsubscribeRows();
         ImportRequested = null;
-        ExportSelectionRequested = null;
-        ExportAllRequested = null;
+        ExportRequested = null;
         CommitImportRequested = null;
         RefreshBusy();
     }
@@ -263,7 +184,6 @@ public sealed class EffectLibraryTransferViewModel : ObservableObject, IDisposab
     private void RefreshBusy()
     {
         OnPropertyChanged(nameof(IsBusy));
-        OnPropertyChanged(nameof(CanExportSelection));
         foreach (var row in Rows)
         {
             row.SetBusy(IsBusy);
@@ -274,8 +194,7 @@ public sealed class EffectLibraryTransferViewModel : ObservableObject, IDisposab
     private void RefreshCommands()
     {
         ImportCommand.NotifyCanExecuteChanged();
-        ExportSelectionCommand.NotifyCanExecuteChanged();
-        ExportAllCommand.NotifyCanExecuteChanged();
+        ExportCommand.NotifyCanExecuteChanged();
         CommitImportCommand.NotifyCanExecuteChanged();
         ClearPreviewCommand.NotifyCanExecuteChanged();
     }

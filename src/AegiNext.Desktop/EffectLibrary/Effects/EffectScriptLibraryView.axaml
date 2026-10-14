@@ -17,7 +17,10 @@
         <controlsCommon:IconText Text="{Loc Key=Settings.Import}" IconKey="Import" />
       </Button>
       <Button Name="ExportEffectScriptButton" Command="{Binding ExportCommand}" Margin="0,0,6,6">
-        <controlsCommon:IconText Text="{Loc Key=Settings.Export}" IconKey="Export" />
+        <controlsCommon:IconText Text="{Loc Key=EffectLibrary.OpenExportDialog}" IconKey="Export" />
+      </Button>
+      <Button Name="ExportEffectScriptSourceButton" Command="{Binding ExportSourceCommand}" Margin="0,0,6,6">
+        <controlsCommon:IconText Text="{Loc Key=EffectLibrary.ExportSourceAction}" IconKey="Export" />
       </Button>
       <Button Name="ValidateEffectScriptButton" Command="{Binding ValidateCommand}" Margin="0,0,6,6"
               ToolTip.Tip="{Binding ValidationStatus}">

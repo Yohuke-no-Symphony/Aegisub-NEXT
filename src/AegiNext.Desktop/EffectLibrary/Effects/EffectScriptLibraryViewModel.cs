@@ -48,7 +48,8 @@ public sealed partial class EffectScriptLibraryViewModel : ObservableObject
             SelectionCompletion = operation;
             return operation;
         }, () => CanEdit);
-        ExportCommand = new(Export, () => !SelectedIds.IsEmpty && !IsBusy && !changingSelection);
+        ExportCommand = new(() => ExportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy && !changingSelection);
+        ExportSourceCommand = new(ExportSource, () => !SelectedIds.IsEmpty && !IsBusy && !changingSelection);
         ImportCommand = new(() => ImportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy && !changingSelection);
         ValidateCommand = new(() => ValidateDraft(false), () => HasDraft && SelectedIds.Length <= 1 && !IsBusy && !changingSelection);
         UpdateEffects([]);
@@ -56,13 +57,15 @@ public sealed partial class EffectScriptLibraryViewModel : ObservableObject
 
     public event EventHandler<LibraryEffectEventArgs>? SaveRequested;
     public event EventHandler<LibraryEffectDeleteEventArgs>? DeleteRequested;
-    public event EventHandler<LibraryEffectsExportEventArgs>? ExportRequested;
+    public event EventHandler? ExportRequested;
+    public event EventHandler<LibraryEffectsExportEventArgs>? ExportSourceRequested;
     public event EventHandler<EffectScriptValidationFailedEventArgs>? ValidationFailed;
     public event EventHandler? ImportRequested;
     public AsyncRelayCommand AddCommand { get; }
     public RelayCommand DeleteCommand { get; }
     public AsyncRelayCommand SaveCommand { get; }
     public RelayCommand ExportCommand { get; }
+    public RelayCommand ExportSourceCommand { get; }
     public RelayCommand ImportCommand { get; }
     public RelayCommand ValidateCommand { get; }
     public ImmutableArray<EffectScriptLibraryItem> Effects => items;
@@ -481,11 +484,11 @@ public sealed partial class EffectScriptLibraryViewModel : ObservableObject
         }
     }
 
-    private void Export()
+    private void ExportSource()
     {
         if (!SelectedIds.IsEmpty)
         {
-            ExportRequested?.Invoke(this, new(items.Where(item => SelectedIds.Contains(item.Id))
+            ExportSourceRequested?.Invoke(this, new(items.Where(item => SelectedIds.Contains(item.Id))
                 .Select(item => item.Preset).ToImmutableArray()));
         }
     }
@@ -565,7 +568,7 @@ public sealed partial class EffectScriptLibraryViewModel : ObservableObject
             OnPropertyChanged(property);
         }
 
-        foreach (var command in new IRelayCommand[] { AddCommand, DeleteCommand, SaveCommand, ExportCommand, ImportCommand, ValidateCommand })
+        foreach (var command in new IRelayCommand[] { AddCommand, DeleteCommand, SaveCommand, ExportCommand, ExportSourceCommand, ImportCommand, ValidateCommand })
         {
             command.NotifyCanExecuteChanged();
         }
