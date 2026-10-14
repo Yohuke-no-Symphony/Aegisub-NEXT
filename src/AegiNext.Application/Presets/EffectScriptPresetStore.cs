@@ -79,6 +79,45 @@ public static class EffectScriptPresetStore
         return WriteAtomicAsync(path, Serialize(collection), beforeCommit, cancellationToken);
     }
 
+    /// <summary>读取严格单项的 .aegieffect 文件，保留既有身份、展示名称及脚本原文。</summary>
+    public static async Task<EffectScriptPreset> ReadPresetAsync(string path, CancellationToken cancellationToken = default)
+    {
+        var bytes = await PresetFileReader.ReadAsync(path, MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false);
+        return DeserializePreset(bytes);
+    }
+
+    /// <summary>将一个个人特效模板编码为沿用版本化脚本文档的单项交换文件。</summary>
+    public static byte[] SerializePreset(EffectScriptPreset preset)
+    {
+        ArgumentNullException.ThrowIfNull(preset);
+        return Serialize(new() { Presets = [preset] });
+    }
+
+    /// <summary>拒绝空集合、多项集合以及任何不符合个人模板约束的完整特效文件。</summary>
+    public static EffectScriptPreset DeserializePreset(ReadOnlySpan<byte> bytes)
+    {
+        var document = Deserialize(bytes);
+        if (document.Presets.Length != 1)
+        {
+            throw new InvalidDataException("完整特效文件必须包含一个模板。");
+        }
+        return document.Presets[0];
+    }
+
+    /// <summary>验证完整个人模板后原子写入 .aegieffect；失败或取消保留既有文件。</summary>
+    public static Task WritePresetAsync(EffectScriptPreset preset, string path, CancellationToken cancellationToken = default)
+    {
+        return WritePresetAsync(preset, path, null, cancellationToken);
+    }
+
+    /// <summary>完整模板准备完毕后，在原子替换前调用宿主提交边界。</summary>
+    public static Task WritePresetAsync(EffectScriptPreset preset, string path, Action? beforeCommit,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return WriteAtomicAsync(path, SerializePreset(preset), beforeCommit, cancellationToken);
+    }
+
     /// <summary>读取单个可交换脚本，采用严格 UTF-8 并返回解析后的同一份源。</summary>
     public static async Task<EffectScriptTemplate> ReadScriptAsync(string path, CancellationToken cancellationToken = default)
     {

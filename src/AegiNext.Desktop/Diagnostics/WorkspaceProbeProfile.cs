@@ -28,5 +28,27 @@ internal static class WorkspaceProbeProfile
                 File.Copy(path, Path.Combine(options.ProfileDirectory, name));
             }
         }
+        var effectLibrary = Path.Combine(source, "effect-library");
+        if (Directory.Exists(effectLibrary))
+        {
+            CopyLibrary(effectLibrary, Path.Combine(options.ProfileDirectory, "effect-library"));
+        }
+    }
+
+    private static void CopyLibrary(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.EnumerateFiles(source))
+        {
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+        }
+        foreach (var directory in Directory.EnumerateDirectories(source))
+        {
+            if (new DirectoryInfo(directory).LinkTarget is not null)
+            {
+                throw new InvalidDataException("效果库诊断副本不能包含目录链接。");
+            }
+            CopyLibrary(directory, Path.Combine(destination, Path.GetFileName(directory)));
+        }
     }
 }

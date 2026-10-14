@@ -225,7 +225,9 @@ public sealed class SettingsLibrarySelectionUiTests
                 window.ViewModel.Styles.AddCommand.Execute(null);
                 window.ViewModel.Styles.Name = "Retry Style 中文 123";
             }
-            var path = Path.Combine(environment.DirectoryPath, effects ? "effect-scripts.json" : "subtitle-styles.aegistyles");
+            var path = context.EffectLibrary.ManifestPath;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.Delete(path);
             Directory.CreateDirectory(path);
             window.SelectPage(SettingsPage.COLORS);
             await window.ViewModel.NavigationCompletion;

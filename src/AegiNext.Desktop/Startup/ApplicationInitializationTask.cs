@@ -7,7 +7,7 @@ internal sealed class ApplicationInitializationTask(DesktopApplicationContext ow
     public override string Name => "Tasks.Initialization";
     public override AegiTaskMode Mode => AegiTaskMode.Blocking;
     public override bool CanCancel => false;
-    public override IReadOnlyCollection<AegiTaskResource> Resources => owner.SettingsResources;
+    public override IReadOnlyCollection<AegiTaskResource> Resources => owner.InitializationResources;
 
     protected override Task ExecuteAsync(AegiTaskExecutionContext context)
     {

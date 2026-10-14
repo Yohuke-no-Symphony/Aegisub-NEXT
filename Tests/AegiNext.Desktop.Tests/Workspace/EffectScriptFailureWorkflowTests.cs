@@ -28,7 +28,8 @@ public sealed class EffectScriptFailureWorkflowTests
         var original = session.EffectScriptLibrary.Snapshot;
         if (operation is "save" or "delete")
         {
-            var path = Path.Combine(context.DirectoryPath, "effect-scripts.json");
+            var path = session.ApplicationContext.EffectLibrary.ManifestPath;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.Delete(path);
             Directory.CreateDirectory(path);
         }

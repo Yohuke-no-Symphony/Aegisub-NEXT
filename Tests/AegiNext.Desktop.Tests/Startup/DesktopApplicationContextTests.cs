@@ -136,7 +136,11 @@ public sealed class DesktopApplicationContextTests
         Assert.Contains(context.Tasks.GetSnapshots(), value => value.Name == "Tasks.Initialization" &&
             value.State == AegiTaskState.Failed && value.ErrorSummary is not null);
         Assert.Equal(CORRUPT_JSON, await File.ReadAllTextAsync(path));
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Unaffected styles", new());
+        Assert.Null(context.SettingsLoadError);
+        Assert.NotNull(context.EffectLibraryLoadError);
+        await AegiNext.Application.Presets.EffectScriptPresetStore.SaveAsync(new(), path);
+        await context.RunEffectLibraryOperationAsync(() => context.EffectLibrary.LoadAsync());
+        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Recovered styles", new());
         await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(preset));
         Assert.Equal(preset, Assert.Single(context.StyleLibrary.Snapshot.Presets));
     }

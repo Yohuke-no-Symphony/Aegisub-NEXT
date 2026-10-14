@@ -350,8 +350,7 @@ public sealed class PresetDeletionConfirmationUiTests
 
     private static string LibraryPath(string directory, SettingsPage page) => Path.Combine(directory, page switch
     {
-        SettingsPage.STYLES => "subtitle-styles.aegistyles",
-        SettingsPage.EFFECTS => "effect-scripts.json",
+        SettingsPage.STYLES or SettingsPage.EFFECTS => Path.Combine("effect-library", "manifest.json"),
         _ => "export-presets.aegiexports"
     });
 
@@ -371,13 +370,16 @@ public sealed class PresetDeletionConfirmationUiTests
 
     private static async Task<Guid[]> PersistedIdsAsync(string directory, SettingsPage page)
     {
-        var path = LibraryPath(directory, page);
-        return page switch
+        if (page is SettingsPage.STYLES or SettingsPage.EFFECTS)
         {
-            SettingsPage.STYLES => (await SubtitleStylePresetStore.LoadAsync(path)).Presets.Select(preset => preset.Id).ToArray(),
-            SettingsPage.EFFECTS => (await EffectScriptPresetStore.LoadAsync(path)).Presets.Select(preset => preset.Id).ToArray(),
-            _ => (await VideoExportPresetStore.LoadAsync(path)).Presets.Select(preset => preset.Id).ToArray()
-        };
+            using var repository = new EffectLibraryRepository(Path.Combine(directory, "effect-library"));
+            await repository.LoadAsync();
+            return page == SettingsPage.STYLES
+                ? repository.Snapshot.Styles.Presets.Select(preset => preset.Id).ToArray()
+                : repository.Snapshot.Effects.Presets.Select(preset => preset.Id).ToArray();
+        }
+        var path = LibraryPath(directory, page);
+        return (await VideoExportPresetStore.LoadAsync(path)).Presets.Select(preset => preset.Id).ToArray();
     }
 
     private static Task<bool> SelectAsync(SettingsWindow window, SettingsPage page, Guid primaryId, Guid[] ids) => page switch

@@ -50,4 +50,29 @@ public sealed class WorkspaceProbeProfileTests
         Assert.Throws<DirectoryNotFoundException>(() => WorkspaceProbeProfile.Prepare(options));
         Assert.False(Directory.Exists(options.ProfileDirectory));
     }
+
+    [Fact]
+    public void ManagedLibraryFilesAreCopiedIntoAnIndependentProbe()
+    {
+        using var source = new TemporaryWorkbenchDirectory();
+        var library = Path.Combine(source.Path, "effect-library");
+        var styles = Path.Combine(library, "styles");
+        Directory.CreateDirectory(styles);
+        File.WriteAllText(Path.Combine(library, "manifest.json"), "original manifest");
+        File.WriteAllText(Path.Combine(styles, "preset.aegistyles"), "original preset");
+        var options = WorkspaceProbeOptions.Parse(["--workspace-probe-auto", "--workspace-probe-source-profile", source.Path]);
+        try
+        {
+            WorkspaceProbeProfile.Prepare(options);
+            var copied = Path.Combine(options.ProfileDirectory, "effect-library", "styles", "preset.aegistyles");
+
+            Assert.Equal("original preset", File.ReadAllText(copied));
+            File.WriteAllText(copied, "probe change");
+            Assert.Equal("original preset", File.ReadAllText(Path.Combine(styles, "preset.aegistyles")));
+        }
+        finally
+        {
+            Directory.Delete(options.ProfileDirectory, true);
+        }
+    }
 }

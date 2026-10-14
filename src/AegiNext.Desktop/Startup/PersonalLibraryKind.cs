@@ -5,5 +5,6 @@ internal enum PersonalLibraryKind
     STYLE,
     EFFECT,
     EXPORT,
-    COLOR_TAG
+    COLOR_TAG,
+    EFFECT_LIBRARY
 }

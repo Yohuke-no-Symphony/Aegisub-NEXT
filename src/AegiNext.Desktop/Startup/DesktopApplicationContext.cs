@@ -43,6 +43,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         IUpdateReleaseSource? updateReleaseSource = null)
     {
         PreferencesStore = preferencesStore ?? new(Environment.GetEnvironmentVariable("AEGINEXT_PREFERENCES_DIRECTORY"));
+        LibraryPaths = new(PreferencesStore.DirectoryPath);
         this.initialPreferences = initialPreferences;
         preferences = initialPreferences ?? new();
         Tasks = new();
@@ -56,10 +57,11 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         AudioAnalysisBudget = new(preferences.AudioAnalysis.Execution.MaximumWorkers);
         preferencesLoadError = PreferencesStore.LoadError;
         SettingsRestore = new(PreferencesStore.DirectoryPath);
-        StyleLibrary = new(Path.Combine(PreferencesStore.DirectoryPath, "subtitle-styles.aegistyles"));
-        EffectScriptLibrary = new(Path.Combine(PreferencesStore.DirectoryPath, "effect-scripts.json"));
-        ExportPresetLibrary = new(Path.Combine(PreferencesStore.DirectoryPath, "export-presets.aegiexports"));
-        ColorTagLibrary = new(Path.Combine(PreferencesStore.DirectoryPath, "subtitle-color-tags.json"));
+        EffectLibrary = new(LibraryPaths.EffectLibraryDirectory, LibraryPaths.LegacyStyleFile, LibraryPaths.LegacyEffectFile);
+        StyleLibrary = new(EffectLibrary);
+        EffectScriptLibrary = new(EffectLibrary);
+        ExportPresetLibrary = new(LibraryPaths.ExportPresetFile);
+        ColorTagLibrary = new(LibraryPaths.ColorTagFile);
         RecentProjects = new(PreferencesStore.DirectoryPath, Tasks, deferLoad: true);
         RecentProjects.ErrorChanged += OnRecentProjectsError;
         if (initialPreferences is not null)
@@ -78,6 +80,8 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
     internal event EventHandler? BusyChanged;
     internal event EventHandler? ErrorChanged;
     internal WorkbenchPreferencesStore PreferencesStore { get; }
+    internal PersonalLibraryPaths LibraryPaths { get; }
+    internal EffectLibraryRepository EffectLibrary { get; }
     internal SubtitleStylePresetLibrary StyleLibrary { get; }
     internal EffectScriptPresetLibrary EffectScriptLibrary { get; }
     internal VideoExportPresetLibrary ExportPresetLibrary { get; }
@@ -91,11 +95,18 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
     internal IReadOnlyCollection<AegiTaskResource> SettingsResources =>
     [
         AegiTaskResource.DeferredStoragePath(Path.Combine(PreferencesStore.DirectoryPath, "preferences.json")),
-        GetLibraryResource(PersonalLibraryKind.STYLE), GetLibraryResource(PersonalLibraryKind.EFFECT),
         GetLibraryResource(PersonalLibraryKind.EXPORT), GetLibraryResource(PersonalLibraryKind.COLOR_TAG),
         AegiTaskResource.DeferredStoragePath(Path.Combine(PreferencesStore.DirectoryPath, "recent-projects.json")),
         AegiTaskResource.DeferredStoragePath(Path.Combine(PreferencesStore.DirectoryPath, "layouts.json")),
         AegiTaskResource.Named("settings-restore:" + PreferencesStore.DirectoryPath)
+    ];
+    internal IReadOnlyCollection<AegiTaskResource> EffectLibraryResources =>
+        [GetLibraryResource(PersonalLibraryKind.EFFECT_LIBRARY)];
+    internal IReadOnlyCollection<AegiTaskResource> InitializationResources =>
+    [
+        .. SettingsResources, .. EffectLibraryResources,
+        AegiTaskResource.DeferredStoragePath(LibraryPaths.LegacyStyleFile),
+        AegiTaskResource.DeferredStoragePath(LibraryPaths.LegacyEffectFile)
     ];
     internal Task Initialization { get; }
     internal WorkspaceLayoutFile InitialLayout { get; private set; } = new();
@@ -106,7 +117,20 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         {
             lock (lifetime)
             {
-                return preferencesLoadError ?? libraryLoadErrors.Values.FirstOrDefault();
+                return preferencesLoadError ?? libraryLoadErrors.GetValueOrDefault(PersonalLibraryKind.EXPORT)
+                    ?? libraryLoadErrors.GetValueOrDefault(PersonalLibraryKind.COLOR_TAG);
+            }
+        }
+    }
+    internal Exception? EffectLibraryLoadError
+    {
+        get
+        {
+            lock (lifetime)
+            {
+                return libraryLoadErrors.GetValueOrDefault(PersonalLibraryKind.EFFECT_LIBRARY)
+                    ?? libraryLoadErrors.GetValueOrDefault(PersonalLibraryKind.STYLE)
+                    ?? libraryLoadErrors.GetValueOrDefault(PersonalLibraryKind.EFFECT);
             }
         }
     }
@@ -191,6 +215,11 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         return EnqueueLibraryOperation(operation, PersonalLibraryKind.EFFECT, true);
     }
 
+    internal Task RunEffectLibraryOperationAsync(Func<Task> operation)
+    {
+        return EnqueueLibraryOperation(operation, PersonalLibraryKind.EFFECT_LIBRARY, true);
+    }
+
     internal Task RunExportPresetOperationAsync(Func<Task> operation)
     {
         return EnqueueLibraryOperation(operation, PersonalLibraryKind.EXPORT, true);
@@ -229,25 +258,12 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
 
     internal AegiTaskResource GetLibraryResource(PersonalLibraryKind kind)
     {
-        return AegiTaskResource.DeferredStoragePath(GetLibraryResourcePath(kind));
+        return AegiTaskResource.DeferredStoragePath(LibraryPaths.GetLibraryPath(kind));
     }
 
     internal AegiTaskResource GetCanonicalLibraryResource(PersonalLibraryKind kind)
     {
-        return AegiTaskResource.StoragePath(GetLibraryResourcePath(kind));
-    }
-
-    private string GetLibraryResourcePath(PersonalLibraryKind kind)
-    {
-        var name = kind switch
-        {
-            PersonalLibraryKind.STYLE => "subtitle-styles.aegistyles",
-            PersonalLibraryKind.EFFECT => "effect-scripts.json",
-            PersonalLibraryKind.EXPORT => "export-presets.aegiexports",
-            PersonalLibraryKind.COLOR_TAG => "subtitle-color-tags.json",
-            _ => throw new ArgumentOutOfRangeException(nameof(kind))
-        };
-        return Path.Combine(PreferencesStore.DirectoryPath, name);
+        return AegiTaskResource.StoragePath(LibraryPaths.GetLibraryPath(kind));
     }
 
     private async Task InitializeAndLoadFontsAsync(Task initialization)
@@ -304,8 +320,8 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
             return layoutStore.Load();
         });
         LastError = SettingsRestoreStartup.GetError(PreferencesStore.DirectoryPath) ?? PreferencesStore.LoadError ?? RecentProjects.LastError;
-        await context.RunStageAsync("Tasks.StyleLibrary", _ => ExecuteLibraryOperationAsync(() => StyleLibrary.LoadAsync(), PersonalLibraryKind.STYLE, false));
-        await context.RunStageAsync("Tasks.EffectLibrary", _ => ExecuteLibraryOperationAsync(() => EffectScriptLibrary.LoadAsync(), PersonalLibraryKind.EFFECT, false));
+        await context.RunStageAsync("Tasks.EffectLibrary", _ => ExecuteLibraryOperationAsync(
+            () => EffectLibrary.LoadAsync(), PersonalLibraryKind.EFFECT_LIBRARY, false));
         await context.RunStageAsync("Tasks.ExportPresetLibrary", _ => ExecuteLibraryOperationAsync(() => ExportPresetLibrary.LoadAsync(), PersonalLibraryKind.EXPORT, false));
         await context.RunStageAsync("Tasks.ColorTagLibrary", _ => ExecuteLibraryOperationAsync(
             () => ColorTagLibrary.LoadAsync(CreateDefaultColorTags()), PersonalLibraryKind.COLOR_TAG, false));
@@ -334,17 +350,33 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         BusyChanged?.Invoke(this, EventArgs.Empty);
         try
         {
+            var previousStyles = StyleLibrary.Snapshot;
+            var previousEffects = EffectScriptLibrary.Snapshot;
             var before = LibrarySnapshot(kind);
             await operation();
             var after = LibrarySnapshot(kind);
             if (!propagateFailure || !ReferenceEquals(before, after))
             {
                 SetLibraryLoadError(kind, null);
+                if (kind is PersonalLibraryKind.STYLE or PersonalLibraryKind.EFFECT or PersonalLibraryKind.EFFECT_LIBRARY)
+                {
+                    SetLibraryLoadError(PersonalLibraryKind.EFFECT_LIBRARY, null);
+                }
             }
             if (!ReferenceEquals(before, after))
             {
                 switch (kind)
                 {
+                    case PersonalLibraryKind.EFFECT_LIBRARY:
+                        if (!ReferenceEquals(previousStyles, StyleLibrary.Snapshot))
+                        {
+                            StylesChanged?.Invoke(this, EventArgs.Empty);
+                        }
+                        if (!ReferenceEquals(previousEffects, EffectScriptLibrary.Snapshot))
+                        {
+                            EffectsChanged?.Invoke(this, EventArgs.Empty);
+                        }
+                        break;
                     case PersonalLibraryKind.STYLE:
                         StylesChanged?.Invoke(this, EventArgs.Empty);
                         break;
@@ -390,6 +422,10 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
     {
         switch (kind)
         {
+            case PersonalLibraryKind.EFFECT_LIBRARY:
+                Interlocked.Add(ref queuedStyles, change);
+                Interlocked.Add(ref queuedEffects, change);
+                break;
             case PersonalLibraryKind.STYLE:
                 Interlocked.Add(ref queuedStyles, change);
                 break;
@@ -409,6 +445,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
     {
         return kind switch
         {
+            PersonalLibraryKind.EFFECT_LIBRARY => EffectLibrary.Snapshot,
             PersonalLibraryKind.STYLE => StyleLibrary.Snapshot,
             PersonalLibraryKind.EFFECT => EffectScriptLibrary.Snapshot,
             PersonalLibraryKind.EXPORT => ExportPresetLibrary.Snapshot,
@@ -528,6 +565,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         await RecentProjects.DisposeAsync();
         StyleLibrary.Dispose();
         EffectScriptLibrary.Dispose();
+        EffectLibrary.Dispose();
         ExportPresetLibrary.Dispose();
         ColorTagLibrary.Dispose();
         SettingsRestore.Dispose();

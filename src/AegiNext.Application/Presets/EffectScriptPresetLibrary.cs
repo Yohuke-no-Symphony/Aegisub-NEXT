@@ -6,6 +6,7 @@ namespace AegiNext.Application.Presets;
 public sealed class EffectScriptPresetLibrary : IDisposable
 {
     private readonly string filePath;
+    private readonly EffectLibraryRepository? repository;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Lock lifetime = new();
     private EffectScriptPresetDocument snapshot = new();
@@ -25,12 +26,31 @@ public sealed class EffectScriptPresetLibrary : IDisposable
         filePath = Path.GetFullPath(absoluteFilePath);
     }
 
-    public EffectScriptPresetDocument Snapshot => Volatile.Read(ref snapshot);
+    /// <summary>连接宿主拥有的共享多文件效果库；门面仅管理自身操作生命周期。</summary>
+    public EffectScriptPresetLibrary(EffectLibraryRepository repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        this.repository = repository;
+        filePath = repository.ManifestPath;
+    }
+
+    public EffectScriptPresetDocument Snapshot => repository?.Snapshot.Effects ?? Volatile.Read(ref snapshot);
 
     /// <summary>加载并验证完整库；不存在时使用空库，损坏时保留最后成功快照。</summary>
     public Task LoadAsync(CancellationToken cancellationToken = default)
     {
-        return ExecuteAsync(() => ReadAsync(cancellationToken), cancellationToken);
+        return ExecuteAsync(async () =>
+        {
+            if (repository is not null)
+            {
+                await repository.LoadAsync(cancellationToken).ConfigureAwait(false);
+                loaded = true;
+            }
+            else
+            {
+                await ReadAsync(cancellationToken).ConfigureAwait(false);
+            }
+        }, cancellationToken);
     }
 
     /// <summary>新增或修改个人模板，所有冲突在落盘之前拒绝。</summary>
@@ -39,6 +59,16 @@ public sealed class EffectScriptPresetLibrary : IDisposable
         ArgumentNullException.ThrowIfNull(preset);
         return ExecuteAsync(async () =>
         {
+            if (repository is not null)
+            {
+                await repository.UpdateEffectsAsync(current =>
+                {
+                    var index = FindIndex(current, preset.Id);
+                    var items = index < 0 ? current.Presets.Add(preset) : current.Presets.SetItem(index, preset);
+                    return current with { Presets = items };
+                }, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
             var index = FindIndex(preset.Id);
             var items = index < 0 ? snapshot.Presets.Add(preset) : snapshot.Presets.SetItem(index, preset);
@@ -61,6 +91,19 @@ public sealed class EffectScriptPresetLibrary : IDisposable
         {
             if (selection.Count == 0)
             {
+                return;
+            }
+
+            if (repository is not null)
+            {
+                await repository.UpdateEffectsAsync(current =>
+                {
+                    if (current.Presets.Count(preset => selection.Contains(preset.Id)) != selection.Count)
+                    {
+                        throw new InvalidDataException("特效模板不存在。");
+                    }
+                    return current with { Presets = current.Presets.Where(preset => !selection.Contains(preset.Id)).ToImmutableArray() };
+                }, cancellationToken: cancellationToken).ConfigureAwait(false);
                 return;
             }
 
@@ -101,6 +144,26 @@ public sealed class EffectScriptPresetLibrary : IDisposable
                 return;
             }
 
+            if (repository is not null)
+            {
+                var imported = ImmutableArray.CreateBuilder<EffectScriptPreset>();
+                foreach (var path in inputs)
+                {
+                    if (string.Equals(Path.GetExtension(path), ".aegieffect", StringComparison.OrdinalIgnoreCase))
+                    {
+                        imported.Add(await EffectScriptPresetStore.ReadPresetAsync(path, cancellationToken).ConfigureAwait(false));
+                    }
+                    else
+                    {
+                        var template = await EffectScriptPresetStore.ReadScriptAsync(path, cancellationToken).ConfigureAwait(false);
+                        imported.Add(new(Guid.NewGuid(), template.Script.Id, template.Source));
+                    }
+                }
+                await repository.UpdateEffectsAsync(current => current with { Presets = current.Presets.AddRange(imported) },
+                    beforeCommit, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
             var items = snapshot.Presets;
             foreach (var path in inputs)
@@ -120,7 +183,7 @@ public sealed class EffectScriptPresetLibrary : IDisposable
     /// <summary>按个人模板身份导出源文件，不允许覆盖当前个人库。</summary>
     public Task ExportAsync(Guid id, string path, CancellationToken cancellationToken = default)
     {
-        if (string.Equals(Path.GetFullPath(path), filePath,
+        if (repository?.IsManagedPath(path) == true || string.Equals(Path.GetFullPath(path), filePath,
                 OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
         {
             throw new InvalidDataException("导出位置不能是当前特效脚本库。");
@@ -129,7 +192,7 @@ public sealed class EffectScriptPresetLibrary : IDisposable
         return ExecuteAsync(async () =>
         {
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
-            var preset = snapshot.Presets.FirstOrDefault(item => item.Id == id) ?? throw new InvalidDataException("特效模板不存在。");
+            var preset = Snapshot.Presets.FirstOrDefault(item => item.Id == id) ?? throw new InvalidDataException("特效模板不存在。");
             await EffectScriptPresetStore.WriteScriptAsync(preset.Source, path, cancellationToken).ConfigureAwait(false);
         }, cancellationToken);
     }
@@ -140,7 +203,7 @@ public sealed class EffectScriptPresetLibrary : IDisposable
         ArgumentNullException.ThrowIfNull(preset);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var destination = Path.GetFullPath(path);
-        if (string.Equals(destination, filePath,
+        if (repository?.IsManagedPath(destination) == true || string.Equals(destination, filePath,
                 OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
         {
             throw new InvalidDataException("导出位置不能是当前特效脚本库。");
@@ -205,6 +268,12 @@ public sealed class EffectScriptPresetLibrary : IDisposable
 
     private async Task ReadAsync(CancellationToken cancellationToken)
     {
+        if (repository is not null)
+        {
+            await repository.EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+            loaded = true;
+            return;
+        }
         EffectScriptPresetDocument value;
         try
         {
@@ -237,9 +306,14 @@ public sealed class EffectScriptPresetLibrary : IDisposable
 
     private int FindIndex(Guid id)
     {
-        for (var index = 0; index < snapshot.Presets.Length; index++)
+        return FindIndex(snapshot, id);
+    }
+
+    private static int FindIndex(EffectScriptPresetDocument collection, Guid id)
+    {
+        for (var index = 0; index < collection.Presets.Length; index++)
         {
-            if (snapshot.Presets[index].Id == id)
+            if (collection.Presets[index].Id == id)
             {
                 return index;
             }

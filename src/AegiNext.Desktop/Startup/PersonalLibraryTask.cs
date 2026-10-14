@@ -8,7 +8,7 @@ internal sealed class PersonalLibraryTask(DesktopApplicationContext owner, Perso
     public override string Name => kind switch
     {
         PersonalLibraryKind.STYLE => "Tasks.StyleLibrary",
-        PersonalLibraryKind.EFFECT => "Tasks.EffectLibrary",
+        PersonalLibraryKind.EFFECT or PersonalLibraryKind.EFFECT_LIBRARY => "Tasks.EffectLibrary",
         PersonalLibraryKind.EXPORT => "Tasks.ExportPresetLibrary",
         PersonalLibraryKind.COLOR_TAG => "Tasks.ColorTagLibrary",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))

@@ -126,6 +126,30 @@ public sealed class SettingsPresetTaskTests
         Assert.Empty(owner.EffectScriptLibrary.Snapshot.Presets);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExportRejectsAnyFileInsideTheManagedLibraryIncludingDirectoryAliases(bool symbolicLink)
+    {
+        using var settingsDirectory = new TemporaryWorkbenchDirectory();
+        using var outputDirectory = new TemporaryWorkbenchDirectory();
+        await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
+        await owner.Initialization;
+        var root = owner.LibraryPaths.EffectLibraryDirectory;
+        if (symbolicLink)
+        {
+            var alias = Path.Combine(outputDirectory.Path, "alias");
+            Directory.CreateSymbolicLink(alias, root);
+            root = alias;
+        }
+        var destination = Path.Combine(root, "exported.aegistyles");
+        var task = new SettingsStyleExportTask(owner, [new(Guid.NewGuid(), "Selected", new())], destination, false);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => owner.Tasks.Submit(task).Completion);
+
+        Assert.False(File.Exists(destination));
+    }
+
     [Fact]
     public async Task BatchCommitRejectionCleansAllStagingBeforePublishingAnyOutput()
     {

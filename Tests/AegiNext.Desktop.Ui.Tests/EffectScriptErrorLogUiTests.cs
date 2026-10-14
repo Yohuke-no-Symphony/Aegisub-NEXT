@@ -91,7 +91,9 @@ public sealed class EffectScriptErrorLogUiTests
         var model = settings.ViewModel.Effects;
         var draftId = model.Draft!.Id;
         var source = model.Source;
-        var blocked = Path.Combine(context.Session.PreferencesStore.DirectoryPath, "effect-scripts.json");
+        var blocked = context.Session.ApplicationContext.EffectLibrary.ManifestPath;
+        Directory.CreateDirectory(Path.GetDirectoryName(blocked)!);
+        File.Delete(blocked);
         Directory.CreateDirectory(blocked);
         context.Window.Layouts.Hide(WorkbenchPanelIds.LOG);
         context.Session.Journal.Clear();

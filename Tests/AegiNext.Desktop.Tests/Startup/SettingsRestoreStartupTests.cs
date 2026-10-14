@@ -145,19 +145,21 @@ public sealed class SettingsRestoreStartupTests
     }
 
     [Fact]
-    public async Task CorruptLibraryRemainsABackupErrorUntilAValidLibraryIsPublished()
+    public async Task CorruptLibraryIsIsolatedFromSettingsUntilAValidLibraryIsPublished()
     {
         using var directory = new TemporaryWorkbenchDirectory();
         var path = Path.Combine(directory.Path, "effect-scripts.json");
         await File.WriteAllTextAsync(path, "{broken");
         await using var context = new DesktopApplicationContext(new(directory.Path));
         await context.Initialization;
-        Assert.NotNull(context.SettingsLoadError);
+        Assert.NotNull(context.EffectLibraryLoadError);
+        Assert.Null(context.SettingsLoadError);
 
         await EffectScriptPresetStore.SaveAsync(new(), path);
         await context.RunEffectOperationAsync(() => context.EffectScriptLibrary.LoadAsync());
 
         Assert.Null(context.SettingsLoadError);
+        Assert.Null(context.EffectLibraryLoadError);
     }
 
     [Fact]

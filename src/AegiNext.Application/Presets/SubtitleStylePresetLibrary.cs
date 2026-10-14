@@ -8,6 +8,7 @@ namespace AegiNext.Application.Presets;
 public sealed class SubtitleStylePresetLibrary : IDisposable
 {
     private readonly string filePath;
+    private readonly EffectLibraryRepository? repository;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Lock lifetime = new();
     private SubtitleStylePresetCollection snapshot = new();
@@ -27,8 +28,16 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         filePath = Path.GetFullPath(absoluteFilePath);
     }
 
+    /// <summary>连接宿主拥有的共享多文件效果库；释放门面不释放仓库。</summary>
+    public SubtitleStylePresetLibrary(EffectLibraryRepository repository)
+    {
+        ArgumentNullException.ThrowIfNull(repository);
+        this.repository = repository;
+        filePath = repository.ManifestPath;
+    }
+
     /// <summary>最后一次成功加载或提交的完整库。</summary>
-    public SubtitleStylePresetCollection Snapshot => Volatile.Read(ref snapshot);
+    public SubtitleStylePresetCollection Snapshot => repository?.Snapshot.Styles ?? Volatile.Read(ref snapshot);
 
     /// <summary>完整加载并验证本地库；不存在时发布空库，损坏文件保持原快照。</summary>
     public async Task LoadAsync(CancellationToken cancellationToken = default)
@@ -36,7 +45,15 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         await EnterAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await ReadAsync(cancellationToken).ConfigureAwait(false);
+            if (repository is not null)
+            {
+                await repository.LoadAsync(cancellationToken).ConfigureAwait(false);
+                loaded = true;
+            }
+            else
+            {
+                await ReadAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
         finally
         {
@@ -51,6 +68,16 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         await EnterAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (repository is not null)
+            {
+                await repository.UpdateStylesAsync(current =>
+                {
+                    var index = FindIndex(current, preset.Id);
+                    var items = index < 0 ? current.Presets.Add(preset) : current.Presets.SetItem(index, preset);
+                    return current with { Presets = items };
+                }, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
             var index = FindIndex(preset.Id);
             var items = index < 0 ? snapshot.Presets.Add(preset) : snapshot.Presets.SetItem(index, preset);
@@ -70,6 +97,13 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         await EnterAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            if (repository is not null)
+            {
+                var ids = presetIds.ToHashSet();
+                await repository.UpdateStylesAsync(current => WithTimingPostProcessor(current, ids, options, cancellationToken),
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
             var selection = presetIds.ToHashSet();
             if (snapshot.Presets.Count(preset => selection.Contains(preset.Id)) != selection.Count)
@@ -127,6 +161,19 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
                 return;
             }
 
+            if (repository is not null)
+            {
+                await repository.UpdateStylesAsync(current =>
+                {
+                    if (current.Presets.Count(preset => selection.Contains(preset.Id)) != selection.Count)
+                    {
+                        throw new InvalidDataException("待删除的样式预设不存在。");
+                    }
+                    return current with { Presets = current.Presets.Where(preset => !selection.Contains(preset.Id)).ToImmutableArray() };
+                }, cancellationToken: cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
             if (snapshot.Presets.Count(preset => selection.Contains(preset.Id)) != selection.Count)
             {
@@ -169,6 +216,22 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
                 return;
             }
 
+            if (repository is not null)
+            {
+                var imported = ImmutableArray.CreateBuilder<SubtitleStylePreset>();
+                foreach (var path in inputs)
+                {
+                    var collection = await SubtitleStylePresetStore.LoadAsync(path, cancellationToken).ConfigureAwait(false);
+                    imported.AddRange(collection.Presets);
+                }
+                if (imported.Count != 0)
+                {
+                    await repository.UpdateStylesAsync(current => current with { Presets = current.Presets.AddRange(imported) },
+                        beforeCommit, cancellationToken).ConfigureAwait(false);
+                }
+                return;
+            }
+
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
             var items = snapshot.Presets;
             foreach (var path in inputs)
@@ -199,7 +262,7 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var destination = Path.GetFullPath(path);
-        if (string.Equals(destination, filePath, OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+        if (repository?.IsManagedPath(destination) == true || string.Equals(destination, filePath, OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
                 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
         {
             throw new InvalidDataException("导出位置不能是正在使用的样式库文件。");
@@ -209,17 +272,17 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         try
         {
             await EnsureLoadedAsync(cancellationToken).ConfigureAwait(false);
-            var exported = snapshot;
+            var exported = Snapshot;
             if (ids is not null)
             {
                 var selection = ids.ToHashSet();
-                var selected = snapshot.Presets.Where(preset => selection.Contains(preset.Id)).ToImmutableArray();
+                var selected = exported.Presets.Where(preset => selection.Contains(preset.Id)).ToImmutableArray();
                 if (selected.Length != selection.Count)
                 {
                     throw new InvalidDataException("待导出的样式预设不存在。");
                 }
 
-                exported = snapshot with { Presets = selected };
+                exported = exported with { Presets = selected };
             }
 
             await SubtitleStylePresetStore.SaveAsync(exported, destination, cancellationToken).ConfigureAwait(false);
@@ -236,7 +299,7 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         ArgumentNullException.ThrowIfNull(preset);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var destination = Path.GetFullPath(path);
-        if (string.Equals(destination, filePath, OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
+        if (repository?.IsManagedPath(destination) == true || string.Equals(destination, filePath, OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
                 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
         {
             throw new InvalidDataException("导出位置不能是正在使用的样式库文件。");
@@ -291,6 +354,12 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
 
     private async Task ReadAsync(CancellationToken cancellationToken)
     {
+        if (repository is not null)
+        {
+            await repository.EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+            loaded = true;
+            return;
+        }
         SubtitleStylePresetCollection result;
         try
         {
@@ -312,15 +381,48 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
 
     private int FindIndex(Guid id)
     {
-        for (var index = 0; index < snapshot.Presets.Length; index++)
+        return FindIndex(snapshot, id);
+    }
+
+    private static int FindIndex(SubtitleStylePresetCollection collection, Guid id)
+    {
+        for (var index = 0; index < collection.Presets.Length; index++)
         {
-            if (snapshot.Presets[index].Id == id)
+            if (collection.Presets[index].Id == id)
             {
                 return index;
             }
         }
 
         return -1;
+    }
+
+    private static SubtitleStylePresetCollection WithTimingPostProcessor(SubtitleStylePresetCollection current, HashSet<Guid> ids,
+        TimingPostProcessorOptions? options, CancellationToken cancellationToken)
+    {
+        if (current.Presets.Count(preset => ids.Contains(preset.Id)) != ids.Count)
+        {
+            throw new InvalidDataException("待关联时间后续处理器的样式预设不存在。");
+        }
+        try
+        {
+            options?.Validate();
+        }
+        catch (ArgumentOutOfRangeException error)
+        {
+            throw new InvalidDataException("字幕样式关联的时间后续处理器参数无效。", error);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        var items = current.Presets;
+        for (var index = 0; index < items.Length; index++)
+        {
+            var preset = items[index];
+            if (ids.Contains(preset.Id) && preset.TimingPostProcessor != options)
+            {
+                items = items.SetItem(index, preset with { TimingPostProcessor = options });
+            }
+        }
+        return items == current.Presets ? current : current with { Presets = items };
     }
 
     private async Task EnterAsync(CancellationToken cancellationToken)

@@ -354,8 +354,9 @@ public sealed class TimingPostProcessorSettingsUiTests
             Assert.Equal(updatedOptions, saved.TimingPostProcessor);
             Assert.Equal(capturedVisualDraft.Name, saved.Name);
             Assert.Equal(48, saved.Style.FontSize);
-            var persisted = await SubtitleStylePresetStore.LoadAsync(Path.Combine(environment.DirectoryPath, "subtitle-styles.aegistyles"));
-            Assert.Equal(saved, Assert.Single(persisted.Presets));
+            using var persisted = new EffectLibraryRepository(context.LibraryPaths.EffectLibraryDirectory);
+            await persisted.LoadAsync();
+            Assert.Equal(saved, Assert.Single(persisted.Snapshot.Styles.Presets));
             Assert.False(window.ViewModel.HasError);
         }
         finally
@@ -505,8 +506,9 @@ public sealed class TimingPostProcessorSettingsUiTests
             await coordinator.OpenAsync(owner, session, SettingsPage.TIMING_POST_PROCESSOR);
             var reopened = Assert.IsType<SettingsWindow>(coordinator.Window);
             Assert.True(reopened.ViewModel.TimingPostProcessor.Styles.Single(style => style.Id == custom.Id).IsAssociated);
-            var stored = await SubtitleStylePresetStore.LoadAsync(Path.Combine(environment.DirectoryPath, "subtitle-styles.aegistyles"));
-            Assert.Equal(model.Options, stored.Presets.Single(style => style.Id == custom.Id).TimingPostProcessor);
+            using var stored = new EffectLibraryRepository(context.LibraryPaths.EffectLibraryDirectory);
+            await stored.LoadAsync();
+            Assert.Equal(model.Options, stored.Snapshot.Styles.Presets.Single(style => style.Id == custom.Id).TimingPostProcessor);
         }
         finally
         {
