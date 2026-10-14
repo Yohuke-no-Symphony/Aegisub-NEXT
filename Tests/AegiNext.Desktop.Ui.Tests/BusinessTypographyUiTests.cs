@@ -22,6 +22,44 @@ public sealed class BusinessTypographyUiTests
     private static readonly string[] samples = ["TEST 123", "这是什么？123", "中文 abc 456"];
     private static readonly string[] monospaceFamilies = ["Cascadia Code", "Menlo", "Consolas", "Cascadia Code, Menlo, Consolas"];
 
+    [AvaloniaTheory]
+    [InlineData("en-US", WorkbenchTheme.LIGHT)]
+    [InlineData("en-US", WorkbenchTheme.DARK)]
+    [InlineData("zh-CN", WorkbenchTheme.LIGHT)]
+    [InlineData("zh-CN", WorkbenchTheme.DARK)]
+    [InlineData("ja-JP", WorkbenchTheme.LIGHT)]
+    [InlineData("ja-JP", WorkbenchTheme.DARK)]
+    public async Task EffectLibraryPageHeadingsRetainTheirFullLineBoxAcrossPagesAndLanguages(string language, WorkbenchTheme theme)
+    {
+        using var environment = new UiTestEnvironment();
+        Localization.SetLanguage(language);
+        var window = new EffectLibraryWindow(new() { Theme = theme });
+        try
+        {
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            window.Show();
+            foreach (var page in Enum.GetValues<EffectLibraryPage>())
+            {
+                window.SelectPage(page);
+                await window.ViewModel.NavigationCompletion;
+                var title = UiTestActions.Find<TextBlock>(window, "PageTitle");
+                Assert.Equal(28, title.LineHeight);
+                Assert.True(title.LineHeight >= title.FontSize);
+                Assert.True(title.Bounds.Height >= title.LineHeight);
+                Assert.Equal(window.ViewModel.PageTitle, title.Text);
+                using var layout = new TextLayout(title.Text!, new Typeface(title.FontFamily), title.FontSize,
+                    title.Foreground, lineHeight: title.LineHeight);
+                Assert.Equal(title.LineHeight, Assert.Single(layout.TextLines).Height);
+            }
+        }
+        finally
+        {
+            window.Close();
+            await window.DisposalCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
     [AvaloniaFact]
     public async Task FloatingChromeAndRegisteredDialogsInheritBodyTypographyWithoutClippingLargeTitlesAndIcons()
     {

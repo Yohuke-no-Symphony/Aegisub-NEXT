@@ -50,7 +50,7 @@
         </ListBox>
       </Border>
       <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="24,20" RowSpacing="16">
-        <TextBlock Name="PageTitle" Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" />
+        <TextBlock Name="PageTitle" Classes="heading" Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" />
         <Grid Grid.Row="1" IsVisible="{Binding IsStylesVisible}">
           <styles:StyleLibraryView Name="StylesView" DataContext="{Binding Styles}"
                                    IsVisible="{Binding $parent[Grid].IsVisible}" />
