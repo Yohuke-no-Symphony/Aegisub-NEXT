@@ -4,6 +4,9 @@ Paths are relative to the AegiNext checkout. Use them as current examples, not a
 
 | Need | Existing implementation |
 |---|---|
+| Shared collapsible parameter groups | `src/AegiNext.Desktop/Controls/Common/PropertySection.cs` and its type-keyed theme in `WorkbenchTheme.axaml` |
+| Header/value/actions layout for parameter and dropdown rows | `src/AegiNext.Desktop/Controls/Common/PropertyRowControl.cs` and its type-keyed theme in `WorkbenchTheme.axaml` |
+| Scalar/vector/color draft rows with optional animation actions | `src/AegiNext.Desktop/Controls/Editing/AnimationPropertyRowControl.axaml` and `.axaml.cs` |
 | Shared square toolbar toggles | `src/AegiNext.Desktop/Controls/Common/ToolbarToggleButton.cs` and its type-keyed theme in `WorkbenchTheme.axaml` |
 | Raw scalar drafts | `src/AegiNext.Desktop/Controls/Editing/NumericDraftInput.cs` |
 | Pure scalar state for vector consumers | `src/AegiNext.Desktop/Editing/NumericValueDraft.cs` |
@@ -24,10 +27,23 @@ Ordinary scalar/vector fields bind both parsed values and raw text. Report failu
 
 Settings pages use compiled bindings to their own page ViewModels. Watch framework-handled binding exceptions during initialization, not merely the eventual DataContext. Static labels use `{Loc Key=...}` and dynamic text uses the shared `AegiNext.Desktop.I18n.Localization` service. Model selection refresh and translated item lists must preserve stable IDs without firing user actions; language changes must not commit drafts. See [aeginext-localization](../../aeginext-localization/SKILL.md) for language-resource, binding, and subscription contracts.
 
+## Shared parameter row integration
+
+`EffectsPanelView.axaml` composes position/scale/opacity/blur through `AnimationPropertyRowControl` and scope/state/blend dropdowns through `PropertyRowControl`. `EffectPropertyRowView.axaml` adapts the remaining typed animation drafts. Reuse those compositions while preserving the Workspace adapter for whole-layer absolute position; a visual refactor must not replace displayed canvas coordinates with the model's position offset.
+
+The current row defaults are a 108 DIP title column, 6 DIP column spacing, 3 DIP stacked spacing, `4,3` inner padding, and a 1 DIP bottom divider using `PreviewBorder`. At widths under 350 DIP, or under 520 DIP for vectors, `PropertyRowControl` moves the editor beneath the title; `IsStacked` forces that layout. `AnimationPropertyRowControl.ShowAnimationActions="False"` also forces the stacked layout. Read the control and theme before changing these defaults.
+
+`PropertyRowControl` accepts string or control headers. String headers inherit the shared field presentation; custom parameter headings use `.field`. Non-scalar headings remain plain `TextBlock` labels. Animation options, keyframe, and reset buttons use `animation-property-action` and the shared 32-DIP square sizing; host commands receive the correct property parameter or captured full target. Verify that clicking a plain title preserves the selected property/keyframe and does not open animation settings.
+
+In `MaskPanelView.axaml`, geometry and selected-node rows use `ShowAnimationActions="False"`, `RowPadding="0,3"`, and `SeparatorThickness="0"` to share the native positioning editor's field columns. Use the row properties to control spacing/dividers. Check title left edges, X/Y label positions, input left edges, and widths against anchor/pivot/offset; do not compensate for nested padding with negative margins. Keep masks limited to geometry/native placement and compose animation actions in the effects panel.
+
 ## Useful scoped test groups
 
 | Behavior | Tests |
 |---|---|
+| Shared parameter rows, plain headings, input names and steps | `EffectsCommonRowsUiTests`, `EffectsPropertyGridUiTests`, `MaskPropertyRowsUiTests` |
+| Native mask and geometry field-column alignment | `MaskFieldAlignmentUiTests` |
+| Animation action target, popup and keyboard routing | `EffectsAnimationPopupUiTests`, `PathProgressUiTests`, `AnimationDeleteRoutingUiTests` |
 | Toolbar toggle themes, input, and panel wiring | `ToolbarToggleButtonUiTests`, `SubtitleDetailsFormattingToggleUiTests`, `TimelineDisplayOptionsUiTests`, `WorkbenchShortcutInputUiTests` |
 | Draft ranges and preservation | `NumericDraftEditingUiTests`, `InvalidAnimationDraftUiTests` |
 | Shared vector local namescope/Esc | `LayerPositionDiagramUiTests`, `SubtitlePositionEditingUiTests` |
