@@ -320,6 +320,82 @@ public sealed class ClipMaskSnappingUiTests
         });
     }
 
+    /// <summary>小数画布缩放下新建、调整尺寸及吸附移动蒙版不会闪退，每次释放只提交一次撤销。</summary>
+    [AvaloniaTheory]
+    [InlineData(600)]
+    [InlineData(882)]
+    public void NewlyCreatedRectangleCanBeResizedAndMovedAtFractionalCanvasScales(double width)
+    {
+        var document = Document();
+        var geometry = Geometry(document);
+        var editor = new ProjectEditor(document);
+        WithCanvas(document, CanvasEditMode.MASK_RECTANGLE, (canvas, window) =>
+        {
+            var commits = 0;
+            canvas.MaskEdited += (_, e) =>
+            {
+                commits++;
+                editor.SetClipMask(e.LayerId, e.Mask);
+                var snapshot = editor.Snapshot;
+                canvas.SetScene(snapshot, snapshot.Layers[0], MediaTime.Zero, AppContext.BaseDirectory);
+            };
+            var fit = Fit(canvas, document);
+            var first = new Point(200, 120) * fit;
+            var last = new Point(340, 200) * fit;
+
+            window.MouseDown(first, MouseButton.Left);
+            window.MouseMove(last);
+            Assert.Same(document, editor.Snapshot);
+            window.MouseUp(last, MouseButton.Left);
+
+            var createdSnapshot = editor.Snapshot;
+            var created = Assert.IsType<RectangleClipMask>(createdSnapshot.Layers[0].Mask);
+            Assert.Equal(1, commits);
+            var corner = MaskPoint(canvas, document, created, created.BottomRight);
+            var resizedCorner = new Point(380, 240) * fit;
+
+            window.MouseDown(corner, MouseButton.Left);
+            window.MouseMove(resizedCorner);
+            Assert.Same(createdSnapshot, editor.Snapshot);
+            window.MouseUp(resizedCorner, MouseButton.Left);
+
+            var resizedSnapshot = editor.Snapshot;
+            var resized = Assert.IsType<RectangleClipMask>(resizedSnapshot.Layers[0].Mask);
+            Assert.Equal(2, commits);
+            Assert.Equal(created.TopLeft, resized.TopLeft);
+            Assert.True(resized.BottomRight.X > created.BottomRight.X);
+            Assert.True(resized.BottomRight.Y > created.BottomRight.Y);
+            var center = new ScenePoint((resized.TopLeft.X + resized.BottomRight.X) / 2,
+                (resized.TopLeft.Y + resized.BottomRight.Y) / 2);
+            var start = MaskPoint(canvas, document, resized, center);
+            var target = new Point(geometry.LocalBounds.MidX, geometry.LocalBounds.MidY) *
+                SubtitleMatrix(canvas, document, geometry);
+            var raw = target + new Vector(4, 3);
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(raw);
+            Assert.Same(resizedSnapshot, editor.Snapshot);
+            Assert.True(canvas.MaskSnapFeedback.HasSnap);
+            window.MouseUp(raw, MouseButton.Left);
+
+            var moved = Assert.IsType<RectangleClipMask>(editor.Snapshot.Layers[0].Mask);
+            Assert.Equal(3, commits);
+            Assert.Equal(resized, moved with { Transform = resized.Transform });
+            var movedCenter = MaskPoint(canvas, document, moved, center);
+            Assert.Equal(target.X, movedCenter.X, 3);
+            Assert.Equal(target.Y, movedCenter.Y, 3);
+            Assert.False(canvas.HasActiveDrag);
+            Assert.False(canvas.MaskSnapFeedback.HasSnap);
+            Assert.True(editor.Undo());
+            Assert.Same(resizedSnapshot, editor.Snapshot);
+            Assert.True(editor.Undo());
+            Assert.Same(createdSnapshot, editor.Snapshot);
+            Assert.True(editor.Undo());
+            Assert.Same(document, editor.Snapshot);
+            Assert.False(editor.CanUndo);
+        }, width);
+    }
+
     /// <summary>Alt 及 Alt+Shift 编辑控制柄时保留原始指针位置，不将柄末端吸附到字幕。</summary>
     [AvaloniaTheory]
     [InlineData(false)]

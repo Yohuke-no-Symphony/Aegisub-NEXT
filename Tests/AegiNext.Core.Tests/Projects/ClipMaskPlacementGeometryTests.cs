@@ -170,6 +170,53 @@ public sealed class ClipMaskPlacementGeometryTests
         AssertPoint(new(75, 100), rotated.Size);
     }
 
+    /// <summary>仿射矩阵的非零常数齐次分母及求逆舍入不改变矩形和曲线的精确边界。</summary>
+    [Theory]
+    [InlineData(false, 0.9999999999999999)]
+    [InlineData(false, 1.0000000000000002)]
+    [InlineData(false, 0.5)]
+    [InlineData(false, -2)]
+    [InlineData(true, 0.9999999999999999)]
+    [InlineData(true, 1.0000000000000002)]
+    [InlineData(true, 0.5)]
+    [InlineData(true, -2)]
+    public void BoundsPreserveGeometryUnderConstantHomogeneousScaling(bool vector, double homogeneousScale)
+    {
+        ClipMask mask = vector ? new VectorClipMask
+        {
+            Contours = [new() { Nodes =
+            [
+                new() { Position = new(0, 0), OutHandle = new(0, 100) },
+                new() { Position = new(100, 0), InHandle = new(0, 100) }
+            ] }]
+        } : new RectangleClipMask { TopLeft = new(-20, 10), BottomRight = new(100, 50) };
+        var matrix = new ProjectionMatrix3x3(0, -2 * homogeneousScale, 30 * homogeneousScale,
+            2 * homogeneousScale, 0, 40 * homogeneousScale, 0, 0, homogeneousScale);
+
+        var bounds = ClipMaskPlacementGeometry.GetBounds(mask, matrix);
+
+        AssertPoint(vector ? new(-120, 40) : new(-70, 0), bounds.Origin);
+        AssertPoint(vector ? new(150, 200) : new(80, 240), bounds.Size);
+    }
+
+    /// <summary>透视矩阵、零齐次分母及非有限矩阵仍拒绝进入仿射边界计算。</summary>
+    [Theory]
+    [InlineData(0.01, 0, 1)]
+    [InlineData(0, 0.01, 1)]
+    [InlineData(0, 0, 0)]
+    [InlineData(0, 0, double.NaN)]
+    [InlineData(0, 0, double.PositiveInfinity)]
+    public void BoundsRejectNonAffineOrNonFiniteMatrices(double denominatorX, double denominatorY, double denominatorConstant)
+    {
+        var mask = new RectangleClipMask { TopLeft = new(10, 20), BottomRight = new(100, 80) };
+        var matrix = new ProjectionMatrix3x3(1, 0, 0, 0, 1, 0,
+            denominatorX, denominatorY, denominatorConstant);
+
+        var exception = Assert.Throws<ArgumentException>(() => ClipMaskPlacementGeometry.GetBounds(mask, matrix));
+
+        Assert.Equal("matrix", exception.ParamName);
+    }
+
     [Theory]
     [InlineData(0, 0)]
     [InlineData(0.01, 0.001)]

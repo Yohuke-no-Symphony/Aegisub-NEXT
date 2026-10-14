@@ -64,11 +64,11 @@ public static class ClipMaskPlacementGeometry
         return new() { Origin = bounds.Origin, Size = new(Math.Max(bounds.Size.X, 1), Math.Max(bounds.Size.Y, 1)) };
     }
 
-    /// <summary>取得仿射投影后的精确几何边界，保持零面积并计入贝塞尔曲线极值。</summary>
+    /// <summary>取得仿射投影后的精确几何边界，支持非零常数齐次分母，保持零面积并计入贝塞尔曲线极值。</summary>
     public static (ScenePoint Origin, ScenePoint Size) GetBounds(ClipMask mask, ProjectionMatrix3x3 matrix)
     {
         ArgumentNullException.ThrowIfNull(mask);
-        if (!matrix.IsFinite || matrix.M31 != 0 || matrix.M32 != 0 || matrix.M33 != 1)
+        if (!matrix.IsFinite || matrix.M31 != 0 || matrix.M32 != 0 || matrix.M33 == 0)
         {
             throw new ArgumentException("Mask bounds require a finite affine matrix.", nameof(matrix));
         }

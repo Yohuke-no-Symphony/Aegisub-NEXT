@@ -26,6 +26,32 @@ public sealed class MaskCanvasGeometryTests
         Assert.Equal(projected.Max(point => point.Y), bounds.Bottom, 10);
     }
 
+    /// <summary>吸附参考矩阵求逆的齐次舍入不抛异常，并保留蒙版边界的双精度。</summary>
+    [Theory]
+    [InlineData(0.6)]
+    [InlineData(0.882)]
+    [InlineData(0.883)]
+    public void BoundsRemainPreciseAfterFractionalSnapReferenceInversion(double scale)
+    {
+        var mask = new RectangleClipMask
+        {
+            TopLeft = new(100.123456789, 30.987654321),
+            BottomRight = new(150.876543219, 75.123456789)
+        };
+        var localToScreen = Matrix.CreateScale(scale, scale) * Matrix.CreateTranslation(35, 17);
+        var geometry = MaskSnapGeometry.Create(new(0, 0, 200, 100), localToScreen);
+        Assert.NotNull(geometry);
+        var matrix = localToScreen * geometry.ScreenToLocal;
+        Assert.NotEqual(1, matrix.M33);
+
+        var bounds = MaskCanvasGeometry.Bounds(mask, matrix);
+
+        Assert.Equal(mask.TopLeft.X, bounds.Left, 8);
+        Assert.Equal(mask.TopLeft.Y, bounds.Top, 8);
+        Assert.Equal(mask.BottomRight.X, bounds.Right, 8);
+        Assert.Equal(mask.BottomRight.Y, bounds.Bottom, 8);
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(-1)]
