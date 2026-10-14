@@ -42,7 +42,13 @@ UI text may use the shared `AegiNext.Desktop.I18n.Localization` presentation ser
 
 ## Match the shared visual system
 
-Use dynamic theme resources, shared business typography, and existing compact icon/transport themes. A square icon button must reserve its actual size; slider rows must reserve thumb height. Keep DSL/log multiline layout distinct from ordinary centered inputs. Do not adjust CJK and Latin glyphs separately or alter a subtitle's saved render font to fix application UI typography.
+Use dynamic theme resources, shared business typography, and existing compact icon/transport themes. Slider rows must reserve thumb height. Keep DSL/log multiline layout distinct from ordinary centered inputs. Do not adjust CJK and Latin glyphs separately or alter a subtitle's saved render font to fix application UI typography.
+
+Align buttons in the same row through the shared button style and explicit Grid alignment. Their measured bounds must have equal heights and the same vertical center, including mixed icon/text actions and translated labels. Do not rely on WrapPanel's default alignment or baseline, or compensate for one item with an asymmetric margin. Check the resulting geometry at the supported narrow width rather than inferring alignment from declared MinHeight values.
+
+Icon-only actions use the shared `icon-button` style, or the existing toolbar toggle theme for toggles. Reserve a 1:1 actual width/height and center the glyph and content; minimum dimensions alone do not establish a square button. Supply a localized ToolTip and `AutomationProperties.Name`. An inline search-clear action clears only the search text: it must not clear business selections, checked items, or change their identities.
+
+User guidance should help a decision, explain a relevant error, or identify an empty state. Avoid text that repeats obvious controls or operations, describes internal implementation mechanisms, or adds counts with no value to the user's current decision. Remove nonessential hints and counts when requested while preserving the underlying business behavior.
 
 Compose collapsible parameter groups with `Controls/Common/PropertySection.cs`. Use `Controls/Common/PropertyRowControl.cs` for the shared Header/Content/Actions layout, including ordinary dropdown rows; use `Controls/Editing/AnimationPropertyRowControl` to compose scalar, vector, vector3, or color drafts and optional animation actions. Keep typography, responsive layout, and separators in the shared controls/theme instead of rebuilding parameter grids in each panel. Read [references/integration-checks.md](references/integration-checks.md) for the row defaults, consuming panels, and scoped regressions.
 
