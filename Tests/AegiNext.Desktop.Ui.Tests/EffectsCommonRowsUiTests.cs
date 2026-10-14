@@ -57,6 +57,7 @@ public sealed class EffectsCommonRowsUiTests
                 var title = Assert.Single(shell.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.IsEffectivelyVisible && text.Text == row.Label);
                 Assert.Equal(11, title.FontSize);
+                Assert.DoesNotContain(title.GetVisualAncestors(), ancestor => ancestor is Button);
                 Assert.Equal(blendTitle.FontSize, title.FontSize);
                 Assert.Equal(blendTitle.Foreground?.ToString(), title.Foreground?.ToString());
                 Assert.Equal(increment, row.Increment);

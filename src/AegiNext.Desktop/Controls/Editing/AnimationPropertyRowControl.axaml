@@ -1,6 +1,5 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:common="using:AegiNext.Desktop.Controls.Common" xmlns:controls="using:AegiNext.Desktop.Controls"
-             xmlns:converters="using:Avalonia.Data.Converters"
              x:Class="AegiNext.Desktop.Controls.AnimationPropertyRowControl" x:Name="Row" x:DataType="controls:AnimationPropertyRowControl">
   <common:PropertyRowControl Name="PropertyRow" Classes="animation-property-row"
       IsVector="{Binding #Row.IsVector}" IsStacked="{Binding !#Row.ShowAnimationActions}"
@@ -9,18 +8,9 @@
       <Grid>
         <controls:NumericDragLabel Classes="field" Text="{Binding #Row.Label}" Input="{Binding #ScalarInput}" IsVisible="{Binding #Row.IsScalar}"
             VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding #Row.Label}" />
-        <Grid IsVisible="{Binding !#Row.IsScalar}">
-          <TextBlock Name="PlainPropertyLabel" Classes="field" Text="{Binding #Row.Label}"
-              IsVisible="{Binding #Row.SelectCommand, Converter={x:Static converters:ObjectConverters.IsNull}}"
-              TextWrapping="Wrap" VerticalAlignment="Center" />
-          <Button Classes="animation-property-label" Command="{Binding #Row.SelectCommand}"
-              CommandParameter="{Binding #Row.CommandParameter}"
-              IsVisible="{Binding #Row.SelectCommand, Converter={x:Static converters:ObjectConverters.IsNotNull}}"
-              HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"
-              ToolTip.Tip="{Binding #Row.Label}" AutomationProperties.Name="{Binding #Row.Label}">
-            <TextBlock Classes="field" Text="{Binding #Row.Label}" TextWrapping="Wrap" TextAlignment="Left" VerticalAlignment="Center" />
-          </Button>
-        </Grid>
+        <TextBlock Name="PlainPropertyLabel" Classes="field" Text="{Binding #Row.Label}"
+            IsVisible="{Binding !#Row.IsScalar}" TextWrapping="Wrap" VerticalAlignment="Center"
+            ToolTip.Tip="{Binding #Row.Label}" />
       </Grid>
     </common:PropertyRowControl.Header>
     <common:PropertyRowControl.Content>

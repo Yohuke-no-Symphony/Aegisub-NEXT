@@ -72,7 +72,6 @@ public sealed class MaskPropertyRowsUiTests
                 Assert.Same(row.X, maskControl.X);
                 Assert.Same(row.Y, maskControl.Y);
                 Assert.False(maskControl.ShowAnimationActions);
-                Assert.Null(maskControl.SelectCommand);
                 Assert.DoesNotContain(maskControl.GetVisualDescendants().OfType<Button>(),
                     button => button.IsEffectivelyVisible && button.Classes.Contains("animation-property-action"));
                 Assert.Equal(row.FieldKey, maskControl.FieldKey);
@@ -171,7 +170,7 @@ public sealed class MaskPropertyRowsUiTests
             Assert.Equal(id, row.LayerId);
         });
         var rotation = Assert.Single(context.ViewModel.Effects.MaskRows, row => row.Target.Property == AnimationProperty.MASK_ROTATION);
-        rotation.SelectCommand.Execute(null);
+        rotation.AnimationOptionsCommand.Execute(null);
 
         Assert.Equal(rotation.Target, context.ViewModel.Effects.Target);
         Assert.Null(session.SceneEditing.Target.TextRangeId);
@@ -293,7 +292,6 @@ public sealed class MaskPropertyRowsUiTests
             Assert.Equal(vectorMask ? 3 : 2, rows.Length);
             foreach (var row in rows)
             {
-                Assert.Null(row.SelectCommand);
                 Assert.False(row.ShowAnimationActions);
                 var title = Assert.Single(row.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.IsEffectivelyVisible && text.Text == row.Label);

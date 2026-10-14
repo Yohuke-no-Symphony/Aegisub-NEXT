@@ -255,12 +255,6 @@
     <Setter Property="HorizontalContentAlignment" Value="Center"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
-  <Style Selector="Button.animation-property-label">
-    <Setter Property="Background" Value="Transparent" />
-    <Setter Property="BorderThickness" Value="0" />
-    <Setter Property="Padding" Value="0" />
-    <Setter Property="MinWidth" Value="0" />
-  </Style>
   <Style Selector="ComboBox.icon-selector">
     <Setter Property="Width" Value="{DynamicResource WorkbenchControlHeight}"/>
     <Setter Property="Height" Value="{DynamicResource WorkbenchControlHeight}"/>

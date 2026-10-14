@@ -90,8 +90,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(Error), null);
     public static readonly StyledProperty<string?> InvalidFieldKeyProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string?>(nameof(InvalidFieldKey), null);
-    public static readonly StyledProperty<ICommand?> SelectCommandProperty =
-        AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(SelectCommand), null);
     public static readonly StyledProperty<ICommand?> AddKeyframeCommandProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(AddKeyframeCommand), null);
     public static readonly StyledProperty<ICommand?> ResetCommandProperty =
@@ -357,12 +355,6 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(InvalidFieldKeyProperty, value);
     }
 
-    public ICommand? SelectCommand
-    {
-        get => GetValue(SelectCommandProperty);
-        set => SetValue(SelectCommandProperty, value);
-    }
-
     public ICommand? AddKeyframeCommand
     {
         get => GetValue(AddKeyframeCommandProperty);
@@ -375,7 +367,7 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(ResetCommandProperty, value);
     }
 
-    /// <summary>取得或设置传给宿主属性选择、动画设置、添加和重置命令的通用参数。</summary>
+    /// <summary>取得或设置传给宿主动画设置、添加和重置命令的通用参数。</summary>
     public object? CommandParameter
     {
         get => GetValue(CommandParameterProperty);

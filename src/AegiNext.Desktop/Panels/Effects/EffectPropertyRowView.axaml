@@ -9,7 +9,7 @@
       CanEdit="{Binding IsEnabled}" IsAnimated="{Binding IsAnimated}"
       CanAddKeyframe="{Binding CanAddKeyframe}" CanReset="{Binding CanReset}"
       Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Increment="{Binding Increment}"
-      SelectCommand="{Binding SelectCommand}" AnimationOptionsCommand="{Binding AnimationOptionsCommand}" AnimationOptionsHint="{Binding AnimationOptionsHint}"
+      AnimationOptionsCommand="{Binding AnimationOptionsCommand}" AnimationOptionsHint="{Binding AnimationOptionsHint}"
       AddKeyframeCommand="{Binding AddKeyframeCommand}" ResetCommand="{Binding ResetCommand}"
       EditingHint="{Binding EditingHint}" KeyframeHint="{Binding KeyframeHint}" ResetHint="{Binding ResetHint}"
       Error="{Binding Error}" InvalidFieldKey="{Binding InvalidFieldKey}" />

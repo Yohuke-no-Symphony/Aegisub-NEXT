@@ -44,7 +44,6 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         Z.PropertyChanged += OnNumberChanged;
         Color.Changed += OnColorChanged;
         Color.Committed += (_, _) => session.TryCommitDrafts(false);
-        SelectCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target), () => canUseAnimationActions);
         ToggleAnimationCommand = new AsyncRelayCommand(() => session.SetAnimationPropertyEnabledAsync(LayerId, Target, !IsAnimated), () => CanToggleAnimation);
         AddKeyframeCommand = new AsyncRelayCommand(() => session.AddAnimationPropertyKeyframeAsync(LayerId, Target), () => CanAddKeyframe);
         AnimationOptionsCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target), () => canUseAnimationActions);
@@ -99,7 +98,6 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     public string AnimationHint => Localization.Get(IsAnimated ? "Workbench.DisablePropertyAnimation" : "Workbench.EnablePropertyAnimation");
     public string KeyframeHint { get; private set; } = Localization.Get("Workbench.Keyframe");
     public string ResetHint { get; private set; } = Localization.Get("Workbench.ResetProperty");
-    public ICommand SelectCommand { get; }
     public ICommand ToggleAnimationCommand { get; }
     public ICommand AddKeyframeCommand { get; }
     public ICommand ResetCommand { get; }
@@ -118,7 +116,6 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         CanAddKeyframe = session.CanAddEffectPropertyKeyframe(LayerId, Target);
         OnPropertyChanged(nameof(CanToggleAnimation));
         OnPropertyChanged(nameof(CanReset));
-        ((IRelayCommand)SelectCommand).NotifyCanExecuteChanged();
         ((IRelayCommand)ToggleAnimationCommand).NotifyCanExecuteChanged();
         ((IRelayCommand)AddKeyframeCommand).NotifyCanExecuteChanged();
         ((IRelayCommand)AnimationOptionsCommand).NotifyCanExecuteChanged();
