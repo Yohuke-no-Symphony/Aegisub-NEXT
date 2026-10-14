@@ -28,7 +28,6 @@ internal sealed class MaskPanelViewModel : ObservableObject
         AddMaskContourCommand = new RelayCommand(() => session.MaskEditing.AddContour());
         ClearMaskCommand = EditCommand(() => session.MaskEditing.Clear());
         InvertMaskCommand = EditCommand(() => session.MaskEditing.Invert());
-        ClearNodeAnimationCommand = EditCommand(() => session.MaskEditing.ClearNodeAnimation());
         SubdivideMaskCommand = EditCommand(() => session.MaskEditing.Subdivide());
         DeleteContourCommand = EditCommand(() => session.MaskEditing.DeleteSelectedContour());
         DeleteNodeCommand = EditCommand(() => session.MaskEditing.DeleteSelectedNode());
@@ -40,7 +39,6 @@ internal sealed class MaskPanelViewModel : ObservableObject
     public bool IsMaskEditing => session.MaskEditing.IsEditing;
     public bool IsRectangleTool => session.SceneEditing.Mode == CanvasEditMode.MASK_RECTANGLE;
     public bool IsVectorTool => session.SceneEditing.Mode is CanvasEditMode.MASK_VECTOR or CanvasEditMode.MASK_DRAW_VECTOR;
-    public bool CanClearNodeAnimation => session.SelectedLayer?.Tracks.Any(track => AnimationPropertyMetadata.IsNodeProperty(track.Property)) == true;
     public bool CanSubdivide => session.MaskEditing.CanSubdivideSelectedNode;
     public bool HasClipMask => session.SelectedLayer?.Mask is not null;
     public bool IsVectorMask => session.SelectedLayer?.Mask is VectorClipMask;
@@ -62,7 +60,6 @@ internal sealed class MaskPanelViewModel : ObservableObject
     public string? MaskTopologyReason => session.MaskEditing.IsTopologyLocked ? Localization.Get("Workbench.MaskTopologyLocked") : null;
     public MaskVectorField[] GeometryFields { get; private set; } = [];
     public MaskVectorField[] NodeFields { get; private set; } = [];
-    public MaskNumericField? RotationField { get; private set; }
     public MaskSelectionChoice[] Contours { get; private set; } = [];
     public MaskPointListItem[] Points { get; private set; } = [];
     public string? ValidationError
@@ -112,7 +109,6 @@ internal sealed class MaskPanelViewModel : ObservableObject
     public ICommand AddMaskContourCommand { get; }
     public ICommand ClearMaskCommand { get; }
     public ICommand InvertMaskCommand { get; }
-    public ICommand ClearNodeAnimationCommand { get; }
     public ICommand SubdivideMaskCommand { get; }
     public ICommand DeleteContourCommand { get; }
     public ICommand DeleteNodeCommand { get; }
@@ -130,12 +126,11 @@ internal sealed class MaskPanelViewModel : ObservableObject
                     AnimationPropertyMetadata.GetComponentCount(target.Property) == 2)
                     .GroupBy(field => field.Target).Select(group => new MaskVectorField(
                         group.Single(field => field.Component == 0), group.Single(field => field.Component == 1))).ToArray();
-                GeometryFields = vectors.Where(field => field.Target is { } target && !AnimationPropertyMetadata.IsNodeProperty(target.Property)).ToArray();
+                GeometryFields = vectors.Where(field => field.Target?.Property is
+                    AnimationProperty.MASK_RECTANGLE_TOP_LEFT or AnimationProperty.MASK_RECTANGLE_BOTTOM_RIGHT).ToArray();
                 NodeFields = vectors.Where(field => field.Target is { } target && AnimationPropertyMetadata.IsNodeProperty(target.Property)).ToArray();
-                RotationField = fields.FirstOrDefault(field => field.Target?.Property == AnimationProperty.MASK_ROTATION);
                 OnPropertyChanged(nameof(GeometryFields));
                 OnPropertyChanged(nameof(NodeFields));
-                OnPropertyChanged(nameof(RotationField));
             }
             foreach (var field in GeometryFields.Concat(NodeFields))
             {
@@ -176,7 +171,7 @@ internal sealed class MaskPanelViewModel : ObservableObject
                     OnPropertyChanged(nameof(Points));
                 }
             }
-            foreach (var name in new[] { nameof(CanEditMask), nameof(CanCreateMask), nameof(CanEditExistingMask), nameof(IsMaskEditing), nameof(IsRectangleTool), nameof(IsVectorTool), nameof(CanClearNodeAnimation), nameof(CanSubdivide), nameof(HasClipMask), nameof(IsVectorMask), nameof(CanEditMaskTopology),
+            foreach (var name in new[] { nameof(CanEditMask), nameof(CanCreateMask), nameof(CanEditExistingMask), nameof(IsMaskEditing), nameof(IsRectangleTool), nameof(IsVectorTool), nameof(CanSubdivide), nameof(HasClipMask), nameof(IsVectorMask), nameof(CanEditMaskTopology),
                 nameof(CanDeleteContour), nameof(CanDeleteNode), nameof(HasSelectedPoint), nameof(MaskInverted), nameof(MaskTopologyReason),
                 nameof(SelectedContour), nameof(SelectedPoint), nameof(ContourToolTip), nameof(DeleteContourToolTip),
                 nameof(DeleteNodeToolTip), nameof(SubdivideToolTip) })

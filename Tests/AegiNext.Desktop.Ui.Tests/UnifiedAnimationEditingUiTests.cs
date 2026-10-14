@@ -42,10 +42,11 @@ public sealed class UnifiedAnimationEditingUiTests
         context.ViewModel.Effects.RotationText = "45";
         Assert.True(session.TryCommitDrafts());
         layer = session.SelectedLayer!;
-        Assert.Equal(new Keyframe(new(2), 45), Assert.Single(layer.Tracks.Single(track => track.Property == AnimationProperty.ROTATION).Keyframes));
+        Assert.Equal(new Keyframe(new(2), AnimationValue.FromVector3(new(0, 0, 45))),
+            Assert.Single(layer.Tracks.Single(track => track.Property == AnimationProperty.ROTATION_3D).Keyframes));
         Assert.Equal(0, layer.Transform.Rotation);
         session.Editor.Undo();
-        Assert.DoesNotContain(session.SelectedLayer!.Tracks, track => track.Property == AnimationProperty.ROTATION);
+        Assert.DoesNotContain(session.SelectedLayer!.Tracks, track => track.Property == AnimationProperty.ROTATION_3D);
     }
 
     [AvaloniaFact]

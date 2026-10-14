@@ -69,9 +69,8 @@ public sealed class BusinessTypographyUiTests
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
-        UiTestActions.ExpandEffectsCategory(context.Window, "ClipCategory");
         UiTestActions.ExpandEffectsCategory(context.Window, "CompositeCategory");
-        var names = new[] { "LayerStartInput", "LayerEndInput" };
+        var names = new[] { "TimelineClipStartInput", "TimelineClipEndInput" };
         foreach (var name in names)
         {
             AssertInput(UiTestActions.Find<TextBox>(context.Window, name));

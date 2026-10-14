@@ -184,13 +184,13 @@ public sealed class InspectorLivePreviewUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData("LayerStartInput")]
-    [InlineData("LayerEndInput")]
+    [InlineData("TimelineClipStartInput")]
+    [InlineData("TimelineClipEndInput")]
     public async Task IncompleteTimingTextKeepsFocusAndDoesNotThrowFromThePreviewQueue(string field)
     {
         await using var context = new MainWindowTestContext();
         await PrepareAsync(context);
-        UiTestActions.ExpandEffectsCategory(context.Window, "ClipCategory");
+        context.Window.Layouts.Activate(WorkbenchPanelIds.TIMELINE);
         var box = UiTestActions.Find<TextBox>(context.Window, field);
         box.BringIntoView();
         context.Window.UpdateLayout();

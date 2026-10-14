@@ -1,6 +1,7 @@
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
+using AegiNext.Desktop.I18n;
 
 namespace AegiNext.Desktop.Workspace;
 
@@ -70,6 +71,17 @@ internal static class AnimationEditOperations
             throw new InvalidOperationException("Ordered transforms must be edited by their operation identity.");
         }
         var range = LayerAnimationTiming.GetRange(layer);
+        if (animationTarget.Property == AnimationProperty.PATH_PROGRESS)
+        {
+            if (!WorkbenchSession.CanUseAnimationProperty(layer, animationTarget))
+            {
+                throw new InvalidOperationException(Localization.Get("Workbench.PathProgressRequiresPath"));
+            }
+            if (track is null || target.LocalTime < range.Minimum || target.LocalTime > range.Maximum)
+            {
+                throw new InvalidOperationException(Localization.Get("Workbench.PathProgressRequiresKeyframe"));
+            }
+        }
         if ((target.IsKeyframe || track is not null) && target.LocalTime >= range.Minimum && target.LocalTime <= range.Maximum)
         {
             var existing = track?.Keyframes.FirstOrDefault(frame => frame.Time == target.LocalTime);

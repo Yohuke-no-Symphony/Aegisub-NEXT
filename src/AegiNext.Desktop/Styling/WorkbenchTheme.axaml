@@ -69,6 +69,34 @@
         </ControlTemplate>
       </Setter>
     </ControlTheme>
+    <ControlTheme x:Key="{x:Type common:PropertyRowControl}" TargetType="common:PropertyRowControl">
+      <Setter Property="HorizontalAlignment" Value="Stretch"/>
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+      <Setter Property="VerticalContentAlignment" Value="Center"/>
+      <Setter Property="Padding" Value="4,3"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PreviewBorder}"/>
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Padding="{TemplateBinding Padding}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding SeparatorThickness}">
+            <Grid Name="PART_RowGrid" ColumnDefinitions="108,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="3">
+              <ContentPresenter Name="PART_HeaderPresenter" Content="{TemplateBinding Header}"
+                                ContentTemplate="{TemplateBinding HeaderTemplate}" HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
+                                FontFamily="{StaticResource WorkbenchBodyFontFamily}" FontSize="11"
+                                LineHeight="{StaticResource WorkbenchInputLineHeight}" Foreground="{DynamicResource PreviewMuted}"/>
+              <ContentPresenter Name="PART_ContentPresenter" Grid.Column="1" Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}"
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"/>
+              <ContentPresenter Name="PART_ActionsPresenter" Grid.Column="2" Content="{TemplateBinding Actions}"
+                                ContentTemplate="{TemplateBinding ActionsTemplate}"
+                                HorizontalContentAlignment="Right" VerticalContentAlignment="Center"/>
+            </Grid>
+          </Border>
+        </ControlTemplate>
+      </Setter>
+    </ControlTheme>
     <ControlTheme x:Key="WorkbenchTransportSliderTheme" TargetType="Slider"
                   BasedOn="{StaticResource {x:Type Slider}}">
       <Setter Property="Height" Value="24"/>

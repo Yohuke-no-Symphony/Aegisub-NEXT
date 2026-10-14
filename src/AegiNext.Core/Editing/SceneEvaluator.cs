@@ -301,7 +301,7 @@ public static class SceneEvaluator
         };
         if (layer.MotionPath is { } motion)
         {
-            var progress = Get(values, AnimationProperty.PATH_PROGRESS, Fraction(contentTime, motion.Duration));
+            var progress = Get(values, AnimationProperty.PATH_PROGRESS, MotionPathProgress.EvaluateNatural(motion, contentTime));
             var point = EvaluatePath(motion.Path, progress);
             var pathRotation = transform.Rotation;
             if (motion.OrientToPath)

@@ -304,6 +304,8 @@
     "Workbench.StrokeBlue": "描边 B",
     "Workbench.StrokeAlpha": "描边 Alpha",
     "Workbench.PathProgress": "路径进度",
+    "Workbench.PathProgressRequiresPath": "请先创建运动路径，再编辑路径进度动画。",
+    "Workbench.PathProgressRequiresKeyframe": "请先添加关键帧以编辑路径进度；当前路径按内容时长自动移动。",
     "Workbench.BottomCenter": "底部居中",
     "Workbench.TopCenter": "顶部居中",
     "Workbench.TopLeft": "顶部左侧",

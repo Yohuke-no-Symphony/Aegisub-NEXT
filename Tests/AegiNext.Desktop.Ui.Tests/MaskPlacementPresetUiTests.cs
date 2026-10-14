@@ -14,18 +14,17 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class MaskPlacementPresetUiTests
 {
-    [AvaloniaTheory]
-    [InlineData("effects")]
-    [InlineData("masks")]
-    public async Task AllNinePresetsPreserveTheMaskAndItsAnimationAndUndoInOneStep(string origin)
+    [AvaloniaFact]
+    public async Task AllNineMaskPanelPresetsPreserveTheMaskAndItsAnimationAndUndoInOneStep()
     {
         await using var context = new MainWindowTestContext();
         await PrepareAsync(context);
         var source = context.Session.DocumentSnapshot;
         var before = Matrix(context);
-        var editor = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels[origin], "MaskPositionEditor");
-        var other = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels[origin == "effects" ? "masks" : "effects"], "MaskPositionEditor");
-        Assert.Same(editor.Draft, other.Draft);
+        var editor = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels["masks"], "MaskPositionEditor");
+        Assert.Same(context.Session.MaskEditing.PositionDraft, editor.Draft);
+        Assert.DoesNotContain(context.Window.Panels["effects"].GetVisualDescendants().OfType<LayerPositionEditor>(),
+            position => position.Name == "MaskPositionEditor");
         var names = new[]
         {
             "TopLeft", "TopCenter", "TopRight", "MiddleLeft", "MiddleCenter", "MiddleRight",
@@ -33,7 +32,7 @@ public sealed class MaskPlacementPresetUiTests
         };
         for (var index = 0; index < names.Length; index++)
         {
-            Click(context, origin, names[index]);
+            Click(context, names[index]);
 
             var layer = context.Session.SelectedLayer!;
             Assert.Equal(new ScenePoint(index % 3 / 2d, index / 3 / 2d), layer.Mask!.Placement.Anchor);
@@ -45,18 +44,15 @@ public sealed class MaskPlacementPresetUiTests
             Assert.True(context.Session.Editor.Undo());
             Dispatcher.UIThread.RunJobs();
             Assert.Same(source, context.Session.DocumentSnapshot);
-            Assert.Same(editor.Draft, other.Draft);
+            Assert.Same(context.Session.MaskEditing.PositionDraft, editor.Draft);
         }
     }
 
     [AvaloniaTheory]
-    [InlineData("effects", true, false)]
-    [InlineData("effects", false, true)]
-    [InlineData("effects", true, true)]
-    [InlineData("masks", true, false)]
-    [InlineData("masks", false, true)]
-    [InlineData("masks", true, true)]
-    public async Task ActualShiftAndAltModifiersUpdateTheSharedPlacementWithoutChangingAnimation(string origin, bool shift, bool alt)
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ActualMaskPanelShiftAndAltModifiersUpdatePlacementWithoutChangingAnimation(bool shift, bool alt)
     {
         await using var context = new MainWindowTestContext();
         await PrepareAsync(context);
@@ -65,7 +61,7 @@ public sealed class MaskPlacementPresetUiTests
         var modifiers = (shift ? RawInputModifiers.Shift : RawInputModifiers.None) |
             (alt ? RawInputModifiers.Alt : RawInputModifiers.None);
 
-        Click(context, origin, "TopRight", modifiers);
+        Click(context, "TopRight", modifiers);
 
         var mask = context.Session.SelectedLayer!.Mask!;
         Assert.Equal(new ScenePoint(1, 0), mask.Placement.Anchor);
@@ -120,10 +116,10 @@ public sealed class MaskPlacementPresetUiTests
         context.Window.UpdateLayout();
     }
 
-    private static void Click(MainWindowTestContext context, string origin, string name,
+    private static void Click(MainWindowTestContext context, string name,
         RawInputModifiers modifiers = RawInputModifiers.None)
     {
-        var editor = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels[origin], "MaskPositionEditor");
+        var editor = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels["masks"], "MaskPositionEditor");
         var button = UiTestActions.Find<Button>(editor, "AnchorPreset" + name);
         Assert.Contains(Localization.Get("Workbench.AnchorPresetHint"), Assert.IsType<string>(ToolTip.GetTip(button)));
         button.BringIntoView();

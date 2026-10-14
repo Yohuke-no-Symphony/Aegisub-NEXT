@@ -304,6 +304,8 @@
     "Workbench.StrokeBlue": "Outline B",
     "Workbench.StrokeAlpha": "Outline alpha",
     "Workbench.PathProgress": "Path progress",
+    "Workbench.PathProgressRequiresPath": "Create a motion path to animate its progress.",
+    "Workbench.PathProgressRequiresKeyframe": "Add a keyframe to edit path progress. The path currently uses its natural timing.",
     "Workbench.BottomCenter": "Bottom center",
     "Workbench.TopCenter": "Top center",
     "Workbench.TopLeft": "Top left",

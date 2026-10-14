@@ -17,21 +17,21 @@ namespace AegiNext.Desktop.Ui.Tests;
 /// <summary>验证真实 Delete 按下、重复和释放的消费，以及属性按钮和本地弹窗的删除边界。</summary>
 public sealed class AnimationDeleteRoutingUiTests
 {
-    /// <summary>时间轴和两处属性按钮只删除选中帧，重复按下及可用状态变化后的释放仍被消费。</summary>
+    /// <summary>时间轴、特效普通属性与蒙版动画按钮只删除选中帧，并消费重复按下和释放。</summary>
     [AvaloniaTheory]
-    [InlineData("timeline")]
-    [InlineData("effects")]
-    [InlineData("masks")]
-    public async Task DeleteConsumesBothEventsAndRepeatsWithoutDeletingTheParentSubtitle(string origin)
+    [InlineData("timeline", false)]
+    [InlineData("effects", false)]
+    [InlineData("effects", true)]
+    public async Task DeleteConsumesBothEventsAndRepeatsWithoutDeletingTheParentSubtitle(string origin, bool maskProperty)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
         var session = context.Session;
         var layerId = session.SelectedLayer!.Id;
-        var target = new AnimationTrackTarget(origin == "masks" ? AnimationProperty.MASK_NODE_POSITION : AnimationProperty.OPACITY);
+        var target = new AnimationTrackTarget(maskProperty ? AnimationProperty.MASK_NODE_POSITION : AnimationProperty.OPACITY);
         AnimationValue value = 0.25;
-        if (origin == "masks")
+        if (maskProperty)
         {
             var node = new MaskNode
             {

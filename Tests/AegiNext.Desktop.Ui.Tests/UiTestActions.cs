@@ -160,6 +160,7 @@ internal static class UiTestActions
                 AnimationProperty.STROKE or AnimationProperty.STROKE_WIDTH or AnimationProperty.STROKE_BLUR => "StrokeCategory",
                 AnimationProperty.SHADOW_COLOR or AnimationProperty.SHADOW_OFFSET or AnimationProperty.SHADOW_BLUR => "ShadowCategory",
                 AnimationProperty.OPACITY or AnimationProperty.BLUR => "CompositeCategory",
+                AnimationProperty.PATH_PROGRESS => "PathCategory",
                 _ => "MaskCategory"
             };
             ExpandEffectsCategory(window, category);
@@ -214,6 +215,44 @@ internal static class UiTestActions
             return Find<VectorDraftInput>(window, name).FindFieldInput(key)!;
         }
         return Find<NumericDraftInput>(window, name);
+    }
+
+    internal static ColorDraftInput PropertyColorInput(MainWindow window, AnimationProperty property)
+    {
+        var anchor = FindAnimationOptionsButton(window, property);
+        HideAnimationOptions(window);
+        var row = Assert.Single(anchor.GetVisualAncestors().OfType<AnimationPropertyRowControl>());
+        Assert.True(row.IsColor);
+        return Assert.Single(row.GetVisualDescendants().OfType<ColorDraftInput>());
+    }
+
+    internal static Point VisibleTimelinePoint(MainWindow window, SubtitleTimelineControl timeline, Func<Point> resolvePoint)
+    {
+        HideAnimationOptions(window);
+        timeline.BringIntoView();
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        var local = resolvePoint();
+        if (local.Y < timeline.RulerHeight + 6 || local.Y > timeline.Bounds.Height - 6)
+        {
+            var center = timeline.RulerHeight + (timeline.Bounds.Height - timeline.RulerHeight) / 2;
+            window.ViewModel.Timeline.Viewport = timeline.Viewport with
+            {
+                VerticalOffset = Math.Max(0, timeline.Viewport.VerticalOffset + local.Y - center)
+            };
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+            window.UpdateLayout();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            local = resolvePoint();
+        }
+        Assert.InRange(local.X, 0, timeline.Bounds.Width);
+        Assert.InRange(local.Y, timeline.RulerHeight, timeline.Bounds.Height);
+        var point = timeline.TranslatePoint(local, window)!.Value;
+        Assert.Same(timeline, window.InputHitTest(point));
+        return point;
     }
 
     internal static Button PropertyKeyframeButton(MainWindow window, AnimationProperty property)

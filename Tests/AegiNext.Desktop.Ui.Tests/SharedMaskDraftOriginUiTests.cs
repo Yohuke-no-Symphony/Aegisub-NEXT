@@ -64,21 +64,15 @@ public sealed class SharedMaskDraftOriginUiTests
         }
     }
 
-    /// <summary>六项静态定位共享草稿与错误，焦点切换保留输入来源，Esc 只恢复当前字段。</summary>
+    /// <summary>六项原生定位仅在蒙版编辑，聚焦特效仍将错误返回蒙版，Esc 只恢复当前字段。</summary>
     [AvaloniaTheory]
-    [InlineData("effects", "AnchorXInput")]
-    [InlineData("effects", "AnchorYInput")]
-    [InlineData("effects", "PivotXInput")]
-    [InlineData("effects", "PivotYInput")]
-    [InlineData("effects", "OffsetXInput")]
-    [InlineData("effects", "OffsetYInput")]
-    [InlineData("masks", "AnchorXInput")]
-    [InlineData("masks", "AnchorYInput")]
-    [InlineData("masks", "PivotXInput")]
-    [InlineData("masks", "PivotYInput")]
-    [InlineData("masks", "OffsetXInput")]
-    [InlineData("masks", "OffsetYInput")]
-    public async Task StaticPlacementSharesDraftsAndErrorsRetainsInputOriginAndEscapeRestoresOnlyTheCurrentField(string origin, string localKey)
+    [InlineData("AnchorXInput")]
+    [InlineData("AnchorYInput")]
+    [InlineData("PivotXInput")]
+    [InlineData("PivotYInput")]
+    [InlineData("OffsetXInput")]
+    [InlineData("OffsetYInput")]
+    public async Task StaticPlacementErrorsReturnOnlyToMasksAfterEffectsFocusAndEscapeRestoresOnlyTheCurrentField(string localKey)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -91,14 +85,14 @@ public sealed class SharedMaskDraftOriginUiTests
             Placement = new() { Anchor = new(0.5, 0.5), Pivot = new(-2, 3), Offset = new(17, 19) }
         });
         MountBothPanels(context);
-        var effectsPosition = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels["effects"], "MaskPositionEditor");
+        var effectsPanel = context.Window.Panels["effects"];
+        Assert.DoesNotContain(effectsPanel.GetVisualDescendants().OfType<LayerPositionEditor>(), editor => editor.Name == "MaskPositionEditor");
         var masksPosition = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels["masks"], "MaskPositionEditor");
-        Assert.Same(session.MaskEditing.PositionDraft, effectsPosition.Draft);
-        Assert.Same(effectsPosition.Draft, masksPosition.Draft);
-        var originPosition = origin == "effects" ? effectsPosition : masksPosition;
-        var otherPosition = origin == "effects" ? masksPosition : effectsPosition;
-        var host = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(originPosition));
-        var otherHost = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(otherPosition));
+        Assert.Same(session.MaskEditing.PositionDraft, masksPosition.Draft);
+        var host = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(masksPosition));
+        var row = Assert.Single(context.ViewModel.Effects.MaskRows, row => row.Target.Property == AnimationProperty.MASK_RECTANGLE_TOP_LEFT);
+        var effectsRow = FindEffectsRow(effectsPanel, row);
+        var otherHost = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(effectsRow));
         var source = session.DocumentSnapshot;
         var originalText = PositionField(session.MaskEditing.PositionDraft, localKey).RawText;
         var otherKey = localKey.Contains("XInput", StringComparison.Ordinal)
@@ -107,22 +101,25 @@ public sealed class SharedMaskDraftOriginUiTests
         var otherValue = otherKey.StartsWith("Anchor", StringComparison.Ordinal) ? "0.75" : "55";
         try
         {
-            var text = FocusPositionField(host, originPosition, localKey);
+            var text = FocusPositionField(host, masksPosition, localKey);
             PositionField(session.MaskEditing.PositionDraft, otherKey).RawText = otherValue;
             UiTestActions.Press(host, Key.A, RawInputModifiers.Control);
             host.KeyTextInput("unfinished");
-            var otherText = FocusPositionField(otherHost, otherPosition, localKey);
+            var otherText = FocusComponent(otherHost, effectsRow, false);
             Assert.True(otherText.IsFocused);
-            Assert.Equal("unfinished", otherText.Text);
+            Assert.Equal("10", otherText.Text);
 
             Assert.False(session.TryCommitDrafts());
             Flush(host);
             Flush(otherHost);
 
-            Assert.Equal(origin, context.ViewModel.InvalidPanelId);
+            Assert.Equal("masks", context.ViewModel.InvalidPanelId);
             Assert.Equal(ClipMaskPositionEditingCoordinator.FieldKey(localKey), context.ViewModel.InvalidFieldKey);
             Assert.True(text.IsFocused);
-            Assert.True(DataValidationErrors.GetHasErrors(FindPositionField(effectsPosition, localKey)));
+            Assert.False(otherText.IsFocused);
+            Assert.Null(context.ViewModel.Effects.InvalidFieldKey);
+            Assert.Null(context.ViewModel.Effects.ValidationError);
+            Assert.False(DataValidationErrors.GetHasErrors(FindComponent(effectsRow, false)));
             Assert.True(DataValidationErrors.GetHasErrors(FindPositionField(masksPosition, localKey)));
             Assert.Equal("unfinished", PositionField(session.MaskEditing.PositionDraft, localKey).RawText);
             Assert.Same(source, session.DocumentSnapshot);
@@ -133,8 +130,8 @@ public sealed class SharedMaskDraftOriginUiTests
 
             Assert.Equal(originalText, PositionField(session.MaskEditing.PositionDraft, localKey).RawText);
             Assert.Equal(otherValue, PositionField(session.MaskEditing.PositionDraft, otherKey).RawText);
-            Assert.False(DataValidationErrors.GetHasErrors(FindPositionField(effectsPosition, localKey)));
             Assert.False(DataValidationErrors.GetHasErrors(FindPositionField(masksPosition, localKey)));
+            Assert.Null(context.ViewModel.Effects.ValidationError);
             Assert.Same(source, session.DocumentSnapshot);
         }
         finally

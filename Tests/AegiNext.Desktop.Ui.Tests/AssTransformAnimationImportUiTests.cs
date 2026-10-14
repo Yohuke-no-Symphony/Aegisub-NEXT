@@ -37,7 +37,7 @@ public sealed class AssTransformAnimationImportUiTests
         Assert.Contains(property, timeline.GetAnimationProperties(layer.Id));
         var point = timeline.GetKeyframePoint(layer.Id, property, frame.Time, frame.Value);
         Assert.NotNull(point);
-        ClickTimeline(context, timeline, point.Value);
+        ClickTimeline(context, timeline, () => timeline.GetKeyframePoint(layer.Id, track.Target, frame.Time, frame.Value)!.Value);
         await context.Session.SeekForEditingAsync(frame.Time);
         Assert.Equal(frame.Time, context.Session.SelectedKeyTime);
         Assert.Contains(context.ViewModel.Effects.Properties, choice => choice.Property == property);
@@ -86,8 +86,9 @@ public sealed class AssTransformAnimationImportUiTests
         var operation = Assert.Single(track.Transforms);
         var timeline = UiTestActions.Find<SubtitleTimelineControl>(context.Window, "Timeline");
         Assert.Contains(property, timeline.GetAnimationProperties(layer.Id));
-        var marker = timeline.KeyframeMarkers.First(value => value.Identity.OperationId == operation.Id && !value.Identity.IsOperationStart);
-        ClickTimeline(context, timeline, marker.Position);
+        ClickTimeline(context, timeline, () => timeline.KeyframeMarkers.First(value =>
+            value.Identity.LayerId == layer.Id && value.Identity.Target == track.Target &&
+            value.Identity.OperationId == operation.Id && !value.Identity.IsOperationStart).Position);
         await context.Session.SeekForEditingAsync(operation.End);
         Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation?.Id);
         var ordinary = UiTestActions.PropertyInput(context.Window, property,
@@ -239,11 +240,9 @@ public sealed class AssTransformAnimationImportUiTests
         return context.Session.SelectedLayer!;
     }
 
-    private static void ClickTimeline(MainWindowTestContext context, SubtitleTimelineControl timeline, Point local)
+    private static void ClickTimeline(MainWindowTestContext context, SubtitleTimelineControl timeline, Func<Point> resolver)
     {
-        timeline.BringIntoView();
-        context.Window.UpdateLayout();
-        var point = timeline.TranslatePoint(local, context.Window)!.Value;
+        var point = UiTestActions.VisibleTimelinePoint(context.Window, timeline, resolver);
         Assert.Same(timeline, context.Window.InputHitTest(point));
         context.Window.MouseDown(point, MouseButton.Left);
         context.Window.MouseUp(point, MouseButton.Left);

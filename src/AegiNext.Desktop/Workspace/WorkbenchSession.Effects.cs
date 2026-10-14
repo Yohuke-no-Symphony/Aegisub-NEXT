@@ -1,4 +1,5 @@
 using AegiNext.Desktop.Controls;
+using AegiNext.Core.Projects;
 
 namespace AegiNext.Desktop.Workspace;
 
@@ -6,7 +7,15 @@ internal sealed partial class WorkbenchSession
 {
     internal void ClearKeyframeSelection() => layerEditing.ClearKeyframeSelection();
     internal void RefreshKeyframeInspector() => layerEditing.RefreshKeyframeInspector();
-    internal void AddKeyframe() => layerEditing.AddKeyframe();
+    internal void AddKeyframe()
+    {
+        if (SceneEditing.Target.Property == AnimationProperty.PATH_PROGRESS)
+        {
+            AddEffectPropertyKeyframe(SceneEditing.Target);
+            return;
+        }
+        layerEditing.AddKeyframe();
+    }
     internal void DeleteKeyframe() => layerEditing.DeleteKeyframe();
     internal void CreateKaraoke() => layerEditing.CreateKaraoke(null);
     internal void CreateKaraoke(Guid? presetId) => layerEditing.CreateKaraoke(presetId);

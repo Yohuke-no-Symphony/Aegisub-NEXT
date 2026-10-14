@@ -25,15 +25,14 @@ public sealed class RangePositionEditingUiTests
         var window = context.Window;
         var source = context.Session.DocumentSnapshot;
         var range = source.Subtitles[0].AnimationRanges[0];
-        var row = UiTestActions.Find<Grid>(window, "PositionRow");
+        var row = UiTestActions.Find<AnimationPropertyRowControl>(window, "PositionRow");
         var vector = UiTestActions.Find<VectorDraftInput>(window, "PositionInput");
-        var label = UiTestActions.Find<TextBlock>(window, "PositionLabel");
         var x = UiTestActions.Find<NumericDraftInput>(window, "PositionXInput");
         var text = Assert.Single(x.GetVisualDescendants().OfType<TextBox>());
         Assert.True(row.IsEffectivelyVisible);
         Assert.True(vector.IsEffectivelyEnabled);
-        Assert.Equal(Localization.Get("Workbench.LocalPositionVector"), label.Text);
-        Assert.Equal(Localization.Get("Workbench.LocalPositionHint"), ToolTip.GetTip(row));
+        Assert.Equal(Localization.Get("Workbench.LocalPositionVector"), row.Label);
+        Assert.Equal(Localization.Get("Workbench.LocalPositionHint"), row.EditingHint);
         Assert.Equal("5", x.RawText);
         Assert.False(UiTestActions.Find<Button>(window, "ResetPositionButton").IsEffectivelyVisible);
         try
@@ -61,8 +60,8 @@ public sealed class RangePositionEditingUiTests
             effects.SelectedScope = effects.Scopes.Single(scope => scope.Id is null);
             Dispatcher.UIThread.RunJobs();
             Assert.True(row.IsEffectivelyVisible);
-            Assert.Equal(Localization.Get("Workbench.PositionVector"), label.Text);
-            Assert.Null(ToolTip.GetTip(row));
+            Assert.Equal(Localization.Get("Workbench.PositionVector"), row.Label);
+            Assert.Null(row.EditingHint);
             Assert.True(UiTestActions.Find<Button>(window, "ResetPositionButton").IsEffectivelyVisible);
             Assert.Equal(range.Offset, context.Session.SelectedCue!.AnimationRanges[0].Offset);
         }

@@ -1,7 +1,5 @@
-using System.Collections.Immutable;
 using System.Windows.Input;
 using AegiNext.Core.Projects;
-using AegiNext.Core.Editing;
 using AegiNext.Desktop.Workspace;
 using AegiNext.Desktop.I18n;
 using CommunityToolkit.Mvvm.Input;
@@ -21,6 +19,7 @@ internal sealed partial class EffectsPanelViewModel
     private AnimationPropertyRowViewModel[] fillRows = [];
     private AnimationPropertyRowViewModel[] strokeRows = [];
     private AnimationPropertyRowViewModel[] shadowRows = [];
+    private AnimationPropertyRowViewModel[] pathRows = [];
 
     public EffectScopeChoice[] Scopes { get => scopes; private set => SetItems(ref scopes, value, nameof(Scopes)); }
     public EffectStateChoice[] States { get => states; private set => SetItems(ref states, value, nameof(States)); }
@@ -64,7 +63,10 @@ internal sealed partial class EffectsPanelViewModel
     public bool IsWholeLayerTarget => Target.TextRangeId is null && Target.State == SubtitleAnimationState.NORMAL;
     public bool CanEditTargetTransform => Target.State == SubtitleAnimationState.NORMAL;
     public string PositionLabel => Localization.Get(Target.TextRangeId is null ? "Workbench.PositionVector" : "Workbench.LocalPositionVector");
-    public string? PositionEditingHint => Target.TextRangeId is null ? null : Localization.Get("Workbench.LocalPositionHint");
+    public string? PositionEditingHint => HasOrderedPosition ? Localization.Get("Workbench.StyleOrderedTransformHint") :
+        Target.TextRangeId is null ? null : Localization.Get("Workbench.LocalPositionHint");
+    private bool HasOrderedPosition => SelectedLayer?.Tracks.Any(track =>
+        track.Target == Target with { Property = AnimationProperty.POSITION, NodeId = null } && track.IsOrdered) == true;
     public AnimationPropertyRowViewModel[] RotationRows { get => rotationRows; private set => SetItems(ref rotationRows, value, nameof(RotationRows)); }
     public AnimationPropertyRowViewModel? RotationRow => RotationRows.FirstOrDefault();
     public AnimationPropertyRowViewModel[] PerspectiveRows { get => perspectiveRows; private set => SetItems(ref perspectiveRows, value, nameof(PerspectiveRows)); }
@@ -72,6 +74,7 @@ internal sealed partial class EffectsPanelViewModel
     public AnimationPropertyRowViewModel[] FillRows { get => fillRows; private set => SetItems(ref fillRows, value, nameof(FillRows)); }
     public AnimationPropertyRowViewModel[] StrokeRows { get => strokeRows; private set => SetItems(ref strokeRows, value, nameof(StrokeRows)); }
     public AnimationPropertyRowViewModel[] ShadowRows { get => shadowRows; private set => SetItems(ref shadowRows, value, nameof(ShadowRows)); }
+    public AnimationPropertyRowViewModel[] PathRows { get => pathRows; private set => SetItems(ref pathRows, value, nameof(PathRows)); }
     public ICommand CreateRangeCommand { get; private set; } = null!;
     public ICommand DeleteRangeCommand { get; private set; } = null!;
     public ICommand MoveRangeUpCommand { get; private set; } = null!;
@@ -85,6 +88,12 @@ internal sealed partial class EffectsPanelViewModel
     public bool CanResetOpacityAnimation => IsOpacityAnimated && CanEditOpacity;
     public bool CanResetBlurAnimation => IsBlurAnimated && SelectedLayer?.Tracks.Any(track =>
         track.Target == Target with { Property = AnimationProperty.BLUR, NodeId = null } && !track.Transforms.IsEmpty) != true;
+    public bool CanAddPositionKeyframe => CanEditPosition && CanAddTargetKeyframe(AnimationProperty.POSITION);
+    public bool CanAddScaleKeyframe => CanEditScale && CanAddTargetKeyframe(AnimationProperty.SCALE);
+    public bool CanAddOpacityKeyframe => CanEditOpacity && CanAddTargetKeyframe(AnimationProperty.OPACITY);
+    public bool CanAddBlurKeyframe => CanEditBlur && CanAddTargetKeyframe(AnimationProperty.BLUR);
+    private bool CanAddTargetKeyframe(AnimationProperty property) => SelectedLayer is { } layer &&
+        session.CanAddEffectPropertyKeyframe(layer.Id, Target with { Property = property, NodeId = null });
     public bool IsPositionAnimated => HasAnimation(AnimationProperty.POSITION);
     public bool IsScaleAnimated => HasAnimation(AnimationProperty.SCALE);
     public bool IsRotationAnimated => RotationRow?.IsAnimated == true;
@@ -93,7 +102,6 @@ internal sealed partial class EffectsPanelViewModel
     public ICommand TogglePropertyAnimationCommand { get; private set; } = null!;
     internal bool HasPropertyDrafts => session.PropertyEditing.HasDrafts;
 
-    public bool ClipExpanded { get => IsExpanded("clip"); set => SetExpanded("clip", value); }
     public bool TransformExpanded { get => IsExpanded("transform"); set => SetExpanded("transform", value); }
     public bool TypographyExpanded { get => IsExpanded("typography"); set => SetExpanded("typography", value); }
     public bool FillExpanded { get => IsExpanded("fill"); set => SetExpanded("fill", value); }
@@ -105,6 +113,8 @@ internal sealed partial class EffectsPanelViewModel
 
     private void InitializePropertyGrid()
     {
+        ClearMaskNodeAnimationCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() =>
+            session.EditAsync(session.MaskEditing.ClearNodeAnimation)), () => CanClearMaskNodeAnimation);
         CreateRangeCommand = new AsyncRelayCommand(session.CreateSelectedTextAnimationRangeAsync);
         DeleteRangeCommand = new AsyncRelayCommand(session.DeleteSelectedTextAnimationRangeAsync);
         MoveRangeUpCommand = new AsyncRelayCommand(() => session.MoveSelectedTextAnimationRangeAsync(-1));
@@ -173,12 +183,15 @@ internal sealed partial class EffectsPanelViewModel
         FillRows = Rows(AnimationProperty.FILL, AnimationProperty.FILL_BLUR);
         StrokeRows = Rows(AnimationProperty.STROKE, AnimationProperty.STROKE_WIDTH, AnimationProperty.STROKE_BLUR);
         ShadowRows = line is not null ? Rows(AnimationProperty.SHADOW_COLOR, AnimationProperty.SHADOW_OFFSET, AnimationProperty.SHADOW_BLUR) : [];
+        PathRows = IsWholeLayerTarget ? Rows(AnimationProperty.PATH_PROGRESS) : [];
         foreach (var property in new[] { nameof(CanEditTextScope), nameof(CanCreateRange),
-            nameof(CanManageRange), nameof(IsWholeLayerTarget), nameof(CanEditTargetTransform), nameof(PositionLabel), nameof(PositionEditingHint),
-            nameof(ClipExpanded), nameof(TransformExpanded), nameof(TypographyExpanded), nameof(FillExpanded),
+            nameof(CanManageRange), nameof(IsWholeLayerTarget), nameof(CanEditTargetTransform), nameof(CanEditPosition), nameof(PositionLabel), nameof(PositionEditingHint),
+            nameof(TransformExpanded), nameof(TypographyExpanded), nameof(FillExpanded),
             nameof(StrokeExpanded), nameof(ShadowExpanded), nameof(CompositeExpanded), nameof(PathExpanded), nameof(AnimationExpanded),
             nameof(IsPositionAnimated), nameof(IsScaleAnimated), nameof(IsRotationAnimated), nameof(IsOpacityAnimated), nameof(IsBlurAnimated), nameof(ColorSpace), nameof(CanResetPositionAnimation), nameof(CanResetScaleAnimation),
-            nameof(CanResetRotationAnimation), nameof(CanResetOpacityAnimation), nameof(CanResetBlurAnimation) })
+            nameof(CanResetRotationAnimation), nameof(CanResetOpacityAnimation), nameof(CanResetBlurAnimation),
+            nameof(CanAddPositionKeyframe), nameof(CanAddScaleKeyframe), nameof(CanAddOpacityKeyframe), nameof(CanAddBlurKeyframe),
+            nameof(CanEditBlur), nameof(BlurEditingHint) })
         {
             OnPropertyChanged(property);
         }
@@ -218,19 +231,11 @@ internal sealed partial class EffectsPanelViewModel
 
     internal bool ExpandPropertyField(string? field)
     {
-        if (ClipMaskPositionEditingCoordinator.LocalFieldKey(field) is not null)
-        {
-            MaskExpanded = true;
-            return false;
-        }
         var row = session.PropertyEditing.FindRow(field);
         if (row is null)
         {
             switch (field)
             {
-                case "LayerStartInput" or "LayerEndInput":
-                    ClipExpanded = true;
-                    break;
                 case "PositionXInput" or "PositionYInput" or "ScaleXInput" or "ScaleYInput" or "RotationInput":
                     TransformExpanded = true;
                     break;
@@ -261,6 +266,9 @@ internal sealed partial class EffectsPanelViewModel
                 break;
             case AnimationProperty.STROKE or AnimationProperty.STROKE_WIDTH or AnimationProperty.STROKE_BLUR:
                 StrokeExpanded = true;
+                break;
+            case AnimationProperty.PATH_PROGRESS:
+                PathExpanded = true;
                 break;
             default:
                 ShadowExpanded = true;

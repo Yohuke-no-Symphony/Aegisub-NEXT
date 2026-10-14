@@ -24,6 +24,10 @@ internal sealed partial class WorkbenchSession
             return false;
         }
         var layer = SelectedLayer!;
+        if (!CanUseAnimationProperty(layer, target))
+        {
+            return false;
+        }
         var time = restoreDraft && SceneEditing.DraftTarget is { } draft && draft.Target == target
             ? draft.LocalTime : SceneEditing.Target == target && SelectedKeyTime is { } selectedTime
             ? selectedTime : LayerAnimationTiming.ClampTime(layer, ProjectPosition - layer.Start + layer.AnimationOffset);

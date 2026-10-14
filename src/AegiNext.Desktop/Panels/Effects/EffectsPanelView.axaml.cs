@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Editing;
-using AegiNext.Desktop.Controllers;
 using AegiNext.Desktop.Workspace;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -18,8 +17,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     private readonly WorkbenchSession session;
     private readonly EffectsPanelViewModel viewModel;
     private readonly ComboBox blend;
-    private readonly LayerPositionEditor maskPosition;
-    private readonly (Grid Grid, Control Editor, Control? Actions, int Span)[] propertyGridRows;
     private bool suppressFocusCommit;
     private int focusCommitRevision;
     private NumericDragEditSnapshot? numericDragTarget;
@@ -29,14 +26,7 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         this.session = session;
         this.viewModel = viewModel;
         AvaloniaXamlLoader.Load(this);
-        maskPosition = this.FindControl<LayerPositionEditor>("MaskPositionEditor")!;
-        maskPosition.PresetPositionChanged += OnMaskPositionPresetChanged;
         DataContext = viewModel;
-        propertyGridRows = this.GetLogicalDescendants().OfType<Grid>().Where(grid => grid.Classes.Contains("effect-row"))
-            .Select(grid => (Grid: grid, Editor: grid.Children.First(control => Grid.GetColumn(control) == 1),
-                Actions: grid.Children.FirstOrDefault(control => Grid.GetColumn(control) == 2),
-                Span: Grid.GetColumnSpan(grid.Children.First(control => Grid.GetColumn(control) == 1)))).ToArray();
-        SizeChanged += (_, _) => UpdatePropertyRowLayout();
         blend = this.FindControl<ComboBox>("BlendCombo")!;
         blend.SelectionChanged += (_, _) =>
         {
@@ -47,7 +37,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         };
         animationOptions = new(session, PanelId);
         AddHandler(AnimationPropertyRowControl.AnimationOptionsRequestedEvent, OnAnimationOptionsRequested);
-        AddHandler(Button.ClickEvent, OnAnimationOptionsButtonClick);
         viewModel.ChoicesRefreshing += OnChoicesRefreshing;
         viewModel.ChoicesRefreshed += OnChoicesRefreshed;
         var orientPath = this.FindControl<CheckBox>("OrientPathCheck")!;
@@ -156,24 +145,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         session.ViewModel.GesturesCancelled += OnGesturesCancelled;
         session.NumericGestureCancellationRequested += OnNumericGestureCancellationRequested;
     }
-    private void UpdatePropertyRowLayout()
-    {
-        foreach (var row in propertyGridRows)
-        {
-            var narrow = Bounds.Width < 350 || row.Editor is VectorDraftInput && Bounds.Width < 520;
-            row.Grid.ColumnDefinitions = new(narrow ? "*,Auto" : "108,*,Auto");
-            row.Grid.RowDefinitions = new("Auto,Auto");
-            row.Grid.RowSpacing = 3;
-            Grid.SetColumn(row.Editor, narrow ? 0 : 1);
-            Grid.SetRow(row.Editor, narrow ? 1 : 0);
-            Grid.SetColumnSpan(row.Editor, narrow ? 2 : row.Span);
-            if (row.Actions is { } actions)
-            {
-                Grid.SetColumn(actions, narrow ? 1 : 2);
-            }
-        }
-    }
-
     public string PanelId => "effects";
     public void CancelGestures()
     {
@@ -193,13 +164,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     }
     public void FocusInvalidField(string? fieldKey)
     {
-        if (ClipMaskPositionEditingCoordinator.LocalFieldKey(fieldKey) is { } localKey)
-        {
-            viewModel.MaskExpanded = true;
-            maskPosition.BringIntoView();
-            maskPosition.FocusInvalidField(localKey);
-            return;
-        }
         if (animationOptions.FocusInvalidField(fieldKey))
         {
             return;
@@ -252,13 +216,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         if (e.Key == Key.Escape && e.Source is Control source &&
             !source.GetSelfAndVisualAncestors().OfType<ColorDraftInput>().Any())
         {
-            var positionInput = source.GetSelfAndVisualAncestors().OfType<NumericDraftInput>().FirstOrDefault();
-            if (positionInput?.Name is { } localKey && maskPosition.IsVisualAncestorOf(positionInput))
-            {
-                session.MaskEditing.RestorePositionField(ClipMaskPositionEditingCoordinator.FieldKey(localKey));
-                e.Handled = true;
-                return;
-            }
             var propertyRow = source.GetSelfAndVisualAncestors().OfType<EffectPropertyRowView>().FirstOrDefault();
             if (propertyRow?.RestoreInput(source) == true)
             {
@@ -283,17 +240,11 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
 
     private void BeginFieldEdit(Control source)
     {
-        if (maskPosition.IsVisualAncestorOf(source))
-        {
-            session.MaskEditing.BeginPositionEdit(PanelId);
-        }
-        else if (source.GetSelfAndVisualAncestors().OfType<EffectPropertyRowView>().FirstOrDefault()?.DataContext is AnimationPropertyRowViewModel row)
+        if (source.GetSelfAndVisualAncestors().OfType<EffectPropertyRowView>().FirstOrDefault()?.DataContext is AnimationPropertyRowViewModel row)
         {
             row.BeginEdit(PanelId);
         }
     }
-
-    private void OnMaskPositionPresetChanged(object? sender, EventArgs args) => viewModel.CommitDrafts();
 
     private void OnColorCommitted(object? sender, ColorDraftCommittedEventArgs e) => viewModel.CommitDrafts();
 
@@ -321,8 +272,7 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
                 {
                     continue;
                 }
-                var fieldKey = maskPosition.IsVisualAncestorOf(input) && input.Name is { } localKey
-                    ? ClipMaskPositionEditingCoordinator.FieldKey(localKey) : input.Name;
+                var fieldKey = input.Name;
                 DataValidationErrors.SetErrors(input, fieldKey == viewModel.InvalidFieldKey && viewModel.ValidationError is { } message ? new[] { message } : null);
             }
         }
@@ -362,7 +312,6 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         if (!disposed)
         {
             disposed = true;
-            maskPosition.PresetPositionChanged -= OnMaskPositionPresetChanged;
             animationOptions.Dispose();
             viewModel.ChoicesRefreshing -= OnChoicesRefreshing;
             viewModel.ChoicesRefreshed -= OnChoicesRefreshed;

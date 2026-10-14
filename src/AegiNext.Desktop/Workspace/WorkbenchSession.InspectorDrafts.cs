@@ -1,4 +1,5 @@
 using AegiNext.Application;
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
@@ -103,15 +104,6 @@ internal sealed partial class WorkbenchSession
             ViewModel.InvalidPanelId = "effects";
             var keyframeChanged = changedEffectFields.Overlaps(["KeyframeValueText", "KeyframeValue", "KeyframeValueY", "KeyframeValueYText", "KeyframeValueZ", "KeyframeValueZText", "KeyframeColorDraft"]);
             var keyframeValue = ReadKeyframeDraft(vm, keyframeChanged);
-            ViewModel.InvalidFieldKey = "LayerStartInput";
-            var start = vm.LayerStart == TimelineTimeText.Format(selected.Start) ? selected.Start : TimelineTimeText.Parse(vm.LayerStart);
-            ViewModel.InvalidFieldKey = "LayerEndInput";
-            var end = vm.LayerEnd == TimelineTimeText.Format(selected.End) ? selected.End : TimelineTimeText.Parse(vm.LayerEnd);
-            if (selected.SubtitleId is { } id && (start != selected.Start || end != selected.End))
-            {
-                prepared = WorkspaceDraftOperations.UpdateSubtitle(prepared, id, line => line with { Start = start, End = end });
-            }
-
             var originalPlacement = ResolvePlacement(editor.Snapshot, selected);
             var preparedLayer = prepared.Layers.Single(value => value.Id == selected.Id);
             var preparedPlacement = ResolvePlacement(prepared, preparedLayer);
@@ -149,9 +141,6 @@ internal sealed partial class WorkbenchSession
 
             prepared = WorkspaceDraftOperations.UpdateLayer(prepared, selected.Id, layer => layer with
             {
-                Start = start,
-                End = end,
-                AnimationOffset = layer.AnimationOffset + start - layer.Start,
                 Blend = (BlendMode)vm.Blend,
                 MotionPath = layer.MotionPath is { } path ? path with { OrientToPath = vm.OrientPath == true } : null
             });
@@ -198,6 +187,41 @@ internal sealed partial class WorkbenchSession
             }
         }
 
-        return prepared;
+        return PrepareClipTimingDrafts(prepared);
+    }
+
+    private ProjectDocument PrepareClipTimingDrafts(ProjectDocument document)
+    {
+        if (!HasClipTimingDrafts)
+        {
+            return document;
+        }
+        ViewModel.InvalidPanelId = "timeline";
+        ViewModel.InvalidFieldKey = changedClipTimingFields.Contains("LayerStart") ? "TimelineClipStartInput" : "TimelineClipEndInput";
+        if (!ReferenceEquals(clipTimingDraftSource, DocumentSnapshot) || clipTimingDraftLayerId != SelectedLayerId ||
+            clipTimingDraftLayerId is not { } layerId)
+        {
+            throw new InvalidOperationException(Localization.Get("Workbench.SubtitleDraftConflict"));
+        }
+        var layer = document.Layers.Single(value => value.Id == layerId);
+        var timeline = ViewModel.Timeline;
+        ViewModel.InvalidFieldKey = "TimelineClipStartInput";
+        var start = changedClipTimingFields.Contains("LayerStart") ? TimelineTimeText.Parse(timeline.LayerStart) : layer.Start;
+        ViewModel.InvalidFieldKey = "TimelineClipEndInput";
+        var end = changedClipTimingFields.Contains("LayerEnd") ? TimelineTimeText.Parse(timeline.LayerEnd) : layer.End;
+        if (end <= start)
+        {
+            throw new InvalidDataException(Localization.Get("Workbench.InvalidValue"));
+        }
+        if (start == layer.Start && end == layer.End)
+        {
+            return document;
+        }
+        if (layer.SubtitleId is { } subtitleId)
+        {
+            return WorkspaceDraftOperations.UpdateSubtitle(document, subtitleId, line => line with { Start = start, End = end });
+        }
+        return WorkspaceDraftOperations.UpdateLayer(document, layerId,
+            value => LayerAnimationTiming.Retime(value, start, end, TimelineEditMode.CROP));
     }
 }

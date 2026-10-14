@@ -12,13 +12,7 @@ namespace AegiNext.Desktop.Panels.Effects;
 
 internal sealed partial class EffectsPanelViewModel : ObservableObject
 {
-    private string positionXText = "0";
-    private string positionYText = "0";
-    private string scaleXText = "1";
-    private string scaleYText = "1";
     private string rotationText = "0";
-    private string opacityText = "1";
-    private string blurText = "0";
     private string keyframeValueText = "1";
     private string? validationError;
     private string? invalidFieldKey;
@@ -26,16 +20,8 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     private ProjectDocument document = new();
     private ProjectLayer? selectedLayer;
     private MediaTime position = MediaTime.Zero;
-    private string layerStart = string.Empty;
-    private string layerEnd = string.Empty;
     private bool canEditPosition;
-    private decimal? positionX = 0;
-    private decimal? positionY = 0;
-    private decimal? scaleX = 1;
-    private decimal? scaleY = 1;
     private decimal? rotation = 0;
-    private decimal? opacity = 1;
-    private decimal? blur = 0;
     private int blend;
     private string[] blends = [];
     private bool? orientPath = false;
@@ -55,6 +41,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     internal EffectsPanelViewModel(WorkbenchSession session)
     {
         this.session = session;
+        InitializeNumericDrafts();
         PowerExponent.Load(1);
         InitializeOperationDrafts();
         InitializePropertyGrid();
@@ -118,6 +105,9 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     public bool CanEditScale => SelectedLayer?.Tracks.Any(track =>
         track.Target == Target with { Property = AnimationProperty.SCALE, NodeId = null } && !track.Transforms.IsEmpty) != true;
     public bool CanEditRotation => RotationRow?.IsEnabled ?? true;
+    public bool CanEditBlur => SelectedLayer?.Tracks.Any(track =>
+        track.Target == Target with { Property = AnimationProperty.BLUR, NodeId = null } && !track.Transforms.IsEmpty) != true;
+    public string? BlurEditingHint => CanEditBlur ? null : Localization.Get("Workbench.StyleOrderedTransformHint");
     public string? ScaleEditingHint => CanEditScale ? null : Localization.Get("Workbench.StyleOrderedTransformHint");
     public string? RotationEditingHint => CanEditRotation ? null : Localization.Get("Workbench.StyleOrderedTransformHint");
     public static decimal ScaleMinimum => (decimal)AnimationPropertyMetadata.GetMinimum(AnimationProperty.SCALE);
@@ -157,46 +147,34 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
         }
     }
 
-    public string LayerStart
-    {
-        get => layerStart;
-        set => SetProperty(ref layerStart, value);
-    }
-
-    public string LayerEnd
-    {
-        get => layerEnd;
-        set => SetProperty(ref layerEnd, value);
-    }
-
     public decimal? PositionX
     {
-        get => positionX;
-        set => SetProperty(ref positionX, value);
+        get => PositionXDraft.Value;
+        set => SetNumericDraftValue(PositionXDraft, value);
     }
 
     public bool CanEditPosition
     {
-        get => canEditPosition;
+        get => canEditPosition && !HasOrderedPosition;
         set => SetProperty(ref canEditPosition, value);
     }
 
     public decimal? PositionY
     {
-        get => positionY;
-        set => SetProperty(ref positionY, value);
+        get => PositionYDraft.Value;
+        set => SetNumericDraftValue(PositionYDraft, value);
     }
 
     public decimal? ScaleX
     {
-        get => scaleX;
-        set => SetProperty(ref scaleX, value);
+        get => ScaleXDraft.Value;
+        set => SetNumericDraftValue(ScaleXDraft, value);
     }
 
     public decimal? ScaleY
     {
-        get => scaleY;
-        set => SetProperty(ref scaleY, value);
+        get => ScaleYDraft.Value;
+        set => SetNumericDraftValue(ScaleYDraft, value);
     }
 
     public decimal? Rotation
@@ -217,14 +195,14 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
 
     public decimal? Opacity
     {
-        get => opacity;
-        set => SetProperty(ref opacity, value);
+        get => OpacityDraft.Value;
+        set => SetNumericDraftValue(OpacityDraft, value);
     }
 
     public decimal? Blur
     {
-        get => blur;
-        set => SetProperty(ref blur, value);
+        get => BlurDraft.Value;
+        set => SetNumericDraftValue(BlurDraft, value);
     }
 
     public int Blend
@@ -432,23 +410,23 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     public void ReportRenderingError(Exception error) => session.ShowError(error);
     public string PositionXText
     {
-        get => positionXText;
-        set => SetProperty(ref positionXText, value);
+        get => PositionXDraft.RawText;
+        set => PositionXDraft.RawText = value;
     }
     public string PositionYText
     {
-        get => positionYText;
-        set => SetProperty(ref positionYText, value);
+        get => PositionYDraft.RawText;
+        set => PositionYDraft.RawText = value;
     }
     public string ScaleXText
     {
-        get => scaleXText;
-        set => SetProperty(ref scaleXText, value);
+        get => ScaleXDraft.RawText;
+        set => ScaleXDraft.RawText = value;
     }
     public string ScaleYText
     {
-        get => scaleYText;
-        set => SetProperty(ref scaleYText, value);
+        get => ScaleYDraft.RawText;
+        set => ScaleYDraft.RawText = value;
     }
     public string RotationText
     {
@@ -467,13 +445,13 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     }
     public string OpacityText
     {
-        get => opacityText;
-        set => SetProperty(ref opacityText, value);
+        get => OpacityDraft.RawText;
+        set => OpacityDraft.RawText = value;
     }
     public string BlurText
     {
-        get => blurText;
-        set => SetProperty(ref blurText, value);
+        get => BlurDraft.RawText;
+        set => BlurDraft.RawText = value;
     }
     public string KeyframeValueText
     {

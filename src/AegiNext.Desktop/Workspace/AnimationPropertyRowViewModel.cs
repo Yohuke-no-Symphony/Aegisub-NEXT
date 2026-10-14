@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.Windows.Input;
 using AegiNext.Core.Projects;
+using AegiNext.Core.Editing;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -20,6 +21,8 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     private ProjectDocument? draftSource;
     private bool isAnimated;
     private bool isEnabled;
+    private bool isOrdered;
+    private bool canUseAnimationActions = true;
     private bool isMixed;
     private bool canAddKeyframe;
     private string? error;
@@ -41,11 +44,11 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         Z.PropertyChanged += OnNumberChanged;
         Color.Changed += OnColorChanged;
         Color.Committed += (_, _) => session.TryCommitDrafts(false);
-        SelectCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target));
-        ToggleAnimationCommand = new AsyncRelayCommand(() => session.SetAnimationPropertyEnabledAsync(LayerId, Target, !IsAnimated));
-        AddKeyframeCommand = new AsyncRelayCommand(() => session.AddAnimationPropertyKeyframeAsync(LayerId, Target));
-        AnimationOptionsCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target));
-        ResetCommand = new AsyncRelayCommand(() => session.ResetAnimationPropertyAsync(LayerId, Target));
+        SelectCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target), () => canUseAnimationActions);
+        ToggleAnimationCommand = new AsyncRelayCommand(() => session.SetAnimationPropertyEnabledAsync(LayerId, Target, !IsAnimated), () => CanToggleAnimation);
+        AddKeyframeCommand = new AsyncRelayCommand(() => session.AddAnimationPropertyKeyframeAsync(LayerId, Target), () => CanAddKeyframe);
+        AnimationOptionsCommand = new RelayCommand(() => session.SelectAnimationProperty(LayerId, Target), () => canUseAnimationActions);
+        ResetCommand = new AsyncRelayCommand(() => session.ResetAnimationPropertyAsync(LayerId, Target), () => CanReset);
     }
 
     internal Guid LayerId { get; }
@@ -72,6 +75,7 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     public decimal Increment => Target.Property switch
     {
         AnimationProperty.SCALE or AnimationProperty.MASK_SCALE => 0.01m,
+        AnimationProperty.PATH_PROGRESS => 0.01m,
         AnimationProperty.LETTER_SPACING or AnimationProperty.STROKE_WIDTH or AnimationProperty.FILL_BLUR or
             AnimationProperty.STROKE_BLUR or AnimationProperty.SHADOW_BLUR => 0.5m,
         _ => 1m
@@ -79,13 +83,16 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
     public bool IsAnimated { get => isAnimated; private set => SetProperty(ref isAnimated, value); }
     public bool IsEnabled { get => isEnabled; private set => SetProperty(ref isEnabled, value); }
     public bool CanAddKeyframe { get => canAddKeyframe; private set => SetProperty(ref canAddKeyframe, value); }
-    public bool IsOrdered => !IsEnabled;
+    public bool IsOrdered { get => isOrdered; private set => SetProperty(ref isOrdered, value); }
     public ICommand AnimationOptionsCommand { get; }
     public string AnimationOptionsHint => Localization.Format("Workbench.AnimationOptionsForProperty", Name);
     public bool CanReset => IsAnimated && IsEnabled;
-    public bool CanToggleAnimation => IsAnimated || CanAddKeyframe;
+    public bool CanToggleAnimation => canUseAnimationActions && (IsAnimated || CanAddKeyframe);
     public bool IsMixed { get => isMixed; private set => SetProperty(ref isMixed, value); }
-    public string? EditingHint => !IsEnabled ? Localization.Get("Workbench.StyleOrderedTransformHint") : IsMixed ? Localization.Get("Workbench.MixedPropertyValue") :
+    public string? EditingHint => !canUseAnimationActions ? Localization.Get("Workbench.PathProgressRequiresPath") :
+        IsOrdered ? Localization.Get("Workbench.StyleOrderedTransformHint") :
+        Target.Property == AnimationProperty.PATH_PROGRESS && !IsEnabled ? Localization.Get("Workbench.PathProgressRequiresKeyframe") :
+        IsMixed ? Localization.Get("Workbench.MixedPropertyValue") :
         Target.Property == AnimationProperty.PERSPECTIVE_DISTANCE ? Localization.Get("Workbench.PerspectiveDistanceHint") : null;
     public string? Error { get => error; private set => SetProperty(ref error, value); }
     public string? InvalidFieldKey { get => invalidFieldKey; private set => SetProperty(ref invalidFieldKey, value); }
@@ -102,12 +109,20 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         IsMixed = mixed;
         OnPropertyChanged(nameof(EditingHint));
         IsAnimated = track is not null;
-        IsEnabled = track?.Transforms.IsEmpty != false;
+        IsOrdered = track?.IsOrdered == true;
+        var layer = session.DocumentSnapshot.Layers.FirstOrDefault(value => value.Id == LayerId);
+        canUseAnimationActions = layer is not null && WorkbenchSession.CanUseAnimationProperty(layer, Target);
+        IsEnabled = canUseAnimationActions && !IsOrdered &&
+            (Target.Property != AnimationProperty.PATH_PROGRESS || track?.Keyframes.IsEmpty == false);
         OnPropertyChanged(nameof(EditingHint));
-        CanAddKeyframe = IsEnabled && session.CanAddEffectPropertyKeyframe(LayerId);
-        OnPropertyChanged(nameof(IsOrdered));
+        CanAddKeyframe = session.CanAddEffectPropertyKeyframe(LayerId, Target);
         OnPropertyChanged(nameof(CanToggleAnimation));
         OnPropertyChanged(nameof(CanReset));
+        ((IRelayCommand)SelectCommand).NotifyCanExecuteChanged();
+        ((IRelayCommand)ToggleAnimationCommand).NotifyCanExecuteChanged();
+        ((IRelayCommand)AddKeyframeCommand).NotifyCanExecuteChanged();
+        ((IRelayCommand)AnimationOptionsCommand).NotifyCanExecuteChanged();
+        ((IRelayCommand)ResetCommand).NotifyCanExecuteChanged();
         RefreshLabels();
         if (HasDraft)
         {
@@ -170,6 +185,23 @@ internal sealed class AnimationPropertyRowViewModel : ObservableObject
         if (!ReferenceEquals(draftSource, session.DocumentSnapshot) || draftTarget is null)
         {
             throw new InvalidOperationException(Localization.Get("Workbench.SubtitleDraftConflict"));
+        }
+        if (Target.Property == AnimationProperty.PATH_PROGRESS)
+        {
+            var layer = document.Layers.Single(value => value.Id == LayerId);
+            var track = layer.Tracks.FirstOrDefault(value => value.Target == Target);
+            var range = LayerAnimationTiming.GetRange(layer);
+            var hint = !WorkbenchSession.CanUseAnimationProperty(layer, Target) ? "Workbench.PathProgressRequiresPath" :
+                track?.IsOrdered == true ? "Workbench.StyleOrderedTransformHint" :
+                track?.Keyframes.IsEmpty != false || draftTarget.LocalTime < range.Minimum || draftTarget.LocalTime > range.Maximum
+                    ? "Workbench.PathProgressRequiresKeyframe" : null;
+            if (hint is not null)
+            {
+                InvalidFieldKey = XFieldKey;
+                session.ViewModel.InvalidFieldKey = XFieldKey;
+                Error = Localization.Get(hint);
+                throw new InvalidDataException(Error);
+            }
         }
         AnimationValue value;
         if (IsColor)

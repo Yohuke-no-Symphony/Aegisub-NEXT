@@ -1,7 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:masks="using:AegiNext.Desktop.Panels.Masks"
-             xmlns:workspace="using:AegiNext.Desktop.Workspace"
              xmlns:controls="using:AegiNext.Desktop.Controls"
              xmlns:common="using:AegiNext.Desktop.Controls.Common"
              xmlns:icons="using:Material.Icons.Avalonia"
@@ -30,14 +29,7 @@
           XInputName="{Binding X.Key}" YInputName="{Binding Y.Key}"
           CanEdit="{Binding Row.IsEnabled, FallbackValue=True}"
           Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Increment="{Binding Row.Increment, FallbackValue=1}"
-          ShowAnimationActions="{Binding Row, Converter={x:Static converters:ObjectConverters.IsNotNull}}"
-          IsAnimated="{Binding Row.IsAnimated, FallbackValue=False}"
-
-          CanAddKeyframe="{Binding Row.CanAddKeyframe, FallbackValue=False}" CanReset="{Binding Row.CanReset, FallbackValue=False}"
-          SelectCommand="{Binding Row.SelectCommand}" AnimationOptionsCommand="{Binding Row.AnimationOptionsCommand}" AnimationOptionsHint="{Binding Row.AnimationOptionsHint}"
-          AddKeyframeCommand="{Binding Row.AddKeyframeCommand}" ResetCommand="{Binding Row.ResetCommand}"
-          EditingHint="{Binding Row.EditingHint}" KeyframeHint="{Binding Row.KeyframeHint}"
-          ResetHint="{Binding Row.ResetHint}"
+          ShowAnimationActions="False" SeparatorThickness="0" RowPadding="0,3" EditingHint="{Binding Row.EditingHint}"
           Error="{Binding Row.Error}" InvalidFieldKey="{Binding Row.InvalidFieldKey}" />
     </DataTemplate>
   </UserControl.Resources>
@@ -97,35 +89,13 @@
                   IsEnabled="{Binding CanDeleteNode}" ToolTip.Tip="{Binding DeleteNodeToolTip}" AutomationProperties.Name="{Loc Key=Workbench.MaskDeleteNode}">
             <icons:MaterialIcon Kind="VectorPointMinus" Width="16" Height="16" />
           </Button>
-          <Button Name="ClearMaskNodeAnimationButton" Classes="icon-button" Command="{Binding ClearNodeAnimationCommand}"
-                  IsEnabled="{Binding CanClearNodeAnimation}" ToolTip.Tip="{Loc Key=Workbench.MaskClearNodeAnimation}" AutomationProperties.Name="{Loc Key=Workbench.MaskClearNodeAnimation}">
-            <icons:MaterialIcon Kind="AnimationOutline" Width="16" Height="16" />
-          </Button>
         </StackPanel>
       </WrapPanel>
       <StackPanel Spacing="8" IsVisible="{Binding HasClipMask}">
-        <TextBlock Classes="field" Text="{Loc Key=Workbench.MaskPlacement}" />
         <controls:LayerPositionEditor Name="MaskPositionEditor" Draft="{Binding Position}"
             ShowPositionMode="False" ShowAutomaticPositionAction="False" />
-        <TextBlock Text="{Loc Key=Workbench.MaskPlacementHint}" TextWrapping="Wrap" />
       </StackPanel>
       <ItemsControl Name="MaskGeometryFields" ItemsSource="{Binding GeometryFields}" ItemTemplate="{StaticResource MaskVectorPropertyTemplate}" />
-      <ContentControl Name="MaskRotationField" Content="{Binding RotationField}">
-        <ContentControl.ContentTemplate>
-          <DataTemplate x:DataType="workspace:MaskNumericField">
-            <controls:AnimationPropertyRowControl Label="{Loc Key=Workbench.MASK_ROTATION}" IsScalar="True" ScalarInputName="MaskRotationInput"
-                X="{Binding Draft}" FieldKey="{Binding Row.FieldKey}" XFieldKey="{Binding FieldKey}" YFieldKey="{Binding Row.YFieldKey}"
-                CanEdit="{Binding Row.IsEnabled}" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}" Increment="{Binding Row.Increment}"
-                IsAnimated="{Binding Row.IsAnimated}"
-                CanAddKeyframe="{Binding Row.CanAddKeyframe}" CanReset="{Binding Row.CanReset}"
-                SelectCommand="{Binding Row.SelectCommand}" AnimationOptionsCommand="{Binding Row.AnimationOptionsCommand}" AnimationOptionsHint="{Binding Row.AnimationOptionsHint}"
-                AddKeyframeCommand="{Binding Row.AddKeyframeCommand}" ResetCommand="{Binding Row.ResetCommand}"
-                EditingHint="{Binding Row.EditingHint}" KeyframeHint="{Binding Row.KeyframeHint}"
-                ResetHint="{Binding Row.ResetHint}"
-                Error="{Binding Row.Error}" InvalidFieldKey="{Binding Row.InvalidFieldKey}" />
-          </DataTemplate>
-        </ContentControl.ContentTemplate>
-      </ContentControl>
       <StackPanel Name="MaskBezierData" Spacing="6" IsVisible="{Binding IsVectorMask}">
         <TextBlock Classes="field" Text="{Loc Key=Workbench.MaskContour}" />
         <ComboBox Name="MaskContourCombo" ItemsSource="{Binding Contours}" SelectedItem="{Binding SelectedContour, Mode=OneWay}" HorizontalAlignment="Stretch" />

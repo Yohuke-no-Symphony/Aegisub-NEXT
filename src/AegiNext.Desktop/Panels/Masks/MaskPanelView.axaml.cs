@@ -3,7 +3,6 @@ using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Workspace;
 using AegiNext.Desktop.Windowing;
 using AegiNext.Desktop.Shortcuts;
-using AegiNext.Desktop.Panels.Effects;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -22,7 +21,6 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
     private readonly ComboBox contourCombo;
     private readonly ListBox pointList;
     private readonly LayerPositionEditor position;
-    private readonly AnimationOptionsPopupHost animationOptions;
     private bool synchronizingSelection;
     private bool suppressFocusCommit;
     private int focusCommitRevision;
@@ -32,7 +30,6 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
     {
         this.session = session;
         this.viewModel = viewModel;
-        animationOptions = new(session, PanelId);
         DataContext = null;
         AvaloniaXamlLoader.Load(this);
         contourCombo = this.FindControl<ComboBox>("MaskContourCombo")!;
@@ -54,7 +51,6 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnCommitKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(LostFocusEvent, OnLostFocus, RoutingStrategies.Bubble);
-        AddHandler(AnimationPropertyRowControl.AnimationOptionsRequestedEvent, OnAnimationOptionsRequested);
         BindNumericDrags();
         session.ViewModel.GesturesCancelled += OnGesturesCancelled;
         viewModel.PropertyChanged += OnViewModelChanged;
@@ -65,11 +61,6 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
     /// <inheritdoc />
     public bool CanExecuteFocusCommand(WorkbenchCommand command, IInputElement focusedElement)
     {
-        if (command == WorkbenchCommand.DELETE_SUBTITLE)
-        {
-            return !animationOptions.IsOpen && TryGetAnimationActionRow(focusedElement) is { } row &&
-                session.CanDeleteSelectedAnimationKeyframe(row.LayerId, row.Target);
-        }
         return command == WorkbenchCommand.END_TEXT_INPUT && viewModel.IsMaskEditing &&
             focusedElement is Control control && !control.GetSelfAndVisualAncestors().Any(ancestor => ancestor is TextBox or NumericUpDown);
     }
@@ -81,13 +72,14 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
         {
             return false;
         }
-        if (command == WorkbenchCommand.DELETE_SUBTITLE && TryGetAnimationActionRow(focusedElement) is { } row)
-        {
-            _ = session.DeleteSelectedAnimationKeyframeAsync(row.LayerId, row.Target);
-            return true;
-        }
         session.MaskEditing.ExitEditing();
         return true;
+    }
+
+    /// <inheritdoc />
+    public bool OwnsFocusCommand(WorkbenchCommand command, IInputElement focusedElement)
+    {
+        return CanExecuteFocusCommand(command, focusedElement);
     }
 
     /// <inheritdoc />
@@ -108,10 +100,6 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
     /// <inheritdoc />
     public void FocusInvalidField(string? fieldKey)
     {
-        if (animationOptions.FocusInvalidField(fieldKey))
-        {
-            return;
-        }
         if (fieldKey is null)
         {
             Focus();
@@ -133,7 +121,6 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
     /// <inheritdoc />
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        animationOptions.Close();
         CancelGestures();
         base.OnDetachedFromVisualTree(e);
     }
@@ -334,7 +321,6 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
             return;
         }
         disposed = true;
-        animationOptions.Dispose();
         focusCommitRevision++;
         contourCombo.SelectionChanged -= OnContourSelectionChanged;
         pointList.SelectionChanged -= OnPointSelectionChanged;

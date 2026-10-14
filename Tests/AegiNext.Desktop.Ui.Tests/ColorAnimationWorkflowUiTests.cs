@@ -29,8 +29,8 @@ public sealed class ColorAnimationWorkflowUiTests
         context.Session.Editor.SetKeyframe(id, property, new(new(1), original));
         UiTestActions.SelectAnimationProperty(context.Window, property);
         var timeline = UiTestActions.Find<SubtitleTimelineControl>(context.Window, "Timeline");
-        var location = timeline.GetKeyframePoint(id, property, new(1), original, 0)!.Value;
-        var point = timeline.TranslatePoint(location, context.Window)!.Value;
+        var point = UiTestActions.VisibleTimelinePoint(context.Window, timeline,
+            () => timeline.GetKeyframePoint(id, property, new(1), original, 0)!.Value);
         var before = context.Session.DocumentSnapshot;
         Assert.Same(timeline, context.Window.InputHitTest(point));
         context.Window.MouseDown(point, MouseButton.Left);
@@ -64,7 +64,7 @@ public sealed class ColorAnimationWorkflowUiTests
         context.Session.Editor.SetKeyframe(id, AnimationProperty.FILL, new(new(2), new SceneColor(0, 0, 1)));
         Assert.True(context.Session.SelectKeyframe(new(id, AnimationProperty.FILL, new(1), new(1))));
         var before = context.Session.DocumentSnapshot;
-        var color = UiTestActions.Find<ColorDraftInput>(context.Window, "KeyframeColorInput");
+        var color = UiTestActions.PropertyColorInput(context.Window, AnimationProperty.FILL);
         if (rgba)
         {
             Assert.True(color.Draft!.TryToggleInputMode());
@@ -102,7 +102,7 @@ public sealed class ColorAnimationWorkflowUiTests
         context.Session.Editor.SetKeyframe(id, AnimationProperty.FILL, new(new(2), SceneColor.Black));
         Assert.True(context.Session.SelectKeyframe(new(id, AnimationProperty.FILL, new(1), new(1))));
         var before = context.Session.DocumentSnapshot;
-        var color = UiTestActions.Find<ColorDraftInput>(context.Window, "KeyframeColorInput");
+        var color = UiTestActions.PropertyColorInput(context.Window, AnimationProperty.FILL);
         if (rgba)
         {
             Assert.True(color.Draft!.TryToggleInputMode());

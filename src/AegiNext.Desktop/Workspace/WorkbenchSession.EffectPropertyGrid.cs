@@ -43,9 +43,17 @@ internal sealed partial class WorkbenchSession
         var subtitle = layer.SubtitleId is { } id ? DocumentSnapshot.Subtitles.FirstOrDefault(line => line.Id == id) : null;
         target = RotationTargetCompatibility.Canonicalize(target);
         var track = InspectorTrack(layer, target);
-        return track is not null && AnimationTarget is { } edit
-            ? SceneEvaluator.EvaluateTrack(track, edit.LocalTime)
-            : SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
+        if (track is not null && AnimationTarget is { } edit)
+        {
+            return SceneEvaluator.EvaluateTrack(track, edit.LocalTime);
+        }
+        if (target.Property == AnimationProperty.PATH_PROGRESS && layer.MotionPath is { } motion)
+        {
+            var time = AnimationTarget is { } current && current.LayerId == layer.Id
+                ? current.LocalTime : LayerAnimationTiming.ClampTime(layer, ProjectPosition - layer.Start + layer.AnimationOffset);
+            return MotionPathProgress.EvaluateNatural(motion, time);
+        }
+        return SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
     }
 
     internal AnimationTrack? InspectorTrack(ProjectLayer layer, AnimationTrackTarget target)
@@ -119,7 +127,7 @@ internal sealed partial class WorkbenchSession
     internal Task SetAnimationPropertyEnabledAsync(Guid layerId, AnimationTrackTarget target, bool enabled) => RunCommandAsync(() => EditAsync(() =>
     {
         target = RotationTargetCompatibility.Canonicalize(target);
-        if (SelectedLayer is not { } layer || layer.Id != layerId)
+        if (SelectedLayer is not { } layer || layer.Id != layerId || !CanUseAnimationProperty(layer, target))
         {
             return;
         }
@@ -159,17 +167,48 @@ internal sealed partial class WorkbenchSession
         return LayerAnimationTiming.ClampTime(layer, time) == time;
     }
 
+    internal bool CanAddEffectPropertyKeyframe(Guid layerId, AnimationTrackTarget target)
+    {
+        target = RotationTargetCompatibility.Canonicalize(target);
+        return CanAddEffectPropertyKeyframe(layerId) && SelectedLayer is { } layer &&
+            CanUseAnimationProperty(layer, target) && InspectorTrack(layer, target)?.IsOrdered != true;
+    }
+
+    internal static bool CanUseAnimationProperty(ProjectLayer layer, AnimationTrackTarget target)
+    {
+        return target.Property != AnimationProperty.PATH_PROGRESS || layer.MotionPath is not null &&
+            target.TextRangeId is null && target.NodeId is null && target.State == SubtitleAnimationState.NORMAL;
+    }
+
+    internal static ProjectDocument EnsureNaturalPathProgressTrack(ProjectDocument document, Guid layerId, AnimationTrackTarget target)
+    {
+        if (target.Property != AnimationProperty.PATH_PROGRESS)
+        {
+            return document;
+        }
+        var layer = document.Layers.Single(value => value.Id == layerId);
+        if (!CanUseAnimationProperty(layer, target) || layer.Tracks.Any(track => track.Target == target))
+        {
+            return document;
+        }
+        var track = MotionPathProgress.CreateNaturalTrack(layer.MotionPath!);
+        return WorkspaceDraftOperations.UpdateLayer(document, layerId, current => current with { Tracks = current.Tracks.Add(track) });
+    }
+
     private void AddEffectPropertyKeyframe(AnimationTrackTarget target)
     {
         target = RotationTargetCompatibility.Canonicalize(target);
-        if (SelectedLayer is not { } layer || AnimationTarget is not { } edit || !CanAddEffectPropertyKeyframe(layer.Id) ||
-            InspectorTrack(layer, target)?.Transforms.IsEmpty == false)
+        if (SelectedLayer is not { } layer || AnimationTarget is not { } edit || !CanAddEffectPropertyKeyframe(layer.Id, target))
         {
             return;
         }
         var value = EffectPropertyValue(layer, target);
-        editor.Apply("Add property keyframe", document => WorkspaceDraftOperations.SetKeyframe(
-            AnimationEditOperations.NormalizeRotation(document, layer.Id, target), layer.Id, target, new(edit.LocalTime, value)));
+        editor.Apply("Add property keyframe", document =>
+        {
+            var prepared = AnimationEditOperations.NormalizeRotation(document, layer.Id, target);
+            prepared = EnsureNaturalPathProgressTrack(prepared, layer.Id, target);
+            return WorkspaceDraftOperations.SetKeyframe(prepared, layer.Id, target, new(edit.LocalTime, value));
+        });
         SelectKeyframe(new(layer.Id, target, edit.LocalTime, edit.LocalTime));
     }
 
@@ -192,12 +231,25 @@ internal sealed partial class WorkbenchSession
     {
         target = RotationTargetCompatibility.Canonicalize(target);
         if (SelectedLayer is not { } layer || layer.Id != layerId || AnimationTarget is not { } edit ||
-            InspectorTrack(layer, target)?.IsOrdered == true)
+            InspectorTrack(layer, target)?.IsOrdered == true || !CanUseAnimationProperty(layer, target))
         {
             return;
         }
         var subtitle = layer.SubtitleId is { } id ? DocumentSnapshot.Subtitles.Single(line => line.Id == id) : null;
-        var value = SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
+        AnimationValue value;
+        if (target.Property == AnimationProperty.PATH_PROGRESS)
+        {
+            var range = LayerAnimationTiming.GetRange(layer);
+            if (InspectorTrack(layer, target) is null || edit.LocalTime < range.Minimum || edit.LocalTime > range.Maximum)
+            {
+                return;
+            }
+            value = MotionPathProgress.EvaluateNatural(layer.MotionPath!, edit.LocalTime);
+        }
+        else
+        {
+            value = SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
+        }
         var prepared = AnimationEditOperations.SetValue(editor.Snapshot, edit, target, value);
         if (prepared != editor.Snapshot)
         {

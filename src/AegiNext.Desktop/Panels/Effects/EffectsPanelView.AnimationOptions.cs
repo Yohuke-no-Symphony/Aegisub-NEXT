@@ -53,19 +53,20 @@ internal sealed partial class EffectsPanelView : IWorkbenchFocusCommandTarget
 
     private void OnAnimationOptionsRequested(object? sender, RoutedEventArgs e)
     {
-        if (e.Source is AnimationPropertyRowControl control && control.DataContext is AnimationPropertyRowViewModel row)
+        if (e.Source is not AnimationPropertyRowControl control)
+        {
+            return;
+        }
+        if (control.DataContext is AnimationPropertyRowViewModel row)
         {
             animationOptions.Open(control.FindControl<Button>("AnimationOptionsButton")!, row.LayerId, row.Target);
             e.Handled = true;
         }
-    }
-
-    private void OnAnimationOptionsButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (e.Source is Button { Tag: AnimationProperty property } button && button.Classes.Contains("animation-options") &&
+        else if (control.CommandParameter is AnimationProperty property &&
             session.SelectedLayerId is { } layerId)
         {
-            animationOptions.Open(button, layerId, viewModel.Target with { Property = property, NodeId = null });
+            animationOptions.Open(control.FindControl<Button>("AnimationOptionsButton")!, layerId,
+                viewModel.Target with { Property = property, NodeId = null });
             e.Handled = true;
         }
     }

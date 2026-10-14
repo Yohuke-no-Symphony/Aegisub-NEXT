@@ -232,20 +232,22 @@ public sealed class SharedMaskPropertyEditingUiTests
             {
                 Assert.False(control.CanEdit);
                 Assert.False(FindComponent(control, false).IsEffectivelyEnabled);
-                Assert.False(FindAction(control, row.AddKeyframeCommand).IsEffectivelyEnabled);
-                Assert.False(FindAction(control, row.ResetCommand).IsEffectivelyEnabled);
-                Assert.True(control.FindControl<Button>("AnimationOptionsButton")!.IsEffectivelyVisible);
             }
+            Assert.False(FindAction(effectsRow, row.AddKeyframeCommand).IsEffectivelyEnabled);
+            Assert.False(FindAction(effectsRow, row.ResetCommand).IsEffectivelyEnabled);
+            Assert.True(effectsRow.FindControl<Button>("AnimationOptionsButton")!.IsEffectivelyVisible);
+            Assert.False(masksRow.ShowAnimationActions);
+            Assert.False(masksRow.FindControl<Button>("AnimationOptionsButton")!.IsEffectivelyVisible);
 
-            var button = masksRow.FindControl<Button>("AnimationOptionsButton")!;
-            await ClickActionAsync(masksHost, button);
+            var button = effectsRow.FindControl<Button>("AnimationOptionsButton")!;
+            await ClickActionAsync(effectsHost, button);
 
             Assert.Equal(target, context.ViewModel.Effects.Target);
             Assert.True(button.Flyout!.IsOpen);
             var popup = Assert.IsAssignableFrom<Control>(Assert.IsType<Flyout>(button.Flyout).Content);
             Assert.True(UiTestActions.Find<VectorDraftInput>(popup, "OperationVectorInput").IsEffectivelyVisible);
             Assert.True(UiTestActions.Find<ComboBox>(popup, "TransformOperationCombo").IsEffectivelyVisible);
-            Assert.Equal("masks", session.AnimationOptionsPanelId);
+            Assert.Equal("effects", session.AnimationOptionsPanelId);
             Assert.Equal(operation.Id, context.ViewModel.Effects.SelectedOperation!.Id);
             var track = Assert.Single(session.SelectedLayer!.Tracks, track => track.Target == target);
             Assert.Empty(track.Keyframes);
@@ -259,11 +261,12 @@ public sealed class SharedMaskPropertyEditingUiTests
         }
     }
 
-    /// <summary>蒙版缩放标题以百分之一步长拖拽，预览不写工程，提交一次并支持取消。</summary>
+    /// <summary>特效缩放和共享几何的分量标题使用各自步长拖拽，提交一次并支持取消。</summary>
     [AvaloniaTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task MaskScaleTitleUsesOneHundredthStepAndSupportsSingleUndoAndEscapeCancellation(bool fromMasks)
+    [InlineData(AnimationProperty.MASK_SCALE, false)]
+    [InlineData(AnimationProperty.MASK_RECTANGLE_TOP_LEFT, false)]
+    [InlineData(AnimationProperty.MASK_RECTANGLE_TOP_LEFT, true)]
+    public async Task OwningPanelComponentTitlesUsePropertyStepsAndSupportSingleUndoAndEscapeCancellation(AnimationProperty property, bool fromMasks)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -279,23 +282,28 @@ public sealed class SharedMaskPropertyEditingUiTests
         try
         {
             Flush(host);
-            var row = GetRow(context, AnimationProperty.MASK_SCALE);
+            var row = GetRow(context, property);
             var control = fromMasks ? FindMaskRow(panel, row) : FindEffectsRow(panel, row);
             var vector = Assert.Single(control.GetVisualDescendants().OfType<VectorDraftInput>());
             vector.BringIntoView();
             Flush(host);
             AvaloniaHeadlessPlatform.ForceRenderTimerTick();
             var title = Assert.Single(vector.GetVisualDescendants().OfType<NumericDragLabel>(), title => title.Text == "X");
-            Assert.Equal(0.01m, title.Input!.Increment);
+            var scale = property == AnimationProperty.MASK_SCALE;
+            var increment = scale ? 0.01m : 1m;
+            var original = scale ? 1m : 0m;
+            var expected = original + 8 * increment;
+            Assert.Equal(increment, title.Input!.Increment);
             var source = session.DocumentSnapshot;
             var point = title.TranslatePoint(new(title.Bounds.Width / 2, title.Bounds.Height / 2), host)!.Value;
             host.MouseDown(point, MouseButton.Left);
             host.MouseMove(point + new Vector(8, 0));
             Assert.Same(source, session.DocumentSnapshot);
-            Assert.Equal(1.08m, vector.X);
+            Assert.Equal(expected, vector.X);
             host.MouseUp(point + new Vector(8, 0), MouseButton.Left);
             Flush(host);
-            Assert.Equal(1.08, session.SelectedLayer!.Mask!.Transform.Scale.X, 5);
+            var value = scale ? session.SelectedLayer!.Mask!.Transform.Scale.X : Assert.IsType<RectangleClipMask>(session.SelectedLayer!.Mask).TopLeft.X;
+            Assert.Equal((double)expected, value, 5);
             Assert.True(session.Editor.Undo());
             Assert.Same(source, session.DocumentSnapshot);
             Flush(host);
@@ -310,7 +318,7 @@ public sealed class SharedMaskPropertyEditingUiTests
             UiTestActions.Press(host, Key.Escape);
             host.MouseUp(point + new Vector(15, 0), MouseButton.Left);
             Flush(host);
-            Assert.Equal("1", row.X.RawText);
+            Assert.Equal(scale ? "1" : "0", row.X.RawText);
             Assert.Same(source, session.DocumentSnapshot);
         }
         finally
@@ -395,7 +403,7 @@ public sealed class SharedMaskPropertyEditingUiTests
         var masksHost = new Window { Width = 384, Height = 1000, Content = masks };
         effectsHost.Show();
         masksHost.Show();
-        var row = GetRow(context, AnimationProperty.MASK_ROTATION);
+        var row = GetRow(context, AnimationProperty.MASK_RECTANGLE_TOP_LEFT);
         var source = session.DocumentSnapshot;
         try
         {
@@ -413,11 +421,11 @@ public sealed class SharedMaskPropertyEditingUiTests
                     Flush(masksHost);
                     context.ViewModel.Effects.MaskExpanded = true;
                     Flush(effectsHost);
-                    Assert.Same(row, GetRow(context, AnimationProperty.MASK_ROTATION));
+                    Assert.Same(row, GetRow(context, AnimationProperty.MASK_RECTANGLE_TOP_LEFT));
                     Assert.Same(row.X, FindEffectsRow(effects, row).X);
                     Assert.Same(row.X, FindMaskRow(masks, row).X);
                     Assert.Equal("unfinished", row.X.RawText);
-                    Assert.Equal(Localization.Get("Workbench.MASK_ROTATION"), FindEffectsRow(effects, row).Label);
+                    Assert.Equal(Localization.Get("Workbench.MASK_RECTANGLE_TOP_LEFT"), FindEffectsRow(effects, row).Label);
                     Assert.Same(source, session.DocumentSnapshot);
                 }
             }

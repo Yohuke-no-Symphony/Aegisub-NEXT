@@ -221,7 +221,7 @@ public sealed class AnimationOptionsScopeUiTests
         {
             OperationId = second.Id
         }));
-        var button = UiTestActions.OpenAnimationOptions(context.Window, target.Property, "masks");
+        var button = UiTestActions.OpenAnimationOptions(context.Window, target.Property);
         var source = session.DocumentSnapshot;
         try
         {
@@ -232,7 +232,7 @@ public sealed class AnimationOptionsScopeUiTests
             context.Window.KeyTextInput("9e-");
             context.ViewModel.Effects.OperationStart.RawText = "2.5";
             Assert.False(session.TryCommitDrafts(false));
-            Assert.Equal("masks", context.ViewModel.InvalidPanelId);
+            Assert.Equal("effects", context.ViewModel.InvalidPanelId);
             Assert.Equal("OperationValueYInput", context.ViewModel.InvalidFieldKey);
             button.Flyout!.Hide();
             await session.SeekFromUserAsync(new(4));
@@ -244,7 +244,7 @@ public sealed class AnimationOptionsScopeUiTests
             Flush(context.Window);
 
             Assert.True(button.Flyout.IsOpen);
-            Assert.Equal("masks", session.AnimationOptionsPanelId);
+            Assert.Equal("effects", session.AnimationOptionsPanelId);
             Assert.Equal(node.Id, session.SceneEditing.MaskNodeId);
             var restored = PopupModel(button);
             Assert.Equal(layerId, restored.CapturedTarget.LayerId);

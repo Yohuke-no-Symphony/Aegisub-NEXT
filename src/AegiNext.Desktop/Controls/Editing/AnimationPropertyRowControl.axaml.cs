@@ -8,7 +8,7 @@ using Avalonia.VisualTree;
 
 namespace AegiNext.Desktop.Controls;
 
-/// <summary>通过显式草稿和命令组合动画属性行，编辑目标与事务由宿主协调层管理。</summary>
+/// <summary>通过显式草稿和可选动画命令组合属性行，编辑目标与事务由宿主协调层管理。</summary>
 public sealed partial class AnimationPropertyRowControl : UserControl
 {
     public static readonly RoutedEvent<RoutedEventArgs> AnimationOptionsRequestedEvent =
@@ -46,6 +46,12 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(ZInputName), "RangeValueZInput");
     public static readonly StyledProperty<string> ScalarInputNameProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(ScalarInputName), "ScalarInput");
+    public static readonly StyledProperty<string> VectorInputNameProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(VectorInputName), "VectorInput");
+    public static readonly StyledProperty<string> KeyframeButtonNameProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(KeyframeButtonName), "KeyframeButton");
+    public static readonly StyledProperty<string> ResetButtonNameProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, string>(nameof(ResetButtonName), "ResetAnimationButton");
     public static readonly StyledProperty<bool> IsScalarProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(IsScalar), false);
     public static readonly StyledProperty<bool> IsVectorProperty =
@@ -64,6 +70,10 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(CanReset), false);
     public static readonly StyledProperty<bool> ShowAnimationActionsProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, bool>(nameof(ShowAnimationActions), true);
+    public static readonly StyledProperty<Thickness> SeparatorThicknessProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, Thickness>(nameof(SeparatorThickness), new(0, 0, 0, 1));
+    public static readonly StyledProperty<Thickness> RowPaddingProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, Thickness>(nameof(RowPadding), new(4, 3));
     public static readonly StyledProperty<decimal> MinimumProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, decimal>(nameof(Minimum), -1000000000m);
     public static readonly StyledProperty<decimal> MaximumProperty =
@@ -86,6 +96,8 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(AddKeyframeCommand), null);
     public static readonly StyledProperty<ICommand?> ResetCommandProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(ResetCommand), null);
+    public static readonly StyledProperty<object?> CommandParameterProperty =
+        AvaloniaProperty.Register<AnimationPropertyRowControl, object?>(nameof(CommandParameter));
 
     public static readonly StyledProperty<ICommand?> AnimationOptionsCommandProperty =
         AvaloniaProperty.Register<AnimationPropertyRowControl, ICommand?>(nameof(AnimationOptionsCommand), null);
@@ -109,9 +121,9 @@ public sealed partial class AnimationPropertyRowControl : UserControl
     private readonly NumericDraftInput scalar;
     private readonly ColorDraftInput color;
     private readonly VectorDraftInput vector;
-    private readonly Grid grid;
     private readonly StackPanel values;
-    private readonly StackPanel actions;
+    private readonly Button keyframeButton;
+    private readonly Button resetButton;
 
     /// <summary>创建保留原始输入、支持标题拖拽及窄面板布局的属性行。</summary>
     public AnimationPropertyRowControl()
@@ -120,14 +132,14 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         scalar = this.FindControl<NumericDraftInput>("ScalarInput")!;
         color = this.FindControl<ColorDraftInput>("ColorInput")!;
         vector = this.FindControl<VectorDraftInput>("VectorInput")!;
-        grid = this.FindControl<Grid>("RowGrid")!;
         values = this.FindControl<StackPanel>("ValueEditor")!;
-        actions = this.FindControl<StackPanel>("RowActions")!;
+        keyframeButton = this.FindControl<Button>("KeyframeButton")!;
+        resetButton = this.FindControl<Button>("ResetAnimationButton")!;
         this.FindControl<Button>("AnimationOptionsButton")!.Click += (_, _) =>
             RaiseEvent(new RoutedEventArgs(AnimationOptionsRequestedEvent));
-        SizeChanged += (_, _) => RefreshLayout();
         RefreshEditor();
         RefreshErrors();
+        RefreshInputNames();
     }
 
     public NumericValueDraft? X
@@ -214,6 +226,27 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(ScalarInputNameProperty, value);
     }
 
+    /// <summary>取得或设置向量编辑器的运行时名称，保持宿主字段定位入口。</summary>
+    public string VectorInputName
+    {
+        get => GetValue(VectorInputNameProperty);
+        set => SetValue(VectorInputNameProperty, value);
+    }
+
+    /// <summary>取得或设置添加关键帧按钮的运行时名称。</summary>
+    public string KeyframeButtonName
+    {
+        get => GetValue(KeyframeButtonNameProperty);
+        set => SetValue(KeyframeButtonNameProperty, value);
+    }
+
+    /// <summary>取得或设置重置动画按钮的运行时名称。</summary>
+    public string ResetButtonName
+    {
+        get => GetValue(ResetButtonNameProperty);
+        set => SetValue(ResetButtonNameProperty, value);
+    }
+
     public bool IsVector
     {
         get => GetValue(IsVectorProperty);
@@ -260,6 +293,20 @@ public sealed partial class AnimationPropertyRowControl : UserControl
     {
         get => GetValue(ShowAnimationActionsProperty);
         set => SetValue(ShowAnimationActionsProperty, value);
+    }
+
+    /// <summary>取得或设置属性行的分隔线宽度；零宽度用于不需要分隔线的静态参数。</summary>
+    public Thickness SeparatorThickness
+    {
+        get => GetValue(SeparatorThicknessProperty);
+        set => SetValue(SeparatorThicknessProperty, value);
+    }
+
+    /// <summary>取得或设置标题、编辑器与操作区共用的行内边距。</summary>
+    public Thickness RowPadding
+    {
+        get => GetValue(RowPaddingProperty);
+        set => SetValue(RowPaddingProperty, value);
     }
 
     public decimal Minimum
@@ -328,6 +375,13 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         set => SetValue(ResetCommandProperty, value);
     }
 
+    /// <summary>取得或设置传给宿主属性选择、动画设置、添加和重置命令的通用参数。</summary>
+    public object? CommandParameter
+    {
+        get => GetValue(CommandParameterProperty);
+        set => SetValue(CommandParameterProperty, value);
+    }
+
     /// <summary>判断完整属性或分量字段是否属于当前行。</summary>
     public bool OwnsField(string? field)
     {
@@ -381,11 +435,11 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         if (change.Property == IsScalarProperty || change.Property == IsVectorProperty || change.Property == IsColorProperty)
         {
             RefreshEditor();
-            RefreshLayout();
         }
-        if (change.Property == ScalarInputNameProperty && scalar is not null)
+        if (change.Property == ScalarInputNameProperty || change.Property == VectorInputNameProperty ||
+            change.Property == KeyframeButtonNameProperty || change.Property == ResetButtonNameProperty)
         {
-            scalar.Name = ScalarInputName;
+            RefreshInputNames();
         }
     }
 
@@ -413,18 +467,16 @@ public sealed partial class AnimationPropertyRowControl : UserControl
         }
     }
 
-    private void RefreshLayout()
+    private void RefreshInputNames()
     {
-        if (grid is null)
+        if (scalar is null || vector is null || keyframeButton is null || resetButton is null)
         {
             return;
         }
-        var narrow = Bounds.Width < 350 || IsVector && Bounds.Width < 520;
-        grid.ColumnDefinitions = new(narrow ? "*,Auto" : "108,*,Auto");
-        Grid.SetColumn(values, narrow ? 0 : 1);
-        Grid.SetRow(values, narrow ? 1 : 0);
-        Grid.SetColumnSpan(values, narrow ? 2 : 1);
-        Grid.SetColumn(actions, narrow ? 1 : 2);
+        scalar.Name = ScalarInputName;
+        vector.Name = VectorInputName;
+        keyframeButton.Name = KeyframeButtonName;
+        resetButton.Name = ResetButtonName;
     }
 
     private void RefreshEditor()

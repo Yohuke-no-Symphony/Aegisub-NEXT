@@ -242,11 +242,11 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
             var input = session.ViewModel.Effects;
             input.KeyframeMaximum = maximum;
             input.KeyframeMinimum = minimum;
-            var fallback = session.SelectedLayer is { } layer ? BaseValue(layer, ActiveTarget) : AnimationValue.FromScalar(0);
             var track = session.SelectedLayer is { } selected ? session.InspectorTrack(selected, ActiveTarget) : null;
-            var current = frame?.Value ?? (track is not null && session.AnimationTarget is { } target
-                ? SceneEvaluator.EvaluateTrack(track, target.LocalTime) : fallback);
-            if (frame is not null || track is not null || valueLayerId != session.SelectedLayerId || valueProperty != ActiveTarget)
+            var current = frame?.Value ?? (session.SelectedLayer is { } layer
+                ? session.EffectPropertyValue(layer, ActiveTarget) : AnimationValue.FromScalar(0));
+            var usesNaturalPathProgress = ActiveProperty == AnimationProperty.PATH_PROGRESS && track is null && !session.HasEffectDrafts;
+            if (frame is not null || track is not null || usesNaturalPathProgress || valueLayerId != session.SelectedLayerId || valueProperty != ActiveTarget)
             {
                 if (current.IsColor)
                 {
@@ -275,13 +275,6 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
         {
             updateLease.Dispose();
         }
-    }
-
-    private AnimationValue BaseValue(ProjectLayer layer, AnimationTrackTarget target)
-    {
-        var subtitle = layer.SubtitleId is { } id
-            ? session.DocumentSnapshot.Subtitles.Single(value => value.Id == id) : null;
-        return SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
     }
 
     internal void RefreshKeyframeCurveInspector()
@@ -382,15 +375,8 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
 
     internal void RefreshKeyframeAvailability()
     {
-        if (session.SelectedLayer is not { } layer ||
-            session.InspectorTrack(layer, ActiveTarget)?.Transforms.IsEmpty == false)
-        {
-            session.ViewModel.Effects.CanAddKeyframe = false;
-            return;
-        }
-
-        var time = session.ProjectPosition - layer.Start + layer.AnimationOffset;
-        session.ViewModel.Effects.CanAddKeyframe = LayerAnimationTiming.ClampTime(layer, time) == time;
+        session.ViewModel.Effects.CanAddKeyframe = session.SelectedLayer is { } layer &&
+            session.CanAddEffectPropertyKeyframe(layer.Id, ActiveTarget);
     }
 
     internal void EditPath() => BeginPathEdit();

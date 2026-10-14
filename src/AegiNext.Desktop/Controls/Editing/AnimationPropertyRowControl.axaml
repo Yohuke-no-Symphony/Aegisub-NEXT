@@ -1,18 +1,30 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:common="using:AegiNext.Desktop.Controls.Common" xmlns:controls="using:AegiNext.Desktop.Controls"
+             xmlns:converters="using:Avalonia.Data.Converters"
              x:Class="AegiNext.Desktop.Controls.AnimationPropertyRowControl" x:Name="Row" x:DataType="controls:AnimationPropertyRowControl">
-  <Border Classes="animation-property-row" Padding="4,3" BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,0,1">
-    <Grid Name="RowGrid" ColumnDefinitions="108,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="3">
+  <common:PropertyRowControl Name="PropertyRow" Classes="animation-property-row"
+      IsVector="{Binding #Row.IsVector}" IsStacked="{Binding !#Row.ShowAnimationActions}"
+      SeparatorThickness="{Binding #Row.SeparatorThickness}" Padding="{Binding #Row.RowPadding}">
+    <common:PropertyRowControl.Header>
       <Grid>
-        <controls:NumericDragLabel Text="{Binding #Row.Label}" Input="{Binding #ScalarInput}" IsVisible="{Binding #Row.IsScalar}"
+        <controls:NumericDragLabel Classes="field" Text="{Binding #Row.Label}" Input="{Binding #ScalarInput}" IsVisible="{Binding #Row.IsScalar}"
             VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding #Row.Label}" />
-        <Button Classes="animation-property-label" Command="{Binding #Row.SelectCommand}"
-            IsVisible="{Binding !#Row.IsScalar}" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"
-            ToolTip.Tip="{Binding #Row.Label}" AutomationProperties.Name="{Binding #Row.Label}">
-          <TextBlock Text="{Binding #Row.Label}" TextWrapping="Wrap" TextAlignment="Left" VerticalAlignment="Center" />
-        </Button>
+        <Grid IsVisible="{Binding !#Row.IsScalar}">
+          <TextBlock Name="PlainPropertyLabel" Classes="field" Text="{Binding #Row.Label}"
+              IsVisible="{Binding #Row.SelectCommand, Converter={x:Static converters:ObjectConverters.IsNull}}"
+              TextWrapping="Wrap" VerticalAlignment="Center" />
+          <Button Classes="animation-property-label" Command="{Binding #Row.SelectCommand}"
+              CommandParameter="{Binding #Row.CommandParameter}"
+              IsVisible="{Binding #Row.SelectCommand, Converter={x:Static converters:ObjectConverters.IsNotNull}}"
+              HorizontalContentAlignment="Stretch" VerticalContentAlignment="Center"
+              ToolTip.Tip="{Binding #Row.Label}" AutomationProperties.Name="{Binding #Row.Label}">
+            <TextBlock Classes="field" Text="{Binding #Row.Label}" TextWrapping="Wrap" TextAlignment="Left" VerticalAlignment="Center" />
+          </Button>
+        </Grid>
       </Grid>
-      <StackPanel Name="ValueEditor" Grid.Column="1" Spacing="3" VerticalAlignment="Center" ToolTip.Tip="{Binding #Row.EditingHint}">
+    </common:PropertyRowControl.Header>
+    <common:PropertyRowControl.Content>
+      <StackPanel Name="ValueEditor" Spacing="3" VerticalAlignment="Center" ToolTip.Tip="{Binding #Row.EditingHint}">
         <controls:NumericDraftInput Name="ScalarInput" ToolTip.Tip="{Binding #Row.EditingHint}" IsVisible="{Binding #Row.IsScalar}" IsEnabled="{Binding #Row.CanEdit}"
             RawText="{Binding #Row.X.RawText, Mode=TwoWay}" Value="{Binding #Row.X.Value, Mode=TwoWay}"
             PreserveDoublePrecision="{Binding #Row.X.PreserveDoublePrecision}"
@@ -30,12 +42,17 @@
             MinimumBinding="{Binding #Row.Minimum}" MaximumBinding="{Binding #Row.Maximum}" IncrementBinding="{Binding #Row.Increment}" />
         <controls:ColorDraftInput Name="ColorInput" CommitOnLostFocus="False" IsVisible="{Binding #Row.IsColor}" IsEnabled="{Binding #Row.CanEdit}" Draft="{Binding #Row.Color}" />
       </StackPanel>
-      <StackPanel Name="RowActions" Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="2" IsVisible="{Binding #Row.ShowAnimationActions}">
+    </common:PropertyRowControl.Content>
+    <common:PropertyRowControl.Actions>
+      <StackPanel Name="RowActions" Orientation="Horizontal" VerticalAlignment="Center" Spacing="2" IsVisible="{Binding #Row.ShowAnimationActions}">
         <Button Name="AnimationOptionsButton" Classes="animation-property-action animation-options"
-            Command="{Binding #Row.AnimationOptionsCommand}" ToolTip.Tip="{Binding #Row.AnimationOptionsHint}" AutomationProperties.Name="{Binding #Row.AnimationOptionsHint}"><common:IconText IconKey="Settings" /></Button>
-        <Button Classes="animation-property-action" IsEnabled="{Binding #Row.CanAddKeyframe}" Command="{Binding #Row.AddKeyframeCommand}" ToolTip.Tip="{Binding #Row.KeyframeHint}"><common:IconText IconKey="Keyframe" /></Button>
-        <Button Classes="animation-property-action" IsEnabled="{Binding #Row.CanReset}" Command="{Binding #Row.ResetCommand}" ToolTip.Tip="{Binding #Row.ResetHint}"><common:IconText IconKey="Reset" /></Button>
+            Command="{Binding #Row.AnimationOptionsCommand}" CommandParameter="{Binding #Row.CommandParameter}" Tag="{Binding #Row.CommandParameter}"
+            ToolTip.Tip="{Binding #Row.AnimationOptionsHint}" AutomationProperties.Name="{Binding #Row.AnimationOptionsHint}"><common:IconText IconKey="Settings" /></Button>
+        <Button Name="KeyframeButton" Classes="animation-property-action" IsEnabled="{Binding #Row.CanAddKeyframe}"
+            Command="{Binding #Row.AddKeyframeCommand}" CommandParameter="{Binding #Row.CommandParameter}" ToolTip.Tip="{Binding #Row.KeyframeHint}"><common:IconText IconKey="Keyframe" /></Button>
+        <Button Name="ResetAnimationButton" Classes="animation-property-action" IsEnabled="{Binding #Row.CanReset}"
+            Command="{Binding #Row.ResetCommand}" CommandParameter="{Binding #Row.CommandParameter}" ToolTip.Tip="{Binding #Row.ResetHint}"><common:IconText IconKey="Reset" /></Button>
       </StackPanel>
-    </Grid>
-  </Border>
+    </common:PropertyRowControl.Actions>
+  </common:PropertyRowControl>
 </UserControl>

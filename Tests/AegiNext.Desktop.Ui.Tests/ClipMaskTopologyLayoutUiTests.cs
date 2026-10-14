@@ -48,6 +48,12 @@ public sealed class ClipMaskTopologyLayoutUiTests
             Assert.True(section.Bounds.Width > 0);
             Assert.All(section.GetVisualDescendants().OfType<TextBlock>().Where(text => text.IsEffectivelyVisible), text =>
                 Assert.DoesNotContain("Workbench.", text.Text ?? string.Empty, StringComparison.Ordinal));
+            Assert.Null(context.Window.Panels["masks"].FindControl<Button>("ClearMaskNodeAnimationButton"));
+            context.ViewModel.Effects.MaskExpanded = true;
+            context.Window.Layouts.Activate("effects");
+            var clear = UiTestActions.Find<Button>(context.Window, "ClearMaskNodeAnimationButton");
+            Assert.True(clear.IsEffectivelyEnabled);
+            Assert.Contains(clear.GetVisualAncestors(), ancestor => ReferenceEquals(ancestor, context.Window.Panels["effects"]));
             UiTestActions.Click(context.Window, "ClearMaskNodeAnimationButton");
             Assert.True(subdivision.IsEffectivelyEnabled);
             Assert.True(contour.IsEffectivelyEnabled);

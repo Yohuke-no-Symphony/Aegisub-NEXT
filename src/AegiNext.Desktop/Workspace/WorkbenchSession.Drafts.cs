@@ -20,11 +20,16 @@ internal sealed partial class WorkbenchSession
     ];
     private static readonly HashSet<string> effectDraftProperties =
     [
-        "LayerStart", "LayerEnd", "PositionX", "PositionXText", "PositionY", "PositionYText", "ScaleX", "ScaleXText", "ScaleY", "ScaleYText",
+        "PositionX", "PositionXText", "PositionY", "PositionYText", "ScaleX", "ScaleXText", "ScaleY", "ScaleYText",
         "Opacity", "OpacityText", "Blur", "BlurText", "Blend", "OrientPath", "KeyframeValue", "KeyframeValueText", "KeyframeValueY", "KeyframeValueYText", "KeyframeValueZ", "KeyframeValueZText", "KeyframeColorDraft", "Interpolation", "PowerExponent"
     ];
 
     private readonly HashSet<string> changedEffectFields = [];
+    private readonly HashSet<string> changedClipTimingFields = [];
+    private ProjectDocument? clipTimingDraftSource;
+    private Guid? clipTimingDraftLayerId;
+
+    internal bool HasClipTimingDrafts => changedClipTimingFields.Count > 0;
 
     internal bool TryCommitDrafts(bool focusInvalid = true)
     {
@@ -108,8 +113,12 @@ internal sealed partial class WorkbenchSession
             }
             var originalStylesDirty = stylesDirty;
             var originalEffectsDirty = effectsDirty;
+            var originalClipTimingFields = changedClipTimingFields.ToArray();
+            var originalClipTimingSource = clipTimingDraftSource;
+            var originalClipTimingLayerId = clipTimingDraftLayerId;
             stylesDirty = false;
             effectsDirty = false;
+            ResetClipTimingDraftState();
             var originalFields = changedEffectFields.ToArray();
             var originalTarget = SceneEditing.DraftTarget;
             SceneEditing.DraftTarget = null;
@@ -129,13 +138,16 @@ internal sealed partial class WorkbenchSession
                 }
                 else
                 {
-                    RefreshCommittedDrafts(changes, originalStylesDirty, originalEffectsDirty, originalFields);
+                    RefreshCommittedDrafts(changes, originalStylesDirty, originalEffectsDirty, originalFields, originalClipTimingFields.Length > 0);
                 }
             }
             catch
             {
                 stylesDirty = originalStylesDirty;
                 effectsDirty = originalEffectsDirty;
+                changedClipTimingFields.UnionWith(originalClipTimingFields);
+                clipTimingDraftSource = originalClipTimingSource;
+                clipTimingDraftLayerId = originalClipTimingLayerId;
                 changedEffectFields.UnionWith(originalFields);
                 SceneEditing.DraftTarget = originalTarget;
                 throw;
@@ -149,6 +161,8 @@ internal sealed partial class WorkbenchSession
             ViewModel.Effects.InvalidFieldKey = null;
             ViewModel.Masks.ValidationError = null;
             ViewModel.Masks.InvalidFieldKey = null;
+            ViewModel.Timeline.ClipTimingValidationError = null;
+            ViewModel.Timeline.InvalidClipTimingField = null;
             lastDraftDiagnostic = null;
             return true;
         }
@@ -162,7 +176,7 @@ internal sealed partial class WorkbenchSession
     }
 
     private void RefreshCommittedDrafts(Dictionary<Guid, SubtitleLine> changes, bool refreshStyles, bool refreshEffects,
-        string[] effectFields)
+        string[] effectFields, bool refreshClipTiming)
     {
         using var updateLease = BeginWorkbenchUpdate();
         try
@@ -200,6 +214,10 @@ internal sealed partial class WorkbenchSession
             {
                 ViewModel.Effects.RefreshTransformOperations(SelectedLayer is { } layer ? InspectorTrack(layer, SceneEditing.Target) : null);
             }
+            if (refreshClipTiming)
+            {
+                RefreshClipTimingDrafts();
+            }
             RefreshEditingPreview();
         }
         finally
@@ -219,9 +237,8 @@ internal sealed partial class WorkbenchSession
         var layer = SelectedLayer ?? throw new InvalidOperationException(Localization.Get("Workbench.NoSelection"));
         var edit = SceneEditing.DraftTarget ?? AnimationTarget;
         var track = InspectorTrack(layer, target);
-        var subtitle = layer.SubtitleId is { } id ? DocumentSnapshot.Subtitles.Single(line => line.Id == id) : null;
         var value = track is not null && edit is not null ? SceneEvaluator.EvaluateTrack(track, edit.LocalTime) :
-            SubtitleAnimationEvaluation.GetBaseValue(layer, subtitle, target);
+            EffectPropertyValue(layer, target);
         double Read(string text, string field, int component)
         {
             ViewModel.InvalidFieldKey = field;
@@ -288,7 +305,8 @@ internal sealed partial class WorkbenchSession
             "RotationInput" => ((decimal)AnimationPropertyMetadata.GetMinimum(AnimationProperty.ROTATION),
                 (decimal)AnimationPropertyMetadata.GetMaximum(AnimationProperty.ROTATION)),
             "OpacityInput" => (0m, 1m),
-            "BlurInput" => (0m, 128m),
+            "BlurInput" => ((decimal)AnimationPropertyMetadata.GetMinimum(AnimationProperty.BLUR),
+                (decimal)AnimationPropertyMetadata.GetMaximum(AnimationProperty.BLUR)),
             "QualityInput" => (ViewModel.Export.QualityMinimum, ViewModel.Export.QualityMaximum),
             "AudioBitrateInput" => (32m, 512m),
             "VideoBitrateInput" => (0.1m, 200m),
@@ -333,24 +351,6 @@ internal sealed partial class WorkbenchSession
     {
         switch (e.PropertyName)
         {
-            case "PositionX":
-                ViewModel.Effects.PositionXText = SynchronizeNumericText(ViewModel.Effects.PositionXText, ViewModel.Effects.PositionX);
-                break;
-            case "PositionY":
-                ViewModel.Effects.PositionYText = SynchronizeNumericText(ViewModel.Effects.PositionYText, ViewModel.Effects.PositionY);
-                break;
-            case "ScaleX":
-                ViewModel.Effects.ScaleXText = SynchronizeNumericText(ViewModel.Effects.ScaleXText, ViewModel.Effects.ScaleX);
-                break;
-            case "ScaleY":
-                ViewModel.Effects.ScaleYText = SynchronizeNumericText(ViewModel.Effects.ScaleYText, ViewModel.Effects.ScaleY);
-                break;
-            case "Opacity":
-                ViewModel.Effects.OpacityText = SynchronizeNumericText(ViewModel.Effects.OpacityText, ViewModel.Effects.Opacity);
-                break;
-            case "Blur":
-                ViewModel.Effects.BlurText = SynchronizeNumericText(ViewModel.Effects.BlurText, ViewModel.Effects.Blur);
-                break;
             case "KeyframeValueY":
                 ViewModel.Effects.KeyframeValueYText = SynchronizeNumericText(ViewModel.Effects.KeyframeValueYText, ViewModel.Effects.KeyframeValueY);
                 break;
@@ -394,6 +394,53 @@ internal sealed partial class WorkbenchSession
                 updateLease.Dispose();
             }
         }
+    }
+
+    private void OnClipTimingPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (IsUpdating || closing || SelectedLayer is not { } layer || e.PropertyName is not ("LayerStart" or "LayerEnd"))
+        {
+            return;
+        }
+        clipTimingDraftSource ??= DocumentSnapshot;
+        clipTimingDraftLayerId ??= layer.Id;
+        var baseline = clipTimingDraftSource.Layers.Single(value => value.Id == clipTimingDraftLayerId);
+        var originalText = TimelineTimeText.Format(e.PropertyName == "LayerStart" ? baseline.Start : baseline.End);
+        var text = e.PropertyName == "LayerStart" ? ViewModel.Timeline.LayerStart : ViewModel.Timeline.LayerEnd;
+        if (text == originalText)
+        {
+            changedClipTimingFields.Remove(e.PropertyName);
+        }
+        else
+        {
+            changedClipTimingFields.Add(e.PropertyName);
+        }
+        if (!HasClipTimingDrafts)
+        {
+            ResetClipTimingDraftState();
+        }
+        draftRevision++;
+        NotifyTaskInputChanged();
+        _ = RunCommandAsync(PauseForSceneEditAsync);
+        QueueInspectorPreview();
+    }
+
+    private void ResetClipTimingDraftState()
+    {
+        changedClipTimingFields.Clear();
+        clipTimingDraftSource = null;
+        clipTimingDraftLayerId = null;
+    }
+
+    private void RefreshClipTimingDrafts()
+    {
+        var timeline = ViewModel.Timeline;
+        if (!HasClipTimingDrafts)
+        {
+            timeline.LayerStart = SelectedLayer is { } startLayer ? TimelineTimeText.Format(startLayer.Start) : string.Empty;
+            timeline.LayerEnd = SelectedLayer is { } endLayer ? TimelineTimeText.Format(endLayer.End) : string.Empty;
+        }
+        timeline.RefreshClipTimingAvailability();
     }
 
     internal void RefreshDocument(bool preserveDrafts = false)
@@ -471,6 +518,7 @@ internal sealed partial class WorkbenchSession
     private void RefreshInspector()
     {
         var layer = SelectedLayer;
+        RefreshClipTimingDrafts();
         var placement = ResolvePlacement(editor.Snapshot, layer);
         ViewModel.Styles.Load(editor.Snapshot, layer, TimelineClipIds().Length);
 
@@ -488,14 +536,20 @@ internal sealed partial class WorkbenchSession
             }
             var position = InspectorPosition(layer, placement);
             effects.CanEditPosition = position is not null;
-            effects.PositionX = position is { } displayedX ? (decimal)displayedX.X : null;
-            effects.PositionY = position is { } displayedY ? (decimal)displayedY.Y : null;
-            effects.ScaleX = (decimal)transform.ScaleX;
-            effects.ScaleY = (decimal)transform.ScaleY;
-            effects.Opacity = (decimal)(layer is null ? 1 : InspectorValue(layer, AnimationProperty.OPACITY, layer.Opacity));
-            effects.Blur = (decimal)(layer is null ? 0 : InspectorValue(layer, AnimationProperty.BLUR, layer.Blur));
-            effects.LayerStart = layer is null ? string.Empty : TimelineTimeText.Format(layer.Start);
-            effects.LayerEnd = layer is null ? string.Empty : TimelineTimeText.Format(layer.End);
+            if (position is { } displayedPosition)
+            {
+                effects.PositionXDraft.Load(displayedPosition.X);
+                effects.PositionYDraft.Load(displayedPosition.Y);
+            }
+            else
+            {
+                effects.PositionXDraft.RawText = string.Empty;
+                effects.PositionYDraft.RawText = string.Empty;
+            }
+            effects.ScaleXDraft.Load(transform.ScaleX);
+            effects.ScaleYDraft.Load(transform.ScaleY);
+            effects.OpacityDraft.Load(layer is null ? 1 : InspectorValue(layer, AnimationProperty.OPACITY, layer.Opacity));
+            effects.BlurDraft.Load(layer is null ? 0 : InspectorValue(layer, AnimationProperty.BLUR, layer.Blur));
             effects.Blend = (int)(layer?.Blend ?? BlendMode.NORMAL);
             effects.OrientPath = layer?.MotionPath?.OrientToPath ?? false;
             RefreshKeyframeInspector();
