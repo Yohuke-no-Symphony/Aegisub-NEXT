@@ -11,6 +11,7 @@ namespace AegiNext.Desktop.Settings.Transfer;
 
 internal static class UserSettingsBundleStore
 {
+    internal const int CURRENT_VERSION = 3;
     internal const int MAXIMUM_FILE_BYTES = 128 * 1024 * 1024;
     private const string MANIFEST_NAME = "manifest.json";
     private const int MAXIMUM_MANIFEST_BYTES = 1024;
@@ -23,15 +24,23 @@ internal static class UserSettingsBundleStore
         new("export-presets.aegiexports", VideoExportPresetStore.MAXIMUM_FILE_BYTES),
         new("layouts.json", WorkspaceLayoutStore.MAXIMUM_FILE_BYTES)
     ];
-    internal static ImmutableArray<UserSettingsBundleFile> Files { get; } =
+    private static ImmutableArray<UserSettingsBundleFile> VersionTwoFiles { get; } =
         [.. VersionOneFiles, new("subtitle-color-tags.json", SubtitleColorTagStore.MAXIMUM_FILE_BYTES)];
+    internal static ImmutableArray<UserSettingsBundleFile> Files { get; } =
+    [
+        new("preferences.json", WorkbenchPreferencesStore.MAXIMUM_FILE_BYTES),
+        new("export-presets.aegiexports", VideoExportPresetStore.MAXIMUM_FILE_BYTES),
+        new("layouts.json", WorkspaceLayoutStore.MAXIMUM_FILE_BYTES),
+        new("subtitle-color-tags.json", SubtitleColorTagStore.MAXIMUM_FILE_BYTES)
+    ];
 
     internal static ImmutableArray<UserSettingsBundleFile> GetFiles(int version)
     {
         return version switch
         {
             1 => VersionOneFiles,
-            2 => Files,
+            2 => VersionTwoFiles,
+            CURRENT_VERSION => Files,
             _ => throw new InvalidDataException("用户设置包版本不受支持。")
         };
     }
@@ -40,12 +49,11 @@ internal static class UserSettingsBundleStore
     {
         cancellationToken.ThrowIfCancellationRequested();
         var files = SerializeFiles(bundle, cancellationToken);
-        var version = bundle.ColorTags is null ? 1 : 2;
         using var buffer = new MemoryStream();
         using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, true))
         {
-            WriteEntry(archive, MANIFEST_NAME, version == 1 ? "{\"version\":1}"u8 : "{\"version\":2}"u8, cancellationToken);
-            foreach (var file in GetFiles(version))
+            WriteEntry(archive, MANIFEST_NAME, "{\"version\":3}"u8, cancellationToken);
+            foreach (var file in Files.Where(file => files.ContainsKey(file.Name)))
             {
                 WriteEntry(archive, file.Name, files[file.Name], cancellationToken);
             }
@@ -59,6 +67,54 @@ internal static class UserSettingsBundleStore
 
     internal static UserSettingsBundle Deserialize(ReadOnlySpan<byte> bytes, CancellationToken cancellationToken = default)
     {
+        var content = ReadArchive(bytes, out var version, cancellationToken);
+        return DeserializeSettings(content, version, cancellationToken);
+    }
+
+    internal static UserSettingsRestorePayload DeserializeForRestore(ReadOnlySpan<byte> bytes,
+        CancellationToken cancellationToken = default)
+    {
+        var content = ReadArchive(bytes, out var version, cancellationToken);
+        var settings = DeserializeSettings(content, version, cancellationToken);
+        var restored = SerializeFiles(settings, cancellationToken);
+        if (version < CURRENT_VERSION)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            restored.Add("subtitle-styles.aegistyles",
+                SubtitleStylePresetStore.Serialize(SubtitleStylePresetStore.Deserialize(content["subtitle-styles.aegistyles"])));
+            cancellationToken.ThrowIfCancellationRequested();
+            restored.Add("effect-scripts.json",
+                EffectScriptPresetStore.Serialize(EffectScriptPresetStore.Deserialize(content["effect-scripts.json"])));
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return new(settings, GetFiles(version).Where(file => restored.ContainsKey(file.Name)).ToImmutableArray(), restored);
+    }
+
+    private static UserSettingsBundle DeserializeSettings(Dictionary<string, byte[]> content, int version,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var preferences = WorkbenchPreferencesStore.Deserialize(content["preferences.json"], allowForeignWorkspace: true);
+        cancellationToken.ThrowIfCancellationRequested();
+        var exports = VideoExportPresetStore.Deserialize(content["export-presets.aegiexports"]);
+        cancellationToken.ThrowIfCancellationRequested();
+        var tags = content.TryGetValue("subtitle-color-tags.json", out var bytes) ? SubtitleColorTagStore.Deserialize(bytes) : null;
+        cancellationToken.ThrowIfCancellationRequested();
+        var layouts = WorkspaceLayoutStore.Deserialize(content["layouts.json"]);
+        cancellationToken.ThrowIfCancellationRequested();
+        return new()
+        {
+            SourceVersion = version,
+            Preferences = preferences,
+            ExportPresets = exports,
+            ColorTags = tags,
+            Layouts = layouts
+        };
+    }
+
+    private static Dictionary<string, byte[]> ReadArchive(ReadOnlySpan<byte> bytes, out int version,
+        CancellationToken cancellationToken)
+    {
         cancellationToken.ThrowIfCancellationRequested();
         if (bytes.Length > MAXIMUM_FILE_BYTES)
         {
@@ -68,7 +124,7 @@ internal static class UserSettingsBundleStore
         {
             using var buffer = new MemoryStream(bytes.ToArray(), false);
             using var archive = new ZipArchive(buffer, ZipArchiveMode.Read);
-            if (archive.Entries.Count != VersionOneFiles.Length + 1 && archive.Entries.Count != Files.Length + 1)
+            if (archive.Entries.Count < Files.Length || archive.Entries.Count > VersionTwoFiles.Length + 1)
             {
                 throw new InvalidDataException("用户设置包必须包含清单和该版本的完整设置文件。");
             }
@@ -78,7 +134,7 @@ internal static class UserSettingsBundleStore
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var maximum = entry.FullName == MANIFEST_NAME ? MAXIMUM_MANIFEST_BYTES :
-                    Files.FirstOrDefault(file => file.Name == entry.FullName)?.MaximumBytes;
+                    VersionTwoFiles.FirstOrDefault(file => file.Name == entry.FullName)?.MaximumBytes;
                 if (maximum is null || !entries.TryAdd(entry.FullName, entry) || entry.Length > maximum.Value)
                 {
                     throw new InvalidDataException("用户设置包包含未知、重复、带路径或超出预算的文件。");
@@ -89,23 +145,18 @@ internal static class UserSettingsBundleStore
                     throw new InvalidDataException("用户设置包解压内容超过 128 MiB。");
                 }
             }
-            var version = ReadManifestVersion(ReadEntry(entries[MANIFEST_NAME], MAXIMUM_MANIFEST_BYTES, cancellationToken));
+            version = ReadManifestVersion(ReadEntry(entries[MANIFEST_NAME], MAXIMUM_MANIFEST_BYTES, cancellationToken));
             var expectedFiles = GetFiles(version);
+            if (version == CURRENT_VERSION && !entries.ContainsKey("subtitle-color-tags.json"))
+            {
+                expectedFiles = expectedFiles.Where(file => file.Name != "subtitle-color-tags.json").ToImmutableArray();
+            }
             if (entries.Count != expectedFiles.Length + 1 || expectedFiles.Any(file => !entries.ContainsKey(file.Name)))
             {
                 throw new InvalidDataException("用户设置包文件与版本清单不一致。");
             }
-            var content = expectedFiles.ToDictionary(file => file.Name,
+            return expectedFiles.ToDictionary(file => file.Name,
                 file => ReadEntry(entries[file.Name], file.MaximumBytes, cancellationToken), StringComparer.Ordinal);
-            return new()
-            {
-                Preferences = WorkbenchPreferencesStore.Deserialize(content["preferences.json"], allowForeignWorkspace: true),
-                Styles = SubtitleStylePresetStore.Deserialize(content["subtitle-styles.aegistyles"]),
-                Effects = EffectScriptPresetStore.Deserialize(content["effect-scripts.json"]),
-                ExportPresets = VideoExportPresetStore.Deserialize(content["export-presets.aegiexports"]),
-                ColorTags = version == 2 ? SubtitleColorTagStore.Deserialize(content["subtitle-color-tags.json"]) : null,
-                Layouts = WorkspaceLayoutStore.Deserialize(content["layouts.json"])
-            };
         }
         catch (Exception error) when (error is ArgumentException or JsonException or OverflowException or
                                      KeyNotFoundException or InvalidOperationException or NotSupportedException)
@@ -136,10 +187,6 @@ internal static class UserSettingsBundleStore
         var files = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         cancellationToken.ThrowIfCancellationRequested();
         files.Add("preferences.json", WorkbenchPreferencesStore.Serialize(bundle.Preferences, allowForeignWorkspace: true));
-        cancellationToken.ThrowIfCancellationRequested();
-        files.Add("subtitle-styles.aegistyles", SubtitleStylePresetStore.Serialize(bundle.Styles));
-        cancellationToken.ThrowIfCancellationRequested();
-        files.Add("effect-scripts.json", EffectScriptPresetStore.Serialize(bundle.Effects));
         cancellationToken.ThrowIfCancellationRequested();
         files.Add("export-presets.aegiexports", VideoExportPresetStore.Serialize(bundle.ExportPresets));
         cancellationToken.ThrowIfCancellationRequested();
@@ -191,7 +238,7 @@ internal static class UserSettingsBundleStore
         var properties = root.EnumerateObject().ToArray();
         if (properties.Length != 1 || properties[0].Name != "version" ||
             properties[0].Value.ValueKind != JsonValueKind.Number ||
-            !properties[0].Value.TryGetInt32(out var version) || version is not (1 or 2))
+            !properties[0].Value.TryGetInt32(out var version) || version is not (1 or 2 or CURRENT_VERSION))
         {
             throw new InvalidDataException("用户设置包版本不受支持或清单包含未知、重复字段。");
         }

@@ -58,6 +58,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         preferencesLoadError = PreferencesStore.LoadError;
         SettingsRestore = new(PreferencesStore.DirectoryPath);
         EffectLibrary = new(LibraryPaths.EffectLibraryDirectory, LibraryPaths.LegacyStyleFile, LibraryPaths.LegacyEffectFile);
+        EffectLibraryTransfer = new(EffectLibrary);
         StyleLibrary = new(EffectLibrary);
         EffectScriptLibrary = new(EffectLibrary);
         ExportPresetLibrary = new(LibraryPaths.ExportPresetFile);
@@ -82,6 +83,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
     internal WorkbenchPreferencesStore PreferencesStore { get; }
     internal PersonalLibraryPaths LibraryPaths { get; }
     internal EffectLibraryRepository EffectLibrary { get; }
+    internal EffectLibraryTransferService EffectLibraryTransfer { get; }
     internal SubtitleStylePresetLibrary StyleLibrary { get; }
     internal EffectScriptPresetLibrary EffectScriptLibrary { get; }
     internal VideoExportPresetLibrary ExportPresetLibrary { get; }

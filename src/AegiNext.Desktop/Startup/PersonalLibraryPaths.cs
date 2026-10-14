@@ -11,6 +11,7 @@ internal sealed class PersonalLibraryPaths
 
     internal string DirectoryPath { get; }
     internal string EffectLibraryDirectory => Path.Combine(DirectoryPath, "effect-library");
+    internal string EffectLibraryManifestFile => Path.Combine(EffectLibraryDirectory, "manifest.json");
     internal string LegacyStyleFile => Path.Combine(DirectoryPath, "subtitle-styles.aegistyles");
     internal string LegacyEffectFile => Path.Combine(DirectoryPath, "effect-scripts.json");
     internal string ExportPresetFile => Path.Combine(DirectoryPath, "export-presets.aegiexports");

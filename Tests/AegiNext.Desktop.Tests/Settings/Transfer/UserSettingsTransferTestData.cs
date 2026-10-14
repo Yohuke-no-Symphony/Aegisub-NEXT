@@ -1,9 +1,6 @@
-using System.Collections.Immutable;
 using System.IO.Compression;
-using System.Security.Cryptography;
 using AegiNext.Application.ColorTags;
 using AegiNext.Application.Presets;
-using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Settings;
@@ -19,8 +16,6 @@ internal static class UserSettingsTransferTestData
     internal static UserSettingsBundle CreateBundle()
     {
         var layout = WorkspaceLayoutPresets.BuiltIn.Single(value => value.Id == WorkspaceLayoutPresets.EFFECTS).Layout;
-        var fontBytes = ImmutableArray.Create<byte>(1, 2, 3, 4);
-        var font = new EmbeddedSubtitleFont("字幕字体.ttf", Convert.ToHexStringLower(SHA256.HashData(fontBytes.AsSpan())), fontBytes);
         return new()
         {
             Preferences = new()
@@ -35,12 +30,6 @@ internal static class UserSettingsTransferTestData
                     WorkspaceRoot = Path.Combine(Path.GetTempPath(), "transfer-workspace"), AutoSaveEnabled = false,
                     AutoSaveIntervalMinutes = 7, BackupEnabled = true, BackupIntervalMinutes = 11, MaximumBackupCount = 17
                 }
-            },
-            Styles = new() { Presets = [new(Guid.NewGuid(), "个人样式", new() { FontSize = 62 }, font,
-                new() { LeadInMilliseconds = 120, BiasPercent = 40 })] },
-            Effects = new()
-            {
-                Presets = [new(Guid.NewGuid(), "个人脚本", "effect \"transfer-user\" version 1\nshort-clip compress\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\n")]
             },
             ExportPresets = new()
             {
@@ -73,6 +62,31 @@ internal static class UserSettingsTransferTestData
             stream.CopyTo(content);
             return content.ToArray();
         }, StringComparer.Ordinal);
+    }
+
+    internal static byte[] CreateLegacyArchive(int version, WorkbenchPreferences? preferences = null)
+    {
+        var bundle = CreateBundle();
+        var files = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+        {
+            ["manifest.json"] = System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version}}}"),
+            ["preferences.json"] = WorkbenchPreferencesStore.Serialize(preferences ?? bundle.Preferences, allowForeignWorkspace: true),
+            ["subtitle-styles.aegistyles"] = SubtitleStylePresetStore.Serialize(new()
+            {
+                Presets = [new(Guid.NewGuid(), "Legacy style", new() { FontSize = 62 })]
+            }),
+            ["effect-scripts.json"] = EffectScriptPresetStore.Serialize(new()
+            {
+                Presets = [new(Guid.NewGuid(), "Legacy effect", "effect \"legacy-transfer\" version 1\nshort-clip compress\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\n")]
+            }),
+            ["export-presets.aegiexports"] = VideoExportPresetStore.Serialize(bundle.ExportPresets),
+            ["layouts.json"] = WorkspaceLayoutStore.Serialize(bundle.Layouts)
+        };
+        if (version == 2)
+        {
+            files.Add("subtitle-color-tags.json", SubtitleColorTagStore.Serialize(bundle.ColorTags!));
+        }
+        return WriteArchive(files);
     }
 
     internal static byte[] WriteArchive(IEnumerable<KeyValuePair<string, byte[]>> entries)

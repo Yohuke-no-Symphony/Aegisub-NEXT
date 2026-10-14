@@ -4,7 +4,6 @@ using AegiNext.Application.Tasks;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Settings.Presets;
 using AegiNext.Desktop.Startup;
-using AegiNext.Desktop.Tests.Settings.Transfer;
 
 namespace AegiNext.Desktop.Tests.Settings.Presets;
 
@@ -18,7 +17,7 @@ public sealed class SettingsPresetTaskTests
         using var inputDirectory = new TemporaryWorkbenchDirectory();
         await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
         await owner.Initialization;
-        var bundle = UserSettingsTransferTestData.CreateBundle();
+        var bundle = CreatePresets();
         var stylePath = Path.Combine(inputDirectory.Path, "style.aegistyles");
         var scriptPath = Path.Combine(inputDirectory.Path, "effect.aegifx");
         await SubtitleStylePresetStore.SaveAsync(bundle.Styles, stylePath);
@@ -46,7 +45,7 @@ public sealed class SettingsPresetTaskTests
         using var outputDirectory = new TemporaryWorkbenchDirectory();
         await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
         await owner.Initialization;
-        var bundle = UserSettingsTransferTestData.CreateBundle();
+        var bundle = CreatePresets();
         var stylePath = Path.Combine(outputDirectory.Path, "style.aegistyles");
         var scriptPath = Path.Combine(outputDirectory.Path, "effect.aegifx");
         var styles = owner.Tasks.Submit(new SettingsStyleExportTask(owner, bundle.Styles.Presets, stylePath, false));
@@ -93,7 +92,7 @@ public sealed class SettingsPresetTaskTests
         using var outputDirectory = new TemporaryWorkbenchDirectory();
         await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
         await owner.Initialization;
-        var bundle = UserSettingsTransferTestData.CreateBundle();
+        var bundle = CreatePresets();
         var libraryPath = Path.Combine(settingsDirectory.Path,
             effects ? "effect-scripts.json" : "subtitle-styles.aegistyles");
         if (effects)
@@ -204,6 +203,21 @@ public sealed class SettingsPresetTaskTests
         Assert.Same(before, library.Snapshot);
         Assert.Equal(bytes, await File.ReadAllBytesAsync(libraryPath));
         Assert.Empty(Directory.EnumerateFiles(directory.Path, ".*.tmp"));
+    }
+
+    private static EffectLibrarySnapshot CreatePresets()
+    {
+        var bytes = ImmutableArray.Create<byte>(1, 2, 3, 4);
+        var font = new EmbeddedSubtitleFont("subtitle.ttf",
+            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes.AsSpan())), bytes);
+        return new()
+        {
+            Styles = new() { Presets = [new(Guid.NewGuid(), "Personal style", new() { FontSize = 62 }, font)] },
+            Effects = new()
+            {
+                Presets = [new(Guid.NewGuid(), "Personal effect", "effect \"transfer-user\" version 1\nshort-clip compress\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\n")]
+            }
+        };
     }
 
     private static void AssertStyleEqual(SubtitleStylePreset expected, SubtitleStylePreset actual)

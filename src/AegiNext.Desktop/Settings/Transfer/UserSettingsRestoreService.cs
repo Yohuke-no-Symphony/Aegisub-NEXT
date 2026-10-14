@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
+using AegiNext.Desktop.I18n;
+using AegiNext.Desktop.Startup;
 
 namespace AegiNext.Desktop.Settings.Transfer;
 
@@ -13,6 +15,7 @@ internal sealed class UserSettingsRestoreService : IDisposable
     private readonly string journalPath;
     private readonly string backupsDirectory;
     private readonly string retentionPath;
+    private readonly string effectLibraryManifestPath;
     private readonly Action<int>? beforeReplace;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Lock lifetime = new();
@@ -32,6 +35,7 @@ internal sealed class UserSettingsRestoreService : IDisposable
         journalPath = Path.Combine(restoreDirectory, "journal.json");
         backupsDirectory = Path.Combine(restoreDirectory, "backups");
         retentionPath = Path.Combine(restoreDirectory, "last-backup");
+        effectLibraryManifestPath = new PersonalLibraryPaths(this.directory).EffectLibraryManifestFile;
         this.beforeReplace = beforeReplace;
         EnsureControlledDirectories();
         if (RegularFileExists(retentionPath))
@@ -130,13 +134,18 @@ internal sealed class UserSettingsRestoreService : IDisposable
                 return;
             }
             var pendingBytes = UserSettingsTransferFiles.Read(pendingPath, UserSettingsBundleStore.MAXIMUM_FILE_BYTES);
-            var bundle = UserSettingsBundleStore.Deserialize(pendingBytes);
-            bundle.Preferences.Validate();
-            var content = UserSettingsBundleStore.SerializeFiles(bundle);
-            var files = UserSettingsBundleStore.GetFiles(bundle.ColorTags is null ? 1 : 2);
-            var backup = CreateBackup();
+            var payload = UserSettingsBundleStore.DeserializeForRestore(pendingBytes);
+            payload.Settings.Preferences.Validate();
+            if (payload.Settings.SourceVersion < UserSettingsBundleStore.CURRENT_VERSION && Attributes(effectLibraryManifestPath) is not null)
+            {
+                throw new InvalidOperationException(Localization.Get("Settings.TransferLegacyPendingConflict"));
+            }
+            var content = payload.Content;
+            var files = payload.Files;
+            var backup = CreateBackup(payload.Settings.SourceVersion);
             var journal = new UserSettingsRestoreJournal
             {
+                Version = backup.Version,
                 BackupId = backup.Id,
                 PendingSha256 = Hash(pendingBytes)
             };
@@ -206,7 +215,7 @@ internal sealed class UserSettingsRestoreService : IDisposable
         }
         var journal = SettingsTransferJson.Deserialize<UserSettingsRestoreJournal>(
             UserSettingsTransferFiles.Read(journalPath, MAXIMUM_METADATA_BYTES), MAXIMUM_METADATA_BYTES);
-        if (journal.Version is not (1 or 2) || journal.BackupId == Guid.Empty || !ValidHash(journal.PendingSha256) ||
+        if (journal.Version is not (1 or 2 or UserSettingsBundleStore.CURRENT_VERSION) || journal.BackupId == Guid.Empty || !ValidHash(journal.PendingSha256) ||
             journal.Phase is not ("applying" or "committed"))
         {
             throw new InvalidDataException("用户设置恢复日志无效。");
@@ -227,13 +236,13 @@ internal sealed class UserSettingsRestoreService : IDisposable
         }
     }
 
-    private UserSettingsRestoreBackup CreateBackup()
+    private UserSettingsRestoreBackup CreateBackup(int version)
     {
         var id = Guid.NewGuid();
         var path = BackupDirectory(id);
         Directory.CreateDirectory(path);
         var files = ImmutableArray.CreateBuilder<UserSettingsRestoreEntry>();
-        foreach (var file in UserSettingsBundleStore.Files)
+        foreach (var file in UserSettingsBundleStore.GetFiles(version))
         {
             var source = Path.Combine(directory, file.Name);
             if (RegularFileExists(source))
@@ -247,7 +256,7 @@ internal sealed class UserSettingsRestoreService : IDisposable
                 files.Add(new(file.Name, false, 0, null));
             }
         }
-        var backup = new UserSettingsRestoreBackup { Id = id, Files = files.ToImmutable() };
+        var backup = new UserSettingsRestoreBackup { Version = version, Id = id, Files = files.ToImmutable() };
         UserSettingsTransferFiles.WriteAtomic(Path.Combine(path, "backup.json"),
             SettingsTransferJson.Serialize(backup, MAXIMUM_METADATA_BYTES));
         RetentionBackupPath = path;

@@ -77,8 +77,6 @@ internal sealed class SettingsTransferCoordinator : IDisposable
             var snapshot = new UserSettingsBundle
             {
                 Preferences = applicationContext.Preferences,
-                Styles = applicationContext.StyleLibrary.Snapshot,
-                Effects = applicationContext.EffectScriptLibrary.Snapshot,
                 ExportPresets = applicationContext.ExportPresetLibrary.Snapshot,
                 ColorTags = applicationContext.ColorTagLibrary.Snapshot,
                 Layouts = layouts ?? applicationContext.InitialLayout
@@ -123,9 +121,8 @@ internal sealed class SettingsTransferCoordinator : IDisposable
             if (!disposed)
             {
                 preview = imported;
-                window.ViewModel.Transfer.SetPreview(Path.GetFileName(path), imported.Styles.Presets.Length,
-                    imported.Effects.Presets.Length, imported.ExportPresets.Presets.Length, imported.Layouts.Presets.Count,
-                    imported.ColorTags?.Tags.Length);
+                window.ViewModel.Transfer.SetPreview(Path.GetFileName(path), imported.ExportPresets.Presets.Length,
+                    imported.Layouts.Presets.Count, imported.ColorTags?.Tags.Length, imported.SourceVersion);
             }
         });
     }

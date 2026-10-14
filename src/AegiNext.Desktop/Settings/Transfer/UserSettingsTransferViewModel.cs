@@ -13,11 +13,10 @@ public sealed class UserSettingsTransferViewModel : ObservableObject
     private bool hasPending;
     private bool canRequestExit;
     private string fileName = string.Empty;
-    private int styleCount;
-    private int effectCount;
     private int exportPresetCount;
     private int layoutCount;
     private int? colorTagCount;
+    private int sourceVersion = UserSettingsBundleStore.CURRENT_VERSION;
     private string? statusKey;
     private string? error;
 
@@ -46,7 +45,8 @@ public sealed class UserSettingsTransferViewModel : ObservableObject
     public bool HasPending => hasPending;
     public bool CanRequestExit => canRequestExit;
     public string FileName => fileName;
-    public string PreviewSummary => Localization.Format("Settings.TransferPreviewSummary", styleCount, effectCount, exportPresetCount, layoutCount);
+    public string PreviewSummary => Localization.Format("Settings.TransferPreviewSummary", exportPresetCount, layoutCount);
+    public bool HasIgnoredLegacyMaterials => HasPreview && sourceVersion < UserSettingsBundleStore.CURRENT_VERSION;
     /// <summary>显示待导入标签数量，旧版包显示保留本地库的说明。</summary>
     public string ColorTagSummary => colorTagCount is { } count
         ? Localization.Format("Settings.TransferColorTagSummary", count)
@@ -73,18 +73,19 @@ public sealed class UserSettingsTransferViewModel : ObservableObject
         set => SetProperty(ref keepWorkspaceRoot, value);
     }
 
-    internal void SetPreview(string name, int styles, int effects, int exportPresets, int layouts, int? colorTags = null)
+    internal void SetPreview(string name, int exportPresets, int layouts, int? colorTags = null,
+        int version = UserSettingsBundleStore.CURRENT_VERSION)
     {
         fileName = name;
-        styleCount = styles;
-        effectCount = effects;
         exportPresetCount = exportPresets;
         layoutCount = layouts;
         colorTagCount = colorTags;
+        sourceVersion = version;
         hasPreview = true;
         OnPropertyChanged(nameof(FileName));
         OnPropertyChanged(nameof(PreviewSummary));
         OnPropertyChanged(nameof(ColorTagSummary));
+        OnPropertyChanged(nameof(HasIgnoredLegacyMaterials));
         OnPropertyChanged(nameof(HasPreview));
         RefreshCommands();
     }
@@ -95,6 +96,7 @@ public sealed class UserSettingsTransferViewModel : ObservableObject
         fileName = string.Empty;
         OnPropertyChanged(nameof(FileName));
         OnPropertyChanged(nameof(HasPreview));
+        OnPropertyChanged(nameof(HasIgnoredLegacyMaterials));
         RefreshCommands();
     }
 

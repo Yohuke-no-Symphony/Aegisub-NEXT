@@ -18,7 +18,7 @@ public sealed class TransferSettingsTests
         Assert.False(model.CancelPendingCommand.CanExecute(null));
         Assert.False(model.RestartCommand.CanExecute(null));
 
-        model.SetPreview("settings.aegisettings", 2, 3, 4, 1);
+        model.SetPreview("settings.aegisettings", 4, 1);
         model.UpdatePending(true, true);
         Assert.True(model.StageRestoreCommand.CanExecute(null));
         Assert.True(model.CancelPendingCommand.CanExecute(null));
@@ -43,7 +43,7 @@ public sealed class TransferSettingsTests
     public void PresentationRefreshPreservesImportPreviewAndWorkspaceChoice()
     {
         var model = new UserSettingsTransferViewModel();
-        model.SetPreview("个人设置.aegisettings", 2, 3, 4, 1);
+        model.SetPreview("个人设置.aegisettings", 4, 1, version: 1);
         model.KeepWorkspaceRoot = false;
         model.RefreshLanguage();
         model.UpdatePending(true, false);
@@ -51,6 +51,7 @@ public sealed class TransferSettingsTests
         Assert.True(model.HasPreview);
         Assert.Equal("个人设置.aegisettings", model.FileName);
         Assert.False(model.KeepWorkspaceRoot);
+        Assert.True(model.HasIgnoredLegacyMaterials);
         Assert.True(model.HasPending);
         Assert.False(model.RestartCommand.CanExecute(null));
     }

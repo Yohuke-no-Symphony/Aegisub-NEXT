@@ -11,10 +11,10 @@ public sealed class UserSettingsBundleStoreTests
 {
     private static readonly string[] archiveFileNames =
     [
-        "effect-scripts.json", "export-presets.aegiexports", "layouts.json", "manifest.json", "preferences.json", "subtitle-color-tags.json", "subtitle-styles.aegistyles"
+        "export-presets.aegiexports", "layouts.json", "manifest.json", "preferences.json", "subtitle-color-tags.json"
     ];
 
-    /// <summary>六种设置通过固定条目完整往返，所有个人参数保持原值。</summary>
+    /// <summary>四种设置通过 v3 条目完整往返，所有个人参数保持原值。</summary>
     [Fact]
     public async Task CompleteBundleRoundTripsThroughMemoryAndAtomicFile()
     {
@@ -23,8 +23,8 @@ public sealed class UserSettingsBundleStoreTests
         var bytes = UserSettingsBundleStore.Serialize(bundle);
         var entries = UserSettingsTransferTestData.ReadArchive(bytes);
 
-        Assert.Equal(7, entries.Count);
-        Assert.Equal(2, JsonNode.Parse(entries["manifest.json"])!["version"]!.GetValue<int>());
+        Assert.Equal(5, entries.Count);
+        Assert.Equal(3, JsonNode.Parse(entries["manifest.json"])!["version"]!.GetValue<int>());
         Assert.Equal(archiveFileNames,
             entries.Keys.Order(StringComparer.Ordinal).ToArray());
         UserSettingsTransferTestData.AssertBundleEqual(bundle, UserSettingsBundleStore.Deserialize(bytes));
@@ -34,36 +34,19 @@ public sealed class UserSettingsBundleStoreTests
         Assert.Single(Directory.GetFiles(directory.Path));
     }
 
-    /// <summary>独立边距完整往返，真实旧版标量边距样式迁移为当前默认外观。</summary>
-    [Fact]
-    public void StyleMarginsRoundTripInTheBundleAndLegacyScalarStylesMigrate()
+    /// <summary>旧设置包保留真实来源版本，手动读取不返回效果素材。</summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void LegacySettingsPreserveSourceVersionAndOnlyReturnSettings(int version)
     {
-        var original = UserSettingsTransferTestData.CreateBundle();
-        var preset = original.Styles.Presets[0];
-        var independent = original with
-        {
-            Styles = original.Styles with
-            {
-                Presets = [preset with { Style = preset.Style with { Margins = new(13.125, 41.25, 27.5) } }]
-            }
-        };
-        UserSettingsTransferTestData.AssertBundleEqual(independent,
-            UserSettingsBundleStore.Deserialize(UserSettingsBundleStore.Serialize(independent)));
+        var imported = UserSettingsBundleStore.Deserialize(UserSettingsTransferTestData.CreateLegacyArchive(version));
 
-        var entries = UserSettingsTransferTestData.ReadArchive(UserSettingsBundleStore.Serialize(original));
-        var library = JsonNode.Parse(entries["subtitle-styles.aegistyles"])!.AsObject();
-        library["version"] = 4;
-        var style = library["presets"]![0]!["style"]!.AsObject();
-        style.Remove("letterSpacing");
-        style.Remove("fillBlur");
-        style.Remove("strokeBlur");
-        style.Remove("wrapMode");
-        style.Remove("margins");
-        style["margin"] = 40;
-        entries["subtitle-styles.aegistyles"] = Encoding.UTF8.GetBytes(library.ToJsonString());
-
-        UserSettingsTransferTestData.AssertBundleEqual(original,
-            UserSettingsBundleStore.Deserialize(UserSettingsTransferTestData.WriteArchive(entries)));
+        Assert.Equal(version, imported.SourceVersion);
+        Assert.Equal(version == 1, imported.ColorTags is null);
+        Assert.Equal("zh-CN", imported.Preferences.Language);
+        Assert.DoesNotContain("subtitle-styles.aegistyles", UserSettingsBundleStore.SerializeFiles(imported).Keys);
+        Assert.DoesNotContain("effect-scripts.json", UserSettingsBundleStore.SerializeFiles(imported).Keys);
     }
 
     [Fact]
@@ -71,8 +54,7 @@ public sealed class UserSettingsBundleStoreTests
     {
         var bundle = UserSettingsBundleStore.Deserialize(UserSettingsBundleStore.Serialize(new()));
 
-        Assert.Empty(bundle.Styles.Presets);
-        Assert.Empty(bundle.Effects.Presets);
+        Assert.Equal(3, bundle.SourceVersion);
         Assert.Empty(bundle.ExportPresets.Presets);
         Assert.NotNull(bundle.ColorTags);
         Assert.Empty(bundle.ColorTags.Tags);
@@ -84,7 +66,7 @@ public sealed class UserSettingsBundleStoreTests
     [InlineData("{}")]
     [InlineData("null")]
     [InlineData("[]")]
-    [InlineData("{\"version\":3}")]
+    [InlineData("{\"version\":4}")]
     [InlineData("{\"version\":\"1\"}")]
     [InlineData("{\"version\":true}")]
     [InlineData("{\"version\":1,\"version\":1}")]
@@ -140,8 +122,6 @@ public sealed class UserSettingsBundleStoreTests
     /// <summary>任一组成文档不完整都拒绝整包，不返回部分设置。</summary>
     [Theory]
     [InlineData("preferences.json")]
-    [InlineData("subtitle-styles.aegistyles")]
-    [InlineData("effect-scripts.json")]
     [InlineData("export-presets.aegiexports")]
     [InlineData("layouts.json")]
     [InlineData("subtitle-color-tags.json")]
@@ -153,39 +133,31 @@ public sealed class UserSettingsBundleStoreTests
         Assert.Throws<InvalidDataException>(() => UserSettingsBundleStore.Deserialize(UserSettingsTransferTestData.WriteArchive(entries)));
     }
 
-    /// <summary>旧版包的标签缺失状态在重新序列化及暂存准备中保持缺失。</summary>
+    /// <summary>旧版包重新序列化为 v3，标签缺失状态继续表示保留本地库。</summary>
     [Fact]
     public void VersionOneBundleRetainsMissingTagLibraryAcrossReserialization()
     {
-        var original = UserSettingsTransferTestData.CreateBundle();
-        var entries = UserSettingsTransferTestData.ReadArchive(UserSettingsBundleStore.Serialize(original));
-        entries.Remove("subtitle-color-tags.json");
-        entries["manifest.json"] = "{\"version\":1}"u8.ToArray();
-
-        var legacy = UserSettingsBundleStore.Deserialize(UserSettingsTransferTestData.WriteArchive(entries));
+        var legacy = UserSettingsBundleStore.Deserialize(UserSettingsTransferTestData.CreateLegacyArchive(1));
         var restaged = UserSettingsBundleStore.Serialize(legacy);
         var restagedEntries = UserSettingsTransferTestData.ReadArchive(restaged);
 
         Assert.Null(legacy.ColorTags);
+        Assert.Equal(1, legacy.SourceVersion);
         Assert.Null(UserSettingsBundleStore.Deserialize(restaged).ColorTags);
         Assert.False(restagedEntries.ContainsKey("subtitle-color-tags.json"));
-        Assert.Equal(1, JsonNode.Parse(restagedEntries["manifest.json"])!["version"]!.GetValue<int>());
+        Assert.Equal(3, JsonNode.Parse(restagedEntries["manifest.json"])!["version"]!.GetValue<int>());
+        Assert.Equal(3, UserSettingsBundleStore.Deserialize(restaged).SourceVersion);
         Assert.False(UserSettingsBundleStore.SerializeFiles(legacy).ContainsKey("subtitle-color-tags.json"));
-        UserSettingsTransferTestData.AssertBundleEqual(original with { ColorTags = null }, legacy);
     }
 
     /// <summary>各版本只接受该版本声明的完整文件集合。</summary>
     [Theory]
-    [InlineData(1, true)]
-    [InlineData(2, false)]
-    public void ManifestVersionRequiresItsExactFileSet(int version, bool retainTags)
+    [InlineData(1)]
+    [InlineData(2)]
+    public void LegacyManifestVersionRequiresItsExactFileSet(int version)
     {
-        var entries = UserSettingsTransferTestData.ReadArchive(UserSettingsBundleStore.Serialize(new()));
-        entries["manifest.json"] = Encoding.UTF8.GetBytes("{\"version\":" + version + "}");
-        if (!retainTags)
-        {
-            entries.Remove("subtitle-color-tags.json");
-        }
+        var entries = UserSettingsTransferTestData.ReadArchive(UserSettingsTransferTestData.CreateLegacyArchive(version));
+        entries.Remove("effect-scripts.json");
 
         Assert.Throws<InvalidDataException>(() => UserSettingsBundleStore.Deserialize(UserSettingsTransferTestData.WriteArchive(entries)));
     }

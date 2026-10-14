@@ -1,8 +1,10 @@
 using AegiNext.Application.ColorTags;
 using AegiNext.Application.Presets;
+using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Transfer;
 using AegiNext.Desktop.Startup;
+using AegiNext.Desktop.Tests.Settings.Transfer;
 
 namespace AegiNext.Desktop.Tests.Startup;
 
@@ -60,7 +62,10 @@ public sealed class SettingsRestoreStartupTests
         await SubtitleColorTagStore.SaveAsync(document, path);
         var original = await File.ReadAllBytesAsync(path);
         using var restore = new UserSettingsRestoreService(directory.Path);
-        await restore.StageAsync(new() { ColorTags = null });
+        var restoreDirectory = Path.Combine(directory.Path, ".settings-restore");
+        Directory.CreateDirectory(restoreDirectory);
+        await File.WriteAllBytesAsync(Path.Combine(restoreDirectory, "pending.aegisettings"),
+            UserSettingsTransferTestData.CreateLegacyArchive(1, new() { Language = Localization.SelectedLanguageID }));
 
         SettingsRestoreStartup.ApplyOnce(directory.Path);
         await using var context = new DesktopApplicationContext(new(directory.Path));
@@ -68,6 +73,8 @@ public sealed class SettingsRestoreStartupTests
 
         Assert.Equal(original, await File.ReadAllBytesAsync(path));
         Assert.Equal(document.Tags[0], Assert.Single(context.ColorTagLibrary.Snapshot.Tags));
+        Assert.Equal("Legacy style", Assert.Single(context.StyleLibrary.Snapshot.Presets).Name);
+        Assert.Equal("Legacy effect", Assert.Single(context.EffectScriptLibrary.Snapshot.Presets).Name);
         Assert.False(context.SettingsRestore.HasPending);
     }
 

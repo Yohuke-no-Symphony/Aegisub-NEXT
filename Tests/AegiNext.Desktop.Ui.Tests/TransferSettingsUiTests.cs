@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Settings;
@@ -14,7 +15,7 @@ namespace AegiNext.Desktop.Ui.Tests;
 /// <summary>验证设置交换界面的快照、完整预览、共享待恢复状态与关闭隔离。</summary>
 public sealed class TransferSettingsUiTests
 {
-    /// <summary>导出冻结文件选择前的偏好、个人库和实时布局，后续修改不进入备份。</summary>
+    /// <summary>导出冻结文件选择前的设置和实时布局，并排除独立效果库。</summary>
     [AvaloniaFact]
     public async Task ExportFreezesPreferencesLibrariesAndLiveLayoutBeforePicker()
     {
@@ -22,6 +23,7 @@ public sealed class TransferSettingsUiTests
         {
             var original = new VideoExportPreset(Guid.NewGuid(), "Daily", new());
             await context.RunExportPresetOperationAsync(() => context.ExportPresetLibrary.UpsertAsync(original));
+            await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new(Guid.NewGuid(), "Personal style", new())));
             var preferences = context.Preferences;
             var pending = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
             dialogs.Inner.PendingSaveSelection = pending;
@@ -42,6 +44,9 @@ public sealed class TransferSettingsUiTests
                 Assert.Equal(original, Assert.Single(exported.ExportPresets.Presets));
                 Assert.Equal("Live layout", Assert.Single(exported.Layouts.Presets).Name);
                 Assert.Equal(".aegisettings", dialogs.Inner.SaveExtension);
+                using var archive = ZipFile.OpenRead(path);
+                Assert.Equal(5, archive.Entries.Count);
+                Assert.DoesNotContain(archive.Entries, entry => entry.FullName is "subtitle-styles.aegistyles" or "effect-scripts.json");
                 Assert.False(window.ViewModel.HasError);
             }
             finally
@@ -50,6 +55,50 @@ public sealed class TransferSettingsUiTests
                 await completion;
             }
         }, captureLayout: CreateLayout);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task LegacySettingsPreviewExplainsIgnoredMaterialsAndStagesOnlyVersionThree(int version)
+    {
+        await WithSettingsAsync(async (context, coordinator, window, dialogs, outputDirectory) =>
+        {
+            var styles = context.StyleLibrary.Snapshot;
+            var effects = context.EffectScriptLibrary.Snapshot;
+            var imported = new UserSettingsBundle
+            {
+                Preferences = context.Preferences with { Volume = 0.2f },
+                ExportPresets = new() { Presets = [new(Guid.NewGuid(), "Legacy export", new())] },
+                Layouts = CreateLayout(),
+                ColorTags = version == 1 ? null : new()
+            };
+            var path = Path.Combine(outputDirectory, "legacy.aegisettings");
+            WriteLegacySettingsFile(path, imported, version);
+            dialogs.Inner.OpenPath = path;
+
+            UiTestActions.Click(window, "ImportUserSettingsButton");
+            await coordinator.TransferCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.True(window.ViewModel.Transfer.HasPreview);
+            Assert.True(window.ViewModel.Transfer.HasIgnoredLegacyMaterials);
+            Assert.Equal(Localization.Format("Settings.TransferPreviewSummary", 1, 1), window.ViewModel.Transfer.PreviewSummary);
+            var notice = UiTestActions.Find<TextBlock>(window, "UserSettingsLegacyMaterialsNotice");
+            Assert.True(notice.IsVisible);
+            Assert.Equal(Localization.Get("Settings.TransferLegacyMaterialsIgnored"), notice.Text);
+
+            UiTestActions.Click(window, "StageSettingsRestoreButton");
+            await coordinator.TransferCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Same(styles, context.StyleLibrary.Snapshot);
+            Assert.Same(effects, context.EffectScriptLibrary.Snapshot);
+            var pendingPath = Path.Combine(context.PreferencesStore.DirectoryPath, ".settings-restore", "pending.aegisettings");
+            var pending = await UserSettingsBundleStore.LoadAsync(pendingPath);
+            Assert.Equal(3, pending.SourceVersion);
+            Assert.Equal(version == 1, pending.ColorTags is null);
+            using var archive = ZipFile.OpenRead(pendingPath);
+            Assert.DoesNotContain(archive.Entries, entry => entry.FullName is "subtitle-styles.aegistyles" or "effect-scripts.json");
+        });
     }
 
     /// <summary>确认关闭仅请求一次正常退出；稍后保留待恢复，共享窗口同步且当前配置不变。</summary>
@@ -278,6 +327,20 @@ public sealed class TransferSettingsUiTests
     private static WorkspaceLayoutFile CreateLayout()
     {
         return new() { Presets = [new("user-live", "Live layout", false, WorkspaceLayoutPresets.Standard)] };
+    }
+
+    private static void WriteLegacySettingsFile(string path, UserSettingsBundle settings, int version)
+    {
+        var files = UserSettingsBundleStore.SerializeFiles(settings);
+        files.Add("subtitle-styles.aegistyles", "ignored style document"u8.ToArray());
+        files.Add("effect-scripts.json", [0xFF]);
+        files.Add("manifest.json", System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version}}}"));
+        using var archive = ZipFile.Open(path, ZipArchiveMode.Create);
+        foreach (var (name, bytes) in files)
+        {
+            using var stream = archive.CreateEntry(name).Open();
+            stream.Write(bytes);
+        }
     }
 
     private static void CaptureTransfer(SettingsWindow window, string state)

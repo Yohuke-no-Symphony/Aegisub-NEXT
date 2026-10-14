@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Text;
 using AegiNext.Desktop.Settings.Transfer;
 
@@ -82,8 +81,6 @@ public sealed class UserSettingsRestoreServiceTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
-    [InlineData(5)]
-    [InlineData(6)]
     public async Task FailureAtAnyReplacementRollsBackAndAllowsFreshServiceRetry(int failedIndex)
     {
         using var directory = new TemporaryWorkbenchDirectory();
@@ -332,11 +329,11 @@ public sealed class UserSettingsRestoreServiceTests
         Assert.False(restore.HasRecoveryJournal);
     }
 
-    /// <summary>旧版包暂存并经新服务恢复后，本地标签文件字节或缺失状态不变。</summary>
+    /// <summary>v3 省略标签时，本地标签文件字节或缺失状态不变。</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task VersionOneStageAndRestoreLeavesTheTagLibraryBytesAndAbsenceUnchanged(bool tagFileExists)
+    public async Task OmittedTagStageAndRestoreLeavesTheTagLibraryBytesAndAbsenceUnchanged(bool tagFileExists)
     {
         using var directory = new TemporaryWorkbenchDirectory();
         var path = Path.Combine(directory.Path, "subtitle-color-tags.json");
@@ -359,53 +356,6 @@ public sealed class UserSettingsRestoreServiceTests
         if (tagFileExists)
         {
             Assert.Equal(original, await File.ReadAllBytesAsync(path));
-        }
-    }
-
-    /// <summary>升级前五文件备份及日志可以继续回滚或提交清理，当前标签库保持原样。</summary>
-    [Theory]
-    [InlineData("applying")]
-    [InlineData("committed")]
-    public async Task UpgradedServiceRecoversVersionOneFiveFileJournalWithoutChangingTags(string phase)
-    {
-        using var directory = new TemporaryWorkbenchDirectory();
-        var original = WriteOriginalFiles(directory.Path);
-        var bundle = UserSettingsTransferTestData.CreateBundle() with { ColorTags = null };
-        var journal = await CaptureInterruptedJournalAsync(directory.Path, bundle);
-        var backupPath = BackupPath(directory.Path, journal.BackupId);
-        var backup = ReadBackup(backupPath);
-        var legacyBackup = backup with
-        {
-            Version = 1,
-            Files = backup.Files.Where(entry => entry.Name != "subtitle-color-tags.json").ToImmutableArray()
-        };
-        File.WriteAllBytes(Path.Combine(backupPath, "backup.json"), SettingsTransferJson.Serialize(legacyBackup, 65536));
-        WriteJournal(directory.Path, journal with { Version = 1, Phase = phase });
-        var tagPath = Path.Combine(directory.Path, "subtitle-color-tags.json");
-        var tagBytes = "tag library created after legacy backup"u8.ToArray();
-        await File.WriteAllBytesAsync(tagPath, tagBytes);
-        if (phase == "committed")
-        {
-            WriteFiles(directory.Path, UserSettingsBundleStore.SerializeFiles(bundle));
-        }
-        else
-        {
-            WriteFiles(directory.Path, UserSettingsBundleStore.SerializeFiles(bundle).Take(2));
-            File.Delete(PendingPath(directory.Path));
-        }
-        using var reopened = new UserSettingsRestoreService(directory.Path);
-        reopened.ApplyPending();
-
-        Assert.Equal(tagBytes, await File.ReadAllBytesAsync(tagPath));
-        Assert.False(reopened.HasPending);
-        Assert.False(reopened.HasRecoveryJournal);
-        if (phase == "committed")
-        {
-            AssertPersistedFiles(directory.Path, UserSettingsBundleStore.SerializeFiles(bundle));
-        }
-        else
-        {
-            AssertFiles(directory.Path, original.Where(pair => pair.Key != "subtitle-color-tags.json"));
         }
     }
 
@@ -432,7 +382,7 @@ public sealed class UserSettingsRestoreServiceTests
         for (var index = 0; index < UserSettingsBundleStore.Files.Length; index++)
         {
             var file = UserSettingsBundleStore.Files[index];
-            var bytes = index is 0 or 4 ? null : Encoding.UTF8.GetBytes("original raw bytes: " + file.Name);
+            var bytes = file.Name is "preferences.json" or "subtitle-color-tags.json" ? null : Encoding.UTF8.GetBytes("original raw bytes: " + file.Name);
             content.Add(file.Name, bytes);
             if (bytes is not null)
             {

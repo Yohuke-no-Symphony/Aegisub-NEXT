@@ -25,6 +25,8 @@
                        ToolTip.Tip="{Binding FileName}" />
             <TextBlock Name="UserSettingsImportSummary" Text="{Binding PreviewSummary}" TextWrapping="Wrap" Classes="field" />
             <TextBlock Name="UserSettingsColorTagSummary" Text="{Binding ColorTagSummary}" TextWrapping="Wrap" Classes="field" />
+            <TextBlock Name="UserSettingsLegacyMaterialsNotice" Text="{Loc Key=Settings.TransferLegacyMaterialsIgnored}"
+                       IsVisible="{Binding HasIgnoredLegacyMaterials}" TextWrapping="Wrap" Classes="field" />
             <CheckBox Name="KeepWorkspaceRootToggle" Content="{Loc Key=Settings.TransferKeepWorkspaceRoot}"
                       IsChecked="{Binding KeepWorkspaceRoot, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" />
             <TextBlock Text="{Loc Key=Settings.TransferReplaceDescription}" Classes="field" TextWrapping="Wrap" />
