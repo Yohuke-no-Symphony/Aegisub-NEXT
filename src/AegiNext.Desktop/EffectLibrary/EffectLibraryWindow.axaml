@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:markup="using:Avalonia.Markup.Xaml.MarkupExtensions"
+        xmlns:library="using:AegiNext.Desktop.EffectLibrary"
+        xmlns:controls="using:AegiNext.Desktop.Controls.Common"
+        xmlns:styles="using:AegiNext.Desktop.EffectLibrary.Styles"
+        xmlns:effects="using:AegiNext.Desktop.EffectLibrary.Effects"
+        xmlns:transfer="using:AegiNext.Desktop.EffectLibrary.Transfer"
+        xmlns:icons="using:Material.Icons.Avalonia"
+        x:Class="AegiNext.Desktop.EffectLibrary.EffectLibraryWindow"
+        x:DataType="library:EffectLibraryWindowViewModel"
+        Classes="business-surface" Title="{Binding Title}"
+        Width="1100" Height="760" MinWidth="940" MinHeight="620"
+        WindowStartupLocation="CenterOwner" Background="{DynamicResource SettingsBackground}">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="/Styling/PreferencesWindowResources.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Window.Resources>
+  <Window.Styles>
+    <StyleInclude Source="/Styling/PreferencesWindowStyles.axaml" />
+  </Window.Styles>
+  <Grid RowDefinitions="Auto,*">
+    <controls:WindowTitleBar Name="EffectLibraryTitleBar" Title="{Binding Title}" />
+    <Grid Grid.Row="1" ColumnDefinitions="184,*">
+      <Border BorderBrush="{DynamicResource SettingsBorder}" BorderThickness="0,0,1,0" Padding="12,16">
+        <ListBox Name="Navigation" Background="Transparent" IsEnabled="{Binding IsNavigationAvailable}"
+                 SelectedValueBinding="{markup:CompiledBinding DataContext, DataType={x:Type ListBoxItem}}"
+                 SelectedValue="{Binding CurrentPage, Mode=TwoWay}">
+          <ListBoxItem DataContext="{x:Static library:EffectLibraryPage.STYLES}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <icons:MaterialIcon Width="18" Height="18" Kind="FormatText" />
+              <TextBlock Text="{Loc Key=EffectLibrary.Styles}" VerticalAlignment="Center" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem DataContext="{x:Static library:EffectLibraryPage.EFFECTS}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <icons:MaterialIcon Width="18" Height="18" Kind="Creation" />
+              <TextBlock Text="{Loc Key=EffectLibrary.Effects}" VerticalAlignment="Center" />
+            </StackPanel>
+          </ListBoxItem>
+          <ListBoxItem DataContext="{x:Static library:EffectLibraryPage.TRANSFER}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <icons:MaterialIcon Width="18" Height="18" Kind="Import" />
+              <TextBlock Text="{Loc Key=EffectLibrary.Transfer}" VerticalAlignment="Center" />
+            </StackPanel>
+          </ListBoxItem>
+        </ListBox>
+      </Border>
+      <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="24,20" RowSpacing="16">
+        <TextBlock Name="PageTitle" Text="{Binding PageTitle}" FontSize="22" FontWeight="SemiBold" />
+        <Grid Grid.Row="1" IsVisible="{Binding IsStylesVisible}">
+          <styles:StyleLibraryView Name="StylesView" DataContext="{Binding Styles}"
+                                   IsVisible="{Binding $parent[Grid].IsVisible}" />
+        </Grid>
+        <Grid Grid.Row="1" IsVisible="{Binding IsEffectsVisible}">
+          <effects:EffectScriptLibraryView Name="EffectsView" DataContext="{Binding Effects}"
+                                          IsVisible="{Binding $parent[Grid].IsVisible}" />
+        </Grid>
+        <Grid Grid.Row="1" IsVisible="{Binding IsTransferVisible}">
+          <transfer:EffectLibraryTransferView Name="TransferView" DataContext="{Binding Transfer}"
+                                             IsVisible="{Binding $parent[Grid].IsVisible}" />
+        </Grid>
+        <TextBlock Name="EffectLibraryError" Grid.Row="2" Text="{Binding Error}" IsVisible="{Binding HasError}"
+                   Foreground="{DynamicResource SettingsError}" TextWrapping="Wrap" MaxHeight="64" />
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

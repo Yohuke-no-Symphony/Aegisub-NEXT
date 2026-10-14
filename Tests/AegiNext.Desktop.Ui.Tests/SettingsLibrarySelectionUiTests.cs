@@ -1,9 +1,11 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Reflection;
 using AegiNext.Application.Presets;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Effects;
+using AegiNext.Desktop.EffectLibrary.Effects;
+using AegiNext.Desktop.EffectLibrary.Transfer;
 using AegiNext.Desktop.Startup;
 using AegiNext.Desktop.Workspace;
 using Avalonia;
@@ -29,7 +31,7 @@ public sealed class SettingsLibrarySelectionUiTests
         var output = Path.Combine(environment.DirectoryPath, "selected-export");
         Directory.CreateDirectory(output);
         var dialogs = new StartupTestDialogService { FolderPath = output };
-        using var coordinator = new SettingsWindowCoordinator(context, _ => dialogs);
+        using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
         try
         {
@@ -49,7 +51,7 @@ public sealed class SettingsLibrarySelectionUiTests
                 }
             }
             owner.Show();
-            await coordinator.OpenAsync(owner, page: effects ? SettingsPage.EFFECTS : SettingsPage.STYLES);
+            await coordinator.OpenAsync(owner, page: effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             if (effects)
             {
@@ -60,7 +62,11 @@ public sealed class SettingsLibrarySelectionUiTests
                 window.ViewModel.Styles.SelectStyles(ids[0], [ids[0], ids[2]]);
             }
             UiTestActions.Click(window, effects ? "ExportEffectScriptButton" : "ExportStylesButton");
-            await context.Completion;
+            await window.ViewModel.NavigationCompletion;
+            Assert.Equal(EffectLibraryPage.TRANSFER, window.CurrentPage);
+            window.ViewModel.Transfer.SelectedFormat = effects ? EffectLibraryExportFormat.SOURCE : EffectLibraryExportFormat.INDEPENDENT;
+            UiTestActions.Click(window, "ExportSelectedEffectLibraryButton");
+            await coordinator.TransferCompletion;
             var files = Directory.GetFiles(output);
             Assert.Equal(2, files.Length);
             Assert.Equal(1, dialogs.FolderRequests);
@@ -82,8 +88,11 @@ public sealed class SettingsLibrarySelectionUiTests
                 await context.RunStyleOperationAsync(() => context.StyleLibrary.RemoveAsync(ids[2]));
             }
             dialogs.OpenPaths = files;
-            UiTestActions.Click(window, effects ? "ImportEffectScriptButton" : "ImportStylesButton");
-            await context.Completion;
+            UiTestActions.Click(window, "ImportEffectLibraryButton");
+            await coordinator.TransferCompletion;
+            Assert.Equal(1, effects ? context.EffectScriptLibrary.Snapshot.Presets.Length : context.StyleLibrary.Snapshot.Presets.Length);
+            UiTestActions.Click(window, "CommitEffectLibraryImportButton");
+            await coordinator.TransferCompletion;
             Assert.Equal(3, effects ? context.EffectScriptLibrary.Snapshot.Presets.Length : context.StyleLibrary.Snapshot.Presets.Length);
             Assert.False(window.ViewModel.HasError);
         }
@@ -107,13 +116,13 @@ public sealed class SettingsLibrarySelectionUiTests
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
         var dialogs = new StartupTestDialogService { PresetChoice = choice };
-        using var coordinator = new SettingsWindowCoordinator(context, _ => dialogs);
+        using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
         try
         {
             await context.Initialization;
             owner.Show();
-            await coordinator.OpenAsync(owner, page: effects ? SettingsPage.EFFECTS : SettingsPage.STYLES);
+            await coordinator.OpenAsync(owner, page: effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             var originalPage = window.CurrentPage;
             if (effects)
@@ -129,10 +138,10 @@ public sealed class SettingsLibrarySelectionUiTests
                 window.ViewModel.Styles.Name = "Changed 样式 123";
                 Assert.Empty(window.ViewModel.Styles.Styles);
             }
-            UiTestActions.SelectSettingsPage(window, SettingsPage.COLORS);
+            UiTestActions.SelectEffectLibraryPage(window, EffectLibraryPage.TRANSFER);
             await window.ViewModel.NavigationCompletion;
             Assert.Equal(1, dialogs.PresetConfirmationRequests);
-            Assert.Equal(choice == 2 ? originalPage : SettingsPage.COLORS, window.CurrentPage);
+            Assert.Equal(choice == 2 ? originalPage : EffectLibraryPage.TRANSFER, window.CurrentPage);
             Assert.Equal(window.CurrentPage, UiTestActions.Find<ListBox>(window, "Navigation").SelectedValue);
             var count = effects ? context.EffectScriptLibrary.Snapshot.Presets.Length : context.StyleLibrary.Snapshot.Presets.Length;
             Assert.Equal(choice == 0 ? 1 : 0, count);
@@ -158,13 +167,13 @@ public sealed class SettingsLibrarySelectionUiTests
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
         var dialogs = new StartupTestDialogService { PresetChoice = 0 };
-        using var coordinator = new SettingsWindowCoordinator(context, _ => dialogs);
+        using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
         try
         {
             await context.Initialization;
             owner.Show();
-            await coordinator.OpenAsync(owner, page: effects ? SettingsPage.EFFECTS : SettingsPage.STYLES);
+            await coordinator.OpenAsync(owner, page: effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             if (effects)
             {
@@ -176,9 +185,9 @@ public sealed class SettingsLibrarySelectionUiTests
                 window.ViewModel.Styles.AddCommand.Execute(null);
                 window.ViewModel.Styles.FontSizeText = "7e-";
             }
-            window.SelectPage(SettingsPage.COLORS);
+            window.SelectPage(EffectLibraryPage.TRANSFER);
             await window.ViewModel.NavigationCompletion;
-            Assert.Equal(effects ? SettingsPage.EFFECTS : SettingsPage.STYLES, window.CurrentPage);
+            Assert.Equal(effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES, window.CurrentPage);
             Assert.NotNull(effects ? window.ViewModel.Effects.Error : window.ViewModel.Styles.Error);
             window.Close();
             await window.CloseCompletion;
@@ -207,13 +216,13 @@ public sealed class SettingsLibrarySelectionUiTests
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
         var dialogs = new StartupTestDialogService { PresetChoice = 0 };
-        using var coordinator = new SettingsWindowCoordinator(context, _ => dialogs);
+        using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
         try
         {
             await context.Initialization;
             owner.Show();
-            await coordinator.OpenAsync(owner, page: effects ? SettingsPage.EFFECTS : SettingsPage.STYLES);
+            await coordinator.OpenAsync(owner, page: effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             if (effects)
             {
@@ -229,17 +238,17 @@ public sealed class SettingsLibrarySelectionUiTests
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.Delete(path);
             Directory.CreateDirectory(path);
-            window.SelectPage(SettingsPage.COLORS);
+            window.SelectPage(EffectLibraryPage.TRANSFER);
             await window.ViewModel.NavigationCompletion;
-            Assert.Equal(effects ? SettingsPage.EFFECTS : SettingsPage.STYLES, window.CurrentPage);
+            Assert.Equal(effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES, window.CurrentPage);
             Assert.True(window.ViewModel.HasError);
             Assert.True(effects ? window.ViewModel.Effects.IsDirty : window.ViewModel.Styles.IsDirty);
             Assert.Empty(context.StyleLibrary.Snapshot.Presets);
             Assert.Empty(context.EffectScriptLibrary.Snapshot.Presets);
             Directory.Delete(path);
-            window.SelectPage(SettingsPage.COLORS);
+            window.SelectPage(EffectLibraryPage.TRANSFER);
             await window.ViewModel.NavigationCompletion;
-            Assert.Equal(SettingsPage.COLORS, window.CurrentPage);
+            Assert.Equal(EffectLibraryPage.TRANSFER, window.CurrentPage);
             Assert.False(window.ViewModel.HasError);
             Assert.Equal(1, effects ? context.EffectScriptLibrary.Snapshot.Presets.Length : context.StyleLibrary.Snapshot.Presets.Length);
         }
@@ -258,19 +267,19 @@ public sealed class SettingsLibrarySelectionUiTests
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
         var decision = new TaskCompletionSource<int>();
         var dialogs = new StartupTestDialogService { PendingPresetDecision = decision };
-        using var coordinator = new SettingsWindowCoordinator(context, _ => dialogs);
+        using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
         try
         {
             await context.Initialization;
             owner.Show();
-            await coordinator.OpenAsync(owner, page: SettingsPage.STYLES);
+            await coordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             window.ViewModel.Styles.AddCommand.Execute(null);
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             var navigation = window.ViewModel.NavigationCompletion;
             Assert.False(navigation.IsCompleted);
-            window.SelectPage(SettingsPage.COLORS);
+            window.SelectPage(EffectLibraryPage.TRANSFER);
             Assert.Same(navigation, window.ViewModel.NavigationCompletion);
             window.Close();
             Assert.False(window.CloseCompletion.IsCompleted);
@@ -296,13 +305,13 @@ public sealed class SettingsLibrarySelectionUiTests
     {
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
-        using var coordinator = new SettingsWindowCoordinator(context);
+        using var coordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
         try
         {
             await context.Initialization;
             owner.Show();
-            await coordinator.OpenAsync(owner, page: SettingsPage.EFFECTS);
+            await coordinator.OpenAsync(owner, page: EffectLibraryPage.EFFECTS);
             var settings = coordinator.Window!;
             settings.ViewModel.Effects.AddCommand.Execute(null);
             owner.Close();
@@ -334,28 +343,28 @@ public sealed class SettingsLibrarySelectionUiTests
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath),
             new() { Language = language, Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT });
-        using var coordinator = new SettingsWindowCoordinator(context);
+        using var coordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
         try
         {
             await context.Initialization;
             owner.Show();
-            await coordinator.OpenAsync(owner, page: SettingsPage.STYLES);
+            await coordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             window.ViewModel.Styles.AddCommand.Execute(null);
             window.ViewModel.Styles.Name = "字幕 Style 123";
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             var dialog = Assert.Single(window.OwnedWindows);
             Assert.True(UiTestActions.Find<Button>(dialog, "SaveButton").IsVisible);
             Capture(dialog, $"unsaved-presets-dialog-{language}.png");
             UiTestActions.Click(dialog, "CancelButton");
             await window.ViewModel.NavigationCompletion;
-            Assert.Equal(SettingsPage.STYLES, window.CurrentPage);
+            Assert.Equal(EffectLibraryPage.STYLES, window.CurrentPage);
             Assert.True(window.ViewModel.Styles.IsDirty);
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(Assert.Single(window.OwnedWindows), "DiscardButton");
             await window.ViewModel.NavigationCompletion;
-            Assert.Equal(SettingsPage.EFFECTS, window.CurrentPage);
+            Assert.Equal(EffectLibraryPage.EFFECTS, window.CurrentPage);
             Assert.Null(window.ViewModel.Styles.Draft);
             window.ViewModel.Effects.AddCommand.Execute(null);
             window.Close();
@@ -377,7 +386,7 @@ public sealed class SettingsLibrarySelectionUiTests
     [InlineData(true)]
     public async Task LeftListsSupportControlAndShiftSelectionAndKeepIdsOnRefresh(bool effects)
     {
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             var ids = Enumerable.Range(0, 3).Select(_ => Guid.NewGuid()).ToArray();
@@ -390,7 +399,7 @@ public sealed class SettingsLibrarySelectionUiTests
             {
                 window.UpdateStyles(ids.Select((id, index) => new SubtitleStylePreset(id, $"样式 Style {index}", new())));
             }
-            window.SelectPage(effects ? SettingsPage.EFFECTS : SettingsPage.STYLES);
+            window.SelectPage(effects ? EffectLibraryPage.EFFECTS : EffectLibraryPage.STYLES);
             window.Show();
             var list = UiTestActions.Find<ListBox>(window, effects ? "EffectScriptList" : "StyleList");
             var start = effects ? BuiltinEffectScripts.Templates.Length : 0;

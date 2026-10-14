@@ -1,9 +1,10 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Panels.Styles;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -26,7 +27,7 @@ public sealed class StyleScalingEditingUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage(language);
-        var window = new SettingsWindow(new() { Language = language })
+        var window = new EffectLibraryWindow(new() { Language = language })
         {
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
@@ -35,8 +36,8 @@ public sealed class StyleScalingEditingUiTests
             window.Show();
             var original = new SubtitleStylePreset(Guid.NewGuid(), "Reference", new() { FontSize = 72 });
             window.UpdateStyles([original]);
-            window.SelectPage(SettingsPage.STYLES);
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            window.SelectPage(EffectLibraryPage.STYLES);
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             var group = UiTestActions.Find<StackPanel>(view, "StyleScalingGroup");
             var typography = UiTestActions.Find<StackPanel>(view, "StyleTypographyGroup");
             var width = UiTestActions.Find<NumericDraftInput>(view, "ReferenceWidthInput");
@@ -77,14 +78,14 @@ public sealed class StyleScalingEditingUiTests
     public void SettingsLanguageSwitchAndEscapeKeepOtherRawInputsAndStoredStyle()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             var original = new SubtitleStylePreset(Guid.NewGuid(), "Reference", new());
             window.UpdateStyles([original]);
-            window.SelectPage(SettingsPage.STYLES);
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            window.SelectPage(EffectLibraryPage.STYLES);
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             var width = UiTestActions.Find<NumericDraftInput>(view, "ReferenceWidthInput");
             var height = UiTestActions.Find<NumericDraftInput>(view, "ReferenceHeightInput");
             Type(window, width, "7e-");
@@ -311,7 +312,7 @@ public sealed class StyleScalingEditingUiTests
     public void CancelingSettingsSliderRestoresOnlyItsMatchBeforeChangingTheDraft(string cancellation)
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
@@ -321,8 +322,8 @@ public sealed class StyleScalingEditingUiTests
                 Scaling = new() { MatchWidthOrHeight = 0.25 }
             });
             window.UpdateStyles([first, second], first.Id);
-            window.SelectPage(SettingsPage.STYLES);
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            window.SelectPage(EffectLibraryPage.STYLES);
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             var slider = UiTestActions.Find<Slider>(view, "MatchWidthOrHeightInput");
             var template = slider.Template;
             IPointer? pointer = null;

@@ -17,4 +17,7 @@
     <None Include="../AegiNext.Rendering.Tests/Fixtures/NotoSans.ttf" Link="Fixtures/NotoSans.ttf" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../AegiNext.Rendering.Tests/Fixtures/NotoSans-OFL.txt" Link="Fixtures/NotoSans-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Settings\Presets\" />
+  </ItemGroup>
 </Project>

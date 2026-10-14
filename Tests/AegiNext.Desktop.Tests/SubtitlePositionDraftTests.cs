@@ -1,6 +1,6 @@
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -49,7 +49,7 @@ public sealed class SubtitlePositionDraftTests
     [Fact]
     public void IncompletePositionTextSurvivesLanguageRefreshAndPreventsTemplateSave()
     {
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([new(Guid.NewGuid(), "position", new() { Position = new() })]);
         var submitted = 0;
         model.UpsertRequested += (_, _) => submitted++;

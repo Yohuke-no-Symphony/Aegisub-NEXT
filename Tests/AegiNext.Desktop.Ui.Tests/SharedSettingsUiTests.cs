@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Startup;
@@ -16,6 +17,7 @@ public sealed class SharedSettingsUiTests
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
         using var coordinator = new SettingsWindowCoordinator(context);
+        using var libraryCoordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
         try
         {
@@ -32,19 +34,29 @@ public sealed class SharedSettingsUiTests
                 Assert.False(window.ViewModel.HasError);
             }
 
-            window.SelectPage(SettingsPage.STYLES);
-            UiTestActions.Click(window, "AddStyleButton");
-            Assert.False(UiTestActions.Find<Button>(window, "CaptureStyleButton").IsEffectivelyEnabled);
-            Assert.False(window.ViewModel.Styles.HasPositionMeasurementError);
-            UiTestActions.Find<TextBox>(window, "StyleNameInput").Text = "个人样式 01";
-            UiTestActions.Click(window, "SaveStyleButton");
+            await libraryCoordinator.OpenAsync(owner);
+            var library = Assert.IsType<EffectLibraryWindow>(libraryCoordinator.Window);
+            foreach (var page in Enum.GetValues<EffectLibraryPage>())
+            {
+                library.SelectPage(page);
+                Dispatcher.UIThread.RunJobs();
+                library.UpdateLayout();
+                Assert.Equal(page, library.CurrentPage);
+                Assert.False(library.ViewModel.HasError);
+            }
+            library.SelectPage(EffectLibraryPage.STYLES);
+            UiTestActions.Click(library, "AddStyleButton");
+            Assert.False(UiTestActions.Find<Button>(library, "CaptureStyleButton").IsEffectivelyEnabled);
+            Assert.False(library.ViewModel.Styles.HasPositionMeasurementError);
+            UiTestActions.Find<TextBox>(library, "StyleNameInput").Text = "个人样式 01";
+            UiTestActions.Click(library, "SaveStyleButton");
             await context.Completion;
             Assert.Equal("个人样式 01", Assert.Single(context.StyleLibrary.Snapshot.Presets).Name);
 
-            window.SelectPage(SettingsPage.EFFECTS);
-            UiTestActions.Click(window, "AddEffectScriptButton");
-            UiTestActions.Find<TextBox>(window, "EffectScriptNameInput").Text = "个人特效 01";
-            UiTestActions.Click(window, "SaveEffectScriptButton");
+            library.SelectPage(EffectLibraryPage.EFFECTS);
+            UiTestActions.Click(library, "AddEffectScriptButton");
+            UiTestActions.Find<TextBox>(library, "EffectScriptNameInput").Text = "个人特效 01";
+            UiTestActions.Click(library, "SaveEffectScriptButton");
             await context.Completion;
             Assert.Equal("个人特效 01", Assert.Single(context.EffectScriptLibrary.Snapshot.Presets).Name);
 
@@ -58,6 +70,7 @@ public sealed class SharedSettingsUiTests
         }
         finally
         {
+            libraryCoordinator.Dispose();
             coordinator.Close();
             owner.Close();
             await context.DisposeAsync();
@@ -69,14 +82,10 @@ public sealed class SharedSettingsUiTests
     {
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
-        using var coordinator = new SettingsWindowCoordinator(context);
+        using var coordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
-        var styleRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var effectRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var styleStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var effectStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        Task? styleOperation = null;
-        Task? effectOperation = null;
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
             await context.Initialization;
@@ -84,8 +93,8 @@ public sealed class SharedSettingsUiTests
             await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(saved));
             owner.Show();
             await coordinator.OpenAsync(owner);
-            var window = Assert.IsType<SettingsWindow>(coordinator.Window);
-            window.SelectPage(SettingsPage.STYLES);
+            var window = Assert.IsType<EffectLibraryWindow>(coordinator.Window);
+            window.SelectPage(EffectLibraryPage.STYLES);
             UiTestActions.Find<TextBox>(window, "StyleNameInput").Text = "Unsaved 样式";
             window.ViewModel.Styles.FontSizeText = "invalid draft";
             var draftVersion = window.ViewModel.Styles.DraftVersion;
@@ -95,24 +104,18 @@ public sealed class SharedSettingsUiTests
             var effectId = window.ViewModel.Effects.Draft!.Id;
             var diagnosticLine = window.ViewModel.Effects.DiagnosticLine;
 
-            styleOperation = context.RunStyleOperationAsync(() =>
+            var operation = context.RunEffectLibraryOperationAsync(() =>
             {
-                styleStarted.TrySetResult();
-                return styleRelease.Task;
+                started.TrySetResult();
+                return release.Task;
             });
-            effectOperation = context.RunEffectOperationAsync(() =>
-            {
-                effectStarted.TrySetResult();
-                return effectRelease.Task;
-            });
-            await Task.WhenAll(styleStarted.Task, effectStarted.Task).WaitAsync(TimeSpan.FromSeconds(5));
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Dispatcher.UIThread.RunJobs();
             Assert.True(window.ViewModel.Styles.IsBusy);
             Assert.True(window.ViewModel.Effects.IsBusy);
             context.UpdatePreferences(value => value with { Theme = WorkbenchTheme.DARK });
-            styleRelease.SetResult();
-            effectRelease.SetResult();
-            await Task.WhenAll(styleOperation, effectOperation);
+            release.SetResult();
+            await operation;
 
             Assert.Equal(draftVersion, window.ViewModel.Styles.DraftVersion);
             Assert.Equal("Unsaved 样式", window.ViewModel.Styles.Name);
@@ -125,9 +128,8 @@ public sealed class SharedSettingsUiTests
         }
         finally
         {
-            styleRelease.TrySetResult();
-            effectRelease.TrySetResult();
-            coordinator.Close();
+            release.TrySetResult();
+            coordinator.Dispose();
             owner.Close();
             await context.DisposeAsync();
         }
@@ -173,14 +175,14 @@ public sealed class SharedSettingsUiTests
     {
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
-        using var coordinator = new SettingsWindowCoordinator(context);
+        using var coordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
         try
         {
             await context.Initialization;
             owner.Show();
-            await coordinator.OpenAsync(owner, page: SettingsPage.EFFECTS);
-            var window = Assert.IsType<SettingsWindow>(coordinator.Window);
+            await coordinator.OpenAsync(owner, page: EffectLibraryPage.EFFECTS);
+            var window = Assert.IsType<EffectLibraryWindow>(coordinator.Window);
             await Assert.ThrowsAsync<IOException>(() => context.RunEffectOperationAsync(() =>
                 Task.FromException(new IOException("Storage unavailable"))));
             Assert.Equal("Storage unavailable", window.ViewModel.Error);
@@ -195,7 +197,7 @@ public sealed class SharedSettingsUiTests
         }
         finally
         {
-            coordinator.Close();
+            coordinator.Dispose();
             owner.Close();
             await context.DisposeAsync();
         }
@@ -215,9 +217,9 @@ public sealed class SharedSettingsUiTests
             var modal = coordinator.OpenAsync(owner, page: SettingsPage.MEDIA, modal: true);
             var window = Assert.IsType<SettingsWindow>(coordinator.Window);
             Assert.False(modal.IsCompleted);
-            await coordinator.OpenAsync(owner, page: SettingsPage.STYLES);
+            await coordinator.OpenAsync(owner, page: SettingsPage.COLORS);
             Assert.Same(window, coordinator.Window);
-            Assert.Equal(SettingsPage.STYLES, window.CurrentPage);
+            Assert.Equal(SettingsPage.COLORS, window.CurrentPage);
             Assert.Single(owner.OwnedWindows.OfType<SettingsWindow>());
             coordinator.Close();
             await modal;

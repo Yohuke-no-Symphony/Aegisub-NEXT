@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
@@ -30,9 +31,9 @@ public sealed class AnchorPresetEditingUiTests
             await PrepareSubtitleAsync(context);
             var window = context.Window;
             window.Layouts.Activate(WorkbenchPanelIds.STYLES);
-            await context.Session.RequestSettingsAsync(SettingsPage.STYLES);
+            await context.Session.RequestEffectLibraryAsync(EffectLibraryPage.STYLES);
             Dispatcher.UIThread.RunJobs();
-            var settings = Assert.Single(window.OwnedWindows.OfType<SettingsWindow>());
+            var settings = Assert.Single(window.OwnedWindows.OfType<EffectLibraryWindow>());
             try
             {
                 foreach (var language in new[] { "en-US", "zh-CN", "en-US" })
@@ -52,9 +53,9 @@ public sealed class AnchorPresetEditingUiTests
                 settings.Close();
             }
 
-            await context.Session.RequestSettingsAsync(SettingsPage.STYLES);
+            await context.Session.RequestEffectLibraryAsync(EffectLibraryPage.STYLES);
             Dispatcher.UIThread.RunJobs();
-            settings = Assert.Single(window.OwnedWindows.OfType<SettingsWindow>());
+            settings = Assert.Single(window.OwnedWindows.OfType<EffectLibraryWindow>());
             try
             {
                 AssertPresetLabels(settings);

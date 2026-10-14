@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Globalization;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
@@ -81,7 +82,7 @@ public sealed class SettingsWindowUiTests
             Assert.Equal("Control+", input.Text);
             Assert.NotNull(window.ViewModel.Shortcuts.Error);
             Assert.True(UiTestActions.Find<Grid>(window, "ShortcutsPage").IsVisible);
-            Assert.False(UiTestActions.Find<Grid>(window, "StylesPage").IsVisible);
+            Assert.Null(window.FindControl<Grid>("StylesPage"));
             Assert.False(UiTestActions.Find<ScrollViewer>(window, "AppearancePage").IsVisible);
             Assert.Equal("设置", window.Title);
         }
@@ -138,17 +139,19 @@ public sealed class SettingsWindowUiTests
         var original =
             new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Fill = new(2.5, 1.25, 0.5, 0.9) }, font);
         var preferences = new WorkbenchPreferences { Language = "en-US", Theme = WorkbenchTheme.LIGHT };
-        var window = new SettingsWindow(preferences);
+        var window = new EffectLibraryWindow(preferences);
+        var settings = new SettingsWindow(preferences);
         try
         {
             window.Show();
+            settings.Show();
             window.UpdateStyles([original]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.UpdateSelectionAvailability(true);
             var saved = new List<SubtitleStylePreset>();
             window.UpsertStyleRequested += (_, change) => saved.Add(change.Preset);
             var appearanceChanges = 0;
-            window.AppearanceChanged += (_, change) =>
+            settings.AppearanceChanged += (_, change) =>
             {
                 appearanceChanges++;
                 preferences = preferences with
@@ -158,6 +161,7 @@ public sealed class SettingsWindowUiTests
                 };
                 Localization.SetLanguage(change.Language);
                 window.UpdatePreferences(preferences);
+                settings.UpdatePreferences(preferences);
             };
             var alignment = UiTestActions.Find<SubtitleAlignmentPicker>(window, "AlignmentPicker");
             Assert.Equal((int)ProjectTextAlignment.BOTTOM_CENTER, alignment.AlignmentIndex);
@@ -173,10 +177,10 @@ public sealed class SettingsWindowUiTests
             Assert.Equal("7e-", window.ViewModel.Styles.Position.OffsetX.RawText);
             Assert.Equal("OffsetXInput", window.ViewModel.Styles.Position.Validate());
             UiTestActions.Find<ToolbarToggleButton>(window, "BoldCheck").IsChecked = true;
-            window.SelectPage(SettingsPage.APPEARANCE);
-            UiTestActions.Find<ComboBox>(window, "ThemeCombo").SelectedIndex = 2;
-            UiTestActions.SelectLanguage(window, "zh-CN");
-            window.SelectPage(SettingsPage.STYLES);
+            settings.SelectPage(SettingsPage.APPEARANCE);
+            UiTestActions.Find<ComboBox>(settings, "ThemeCombo").SelectedIndex = 2;
+            UiTestActions.SelectLanguage(settings, "zh-CN");
+            window.SelectPage(EffectLibraryPage.STYLES);
             Assert.Equal(2, appearanceChanges);
             Assert.Equal((int)ProjectTextAlignment.BOTTOM_CENTER, alignment.AlignmentIndex);
             Assert.Equal(Localization.Get("Workbench.AlignCenter"),
@@ -187,10 +191,10 @@ public sealed class SettingsWindowUiTests
             Assert.Equal(position, window.ViewModel.Styles.Draft.Style.Position);
             ClickVisibleControl(window, UiTestActions.Find<ToolbarToggleButton>(alignment, "HorizontalRightButton"));
             ClickVisibleControl(window, UiTestActions.Find<ToolbarToggleButton>(alignment, "VerticalTopButton"));
-            window.SelectPage(SettingsPage.APPEARANCE);
-            UiTestActions.Find<ComboBox>(window, "ThemeCombo").SelectedIndex = 1;
-            UiTestActions.SelectLanguage(window, "en-US");
-            window.SelectPage(SettingsPage.STYLES);
+            settings.SelectPage(SettingsPage.APPEARANCE);
+            UiTestActions.Find<ComboBox>(settings, "ThemeCombo").SelectedIndex = 1;
+            UiTestActions.SelectLanguage(settings, "en-US");
+            window.SelectPage(EffectLibraryPage.STYLES);
             Assert.Equal(4, appearanceChanges);
             Assert.Equal((int)ProjectTextAlignment.TOP_RIGHT, alignment.AlignmentIndex);
             Assert.Equal(Localization.Get("Workbench.AlignTop"),
@@ -220,6 +224,7 @@ public sealed class SettingsWindowUiTests
         }
         finally
         {
+            settings.Close();
             window.Close();
         }
     }
@@ -235,13 +240,13 @@ public sealed class SettingsWindowUiTests
         await application.Fonts.EnsureLoadedAsync();
         var expected = application.Fonts.Candidates.Select(value => value.Selection.FamilyName).Distinct().ToArray();
         Assert.NotEmpty(expected);
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         window.ViewModel.Styles.SetFonts(application.Fonts);
         try
         {
             window.Show();
             window.UpdateStyles([original]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             Dispatcher.UIThread.RunJobs();
             var picker = UiTestActions.Find<FontFamilyPicker>(window, "FontInput");
             Assert.All(expected, family => Assert.Contains(family, picker.FontFamilies));
@@ -285,13 +290,13 @@ public sealed class SettingsWindowUiTests
         await application.Fonts.EnsureLoadedAsync();
         var selected = application.Fonts.Candidates.First(candidate => candidate.Selection.Variant is { Weight: >= 700 }).Selection;
         var original = new SubtitleStylePreset(Guid.NewGuid(), "Fixture", new());
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         window.ViewModel.Styles.SetFonts(application.Fonts);
         try
         {
             window.Show();
             window.UpdateStyles([original]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var picker = UiTestActions.Find<FontFamilyPicker>(window, "FontInput");
             var commits = new List<FontSelection>();
             picker.FamilyCommitted += (_, value) => commits.Add(value.Selection);
@@ -331,12 +336,12 @@ public sealed class SettingsWindowUiTests
     public void CustomFontDraftSurvivesCatalogAndLanguageRefreshAndCommitsOnlyOnce()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([new(Guid.NewGuid(), "Custom", new() { FontFamily = "Custom Initial Face" })]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var picker = UiTestActions.Find<FontFamilyPicker>(window, "FontInput");
             var commits = new List<string>();
             picker.FamilyCommitted += (_, value) => commits.Add(value.FamilyName);
@@ -457,9 +462,7 @@ public sealed class SettingsWindowUiTests
             Assert.Same(window.ViewModel.Shortcuts,
                 UiTestActions.Find<AegiNext.Desktop.Settings.Shortcuts.ShortcutSettingsView>(window, "ShortcutsView")
                     .DataContext);
-            Assert.Same(window.ViewModel.Styles,
-                UiTestActions.Find<AegiNext.Desktop.Settings.Styles.StyleSettingsView>(window, "StylesView")
-                    .DataContext);
+            Assert.Null(window.FindControl<AegiNext.Desktop.EffectLibrary.Styles.StyleLibraryView>("StylesView"));
             Assert.Equal(window.Title, window.TitleBar.Title);
         }
         finally
@@ -472,12 +475,12 @@ public sealed class SettingsWindowUiTests
     public void EmptyStyleFieldRetainsDraftAndBlocksSubmitUntilCorrected()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([new(Guid.NewGuid(), "Original", new())]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var requests = new List<SubtitleStylePreset>();
             window.UpsertStyleRequested += (_, value) => requests.Add(value.Preset);
             var name = UiTestActions.Find<TextBox>(window, "StyleNameInput");
@@ -485,10 +488,10 @@ public sealed class SettingsWindowUiTests
             UiTestActions.Click(window, "SaveStyleButton");
             Assert.Empty(requests);
             Assert.Equal(" ", name.Text);
-            Assert.True(UiTestActions.Find<TextBlock>(window, "SettingsError").IsVisible);
+            Assert.True(UiTestActions.Find<TextBlock>(window, "EffectLibraryError").IsVisible);
             Assert.True(name.IsFocused);
-            window.SelectPage(SettingsPage.SHORTCUTS);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.STYLES);
             Assert.Equal(" ", name.Text);
             UiTestActions.SetText(name, "Updated");
             UiTestActions.Click(window, "SaveStyleButton");
@@ -510,13 +513,13 @@ public sealed class SettingsWindowUiTests
         string validText, double expected)
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([new(Guid.NewGuid(), "Original", new())]);
             window.UpdateSelectionAvailability(true);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             Assert.All(numericStyleFieldNames,
                 name => Assert.False(
                     string.IsNullOrWhiteSpace(UiTestActions.Find<NumericDraftInput>(window, name).RawText)));
@@ -540,13 +543,13 @@ public sealed class SettingsWindowUiTests
             Assert.Equal(fieldKey, window.ViewModel.Styles.InvalidFieldKey);
             Assert.Equal("7e-", input.RawText);
             Assert.Equal("7e-", textBox.Text);
-            window.SelectPage(SettingsPage.SHORTCUTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             Localization.SetLanguage("zh-CN");
             window.RefreshLanguage();
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             Assert.Equal("7e-", input.RawText);
             Assert.Equal("7e-", textBox.Text);
-            Assert.True(UiTestActions.Find<TextBlock>(window, "SettingsError").IsVisible);
+            Assert.True(UiTestActions.Find<TextBlock>(window, "EffectLibraryError").IsVisible);
             Assert.Equal(Localization.Get("Settings.StyleValidation"), window.ViewModel.Styles.Error);
             UiTestActions.SetText(textBox, validText);
             UiTestActions.Click(window, "SaveStyleButton");

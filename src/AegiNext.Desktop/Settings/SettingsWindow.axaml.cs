@@ -4,7 +4,6 @@ using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Desktop.I18n;
-using AegiNext.Desktop.Settings.Effects;
 using AegiNext.Desktop.Settings.Projects;
 using AegiNext.Desktop.Settings.Preview;
 using AegiNext.Desktop.Settings.Tasks;
@@ -55,17 +54,6 @@ public sealed partial class SettingsWindow : Window
         viewModel.TimingPostProcessor.Changed += OnTimingPreferencesChanged;
         viewModel.TimingPostProcessor.AssociateRequested += OnTimingAssociateRequested;
         viewModel.TimingPostProcessor.UnlinkRequested += OnTimingUnlinkRequested;
-        viewModel.Styles.UpsertRequested += OnUpsertStyleRequested;
-        viewModel.Styles.DeleteRequested += OnDeleteStyleRequested;
-        viewModel.Styles.ApplyRequested += OnApplyStyleRequested;
-        viewModel.Styles.CaptureRequested += OnCaptureStyleRequested;
-        viewModel.Styles.ImportRequested += OnImportStylesRequested;
-        viewModel.Styles.ExportRequested += OnExportStylesRequested;
-        viewModel.Effects.SaveRequested += OnUpsertEffectRequested;
-        viewModel.Effects.DeleteRequested += OnDeleteEffectRequested;
-        viewModel.Effects.ImportRequested += OnImportEffectRequested;
-        viewModel.Effects.ExportRequested += OnExportEffectRequested;
-        viewModel.Effects.ValidationFailed += OnEffectValidationFailed;
         Deactivated += OnDeactivated;
         Closed += OnClosed;
         Closing += OnClosing;
@@ -86,17 +74,6 @@ public sealed partial class SettingsWindow : Window
     public event EventHandler<TimingPostProcessorPreferencesChangedEventArgs>? TimingPreferencesChanged;
     public event EventHandler<TimingPostProcessorAssociationEventArgs>? TimingAssociateRequested;
     public event EventHandler<TimingPostProcessorAssociationEventArgs>? TimingUnlinkRequested;
-    public event EventHandler<SettingsStyleEventArgs>? UpsertStyleRequested;
-    public event EventHandler<SettingsStyleDeleteEventArgs>? DeleteStyleRequested;
-    public event EventHandler? CaptureStyleRequested;
-    public event EventHandler<SettingsStyleEventArgs>? ApplyStyleRequested;
-    public event EventHandler? ImportStylesRequested;
-    public event EventHandler<SettingsStylesExportEventArgs>? ExportStylesRequested;
-    public event EventHandler<SettingsEffectEventArgs>? UpsertEffectRequested;
-    public event EventHandler<SettingsEffectDeleteEventArgs>? DeleteEffectRequested;
-    public event EventHandler? ImportEffectRequested;
-    public event EventHandler<SettingsEffectsExportEventArgs>? ExportEffectRequested;
-    public event EventHandler<EffectScriptValidationFailedEventArgs>? EffectValidationFailed;
     public SettingsWindowViewModel ViewModel { get; }
     public WindowTitleBar TitleBar { get; }
     public SettingsPage CurrentPage => ViewModel.CurrentPage;
@@ -155,13 +132,11 @@ public sealed partial class SettingsWindow : Window
 
     private void OnClosing(object? sender, WindowClosingEventArgs e)
     {
-        if (allowClose || (ViewModel.Styles.SaveDraftAsync is null && ViewModel.Effects.SaveDraftAsync is null &&
-                          ViewModel.ExportPresets.SaveDraftAsync is null && ViewModel.ColorTags.SaveDraftAsync is null))
+        if (allowClose || ViewModel.ExportPresets.SaveDraftAsync is null && ViewModel.ColorTags.SaveDraftAsync is null)
         {
             return;
         }
         if (!ViewModel.HasUnsavedTemplates && ViewModel.NavigationCompletion.IsCompleted &&
-            ViewModel.Styles.SelectionCompletion.IsCompleted && ViewModel.Effects.SelectionCompletion.IsCompleted &&
             ViewModel.ExportPresets.SelectionCompletion.IsCompleted && ViewModel.ColorTags.Completion.IsCompleted)
         {
             return;
@@ -179,12 +154,9 @@ public sealed partial class SettingsWindow : Window
         try
         {
             await ViewModel.NavigationCompletion;
-            await ViewModel.Styles.SelectionCompletion;
-            await ViewModel.Effects.SelectionCompletion;
             await ViewModel.ExportPresets.SelectionCompletion;
             await ViewModel.ColorTags.Completion;
-            if (allowClose || await ViewModel.Styles.PrepareToLeaveAsync() && await ViewModel.Effects.PrepareToLeaveAsync() &&
-                await ViewModel.ExportPresets.PrepareToLeaveAsync() && await ViewModel.ColorTags.PrepareToLeaveAsync())
+            if (allowClose || await ViewModel.ExportPresets.PrepareToLeaveAsync() && await ViewModel.ColorTags.PrepareToLeaveAsync())
             {
                 allowClose = true;
                 Close();
@@ -202,7 +174,6 @@ public sealed partial class SettingsWindow : Window
 
     private void OnClosed(object? sender, EventArgs e)
     {
-        this.FindControl<Styles.StyleSettingsView>("StylesView")!.Dispose();
         Localization.LanguageChanged -= OnLanguageChanged;
         ViewModel.Appearance.Changed -= OnAppearanceChanged;
         ViewModel.Colors.Changed -= OnColorsChanged;
@@ -217,17 +188,6 @@ public sealed partial class SettingsWindow : Window
         ViewModel.TimingPostProcessor.Changed -= OnTimingPreferencesChanged;
         ViewModel.TimingPostProcessor.AssociateRequested -= OnTimingAssociateRequested;
         ViewModel.TimingPostProcessor.UnlinkRequested -= OnTimingUnlinkRequested;
-        ViewModel.Styles.UpsertRequested -= OnUpsertStyleRequested;
-        ViewModel.Styles.DeleteRequested -= OnDeleteStyleRequested;
-        ViewModel.Styles.ApplyRequested -= OnApplyStyleRequested;
-        ViewModel.Styles.CaptureRequested -= OnCaptureStyleRequested;
-        ViewModel.Styles.ImportRequested -= OnImportStylesRequested;
-        ViewModel.Styles.ExportRequested -= OnExportStylesRequested;
-        ViewModel.Effects.SaveRequested -= OnUpsertEffectRequested;
-        ViewModel.Effects.DeleteRequested -= OnDeleteEffectRequested;
-        ViewModel.Effects.ImportRequested -= OnImportEffectRequested;
-        ViewModel.Effects.ExportRequested -= OnExportEffectRequested;
-        ViewModel.Effects.ValidationFailed -= OnEffectValidationFailed;
         Deactivated -= OnDeactivated;
         Closed -= OnClosed;
         Closing -= OnClosing;
@@ -300,64 +260,9 @@ public sealed partial class SettingsWindow : Window
         TimingUnlinkRequested?.Invoke(this, e);
     }
 
-    private void OnUpsertStyleRequested(object? sender, SettingsStyleEventArgs e)
-    {
-        UpsertStyleRequested?.Invoke(this, e);
-    }
-
-    private void OnDeleteStyleRequested(object? sender, SettingsStyleDeleteEventArgs e)
-    {
-        DeleteStyleRequested?.Invoke(this, e);
-    }
-
-    private void OnApplyStyleRequested(object? sender, SettingsStyleEventArgs e)
-    {
-        ApplyStyleRequested?.Invoke(this, e);
-    }
-
-    private void OnCaptureStyleRequested(object? sender, EventArgs e)
-    {
-        CaptureStyleRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void OnImportStylesRequested(object? sender, EventArgs e)
-    {
-        ImportStylesRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void OnExportStylesRequested(object? sender, SettingsStylesExportEventArgs e)
-    {
-        ExportStylesRequested?.Invoke(this, e);
-    }
-
-    private void OnUpsertEffectRequested(object? sender, SettingsEffectEventArgs e)
-    {
-        UpsertEffectRequested?.Invoke(this, e);
-    }
-
-    private void OnDeleteEffectRequested(object? sender, SettingsEffectDeleteEventArgs e)
-    {
-        DeleteEffectRequested?.Invoke(this, e);
-    }
-
-    private void OnImportEffectRequested(object? sender, EventArgs e)
-    {
-        ImportEffectRequested?.Invoke(this, EventArgs.Empty);
-    }
-
-    private void OnExportEffectRequested(object? sender, SettingsEffectsExportEventArgs e)
-    {
-        ExportEffectRequested?.Invoke(this, e);
-    }
-
     private void OnDeactivated(object? sender, EventArgs e)
     {
         ViewModel.Shortcuts.CancelCapture();
-    }
-
-    private void OnEffectValidationFailed(object? sender, EffectScriptValidationFailedEventArgs e)
-    {
-        EffectValidationFailed?.Invoke(this, e);
     }
 
     /// <summary>同步已持久化快捷键。</summary>
@@ -366,40 +271,10 @@ public sealed partial class SettingsWindow : Window
         ViewModel.Shortcuts.UpdateBindings(bindings);
     }
 
-    /// <summary>同步已持久化样式库和选择。</summary>
-    public void UpdateStyles(IEnumerable<SubtitleStylePreset> presets, Guid? selectedId = null)
+    /// <summary>同步时间后处理可关联的已保存样式。</summary>
+    public void UpdateStyles(IEnumerable<SubtitleStylePreset> presets)
     {
-        ViewModel.Styles.UpdateStyles(presets, selectedId);
-    }
-
-    /// <summary>同步个人脚本库；内置脚本始终只读，其他未保存草稿继续保留。</summary>
-    public void UpdateEffects(IEnumerable<EffectScriptPreset> presets, Guid? selectedId = null)
-    {
-        ViewModel.Effects.UpdateEffects(presets, selectedId);
-    }
-
-    /// <summary>脚本存储或工程工作流运行期间禁止重复提交。</summary>
-    public void SetEffectOperationBusy(bool busy)
-    {
-        ViewModel.Effects.IsBusy = busy;
-    }
-
-    /// <summary>为模板位置编辑注入真实字体测量，不将渲染资源交给设置页面。</summary>
-    public void SetSubtitlePositionMeasurement(Func<SubtitleStylePreset, SubtitlePositionMeasurement> measure)
-    {
-        ViewModel.Styles.SetPositionMeasurement(measure);
-    }
-
-    /// <summary>工程流程执行期间禁止继续改变样式草稿。</summary>
-    public void SetStyleOperationBusy(bool busy)
-    {
-        ViewModel.Styles.IsBusy = busy;
-    }
-
-    /// <summary>同步字幕选择允许的样式操作。</summary>
-    public void UpdateSelectionAvailability(bool available)
-    {
-        ViewModel.Styles.HasSelectedSubtitle = available;
+        ViewModel.TimingPostProcessor.UpdateStyles(presets);
     }
 
     /// <summary>显示会话存储或工程流程错误。</summary>

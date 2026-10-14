@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
 using Avalonia.Controls;
@@ -16,9 +17,9 @@ public sealed class SettingsStyleCaptureUiTests
         await context.Session.Styles.Completion;
         var cueId = await UiTestActions.CreateSubtitleAsync(context);
         var document = context.Session.DocumentSnapshot;
-        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
-        var settings = Assert.Single(context.Window.OwnedWindows.OfType<SettingsWindow>());
-        settings.SelectPage(SettingsPage.STYLES);
+        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_STYLE_LIBRARY);
+        var settings = Assert.Single(context.Window.OwnedWindows.OfType<EffectLibraryWindow>());
+        settings.SelectPage(EffectLibraryPage.STYLES);
 
         UiTestActions.Click(settings, "CaptureStyleButton");
         await context.Session.Styles.Completion.WaitAsync(TimeSpan.FromSeconds(5));

@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
@@ -166,14 +167,14 @@ public sealed class SubtitleAlignmentPickerUiTests
             TextAlign = SubtitleTextAlignment.LEFT, Fill = new(2, 1.5, 0.25, 0.9),
             Position = new() { Anchor = new(0.2, 0.3), Pivot = new(0.5, 1), Offset = new(12, -8) }
         });
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         var saved = new List<SubtitleStylePreset>();
         window.UpsertStyleRequested += (_, value) => saved.Add(value.Preset);
         try
         {
             window.Show();
             window.UpdateStyles([original]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var picker = UiTestActions.Find<SubtitleAlignmentPicker>(window, "AlignmentPicker");
             Assert.Equal((int)ProjectTextAlignment.BOTTOM_CENTER, picker.AlignmentIndex);
             Assert.False(window.ViewModel.Styles.IsDirty);

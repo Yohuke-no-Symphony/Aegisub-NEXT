@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.I18n;
 using System.Globalization;
 using AegiNext.Core.Presets;
@@ -23,12 +24,12 @@ public sealed class ColorDraftInputUiTests
     public void ActualStyleHexUsesOpaqueSixDigitsOrSuffixAlpha(string text, double alpha)
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([new(Guid.NewGuid(), "Alpha", new() { Fill = new(0.25, 0.5, 0.75, 0.73) })]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var input = UiTestActions.Find<ColorDraftInput>(window, "FillPicker");
             Type(window, input.FindControl<TextBox>("ColorInput")!, text);
             UiTestActions.Press(window, Key.Enter);
@@ -99,12 +100,12 @@ public sealed class ColorDraftInputUiTests
         var stroke = new SceneColor(1.25, 0.2, -0.1, 0.9);
         var shadow = new SceneColor(0.1, 0.2, 1.25, 0.4);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "HDR", new() { Fill = fill, Stroke = stroke, ShadowColor = shadow });
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([preset]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var saved = new List<SubtitleStylePreset>();
             window.UpsertStyleRequested += (_, args) => saved.Add(args.Preset);
             var input = UiTestActions.Find<ColorDraftInput>(window, "FillPicker");
@@ -141,12 +142,12 @@ public sealed class ColorDraftInputUiTests
     public void InvalidColorBlocksStyleSaveAndActualEscapeRestoresOnlyThatField()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([new(Guid.NewGuid(), "Original", new())]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var saved = new List<SubtitleStylePreset>();
             window.UpsertStyleRequested += (_, args) => saved.Add(args.Preset);
             var input = UiTestActions.Find<ColorDraftInput>(window, "FillPicker");

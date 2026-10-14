@@ -1,10 +1,11 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Panels.Styles;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -25,7 +26,7 @@ public sealed class StyleLineHeightEditingUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage(language);
-        var window = new SettingsWindow(new() { Language = language })
+        var window = new EffectLibraryWindow(new() { Language = language })
         {
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
@@ -36,8 +37,8 @@ public sealed class StyleLineHeightEditingUiTests
             window.UpdateStyles([original]);
             var requests = new List<SubtitleStylePreset>();
             window.UpsertStyleRequested += (_, request) => requests.Add(request.Preset);
-            window.SelectPage(SettingsPage.STYLES);
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            window.SelectPage(EffectLibraryPage.STYLES);
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             var input = UiTestActions.Find<NumericDraftInput>(view, "LineHeightInput");
             Assert.DoesNotContain(input.GetVisualAncestors(), ancestor => ancestor is Expander);
             Assert.Equal(0.1m, input.Minimum);

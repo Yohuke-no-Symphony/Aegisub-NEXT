@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
@@ -31,7 +32,7 @@ public sealed class SubtitleScalingPresentationUiTests
             Width = 280, Height = 760, Content = view,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
-        var settings = new SettingsWindow(new() { Language = language })
+        var settings = new EffectLibraryWindow(new() { Language = language })
         {
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
@@ -40,7 +41,7 @@ public sealed class SubtitleScalingPresentationUiTests
             panel.Show();
             settings.Show();
             settings.UpdateStyles([new SubtitleStylePreset(Guid.NewGuid(), "Reference subtitle", new())]);
-            settings.SelectPage(SettingsPage.STYLES);
+            settings.SelectPage(EffectLibraryPage.STYLES);
             Dispatcher.UIThread.RunJobs();
             panel.UpdateLayout();
             settings.UpdateLayout();

@@ -14,7 +14,7 @@ public sealed class EffectPresetsShortcutPreferencesTests
         var upgraded = WorkbenchPreferencesMigration.Upgrade(new() { ShortcutBindings = previous });
 
         upgraded.Validate();
-        Assert.Equal(previous.AsEnumerable(), upgraded.ShortcutBindings.Where(binding => binding.Command != WorkbenchCommand.VIEW_EFFECT_PRESETS));
+        Assert.Equal(previous.AsEnumerable(), upgraded.ShortcutBindings.Where(binding => binding.Command <= WorkbenchCommand.VIEW_DRAWING_TOOLS));
         Assert.Equal(string.Empty, Assert.Single(upgraded.ShortcutBindings, binding => binding.Command == WorkbenchCommand.VIEW_EFFECT_PRESETS).Gesture);
         Assert.Same(upgraded, WorkbenchPreferencesMigration.Upgrade(upgraded));
     }

@@ -7,8 +7,6 @@
         xmlns:settings="using:AegiNext.Desktop.Settings"
         xmlns:appearance="using:AegiNext.Desktop.Settings.Appearance"
         xmlns:shortcutPages="using:AegiNext.Desktop.Settings.Shortcuts"
-        xmlns:stylePages="using:AegiNext.Desktop.Settings.Styles"
-        xmlns:effectPages="using:AegiNext.Desktop.Settings.Effects"
         xmlns:exportPages="using:AegiNext.Desktop.Settings.Export"
         xmlns:transferPages="using:AegiNext.Desktop.Settings.Transfer"
         xmlns:colorPages="using:AegiNext.Desktop.Settings.Colors"
@@ -27,50 +25,13 @@
         WindowStartupLocation="CenterOwner" Background="{DynamicResource SettingsBackground}">
   <Window.Resources>
     <ResourceDictionary>
-      <ResourceDictionary.ThemeDictionaries>
-        <ResourceDictionary x:Key="Light">
-          <SolidColorBrush x:Key="SettingsBackground">#F4F5F8</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsSurface">#FFFFFF</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsBorder">#DFE3EB</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsMuted">#637087</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsError">#B42318</SolidColorBrush>
-        </ResourceDictionary>
-        <ResourceDictionary x:Key="Dark">
-          <SolidColorBrush x:Key="SettingsBackground">#151920</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsSurface">#1D232E</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsBorder">#343D4D</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsMuted">#A5B1C6</SolidColorBrush>
-          <SolidColorBrush x:Key="SettingsError">#FF9A9A</SolidColorBrush>
-        </ResourceDictionary>
-      </ResourceDictionary.ThemeDictionaries>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="/Styling/PreferencesWindowResources.axaml" />
+      </ResourceDictionary.MergedDictionaries>
     </ResourceDictionary>
   </Window.Resources>
   <Window.Styles>
-    <Style Selector="Button">
-      <Setter Property="Padding" Value="{StaticResource WorkbenchButtonPadding}" />
-      <Setter Property="CornerRadius" Value="6" />
-      <Setter Property="MinHeight" Value="{StaticResource WorkbenchControlHeight}" />
-      <Setter Property="FontSize" Value="{StaticResource WorkbenchBodyFontSize}" />
-    </Style>
-    <Style Selector="TextBox, NumericUpDown">
-      <Setter Property="MinHeight" Value="{StaticResource WorkbenchControlHeight}" />
-      <Setter Property="FontSize" Value="{StaticResource WorkbenchBodyFontSize}" />
-    </Style>
-    <Style Selector="ComboBox">
-      <Setter Property="MinHeight" Value="{StaticResource WorkbenchControlHeight}" />
-      <Setter Property="FontSize" Value="{StaticResource WorkbenchBodyFontSize}" />
-      <Setter Property="HorizontalAlignment" Value="Stretch" />
-    </Style>
-    <Style Selector="TextBlock.field">
-      <Setter Property="FontSize" Value="12" /><Setter Property="Foreground" Value="{DynamicResource SettingsMuted}" />
-    </Style>
-    <Style Selector="ListBoxItem">
-      <Setter Property="Padding" Value="12,8" /><Setter Property="CornerRadius" Value="6" />
-    </Style>
-    <Style Selector="Border.card">
-      <Setter Property="Background" Value="{DynamicResource SettingsSurface}" />
-      <Setter Property="BorderBrush" Value="{DynamicResource SettingsBorder}" />
-    </Style>
+    <StyleInclude Source="/Styling/PreferencesWindowStyles.axaml" />
   </Window.Styles>
   <Grid RowDefinitions="Auto,*">
     <controls:WindowTitleBar Name="SettingsTitleBar" Title="{Binding Title}" />
@@ -154,18 +115,6 @@
                 <TextBlock Text="{Loc Key=Settings.SubtitleColorTags}" VerticalAlignment="Center" />
               </StackPanel>
             </ListBoxItem>
-            <ListBoxItem DataContext="{x:Static settings:SettingsPage.STYLES}">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <materialIcons:MaterialIcon Width="18" Height="18" Kind="FormatText" />
-                <TextBlock Text="{Loc Key=Settings.Styles}" VerticalAlignment="Center" />
-              </StackPanel>
-            </ListBoxItem>
-            <ListBoxItem DataContext="{x:Static settings:SettingsPage.EFFECTS}">
-              <StackPanel Orientation="Horizontal" Spacing="8">
-                <materialIcons:MaterialIcon Width="18" Height="18" Kind="Creation" />
-                <TextBlock Text="{Loc Key=Settings.Effects}" VerticalAlignment="Center" />
-              </StackPanel>
-            </ListBoxItem>
             <ListBoxItem DataContext="{x:Static settings:SettingsPage.TIMING_POST_PROCESSOR}">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <materialIcons:MaterialIcon Width="18" Height="18" Kind="ClockOutline" />
@@ -228,14 +177,6 @@
         <Grid Grid.Row="1" IsVisible="{Binding IsShortcutsVisible}">
           <shortcutPages:ShortcutSettingsView Name="ShortcutsView" DataContext="{Binding Shortcuts}"
                                               IsVisible="{Binding $parent[Grid].IsVisible}" />
-        </Grid>
-        <Grid Grid.Row="1" IsVisible="{Binding IsStylesVisible}">
-          <stylePages:StyleSettingsView Name="StylesView" DataContext="{Binding Styles}"
-                                        IsVisible="{Binding $parent[Grid].IsVisible}" />
-        </Grid>
-        <Grid Grid.Row="1" IsVisible="{Binding IsEffectsVisible}">
-          <effectPages:EffectSettingsView Name="EffectsView" DataContext="{Binding Effects}"
-                                         IsVisible="{Binding $parent[Grid].IsVisible}" />
         </Grid>
         <Grid Grid.Row="1" IsVisible="{Binding IsColorsVisible}">
           <colorPages:ColorsSettingsView Name="ColorsView" DataContext="{Binding Colors}"

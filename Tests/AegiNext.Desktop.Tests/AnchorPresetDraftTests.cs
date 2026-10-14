@@ -1,7 +1,7 @@
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -120,7 +120,7 @@ public sealed class AnchorPresetDraftTests
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Example", new(), embedded);
         var resolved = new SubtitlePosition { Anchor = new(0.5, 1), Pivot = new(0.5, 1), Offset = new(3, -11) };
         var geometry = CreateGeometry();
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         var requests = 0;
         model.SetPositionMeasurement(value =>
         {

@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
@@ -5,7 +6,7 @@ using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Panels.Styles;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -55,7 +56,7 @@ public sealed class SubtitleStyleGroupingUiTests
             Width = 320, Height = 900, Content = panel,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
-        var settingsWindow = new SettingsWindow(new() { Language = language })
+        var settingsWindow = new EffectLibraryWindow(new() { Language = language })
         {
             Width = 860, Height = 580,
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
@@ -67,8 +68,8 @@ public sealed class SubtitleStyleGroupingUiTests
             panelWindow.Show();
             settingsWindow.Show();
             settingsWindow.UpdateStyles([preset]);
-            settingsWindow.SelectPage(SettingsPage.STYLES);
-            var settings = UiTestActions.Find<StyleSettingsView>(settingsWindow, "StylesView");
+            settingsWindow.SelectPage(EffectLibraryPage.STYLES);
+            var settings = UiTestActions.Find<StyleLibraryView>(settingsWindow, "StylesView");
             Flush(panelWindow);
             Flush(settingsWindow);
             var panelGroups = Groups(panel);
@@ -145,7 +146,7 @@ public sealed class SubtitleStyleGroupingUiTests
         context.Session.Editor.Reset(original);
         var panel = new StylesPanelView(context.ViewModel.Styles, context.Session);
         var panelWindow = new Window { Width = 320, Height = 900, Content = panel };
-        var settingsWindow = new SettingsWindow(new() { Language = "en-US" }) { Width = 860, Height = 580 };
+        var settingsWindow = new EffectLibraryWindow(new() { Language = "en-US" }) { Width = 860, Height = 580 };
         try
         {
             settingsWindow.ViewModel.Styles.SetPositionMeasurement((style, text) =>
@@ -153,7 +154,7 @@ public sealed class SubtitleStyleGroupingUiTests
             panelWindow.Show();
             settingsWindow.Show();
             settingsWindow.UpdateStyles([preset]);
-            settingsWindow.SelectPage(SettingsPage.STYLES);
+            settingsWindow.SelectPage(EffectLibraryPage.STYLES);
             var toggleName = italic ? "ItalicCheck" : "BoldCheck";
             var panelToggle = UiTestActions.Find<ToolbarToggleButton>(panel, toggleName);
             var settingsToggle = UiTestActions.Find<ToolbarToggleButton>(settingsWindow, toggleName);

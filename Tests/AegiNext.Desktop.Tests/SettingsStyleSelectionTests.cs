@@ -1,5 +1,5 @@
 using AegiNext.Core.Presets;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -9,7 +9,7 @@ public sealed class SettingsStyleSelectionTests
     public void ExportUsesOnlySelectedSavedStylesAndIgnoresInvalidEditorText()
     {
         var values = Enumerable.Range(1, 3).Select(index => new SubtitleStylePreset(Guid.NewGuid(), $"Style {index}", new())).ToArray();
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles(values);
         model.Name = "unsaved";
         model.FontSizeText = "invalid";
@@ -30,7 +30,7 @@ public sealed class SettingsStyleSelectionTests
     [Fact]
     public void NewDraftStaysOutsideListAndDeleteWaitsForConfirmation()
     {
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         var requests = 0;
         model.DeleteRequested += (_, _) => requests++;
         model.AddCommand.Execute(null);
@@ -52,7 +52,7 @@ public sealed class SettingsStyleSelectionTests
     {
         var first = new SubtitleStylePreset(Guid.NewGuid(), "First", new());
         var second = new SubtitleStylePreset(Guid.NewGuid(), "Second", new());
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([first, second]);
         var completion = new TaskCompletionSource<bool>();
         model.SaveDraftAsync = _ => completion.Task;
@@ -80,7 +80,7 @@ public sealed class SettingsStyleSelectionTests
     public async Task InvalidNumbersBlockSavingAndDiscardRestoresTheStoredStyle()
     {
         var saved = new SubtitleStylePreset(Guid.NewGuid(), "Saved", new());
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([saved]);
         var saves = 0;
         model.SaveDraftAsync = _ => { saves++; return Task.FromResult(true); };
@@ -102,7 +102,7 @@ public sealed class SettingsStyleSelectionTests
     public async Task LeavingHonorsDiscardAndCancelWithoutSaving(int choice, bool expected)
     {
         var saved = new SubtitleStylePreset(Guid.NewGuid(), "Saved", new());
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([saved]);
         model.Name = "Changed";
         model.ConfirmLeaveAsync = () => Task.FromResult(choice);

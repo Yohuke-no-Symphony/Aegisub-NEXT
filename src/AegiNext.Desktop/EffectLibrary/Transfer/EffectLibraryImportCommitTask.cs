@@ -17,6 +17,6 @@ internal sealed class EffectLibraryImportCommitTask(DesktopApplicationContext ow
     {
         context.ReportProgress(new(Name));
         return owner.RunEffectLibraryOperationAsync(() => Task.Run(() => owner.EffectLibraryTransfer.CommitImportAsync(
-            plan, frozenDecisions, () => context.EnterCommit(), context.CancellationToken), context.CancellationToken));
+            plan, frozenDecisions, () => context.EnterCommit(), context.CancellationToken), context.CancellationToken), reportError: false);
     }
 }

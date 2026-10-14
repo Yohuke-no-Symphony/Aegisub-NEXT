@@ -1,7 +1,7 @@
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -186,7 +186,7 @@ public sealed class SettingsStylePreviewTests
     {
         var first = CreatePreset();
         var second = CreatePreset() with { Id = Guid.NewGuid(), Name = "Other" };
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([first, second], first.Id);
         model.Name = name;
 
@@ -204,7 +204,7 @@ public sealed class SettingsStylePreviewTests
     {
         var first = CreatePreset();
         var second = CreatePreset() with { Id = Guid.NewGuid(), Name = "Second" };
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([first, second], first.Id);
         Assert.True(model.HasPreview);
 
@@ -226,7 +226,7 @@ public sealed class SettingsStylePreviewTests
     {
         var first = CreatePreset();
         var second = CreatePreset() with { Id = Guid.NewGuid(), Name = "Second" };
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         AssertRevisionAdvances(model, () => model.UpdateStyles([first, second], first.Id));
         AssertRevisionAdvances(model, () => model.FontSizeText = "72");
         AssertRevisionAdvances(model, () => model.Italic = true);
@@ -340,14 +340,14 @@ public sealed class SettingsStylePreviewTests
         Assert.False(model.TryCreatePreviewPreset(out _));
     }
 
-    private static StyleSettingsViewModel CreateModel(SubtitleStylePreset preset)
+    private static StyleLibraryViewModel CreateModel(SubtitleStylePreset preset)
     {
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([preset]);
         return model;
     }
 
-    private static ColorDraft GetColor(StyleSettingsViewModel model, string field)
+    private static ColorDraft GetColor(StyleLibraryViewModel model, string field)
     {
         return field switch
         {
@@ -369,7 +369,7 @@ public sealed class SettingsStylePreviewTests
         };
     }
 
-    private static void SetNumber(StyleSettingsViewModel model, string field, string rawText)
+    private static void SetNumber(StyleLibraryViewModel model, string field, string rawText)
     {
         switch (field)
         {
@@ -405,7 +405,7 @@ public sealed class SettingsStylePreviewTests
         }
     }
 
-    private static string GetNumber(StyleSettingsViewModel model, string field)
+    private static string GetNumber(StyleLibraryViewModel model, string field)
     {
         return field switch
         {
@@ -422,7 +422,7 @@ public sealed class SettingsStylePreviewTests
         };
     }
 
-    private static void AssertRevisionAdvances(StyleSettingsViewModel model, Action change)
+    private static void AssertRevisionAdvances(StyleLibraryViewModel model, Action change)
     {
         var previous = model.PreviewRevision;
 

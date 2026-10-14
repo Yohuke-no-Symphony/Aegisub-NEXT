@@ -34,7 +34,7 @@
   <Grid RowDefinitions="Auto,*">
     <common:WindowTitleBar Name="WelcomeTitleBar" Title="{Binding Title}" />
     <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,*,Auto" RowSpacing="16">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
         <TextBox Name="ProjectSearchInput" Text="{Binding SearchText, Mode=TwoWay}"
                  PlaceholderText="{Loc Key=Welcome.SearchProjects}" IsEnabled="{Binding CanInteract}"
                  AutomationProperties.Name="{Loc Key=Welcome.SearchProjects}" />
@@ -44,7 +44,10 @@
         <Button Grid.Column="2" Name="WelcomeOpenProjectButton" Command="{Binding OpenProjectCommand}">
           <common:IconText IconKey="OpenProject" Text="{Loc Key=Welcome.OpenProject}" />
         </Button>
-        <Button Grid.Column="3" Name="WelcomeSettingsButton" Command="{Binding SettingsCommand}">
+        <Button Grid.Column="3" Name="WelcomeEffectLibraryButton" Command="{Binding StyleLibraryCommand}">
+          <common:IconText IconKey="Styles" Text="{Loc Key=Startup.OpenEffectLibrary}" />
+        </Button>
+        <Button Grid.Column="4" Name="WelcomeSettingsButton" Command="{Binding SettingsCommand}">
           <common:IconText IconKey="Settings" Text="{Loc Key=Settings.Settings}" />
         </Button>
       </Grid>

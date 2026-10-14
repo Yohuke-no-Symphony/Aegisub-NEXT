@@ -1,4 +1,5 @@
 using AegiNext.Desktop.I18n;
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Updates;
 using AegiNext.Desktop.Startup;
@@ -96,39 +97,42 @@ public sealed class UpdateSettingsUiTests
     [InlineData(0)]
     [InlineData(1)]
     [InlineData(2)]
-    public async Task SelectingUpdatePageHonorsSavingDiscardingAndCancellingStyleDrafts(int choice)
+    public async Task OpeningUpdateSettingsPreservesTheIndependentLibraryDraftWithoutConfirmation(int choice)
     {
         using var environment = new UiTestEnvironment();
         await using var application = new DesktopApplicationContext(new(environment.DirectoryPath));
         await application.Initialization;
         var dialogs = new StartupTestDialogService { PresetChoice = choice };
         using var coordinator = new SettingsWindowCoordinator(application, _ => dialogs);
+        using var libraryCoordinator = new EffectLibraryWindowCoordinator(application, _ => dialogs);
         var owner = new Window();
         try
         {
             owner.Show();
-            await coordinator.OpenAsync(owner, page: SettingsPage.STYLES);
+            await libraryCoordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
+            var library = Assert.IsType<EffectLibraryWindow>(libraryCoordinator.Window);
+            library.ViewModel.Styles.AddCommand.Execute(null);
+            await library.ViewModel.Styles.SelectionCompletion;
+            library.ViewModel.Styles.Name = "Update navigation draft";
+            var draft = library.ViewModel.Styles.Draft;
+            Assert.True(library.ViewModel.Styles.IsDirty);
+
+            await coordinator.OpenAsync(owner, page: SettingsPage.UPDATES);
             var window = Assert.IsType<SettingsWindow>(coordinator.Window);
-            window.ViewModel.Styles.AddCommand.Execute(null);
-            window.ViewModel.Styles.Name = "Update navigation draft";
-            Assert.True(window.ViewModel.Styles.IsDirty);
-            var navigation = UiTestActions.Find<ListBox>(window, "Navigation");
 
-            navigation.SelectedValue = SettingsPage.UPDATES;
-            await window.ViewModel.NavigationCompletion;
-
-            Assert.Equal(1, dialogs.PresetConfirmationRequests);
-            Assert.Equal(choice == 2 ? SettingsPage.STYLES : SettingsPage.UPDATES, window.CurrentPage);
-            Assert.Equal(window.CurrentPage, navigation.SelectedValue);
-            Assert.Equal(choice == 0 ? 1 : 0, application.StyleLibrary.Snapshot.Presets.Length);
-            Assert.Equal(choice == 2, window.ViewModel.Styles.IsDirty);
-            if (choice == 1)
-            {
-                Assert.Null(window.ViewModel.Styles.Draft);
-            }
+            Assert.Equal(0, dialogs.PresetConfirmationRequests);
+            Assert.Equal(SettingsPage.UPDATES, window.CurrentPage);
+            Assert.Equal(EffectLibraryPage.STYLES, library.CurrentPage);
+            Assert.Equal(draft, library.ViewModel.Styles.Draft);
+            Assert.Equal("Update navigation draft", library.ViewModel.Styles.Name);
+            Assert.True(library.ViewModel.Styles.IsDirty);
+            Assert.Empty(application.StyleLibrary.Snapshot.Presets);
+            Assert.Single(owner.OwnedWindows.OfType<SettingsWindow>());
+            Assert.Single(owner.OwnedWindows.OfType<EffectLibraryWindow>());
         }
         finally
         {
+            libraryCoordinator.Dispose();
             coordinator.Close();
             owner.Close();
         }

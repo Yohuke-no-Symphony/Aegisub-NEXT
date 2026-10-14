@@ -7,7 +7,9 @@ using AegiNext.Desktop.Settings.Appearance;
 using AegiNext.Desktop.Settings.Colors;
 using AegiNext.Desktop.Settings.ColorTags;
 using AegiNext.Desktop.Settings.Shortcuts;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
+using AegiNext.Desktop.EffectLibrary;
+using AegiNext.Desktop.EffectLibrary.Effects;
 using AegiNext.Desktop.Settings.Preview;
 using AegiNext.Desktop.Shortcuts;
 
@@ -85,7 +87,7 @@ public sealed class SettingsViewModelTests
     [Fact]
     public void StyleValidationKeepsInvalidNameAndNumericDraftWithoutSendingRequests()
     {
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([new(Guid.NewGuid(), "Original", new())]);
         var requests = new List<SubtitleStylePreset>();
         model.UpsertRequested += (_, value) => requests.Add(value.Preset);
@@ -118,9 +120,9 @@ public sealed class SettingsViewModelTests
     public void UnparsedStyleNumbersRemainRawAndPreventSaveAndApply(string propertyName, string fieldKey,
         string validText)
     {
-        var model = new StyleSettingsViewModel { HasSelectedSubtitle = true };
+        var model = new StyleLibraryViewModel { HasSelectedSubtitle = true };
         model.UpdateStyles([new(Guid.NewGuid(), "Original", new())]);
-        var property = typeof(StyleSettingsViewModel).GetProperty(propertyName)!;
+        var property = typeof(StyleLibraryViewModel).GetProperty(propertyName)!;
         var saved = new List<SubtitleStylePreset>();
         var applied = new List<SubtitleStylePreset>();
         model.UpsertRequested += (_, value) => saved.Add(value.Preset);
@@ -153,11 +155,11 @@ public sealed class SettingsViewModelTests
     [InlineData("ShadowYText", "1000000001")]
     public void OutOfRangeStyleNumbersRemainRawAndDoNotSubmit(string propertyName, string invalidText)
     {
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([new(Guid.NewGuid(), "Original", new())]);
         var requests = new List<SubtitleStylePreset>();
         model.UpsertRequested += (_, value) => requests.Add(value.Preset);
-        var property = typeof(StyleSettingsViewModel).GetProperty(propertyName)!;
+        var property = typeof(StyleLibraryViewModel).GetProperty(propertyName)!;
         property.SetValue(model, invalidText);
 
         model.SaveCommand.Execute(null);
@@ -181,7 +183,7 @@ public sealed class SettingsViewModelTests
     public void InvalidMarginDraftsPreventPreviewSaveAndApplyAndRemainRawAcrossLanguageRefresh(string fieldKey, string rawText)
     {
         var original = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Margins = new(13, 41, 27) });
-        var model = new StyleSettingsViewModel { HasSelectedSubtitle = true };
+        var model = new StyleLibraryViewModel { HasSelectedSubtitle = true };
         model.UpdateStyles([original]);
         var saved = new List<SubtitleStylePreset>();
         var applied = new List<SubtitleStylePreset>();
@@ -215,7 +217,7 @@ public sealed class SettingsViewModelTests
     public void RestoringOneMarginKeepsOtherIncompleteRawFieldsAndDoesNotSubmit()
     {
         var original = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Margins = new(13, 41, 27) });
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([original]);
         var saved = 0;
         model.UpsertRequested += (_, _) => saved++;
@@ -233,7 +235,7 @@ public sealed class SettingsViewModelTests
         Assert.True(model.IsDirty);
     }
 
-    private static NumericValueDraft GetMargin(StyleSettingsViewModel model, string fieldKey)
+    private static NumericValueDraft GetMargin(StyleLibraryViewModel model, string fieldKey)
     {
         return fieldKey switch
         {
@@ -251,7 +253,7 @@ public sealed class SettingsViewModelTests
             [1, 2, 3]);
         var original =
             new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Fill = new(2.5, 1.25, 0.5, 0.9) }, font);
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([original]);
         model.Bold = true;
         model.Margins.Vertical.RawText = "88";
@@ -271,7 +273,7 @@ public sealed class SettingsViewModelTests
     [Fact]
     public void BusyAndSelectionAvailabilityControlAllStyleCommands()
     {
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([new(Guid.NewGuid(), "Original", new())]);
         Assert.False(model.ApplyCommand.CanExecute(null));
         Assert.False(model.CaptureCommand.CanExecute(null));
@@ -298,7 +300,8 @@ public sealed class SettingsViewModelTests
                      typeof(ColorsSettingsViewModel),
                      typeof(SubtitleColorTagsSettingsViewModel),
                      typeof(PreviewSettingsViewModel),
-                     typeof(ShortcutSettingsViewModel), typeof(StyleSettingsViewModel)
+                      typeof(ShortcutSettingsViewModel), typeof(StyleLibraryViewModel),
+                      typeof(EffectLibraryWindowViewModel), typeof(EffectScriptLibraryViewModel)
                  })
         {
             var members = type.GetProperties().Select(value => value.PropertyType)
@@ -311,5 +314,15 @@ public sealed class SettingsViewModelTests
                 Assert.False(member.Namespace?.StartsWith("Dock.", StringComparison.Ordinal) == true);
             });
         }
+    }
+
+    [Fact]
+    public void SettingsAndLibraryExposeSeparatePageModels()
+    {
+        Assert.Null(typeof(SettingsWindowViewModel).GetProperty("Styles"));
+        Assert.Null(typeof(SettingsWindowViewModel).GetProperty("Effects"));
+        Assert.Equal(new[] { EffectLibraryPage.STYLES, EffectLibraryPage.EFFECTS, EffectLibraryPage.TRANSFER },
+            Enum.GetValues<EffectLibraryPage>());
+        Assert.DoesNotContain(Enum.GetNames<SettingsPage>(), name => name is "STYLES" or "EFFECTS");
     }
 }

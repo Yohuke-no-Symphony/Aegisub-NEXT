@@ -1,9 +1,10 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -22,7 +23,7 @@ public sealed class StyleAppearanceLibraryUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage(language);
-        var window = new SettingsWindow(new() { Language = language });
+        var window = new EffectLibraryWindow(new() { Language = language });
         try
         {
             window.Show();
@@ -31,10 +32,10 @@ public sealed class StyleAppearanceLibraryUiTests
                 FontFamily = "sans-serif", FontSize = 28, FillBlur = 1
             });
             window.UpdateStyles([preset]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.UpdateLayout();
             var model = window.ViewModel.Styles;
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             var spacing = UiTestActions.Find<NumericDraftInput>(view, "LetterSpacingInput");
             Type(window, spacing, "3");
             var fill = UiTestActions.Find<NumericDraftInput>(view, "FillBlurInput");

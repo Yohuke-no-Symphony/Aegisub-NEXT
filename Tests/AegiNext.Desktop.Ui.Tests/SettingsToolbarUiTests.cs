@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
@@ -84,7 +85,7 @@ public sealed class SettingsToolbarUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage(language);
-        var window = new SettingsWindow(new() { Language = language, Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT })
+        var window = new EffectLibraryWindow(new() { Language = language, Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT })
         {
             Width = width, Height = height
         };
@@ -94,7 +95,7 @@ public sealed class SettingsToolbarUiTests
         {
             window.UpdateStyles([new(Guid.NewGuid(), "样式 Style 123", new())]);
             window.Show();
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var toolbar = UiTestActions.Find<StackPanel>(window, "StyleLibraryToolbar");
             Assert.Equal(Orientation.Horizontal, toolbar.Orientation);
             var buttons = toolbar.Children.OfType<Button>().ToArray();
@@ -131,7 +132,7 @@ public sealed class SettingsToolbarUiTests
         return new(position.Value, control.Bounds.Size);
     }
 
-    private static void Capture(SettingsWindow window, string name)
+    private static void Capture(Window window, string name)
     {
         var directory = Environment.GetEnvironmentVariable("AEGINEXT_UI_CAPTURE_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory))

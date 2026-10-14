@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Globalization;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Controls;
@@ -97,7 +98,7 @@ public sealed class StylesPanelLayoutUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage(language);
-        var window = new SettingsWindow(new() { Language = language })
+        var window = new EffectLibraryWindow(new() { Language = language })
         {
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
@@ -106,7 +107,7 @@ public sealed class StylesPanelLayoutUiTests
             window.Show();
             var preset = new SubtitleStylePreset(Guid.NewGuid(), "Font fixture", new() { FontFamily = "sans-serif" });
             window.UpdateStyles([preset]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var picker = UiTestActions.Find<FontFamilyPicker>(window, "FontInput");
             AssertSquareFontButton(window, picker);
             var original = window.ViewModel.Styles.Draft!.Style;

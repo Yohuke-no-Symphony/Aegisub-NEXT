@@ -1,9 +1,10 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Collections.Immutable;
 using AegiNext.Application.Presets;
 using AegiNext.Core.Effects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Effects;
+using AegiNext.Desktop.EffectLibrary.Effects;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -27,14 +28,14 @@ public sealed class EffectScriptSettingsUiTests
     public void AutomaticCompletionHasAnOpaqueThemeSurfaceAndVisibleBorder(bool dark)
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences())
+        var window = new EffectLibraryWindow(new WorkbenchPreferences())
         {
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
             Assert.True(input.Focus());
@@ -73,11 +74,11 @@ public sealed class EffectScriptSettingsUiTests
     public void CommittedCharactersAutomaticallyShowCaretCompletionAndReplaceOnlyThePrefix(Key acceptKey)
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
             input.Focus();
@@ -119,11 +120,11 @@ public sealed class EffectScriptSettingsUiTests
     public void CompletionClosesForEscFocusAndImePreeditWithoutChangingCommittedSource()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
             input.Focus();
@@ -162,11 +163,11 @@ public sealed class EffectScriptSettingsUiTests
     public void CompletionCanBeChosenWithThePointerWhileTheTextInputKeepsFocus()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
             input.Text = "at 0 sc";
@@ -195,14 +196,14 @@ public sealed class EffectScriptSettingsUiTests
     public void SettingsScriptPageHasItsOwnCompiledContextAndBuiltinReadOnlyEditor()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
-            Assert.Same(window.ViewModel.Effects, UiTestActions.Find<EffectSettingsView>(window, "EffectsView").DataContext);
+            Assert.Same(window.ViewModel.Effects, UiTestActions.Find<EffectScriptLibraryView>(window, "EffectsView").DataContext);
             var source = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
             Assert.True(source.IsReadOnly);
             Assert.Contains("effect", source.Text, StringComparison.Ordinal);
@@ -225,11 +226,11 @@ public sealed class EffectScriptSettingsUiTests
     public void RealTextInputAndKeyboardCompletionReplaceThePrefixWithoutExtraSpaceOrClick()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             var source = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
             source.Focus();
@@ -256,11 +257,11 @@ public sealed class EffectScriptSettingsUiTests
     public async Task InvalidScriptIsEditableAndLineColumnCanBeLocatedWithoutFocusLoop()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
             input.Text = "effect broken\n";
@@ -271,8 +272,8 @@ public sealed class EffectScriptSettingsUiTests
             UiTestActions.Click(window, "ScriptLocateError");
             Assert.True(input.IsFocused);
             Assert.Equal(0, input.SelectionStart);
-            window.SelectPage(SettingsPage.APPEARANCE);
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.TRANSFER);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal("effect broken\n", input.Text);
             Assert.Null(window.FindControl<Button>("RestoreEffectScriptButton"));
@@ -293,11 +294,11 @@ public sealed class EffectScriptSettingsUiTests
     public void SyntaxColorsHaveRealStyledRunsAndNativeCaretGeometryInBothThemes()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             foreach (var theme in new[] { ThemeVariant.Dark, ThemeVariant.Light })
             {
                 window.RequestedThemeVariant = theme;
@@ -325,7 +326,7 @@ public sealed class EffectScriptSettingsUiTests
     public void SaveAndExportForwardValidatedSourcesWithoutDependingOnCurrentSubtitle()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         EffectScriptPreset? saved = null;
         EffectScriptPreset? exported = null;
         window.UpsertEffectRequested += (_, args) => saved = args.Preset;
@@ -334,7 +335,7 @@ public sealed class EffectScriptSettingsUiTests
         {
             window.Show();
             window.UpdateSelectionAvailability(false);
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             UiTestActions.Click(window, "SaveEffectScriptButton");
             Assert.NotNull(saved);
@@ -357,7 +358,7 @@ public sealed class EffectScriptSettingsUiTests
     public async Task PointerMultiSelectionExportsOnlySavedSelectedScriptsAndSurvivesRefresh(bool range)
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         var first = PersonalScript("multi-first");
         var second = PersonalScript("multi-second");
         var third = PersonalScript("multi-third");
@@ -367,7 +368,7 @@ public sealed class EffectScriptSettingsUiTests
         {
             window.UpdateEffects([first, second, third], first.Id);
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             ClickScript(window, first.Id);
             var command = Avalonia.Application.Current!.PlatformSettings!.HotkeyConfiguration.CommandModifiers;
             var toggle = command.HasFlag(KeyModifiers.Meta) ? RawInputModifiers.Meta : RawInputModifiers.Control;
@@ -386,7 +387,7 @@ public sealed class EffectScriptSettingsUiTests
 
             Assert.Equal(expected, exported.Select(item => item.Id).ToArray());
             var list = UiTestActions.Find<ListBox>(window, "EffectScriptList");
-            Assert.Equal(expected, list.Selection.SelectedItems.OfType<EffectScriptSettingsItem>().Select(item => item.Id).OrderBy(id =>
+            Assert.Equal(expected, list.Selection.SelectedItems.OfType<EffectScriptLibraryItem>().Select(item => item.Id).OrderBy(id =>
                 Array.IndexOf(expected, id)).ToArray());
             ClickScript(window, second.Id);
             await window.ViewModel.Effects.SelectionCompletion;
@@ -406,7 +407,7 @@ public sealed class EffectScriptSettingsUiTests
     public async Task DirtyPointerSelectionAsksBeforeLeavingAndRollsBackOnCancellationOrFailedSave(int decision, bool leave)
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         var first = PersonalScript("pending-first");
         var second = PersonalScript("pending-second");
         var model = window.ViewModel.Effects;
@@ -416,7 +417,7 @@ public sealed class EffectScriptSettingsUiTests
         {
             window.UpdateEffects([first, second], first.Id);
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             model.Source += "# pending edit\n";
             var pending = model.Source;
             model.ConfirmLeaveAsync = () =>
@@ -440,7 +441,7 @@ public sealed class EffectScriptSettingsUiTests
             Assert.Equal(leave ? second.Source : pending, UiTestActions.Find<TextBox>(window, "ScriptTextInput").Text);
             var list = UiTestActions.Find<ListBox>(window, "EffectScriptList");
             Assert.Equal(model.SelectedEffect.Id,
-                Assert.Single(list.Selection.SelectedItems.OfType<EffectScriptSettingsItem>()).Id);
+                Assert.Single(list.Selection.SelectedItems.OfType<EffectScriptLibraryItem>()).Id);
             if (leave)
             {
                 model.SelectEffects(first.Id, [first.Id]);
@@ -458,15 +459,15 @@ public sealed class EffectScriptSettingsUiTests
     public void DeletingAnInvalidIndependentDraftRequestsDiscardBeforeClearingWithoutSaving()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         var saves = 0;
-        SettingsEffectDeleteEventArgs? deletion = null;
+        LibraryEffectDeleteEventArgs? deletion = null;
         window.UpsertEffectRequested += (_, _) => saves++;
         window.DeleteEffectRequested += (_, args) => deletion = args;
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             UiTestActions.Click(window, "AddEffectScriptButton");
             UiTestActions.Find<TextBox>(window, "ScriptTextInput").Text = "effect broken";
             var draft = Assert.IsType<EffectScriptPreset>(window.ViewModel.Effects.Draft);
@@ -496,10 +497,10 @@ public sealed class EffectScriptSettingsUiTests
         return new(Guid.NewGuid(), id, BuiltinEffectScripts.Get("fade-in").Source.Replace("fade-in", id, StringComparison.Ordinal));
     }
 
-    private static void ClickScript(SettingsWindow window, Guid id, RawInputModifiers modifiers = RawInputModifiers.None)
+    private static void ClickScript(EffectLibraryWindow window, Guid id, RawInputModifiers modifiers = RawInputModifiers.None)
     {
         var list = UiTestActions.Find<ListBox>(window, "EffectScriptList");
-        var item = list.Items.OfType<EffectScriptSettingsItem>().Single(value => value.Id == id);
+        var item = list.Items.OfType<EffectScriptLibraryItem>().Single(value => value.Id == id);
         list.ScrollIntoView(item);
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();

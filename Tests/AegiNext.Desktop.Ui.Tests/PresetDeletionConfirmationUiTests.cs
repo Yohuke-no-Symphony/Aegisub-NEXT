@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Collections.Immutable;
 using AegiNext.Application.Presets;
 using AegiNext.Core.Effects;
@@ -20,13 +21,13 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class PresetDeletionConfirmationUiTests
 {
     [AvaloniaTheory]
-    [InlineData(SettingsPage.STYLES, false)]
-    [InlineData(SettingsPage.STYLES, true)]
-    [InlineData(SettingsPage.EFFECTS, false)]
-    [InlineData(SettingsPage.EFFECTS, true)]
-    [InlineData(SettingsPage.EXPORT_PRESETS, false)]
-    [InlineData(SettingsPage.EXPORT_PRESETS, true)]
-    public async Task BatchDeletionWaitsForConfirmationAndCancellingPreservesLibraryAndSelection(SettingsPage page, bool accepted)
+    [InlineData(PresetDeletionTestPage.STYLES, false)]
+    [InlineData(PresetDeletionTestPage.STYLES, true)]
+    [InlineData(PresetDeletionTestPage.EFFECTS, false)]
+    [InlineData(PresetDeletionTestPage.EFFECTS, true)]
+    [InlineData(PresetDeletionTestPage.EXPORT_PRESETS, false)]
+    [InlineData(PresetDeletionTestPage.EXPORT_PRESETS, true)]
+    public async Task BatchDeletionWaitsForConfirmationAndCancellingPreservesLibraryAndSelection(PresetDeletionTestPage page, bool accepted)
     {
         await WithSettingsAsync(page, async (context, coordinator, window, dialogs, directory, ids) =>
         {
@@ -36,7 +37,7 @@ public sealed class PresetDeletionConfirmationUiTests
             var selection = SelectedIds(window, page);
 
             UiTestActions.Click(window, DeleteButton(page));
-            var completion = Completion(coordinator, page);
+            var completion = coordinator.DeletionCompletion;
             var request = await dialogs.DeletionShown.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.False(request.IsDraftOnly);
             Assert.Equal(2, request.Names.Length);
@@ -73,13 +74,13 @@ public sealed class PresetDeletionConfirmationUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData(SettingsPage.STYLES, false)]
-    [InlineData(SettingsPage.STYLES, true)]
-    [InlineData(SettingsPage.EFFECTS, false)]
-    [InlineData(SettingsPage.EFFECTS, true)]
-    [InlineData(SettingsPage.EXPORT_PRESETS, false)]
-    [InlineData(SettingsPage.EXPORT_PRESETS, true)]
-    public async Task DirtySavedPresetDeletionPreservesInvalidDraftOnCancelAndCannotResurrectDeletedIdentity(SettingsPage page, bool accepted)
+    [InlineData(PresetDeletionTestPage.STYLES, false)]
+    [InlineData(PresetDeletionTestPage.STYLES, true)]
+    [InlineData(PresetDeletionTestPage.EFFECTS, false)]
+    [InlineData(PresetDeletionTestPage.EFFECTS, true)]
+    [InlineData(PresetDeletionTestPage.EXPORT_PRESETS, false)]
+    [InlineData(PresetDeletionTestPage.EXPORT_PRESETS, true)]
+    public async Task DirtySavedPresetDeletionPreservesInvalidDraftOnCancelAndCannotResurrectDeletedIdentity(PresetDeletionTestPage page, bool accepted)
     {
         await WithSettingsAsync(page, async (context, coordinator, window, dialogs, directory, ids) =>
         {
@@ -91,7 +92,7 @@ public sealed class PresetDeletionConfirmationUiTests
             Assert.True(IsDirty(window, page));
 
             UiTestActions.Click(window, DeleteButton(page));
-            var completion = Completion(coordinator, page);
+            var completion = coordinator.DeletionCompletion;
             var request = await dialogs.DeletionShown.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal("First", Assert.Single(request.Names));
             Assert.Same(snapshot, Snapshot(context, page));
@@ -125,13 +126,13 @@ public sealed class PresetDeletionConfirmationUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData(SettingsPage.STYLES, false)]
-    [InlineData(SettingsPage.STYLES, true)]
-    [InlineData(SettingsPage.EFFECTS, false)]
-    [InlineData(SettingsPage.EFFECTS, true)]
-    [InlineData(SettingsPage.EXPORT_PRESETS, false)]
-    [InlineData(SettingsPage.EXPORT_PRESETS, true)]
-    public async Task UnsavedDraftDiscardRequiresConfirmationAndNeverChangesPersonalLibrary(SettingsPage page, bool accepted)
+    [InlineData(PresetDeletionTestPage.STYLES, false)]
+    [InlineData(PresetDeletionTestPage.STYLES, true)]
+    [InlineData(PresetDeletionTestPage.EFFECTS, false)]
+    [InlineData(PresetDeletionTestPage.EFFECTS, true)]
+    [InlineData(PresetDeletionTestPage.EXPORT_PRESETS, false)]
+    [InlineData(PresetDeletionTestPage.EXPORT_PRESETS, true)]
+    public async Task UnsavedDraftDiscardRequiresConfirmationAndNeverChangesPersonalLibrary(PresetDeletionTestPage page, bool accepted)
     {
         await WithSettingsAsync(page, async (context, coordinator, window, dialogs, directory, _) =>
         {
@@ -145,7 +146,7 @@ public sealed class PresetDeletionConfirmationUiTests
             Assert.Empty(SelectedIds(window, page));
 
             UiTestActions.Click(window, DeleteButton(page));
-            var completion = Completion(coordinator, page);
+            var completion = coordinator.DeletionCompletion;
             var request = await dialogs.DeletionShown.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(request.IsDraftOnly);
             Assert.Equal("Unsaved name", Assert.Single(request.Names));
@@ -172,10 +173,10 @@ public sealed class PresetDeletionConfirmationUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData(SettingsPage.STYLES)]
-    [InlineData(SettingsPage.EFFECTS)]
-    [InlineData(SettingsPage.EXPORT_PRESETS)]
-    public async Task ClosingPendingConfirmationRejectsLateAcceptanceAndDoesNotChangeReopenedWindow(SettingsPage page)
+    [InlineData(PresetDeletionTestPage.STYLES)]
+    [InlineData(PresetDeletionTestPage.EFFECTS)]
+    [InlineData(PresetDeletionTestPage.EXPORT_PRESETS)]
+    public async Task ClosingPendingConfirmationRejectsLateAcceptanceAndDoesNotChangeReopenedWindow(PresetDeletionTestPage page)
     {
         await WithSettingsAsync(page, async (context, coordinator, window, dialogs, directory, ids) =>
         {
@@ -183,12 +184,12 @@ public sealed class PresetDeletionConfirmationUiTests
             var snapshot = Snapshot(context, page);
             var bytes = await File.ReadAllBytesAsync(LibraryPath(directory, page));
             UiTestActions.Click(window, DeleteButton(page));
-            var completion = Completion(coordinator, page);
+            var completion = coordinator.DeletionCompletion;
             await dialogs.DeletionShown.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var owner = Assert.IsType<Window>(window.Owner);
 
             window.Close();
-            await window.CloseCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+            await CloseCompletion(window).WaitAsync(TimeSpan.FromSeconds(5));
             await completion.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Null(coordinator.Window);
@@ -196,7 +197,7 @@ public sealed class PresetDeletionConfirmationUiTests
             Assert.True(dialogs.DeletionToken.IsCancellationRequested);
             Assert.False(dialogs.PendingDeletion.Task.IsCompleted);
             await coordinator.OpenAsync(owner, page: page);
-            var reopened = Assert.IsType<SettingsWindow>(coordinator.Window);
+            var reopened = Assert.IsAssignableFrom<Window>(coordinator.Window);
             Assert.NotSame(window, reopened);
             Assert.True(await SelectAsync(reopened, page, ids[0], [ids[0]]));
             SetInvalidDraft(reopened, page);
@@ -289,8 +290,8 @@ public sealed class PresetDeletionConfirmationUiTests
         frame.Save(Path.Combine(directory, $"headless-preset-deletion-{kind}-{languageId}.png"), PngBitmapEncoderOptions.Default);
     }
 
-    private static async Task WithSettingsAsync(SettingsPage page,
-        Func<DesktopApplicationContext, SettingsWindowCoordinator, SettingsWindow, PresetDeletionDialogStub, string, Guid[], Task> test)
+    private static async Task WithSettingsAsync(PresetDeletionTestPage page,
+        Func<DesktopApplicationContext, PresetDeletionTestHost, Window, PresetDeletionDialogStub, string, Guid[], Task> test)
     {
         using var environment = new UiTestEnvironment();
         await using var context = new DesktopApplicationContext(new(environment.DirectoryPath));
@@ -301,11 +302,11 @@ public sealed class PresetDeletionConfirmationUiTests
         {
             var id = ids[index];
             var name = names[index];
-            if (page == SettingsPage.STYLES)
+            if (page == PresetDeletionTestPage.STYLES)
             {
                 await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new(id, name, new())));
             }
-            else if (page == SettingsPage.EFFECTS)
+            else if (page == PresetDeletionTestPage.EFFECTS)
             {
                 var source = BuiltinEffectScripts.Get("fade-in").Source.Replace("\"fade-in\"", $"\"custom-{id:N}\"", StringComparison.Ordinal);
                 await context.RunEffectOperationAsync(() => context.EffectScriptLibrary.UpsertAsync(new(id, name, source)));
@@ -316,7 +317,7 @@ public sealed class PresetDeletionConfirmationUiTests
             }
         }
         var dialogs = new PresetDeletionDialogStub();
-        using var coordinator = new SettingsWindowCoordinator(context, _ => dialogs);
+        using var coordinator = new PresetDeletionTestHost(context, dialogs, page);
         var owner = new Window();
         try
         {
@@ -326,7 +327,7 @@ public sealed class PresetDeletionConfirmationUiTests
         }
         finally
         {
-            var completion = Task.WhenAll(coordinator.DeletionCompletion, coordinator.ExportCompletion);
+            var completion = coordinator.DeletionCompletion;
             coordinator.Dispose();
             dialogs.PendingDeletion.TrySetResult(false);
             await completion.WaitAsync(TimeSpan.FromSeconds(5));
@@ -334,47 +335,47 @@ public sealed class PresetDeletionConfirmationUiTests
         }
     }
 
-    private static string DeleteButton(SettingsPage page) => page switch
+    private static string DeleteButton(PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => "DeleteStyleButton",
-        SettingsPage.EFFECTS => "DeleteEffectScriptButton",
+        PresetDeletionTestPage.STYLES => "DeleteStyleButton",
+        PresetDeletionTestPage.EFFECTS => "DeleteEffectScriptButton",
         _ => "DeleteExportPresetButton"
     };
 
-    private static string AddButton(SettingsPage page) => page switch
+    private static string AddButton(PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => "AddStyleButton",
-        SettingsPage.EFFECTS => "AddEffectScriptButton",
+        PresetDeletionTestPage.STYLES => "AddStyleButton",
+        PresetDeletionTestPage.EFFECTS => "AddEffectScriptButton",
         _ => "AddExportPresetButton"
     };
 
-    private static string LibraryPath(string directory, SettingsPage page) => Path.Combine(directory, page switch
+    private static string LibraryPath(string directory, PresetDeletionTestPage page) => Path.Combine(directory, page switch
     {
-        SettingsPage.STYLES or SettingsPage.EFFECTS => Path.Combine("effect-library", "manifest.json"),
+        PresetDeletionTestPage.STYLES or PresetDeletionTestPage.EFFECTS => Path.Combine("effect-library", "manifest.json"),
         _ => "export-presets.aegiexports"
     });
 
-    private static object Snapshot(DesktopApplicationContext context, SettingsPage page) => page switch
+    private static object Snapshot(DesktopApplicationContext context, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => context.StyleLibrary.Snapshot,
-        SettingsPage.EFFECTS => context.EffectScriptLibrary.Snapshot,
+        PresetDeletionTestPage.STYLES => context.StyleLibrary.Snapshot,
+        PresetDeletionTestPage.EFFECTS => context.EffectScriptLibrary.Snapshot,
         _ => context.ExportPresetLibrary.Snapshot
     };
 
-    private static Guid[] LibraryIds(DesktopApplicationContext context, SettingsPage page) => page switch
+    private static Guid[] LibraryIds(DesktopApplicationContext context, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => context.StyleLibrary.Snapshot.Presets.Select(preset => preset.Id).ToArray(),
-        SettingsPage.EFFECTS => context.EffectScriptLibrary.Snapshot.Presets.Select(preset => preset.Id).ToArray(),
+        PresetDeletionTestPage.STYLES => context.StyleLibrary.Snapshot.Presets.Select(preset => preset.Id).ToArray(),
+        PresetDeletionTestPage.EFFECTS => context.EffectScriptLibrary.Snapshot.Presets.Select(preset => preset.Id).ToArray(),
         _ => context.ExportPresetLibrary.Snapshot.Presets.Select(preset => preset.Id).ToArray()
     };
 
-    private static async Task<Guid[]> PersistedIdsAsync(string directory, SettingsPage page)
+    private static async Task<Guid[]> PersistedIdsAsync(string directory, PresetDeletionTestPage page)
     {
-        if (page is SettingsPage.STYLES or SettingsPage.EFFECTS)
+        if (page is PresetDeletionTestPage.STYLES or PresetDeletionTestPage.EFFECTS)
         {
             using var repository = new EffectLibraryRepository(Path.Combine(directory, "effect-library"));
             await repository.LoadAsync();
-            return page == SettingsPage.STYLES
+            return page == PresetDeletionTestPage.STYLES
                 ? repository.Snapshot.Styles.Presets.Select(preset => preset.Id).ToArray()
                 : repository.Snapshot.Effects.Presets.Select(preset => preset.Id).ToArray();
         }
@@ -382,82 +383,86 @@ public sealed class PresetDeletionConfirmationUiTests
         return (await VideoExportPresetStore.LoadAsync(path)).Presets.Select(preset => preset.Id).ToArray();
     }
 
-    private static Task<bool> SelectAsync(SettingsWindow window, SettingsPage page, Guid primaryId, Guid[] ids) => page switch
+    private static Task<bool> SelectAsync(Window window, PresetDeletionTestPage page, Guid primaryId, Guid[] ids) => page switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.SelectStylesAsync(primaryId, ids),
-        SettingsPage.EFFECTS => window.ViewModel.Effects.SelectEffectsAsync(primaryId, ids),
-        _ => window.ViewModel.ExportPresets.SelectPresetsAsync(primaryId, ids)
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.SelectStylesAsync(primaryId, ids),
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.SelectEffectsAsync(primaryId, ids),
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.SelectPresetsAsync(primaryId, ids)
     };
 
-    private static Task Completion(SettingsWindowCoordinator coordinator, SettingsPage page)
-        => page == SettingsPage.EXPORT_PRESETS ? coordinator.ExportCompletion : coordinator.DeletionCompletion;
-
-    private static Task SelectionCompletion(SettingsWindow window, SettingsPage page) => page switch
+    private static Task CloseCompletion(Window window) => window switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.SelectionCompletion,
-        SettingsPage.EFFECTS => window.ViewModel.Effects.SelectionCompletion,
-        _ => window.ViewModel.ExportPresets.SelectionCompletion
+        EffectLibraryWindow library => library.CloseCompletion,
+        SettingsWindow settings => settings.CloseCompletion,
+        _ => throw new ArgumentOutOfRangeException(nameof(window))
     };
 
-    private static ImmutableArray<Guid> SelectedIds(SettingsWindow window, SettingsPage page) => page switch
+    private static Task SelectionCompletion(Window window, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.SelectedIds,
-        SettingsPage.EFFECTS => window.ViewModel.Effects.SelectedIds,
-        _ => window.ViewModel.ExportPresets.SelectedIds
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.SelectionCompletion,
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.SelectionCompletion,
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.SelectionCompletion
     };
 
-    private static Guid? DraftId(SettingsWindow window, SettingsPage page) => page switch
+    private static ImmutableArray<Guid> SelectedIds(Window window, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.Draft?.Id,
-        SettingsPage.EFFECTS => window.ViewModel.Effects.Draft?.Id,
-        _ => window.ViewModel.ExportPresets.Draft?.Id
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.SelectedIds,
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.SelectedIds,
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.SelectedIds
     };
 
-    private static string DraftName(SettingsWindow window, SettingsPage page) => page switch
+    private static Guid? DraftId(Window window, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.Name,
-        SettingsPage.EFFECTS => window.ViewModel.Effects.Name,
-        _ => window.ViewModel.ExportPresets.Name
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.Draft?.Id,
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.Draft?.Id,
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.Draft?.Id
     };
 
-    private static string InvalidText(SettingsWindow window, SettingsPage page) => page switch
+    private static string DraftName(Window window, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.FontSizeText,
-        SettingsPage.EFFECTS => window.ViewModel.Effects.Source,
-        _ => window.ViewModel.ExportPresets.QualityText
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.Name,
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.Name,
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.Name
     };
 
-    private static bool IsDirty(SettingsWindow window, SettingsPage page) => page switch
+    private static string InvalidText(Window window, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.IsDirty,
-        SettingsPage.EFFECTS => window.ViewModel.Effects.IsDirty,
-        _ => window.ViewModel.ExportPresets.IsDirty
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.FontSizeText,
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.Source,
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.QualityText
     };
 
-    private static bool IsBusy(SettingsWindow window, SettingsPage page) => page switch
+    private static bool IsDirty(Window window, PresetDeletionTestPage page) => page switch
     {
-        SettingsPage.STYLES => window.ViewModel.Styles.IsBusy,
-        SettingsPage.EFFECTS => window.ViewModel.Effects.IsBusy,
-        _ => window.ViewModel.ExportPresets.IsBusy
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.IsDirty,
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.IsDirty,
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.IsDirty
     };
 
-    private static void SetInvalidDraft(SettingsWindow window, SettingsPage page)
+    private static bool IsBusy(Window window, PresetDeletionTestPage page) => page switch
+    {
+        PresetDeletionTestPage.STYLES => ((EffectLibraryWindow)window).ViewModel.Styles.IsBusy,
+        PresetDeletionTestPage.EFFECTS => ((EffectLibraryWindow)window).ViewModel.Effects.IsBusy,
+        _ => ((SettingsWindow)window).ViewModel.ExportPresets.IsBusy
+    };
+
+    private static void SetInvalidDraft(Window window, PresetDeletionTestPage page)
     {
         var nameInput = page switch
         {
-            SettingsPage.STYLES => "StyleNameInput",
-            SettingsPage.EFFECTS => "EffectScriptNameInput",
+            PresetDeletionTestPage.STYLES => "StyleNameInput",
+            PresetDeletionTestPage.EFFECTS => "EffectScriptNameInput",
             _ => "ExportPresetNameInput"
         };
         UiTestActions.SetText(UiTestActions.Find<TextBox>(window, nameInput), "Unsaved name");
-        if (page == SettingsPage.STYLES)
+        if (page == PresetDeletionTestPage.STYLES)
         {
             UiTestActions.Find<NumericDraftInput>(window, "FontSizeInput").RawText = "7e-";
         }
-        else if (page == SettingsPage.EFFECTS)
+        else if (page == PresetDeletionTestPage.EFFECTS)
         {
-            window.ViewModel.Effects.Source = "7e-";
-            window.ViewModel.Effects.ValidateCommand.Execute(null);
+            ((EffectLibraryWindow)window).ViewModel.Effects.Source = "7e-";
+            ((EffectLibraryWindow)window).ViewModel.Effects.ValidateCommand.Execute(null);
         }
         else
         {
@@ -466,14 +471,14 @@ public sealed class PresetDeletionConfirmationUiTests
         Dispatcher.UIThread.RunJobs();
     }
 
-    private static Task RenameRemainingAsync(DesktopApplicationContext context, SettingsPage page)
+    private static Task RenameRemainingAsync(DesktopApplicationContext context, PresetDeletionTestPage page)
     {
-        if (page == SettingsPage.STYLES)
+        if (page == PresetDeletionTestPage.STYLES)
         {
             var preset = context.StyleLibrary.Snapshot.Presets[0];
             return context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(preset with { Name = "Changed remaining" }));
         }
-        if (page == SettingsPage.EFFECTS)
+        if (page == PresetDeletionTestPage.EFFECTS)
         {
             var preset = context.EffectScriptLibrary.Snapshot.Presets[0];
             return context.RunEffectOperationAsync(() => context.EffectScriptLibrary.UpsertAsync(preset with { Name = "Changed remaining" }));

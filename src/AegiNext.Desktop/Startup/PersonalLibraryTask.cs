@@ -3,7 +3,7 @@ using AegiNext.Application.Tasks;
 namespace AegiNext.Desktop.Startup;
 
 internal sealed class PersonalLibraryTask(DesktopApplicationContext owner, PersonalLibraryKind kind,
-    Func<Task> operation, bool propagateFailure) : AegiTask
+    Func<Task> operation, bool propagateFailure, bool reportError = true) : AegiTask
 {
     public override string Name => kind switch
     {
@@ -18,6 +18,6 @@ internal sealed class PersonalLibraryTask(DesktopApplicationContext owner, Perso
 
     protected override Task ExecuteAsync(AegiTaskExecutionContext context)
     {
-        return owner.ExecuteLibraryOperationAsync(operation, kind, propagateFailure);
+        return owner.ExecuteLibraryOperationAsync(operation, kind, propagateFailure, reportError);
     }
 }

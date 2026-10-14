@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
@@ -5,7 +6,7 @@ using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using Avalonia.Controls;
 using Avalonia;
 using Avalonia.Headless;
@@ -34,9 +35,9 @@ public sealed class SettingsStylePreviewUiTests
         {
             window.UpdateStyles([preset]);
             window.ViewModel.Styles.PreviewText = "Preview ABC";
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             await RenderAsync(window, view);
             var frame = UiTestActions.Find<VideoFramePresenter>(view, "StylePreviewFrame");
             Assert.Null(window.ViewModel.Styles.PreviewError);
@@ -72,9 +73,9 @@ public sealed class SettingsStylePreviewUiTests
         try
         {
             window.UpdateStyles([CreatePreset()]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             await RenderAsync(window, view);
             var frame = UiTestActions.Find<VideoFramePresenter>(view, "StylePreviewFrame");
             var model = window.ViewModel.Styles;
@@ -111,9 +112,9 @@ public sealed class SettingsStylePreviewUiTests
         try
         {
             window.UpdateStyles([first, second], first.Id);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             await RenderAsync(window, view);
             var frame = UiTestActions.Find<VideoFramePresenter>(view, "StylePreviewFrame");
             window.ViewModel.Styles.PreviewText = "AAAAAAAA";
@@ -150,9 +151,9 @@ public sealed class SettingsStylePreviewUiTests
         try
         {
             window.UpdateStyles([first, second], first.Id);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             await RenderAsync(window, view);
             var frame = UiTestActions.Find<VideoFramePresenter>(view, "StylePreviewFrame");
             window.ViewModel.Styles.SelectStyles(first.Id, [first.Id, second.Id]);
@@ -160,10 +161,10 @@ public sealed class SettingsStylePreviewUiTests
             Assert.Null(frame.Source);
             Assert.False(window.ViewModel.Styles.HasPreview);
             window.ViewModel.Styles.SelectStyles(first.Id, [first.Id]);
-            window.SelectPage(SettingsPage.COLORS);
+            window.SelectPage(EffectLibraryPage.TRANSFER);
             window.ViewModel.Styles.PreviewText = "Changed while hidden";
             await RenderAsync(window, view);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             await RenderAsync(window, view);
 
             Assert.NotNull(frame.Source);
@@ -189,9 +190,9 @@ public sealed class SettingsStylePreviewUiTests
         try
         {
             window.UpdateStyles([first, broken], first.Id);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             await RenderAsync(window, view);
             var frame = UiTestActions.Find<VideoFramePresenter>(view, "StylePreviewFrame");
             Assert.NotNull(frame.Source);
@@ -208,7 +209,7 @@ public sealed class SettingsStylePreviewUiTests
         }
     }
 
-    private static SettingsWindow CreateWindow(bool dark)
+    private static EffectLibraryWindow CreateWindow(bool dark)
     {
         return new(new WorkbenchPreferences()) { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
     }
@@ -223,9 +224,9 @@ public sealed class SettingsStylePreviewUiTests
         try
         {
             window.UpdateStyles([preset, second], preset.Id);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             await RenderAsync(window, view);
             var viewport = UiTestActions.Find<PreviewViewportControl>(view, "StylePreviewViewport");
             var frame = UiTestActions.Find<VideoFramePresenter>(view, "StylePreviewFrame");
@@ -290,9 +291,9 @@ public sealed class SettingsStylePreviewUiTests
         try
         {
             window.UpdateStyles([CreatePreset()]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = window.FindControl<StyleSettingsView>("StylesView")!;
+            var view = window.FindControl<StyleLibraryView>("StylesView")!;
             Assert.True(view.PreviewCompletion.Wait(TimeSpan.FromSeconds(15), CancellationToken.None));
             var frame = view.FindControl<VideoFramePresenter>("StylePreviewFrame")!;
             Assert.Null(frame.Source);
@@ -318,7 +319,7 @@ public sealed class SettingsStylePreviewUiTests
         }, new("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]));
     }
 
-    private static async Task RenderAsync(Window window, StyleSettingsView view)
+    private static async Task RenderAsync(Window window, StyleLibraryView view)
     {
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();

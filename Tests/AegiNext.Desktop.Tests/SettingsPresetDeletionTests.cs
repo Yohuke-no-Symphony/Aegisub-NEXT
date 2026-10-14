@@ -1,10 +1,11 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Application.Presets;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Effects;
+using AegiNext.Desktop.EffectLibrary.Effects;
 using AegiNext.Desktop.Settings.Export;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using AegiNext.Export.Presets;
 
 namespace AegiNext.Desktop.Tests;
@@ -17,10 +18,10 @@ public sealed class SettingsPresetDeletionTests
         var first = new SubtitleStylePreset(Guid.NewGuid(), "First", new());
         var second = new SubtitleStylePreset(Guid.NewGuid(), "Second", new());
         var third = new SubtitleStylePreset(Guid.NewGuid(), "Third", new());
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([first, second, third]);
         model.SelectStyles(second.Id, [second.Id, first.Id, second.Id]);
-        SettingsStyleDeleteEventArgs? requested = null;
+        LibraryStyleDeleteEventArgs? requested = null;
         model.DeleteRequested += (_, args) => requested = args;
 
         Assert.True(model.DeleteCommand.CanExecute(null));
@@ -38,12 +39,12 @@ public sealed class SettingsPresetDeletionTests
     [Fact]
     public void UnsavedInvalidStyleRequestsConfirmationAndKeepsTheEntireDraft()
     {
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.AddCommand.Execute(null);
         model.Name = "Unsaved";
         model.FontSizeText = "7e-";
         var draft = model.Draft;
-        SettingsStyleDeleteEventArgs? requested = null;
+        LibraryStyleDeleteEventArgs? requested = null;
         model.DeleteRequested += (_, args) => requested = args;
 
         model.DeleteCommand.Execute(null);
@@ -65,10 +66,10 @@ public sealed class SettingsPresetDeletionTests
         var first = Effect("First");
         var second = Effect("Second");
         var third = Effect("Third");
-        var model = new EffectSettingsViewModel();
+        var model = new EffectScriptLibraryViewModel();
         model.UpdateEffects([first, second, third]);
         model.SelectEffects(second.Id, [first.Id, second.Id]);
-        SettingsEffectDeleteEventArgs? requested = null;
+        LibraryEffectDeleteEventArgs? requested = null;
         model.DeleteRequested += (_, args) => requested = args;
 
         Assert.True(model.DeleteCommand.CanExecute(null));
@@ -88,7 +89,7 @@ public sealed class SettingsPresetDeletionTests
     public void MixedBuiltinAndPersonalEffectSelectionCannotDeleteAnyItem()
     {
         var personal = Effect("Personal");
-        var model = new EffectSettingsViewModel();
+        var model = new EffectScriptLibraryViewModel();
         model.UpdateEffects([personal]);
         var builtin = model.Effects.First(item => item.IsBuiltin);
         model.SelectEffects(personal.Id, [builtin.Id, personal.Id]);
@@ -106,13 +107,13 @@ public sealed class SettingsPresetDeletionTests
     [Fact]
     public async Task UnsavedInvalidEffectRequestsConfirmationAndKeepsDiagnostics()
     {
-        var model = new EffectSettingsViewModel();
+        var model = new EffectScriptLibraryViewModel();
         await model.AddCommand.ExecuteAsync(null);
         model.Source = "effect broken";
         model.ValidateCommand.Execute(null);
         var draft = model.Draft;
         var error = model.Error;
-        SettingsEffectDeleteEventArgs? requested = null;
+        LibraryEffectDeleteEventArgs? requested = null;
         model.DeleteRequested += (_, args) => requested = args;
 
         model.DeleteCommand.Execute(null);
@@ -181,8 +182,8 @@ public sealed class SettingsPresetDeletionTests
     [Fact]
     public void BusyAndEmptySelectionDoNotProduceDeletionRequests()
     {
-        var style = new StyleSettingsViewModel();
-        var effect = new EffectSettingsViewModel();
+        var style = new StyleLibraryViewModel();
+        var effect = new EffectScriptLibraryViewModel();
         var export = new ExportSettingsViewModel();
         effect.SelectEffects(null, []);
         var requested = 0;
@@ -213,16 +214,16 @@ public sealed class SettingsPresetDeletionTests
         var first = Guid.NewGuid();
         var second = Guid.NewGuid();
         var ids = new List<Guid> { second, first, second };
-        var style = new SettingsStyleDeleteEventArgs(ids);
-        var effect = new SettingsEffectDeleteEventArgs(ids);
+        var style = new LibraryStyleDeleteEventArgs(ids);
+        var effect = new LibraryEffectDeleteEventArgs(ids);
         var export = new SettingsExportPresetDeleteEventArgs(ids);
         ids.Clear();
 
         Assert.Equal(new[] { second, first }, style.Ids.ToArray());
         Assert.Equal(new[] { second, first }, effect.Ids.ToArray());
         Assert.Equal(new[] { second, first }, export.Ids.ToArray());
-        Assert.Equal(first, new SettingsStyleDeleteEventArgs(first).Id);
-        Assert.Equal(first, new SettingsEffectDeleteEventArgs(first).Id);
+        Assert.Equal(first, new LibraryStyleDeleteEventArgs(first).Id);
+        Assert.Equal(first, new LibraryEffectDeleteEventArgs(first).Id);
         Assert.Equal(first, new SettingsExportPresetDeleteEventArgs(first).Id);
     }
 

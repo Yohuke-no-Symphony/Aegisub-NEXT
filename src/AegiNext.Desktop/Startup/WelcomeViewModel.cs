@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.I18n;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,7 +18,7 @@ internal sealed class WelcomeViewModel : ObservableObject, IDisposable
     private string title = Localization.Get("Welcome.Title");
 
     internal WelcomeViewModel(RecentProjectService history, Func<Task> createProject,
-        Func<string?, Task> openProject, Func<Task> openSettings)
+        Func<string?, Task> openProject, Func<Task> openSettings, Func<EffectLibraryPage, Task>? openEffectLibrary = null)
     {
         this.history = history;
         NewProjectCommand = new(createProject, CanStart);
@@ -25,6 +26,9 @@ internal sealed class WelcomeViewModel : ObservableObject, IDisposable
         OpenSelectedProjectCommand = new(() => openProject(SelectedProject!.Path),
             () => CanStart() && SelectedProject is { IsUnavailable: false });
         SettingsCommand = new(openSettings, CanStart);
+        StyleLibraryCommand = new(() => openEffectLibrary!(EffectLibraryPage.STYLES), () => CanStart() && openEffectLibrary is not null);
+        EffectScriptsCommand = new(() => openEffectLibrary!(EffectLibraryPage.EFFECTS), () => CanStart() && openEffectLibrary is not null);
+        EffectLibraryTransferCommand = new(() => openEffectLibrary!(EffectLibraryPage.TRANSFER), () => CanStart() && openEffectLibrary is not null);
         RemoveProjectCommand = new(async item =>
         {
             if (item is not null)
@@ -48,6 +52,9 @@ internal sealed class WelcomeViewModel : ObservableObject, IDisposable
     public AsyncRelayCommand OpenProjectCommand { get; }
     public AsyncRelayCommand OpenSelectedProjectCommand { get; }
     public AsyncRelayCommand SettingsCommand { get; }
+    public AsyncRelayCommand StyleLibraryCommand { get; }
+    public AsyncRelayCommand EffectScriptsCommand { get; }
+    public AsyncRelayCommand EffectLibraryTransferCommand { get; }
     public AsyncRelayCommand<RecentProjectListItem> RemoveProjectCommand { get; }
     public AsyncRelayCommand<RecentProjectListItem> ToggleProjectPinCommand { get; }
     public IReadOnlyList<RecentProjectListItem> Projects => projects;
@@ -113,6 +120,9 @@ internal sealed class WelcomeViewModel : ObservableObject, IDisposable
                 OpenProjectCommand.NotifyCanExecuteChanged();
                 OpenSelectedProjectCommand.NotifyCanExecuteChanged();
                 SettingsCommand.NotifyCanExecuteChanged();
+                StyleLibraryCommand.NotifyCanExecuteChanged();
+                EffectScriptsCommand.NotifyCanExecuteChanged();
+                EffectLibraryTransferCommand.NotifyCanExecuteChanged();
                 RemoveProjectCommand.NotifyCanExecuteChanged();
                 ToggleProjectPinCommand.NotifyCanExecuteChanged();
             }

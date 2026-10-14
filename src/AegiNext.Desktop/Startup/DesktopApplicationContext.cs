@@ -80,6 +80,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
     internal event EventHandler? ColorTagsChanged;
     internal event EventHandler? BusyChanged;
     internal event EventHandler? ErrorChanged;
+    internal event Action<PersonalLibraryKind, Exception>? LibraryOperationFailed;
     internal WorkbenchPreferencesStore PreferencesStore { get; }
     internal PersonalLibraryPaths LibraryPaths { get; }
     internal EffectLibraryRepository EffectLibrary { get; }
@@ -217,9 +218,9 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         return EnqueueLibraryOperation(operation, PersonalLibraryKind.EFFECT, true);
     }
 
-    internal Task RunEffectLibraryOperationAsync(Func<Task> operation)
+    internal Task RunEffectLibraryOperationAsync(Func<Task> operation, bool reportError = true)
     {
-        return EnqueueLibraryOperation(operation, PersonalLibraryKind.EFFECT_LIBRARY, true);
+        return EnqueueLibraryOperation(operation, PersonalLibraryKind.EFFECT_LIBRARY, true, reportError);
     }
 
     internal Task RunExportPresetOperationAsync(Func<Task> operation)
@@ -243,7 +244,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         }
     }
 
-    private Task EnqueueLibraryOperation(Func<Task> operation, PersonalLibraryKind kind, bool propagateFailure)
+    private Task EnqueueLibraryOperation(Func<Task> operation, PersonalLibraryKind kind, bool propagateFailure, bool reportError = true)
     {
         ArgumentNullException.ThrowIfNull(operation);
         lock (lifetime)
@@ -252,10 +253,10 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         }
         if (AegiTaskExecutionContext.Current is { } parent)
         {
-            return parent.RunStageAsync("Tasks.LibraryOperation", _ => ExecuteLibraryOperationAsync(operation, kind, propagateFailure),
+            return parent.RunStageAsync("Tasks.LibraryOperation", _ => ExecuteLibraryOperationAsync(operation, kind, propagateFailure, reportError),
                 [GetLibraryResource(kind)]);
         }
-        return Tasks.Submit(new PersonalLibraryTask(this, kind, operation, propagateFailure)).Completion;
+        return Tasks.Submit(new PersonalLibraryTask(this, kind, operation, propagateFailure, reportError)).Completion;
     }
 
     internal AegiTaskResource GetLibraryResource(PersonalLibraryKind kind)
@@ -346,7 +347,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         }
     }
 
-    internal async Task ExecuteLibraryOperationAsync(Func<Task> operation, PersonalLibraryKind kind, bool propagateFailure)
+    internal async Task ExecuteLibraryOperationAsync(Func<Task> operation, PersonalLibraryKind kind, bool propagateFailure, bool reportError = true)
     {
         IncrementLibraryOperations(kind, 1);
         BusyChanged?.Invoke(this, EventArgs.Empty);
@@ -407,7 +408,11 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
             {
                 SetLibraryLoadError(kind, error);
             }
-            ReportError(error);
+            if (reportError)
+            {
+                LibraryOperationFailed?.Invoke(kind, error);
+                ReportError(error);
+            }
             if (propagateFailure)
             {
                 throw;
@@ -580,5 +585,6 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         ColorTagsChanged = null;
         BusyChanged = null;
         ErrorChanged = null;
+        LibraryOperationFailed = null;
     }
 }

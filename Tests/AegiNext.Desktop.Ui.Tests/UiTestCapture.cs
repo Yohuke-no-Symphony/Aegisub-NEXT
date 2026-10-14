@@ -1,5 +1,6 @@
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Settings;
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.Views;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -42,7 +43,9 @@ internal static class UiTestCapture
         Directory.CreateDirectory(directory);
         main.GetCommand(AegiNext.Desktop.Shortcuts.WorkbenchCommand.OPEN_SETTINGS).Execute(null);
         var settings = Assert.Single(main.OwnedWindows.OfType<SettingsWindow>());
-        settings.UpdateStyles([new SubtitleStylePreset(Guid.NewGuid(), "Review subtitle", new() { FontSize = 48 })]);
+        main.GetCommand(AegiNext.Desktop.Shortcuts.WorkbenchCommand.OPEN_STYLE_LIBRARY).Execute(null);
+        var library = Assert.Single(main.OwnedWindows.OfType<EffectLibraryWindow>());
+        library.UpdateStyles([new SubtitleStylePreset(Guid.NewGuid(), "Review subtitle", new() { FontSize = 48 })]);
         foreach (var (themeIndex, languageID, suffix) in new[] { (1, "en-US", "light-en-US"), (2, "zh-CN", "dark-zh-CN") })
         {
             settings.SelectPage(SettingsPage.APPEARANCE);
@@ -53,6 +56,11 @@ internal static class UiTestCapture
             {
                 settings.SelectPage(page);
                 Capture(settings, directory, $"headless-settings-{page.ToString().ToLowerInvariant()}-{suffix}.png");
+            }
+            foreach (var page in Enum.GetValues<EffectLibraryPage>())
+            {
+                library.SelectPage(page);
+                Capture(library, directory, $"headless-effect-library-{page.ToString().ToLowerInvariant()}-{suffix}.png");
             }
         }
     }

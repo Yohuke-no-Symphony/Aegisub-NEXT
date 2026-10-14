@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Windows.Input;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Menus;
@@ -22,6 +23,7 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
     private readonly Action shutdown;
     private readonly DesktopApplicationContext context;
     private readonly SettingsWindowCoordinator settings;
+    private readonly EffectLibraryWindowCoordinator effectLibrary;
     private readonly UpdateWindowCoordinator updates;
     private readonly IWorkbenchDialogService dialogs;
     private readonly Func<IWorkbenchDialogService, DesktopApplicationContext, WorkbenchSession> sessionFactory;
@@ -58,9 +60,10 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         this.context = context ?? new();
         this.sessionFactory = sessionFactory ?? ((service, applicationContext) => new(service, applicationContext: applicationContext));
         settings = new(this.context, requestApplicationExit: RequestApplicationExit);
+        effectLibrary = new(this.context);
         updates = new(this.context.Updates, () => this.context.Preferences);
         var viewModel = new WelcomeViewModel(this.context.RecentProjects,
-            () => BeginOpen(true, null), path => BeginOpen(false, path), OpenSettingsAsync);
+            () => BeginOpen(true, null), path => BeginOpen(false, path), OpenSettingsAsync, OpenEffectLibraryAsync);
         WelcomeWindow = new(viewModel);
         activeWindow = WelcomeWindow;
         this.dialogs = dialogs ?? new WindowWorkbenchDialogService(() => activeWindow,
@@ -115,7 +118,7 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
     private Task BeginOpen(bool create, string? path)
     {
         if (closing || MainWindow is not null || WelcomeWindow.ViewModel.IsBusy ||
-            WelcomeWindow.OwnedWindows.Any(window => window.IsVisible && window is not UpdateCheckWindow))
+            WelcomeWindow.OwnedWindows.Any(window => window.IsVisible && window is not (UpdateCheckWindow or EffectLibraryWindow)))
         {
             return Task.CompletedTask;
         }
@@ -132,6 +135,17 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         MainWindow? pendingWindow = null;
         try
         {
+            if (effectLibrary.Window is { } library)
+            {
+                library.Close();
+                await library.CloseCompletion;
+                if (library.IsVisible)
+                {
+                    return;
+                }
+                await effectLibrary.TransferCompletion;
+                await effectLibrary.DeletionCompletion;
+            }
             ProjectOpenResult? result = null;
             if (create)
             {
@@ -256,6 +270,24 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         await settings.OpenAsync(WelcomeWindow, modal: true);
     }
 
+    private async Task OpenEffectLibraryAsync(EffectLibraryPage page)
+    {
+        if (closing)
+        {
+            return;
+        }
+        if (MainWindow is { } window)
+        {
+            await window.Session.RequestEffectLibraryAsync(page);
+            return;
+        }
+        await context.Initialization;
+        if (!closing)
+        {
+            await effectLibrary.OpenAsync(WelcomeWindow, page: page);
+        }
+    }
+
     private void RegisterAuxiliaryWindow(Window window)
     {
         MainWindow?.WindowRegistry.RegisterAuxiliary(window);
@@ -266,6 +298,9 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         WorkbenchCommand.NEW_PROJECT => WelcomeWindow.ViewModel.NewProjectCommand,
         WorkbenchCommand.OPEN_PROJECT => WelcomeWindow.ViewModel.OpenProjectCommand,
         WorkbenchCommand.OPEN_SETTINGS => WelcomeWindow.ViewModel.SettingsCommand,
+        WorkbenchCommand.OPEN_STYLE_LIBRARY => WelcomeWindow.ViewModel.StyleLibraryCommand,
+        WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY => WelcomeWindow.ViewModel.EffectScriptsCommand,
+        WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER => WelcomeWindow.ViewModel.EffectLibraryTransferCommand,
         WorkbenchCommand.EXIT => exitCommand,
         _ => unavailableCommand
     };
@@ -289,7 +324,7 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
 
     private void OnKeyDown(object? sender, KeyEventArgs e)
     {
-        if (e.Handled || closing || WelcomeWindow.OwnedWindows.Any(window => window.IsVisible && window is not UpdateCheckWindow) ||
+        if (e.Handled || closing || WelcomeWindow.OwnedWindows.Any(window => window.IsVisible && window is not (UpdateCheckWindow or EffectLibraryWindow)) ||
             WelcomeWindow.GetVisualDescendants().OfType<Control>().Any(control =>
                 control.ContextMenu?.IsOpen == true || control.ContextFlyout?.IsOpen == true ||
                 control is Popup { IsOpen: true } || control is MenuBase { IsOpen: true }))
@@ -389,10 +424,24 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         }
     }
 
-    private Task RequestShutdownAsync()
+    private async Task RequestShutdownAsync()
     {
+        if (shutdownTask is not null)
+        {
+            await shutdownTask;
+            return;
+        }
+        if (effectLibrary.Window is { } library)
+        {
+            library.Close();
+            await library.CloseCompletion;
+            if (library.IsVisible)
+            {
+                return;
+            }
+        }
         shutdownTask ??= ShutdownCoreAsync();
-        return shutdownTask;
+        await shutdownTask;
     }
 
     private async Task ShutdownCoreAsync()
@@ -421,6 +470,9 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         {
             await updateCheck;
         }
+        effectLibrary.Dispose();
+        await effectLibrary.TransferCompletion;
+        await effectLibrary.DeletionCompletion;
         settings.Dispose();
         await settings.TransferCompletion;
         await operation;

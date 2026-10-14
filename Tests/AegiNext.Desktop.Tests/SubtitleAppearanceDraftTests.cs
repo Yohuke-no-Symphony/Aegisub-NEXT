@@ -1,7 +1,7 @@
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -51,7 +51,7 @@ public sealed class SubtitleAppearanceDraftTests
         {
             LetterSpacing = 2, FillBlur = 3, StrokeBlur = 4, WrapMode = SubtitleWrapMode.NATURAL
         });
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([preset]);
         model.SelectedStyle = preset;
         model.LetterSpacingText = "-5";

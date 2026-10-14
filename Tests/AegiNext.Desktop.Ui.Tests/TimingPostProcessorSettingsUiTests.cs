@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Collections.Specialized;
 using System.Globalization;
 using AegiNext.Application;
@@ -318,6 +319,7 @@ public sealed class TimingPostProcessorSettingsUiTests
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { Language = "en-US" });
         using var coordinator = new SettingsWindowCoordinator(context);
+        using var libraryCoordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
         var original = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontSize = 41 })
         {
@@ -333,6 +335,8 @@ public sealed class TimingPostProcessorSettingsUiTests
             owner.Show();
             await coordinator.OpenAsync(owner, page: SettingsPage.TIMING_POST_PROCESSOR);
             var window = Assert.IsType<SettingsWindow>(coordinator.Window);
+            await libraryCoordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
+            var library = Assert.IsType<EffectLibraryWindow>(libraryCoordinator.Window);
             var capturedVisualDraft = original with { Name = "Updated 中文 ABC 123", Style = original.Style with { FontSize = 48 } };
             var blocked = context.RunStyleOperationAsync(async () =>
             {
@@ -341,7 +345,7 @@ public sealed class TimingPostProcessorSettingsUiTests
             });
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var association = context.RunStyleOperationAsync(() => context.StyleLibrary.SetTimingPostProcessorAsync([original.Id], updatedOptions));
-            var saveDraft = Assert.IsType<Func<SubtitleStylePreset, Task<bool>>>(window.ViewModel.Styles.SaveDraftAsync);
+            var saveDraft = Assert.IsType<Func<SubtitleStylePreset, Task<bool>>>(library.ViewModel.Styles.SaveDraftAsync);
             var visualSave = saveDraft(capturedVisualDraft);
             Assert.False(association.IsCompleted);
             Assert.False(visualSave.IsCompleted);
@@ -362,6 +366,7 @@ public sealed class TimingPostProcessorSettingsUiTests
         finally
         {
             release.TrySetResult();
+            libraryCoordinator.Dispose();
             coordinator.Close();
             await coordinator.TimingCompletion;
             owner.Close();
@@ -416,6 +421,7 @@ public sealed class TimingPostProcessorSettingsUiTests
         using var environment = new UiTestEnvironment();
         var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { Language = "en-US" });
         using var coordinator = new SettingsWindowCoordinator(context);
+        using var libraryCoordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontSize = 41 });
         try
@@ -425,7 +431,9 @@ public sealed class TimingPostProcessorSettingsUiTests
             owner.Show();
             await coordinator.OpenAsync(owner, page: SettingsPage.TIMING_POST_PROCESSOR);
             var window = Assert.IsType<SettingsWindow>(coordinator.Window);
-            var styleModel = window.ViewModel.Styles;
+            await libraryCoordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
+            var library = Assert.IsType<EffectLibraryWindow>(libraryCoordinator.Window);
+            var styleModel = library.ViewModel.Styles;
             styleModel.Name = "Unsaved 自定义 中文 ABC 123";
             styleModel.FontSizeText = "invalid draft";
             var timingModel = window.ViewModel.TimingPostProcessor;
@@ -437,9 +445,9 @@ public sealed class TimingPostProcessorSettingsUiTests
             Assert.Equal("Unsaved 自定义 中文 ABC 123", styleModel.Name);
             Assert.Equal("invalid draft", styleModel.FontSizeText);
             Assert.Equal(timingModel.Options, Assert.Single(context.StyleLibrary.Snapshot.Presets).TimingPostProcessor);
-            window.SelectPage(SettingsPage.STYLES);
+            library.SelectPage(EffectLibraryPage.STYLES);
             styleModel.FontSizeText = "48";
-            UiTestActions.Click(window, "SaveStyleButton");
+            UiTestActions.Click(library, "SaveStyleButton");
             await context.Completion;
             var saved = Assert.Single(context.StyleLibrary.Snapshot.Presets);
             Assert.Equal("Unsaved 自定义 中文 ABC 123", saved.Name);
@@ -448,6 +456,7 @@ public sealed class TimingPostProcessorSettingsUiTests
         }
         finally
         {
+            libraryCoordinator.Dispose();
             coordinator.Close();
             await coordinator.TimingCompletion;
             owner.Close();

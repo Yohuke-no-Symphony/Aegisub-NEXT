@@ -4,6 +4,7 @@ using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.I18n;
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.Menus;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
@@ -19,6 +20,63 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class MainWorkspaceIntegrationUiTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LibraryMenusAndBothPanelsReuseOneWindowAlongsideSettings(bool windowMenu)
+    {
+        await using var context = new MainWindowTestContext();
+        var main = context.Window;
+        await main.Session.ApplicationContext.Initialization;
+        main.Session.UpdatePreferences(main.Session.Preferences with { WindowMenuOnMac = windowMenu });
+        await main.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
+        var settings = Assert.Single(main.OwnedWindows.OfType<SettingsWindow>());
+        EffectLibraryWindow? library = null;
+        foreach (var (command, page) in new[]
+                 {
+                     (WorkbenchCommand.OPEN_STYLE_LIBRARY, EffectLibraryPage.STYLES),
+                     (WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY, EffectLibraryPage.EFFECTS),
+                     (WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER, EffectLibraryPage.TRANSFER)
+                 })
+        {
+            var title = UiTestActions.Find<WindowTitleBar>(main, "TitleBar");
+            if (title.MenuContent is WindowMenuBar menuBar)
+            {
+                var menu = Assert.IsType<Menu>(menuBar.Content);
+                Assert.Single(MenuLeaves(menu.Items.OfType<MenuItem>()), item =>
+                    ReferenceEquals(item.Command, main.GetCommand(command)));
+            }
+            else
+            {
+                Assert.Single(NativeLeaves(Assert.IsType<NativeMenu>(NativeMenu.GetMenu(main))), item =>
+                    ReferenceEquals(item.Command, main.GetCommand(command)));
+            }
+            await main.ViewModel.ExecuteCommandAsync(command);
+            var opened = Assert.Single(main.OwnedWindows.OfType<EffectLibraryWindow>());
+            if (library is not null)
+            {
+                Assert.Same(library, opened);
+            }
+            library = opened;
+            Assert.Equal(page, library.CurrentPage);
+            Assert.True(settings.IsVisible);
+        }
+        Assert.NotNull(library);
+        await UiTestActions.CreateSubtitleAsync(context);
+        main.Layouts.Show(WorkbenchPanelIds.STYLES);
+        UiTestActions.Click(main, "ManageStylesButton");
+        await library.ViewModel.NavigationCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Same(library, Assert.Single(main.OwnedWindows.OfType<EffectLibraryWindow>()));
+        Assert.Equal(EffectLibraryPage.STYLES, library.CurrentPage);
+        main.Layouts.Show(WorkbenchPanelIds.EFFECT_PRESETS);
+        UiTestActions.Click(main, "ManageEffectScriptsButton");
+        await library.ViewModel.NavigationCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Same(library, Assert.Single(main.OwnedWindows.OfType<EffectLibraryWindow>()));
+        Assert.Equal(EffectLibraryPage.EFFECTS, library.CurrentPage);
+        Assert.Single(main.OwnedWindows.OfType<SettingsWindow>());
+        Assert.True(settings.IsVisible);
+    }
+
     [AvaloniaFact]
     public async Task MainLayoutRoundTripKeepsEveryViewModelControllerAndPlaybackPosition()
     {
@@ -164,8 +222,10 @@ public sealed class MainWorkspaceIntegrationUiTests
         var floating = Assert.Single(main.Layouts.FloatingWindows);
         await main.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
         var settings = Assert.Single(main.OwnedWindows.OfType<SettingsWindow>());
-        var windows = new Window[] { main, floating, settings };
-        Assert.Equal(3, main.WindowRegistry.Windows.Count);
+        await main.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_STYLE_LIBRARY);
+        var library = Assert.Single(main.OwnedWindows.OfType<EffectLibraryWindow>());
+        var windows = new Window[] { main, floating, settings, library };
+        Assert.Equal(4, main.WindowRegistry.Windows.Count);
         Assert.Single(settings.GetLogicalDescendants().OfType<WindowTitleBar>());
         var nativeRoots = windows.ToDictionary(window => window,
             window => Assert.IsType<NativeMenu>(NativeMenu.GetMenu(window)));
@@ -179,6 +239,7 @@ public sealed class MainWorkspaceIntegrationUiTests
             Assert.True(main.Session.Preferences.WindowMenuOnMac);
             Assert.Equal(languageID, main.Session.Preferences.Language);
             Assert.Equal(Localization.Get("Settings.Settings"), settings.Title);
+            Assert.Equal(Localization.Get("EffectLibrary.Title"), library.Title);
             Assert.Equal(Localization.Get("Layout." + WorkbenchPanelIds.PREVIEW),
                 main.Layouts.PanelAdapters[WorkbenchPanelIds.PREVIEW].Title);
             foreach (var window in windows)
@@ -234,34 +295,34 @@ public sealed class MainWorkspaceIntegrationUiTests
     }
 
     [AvaloniaFact]
-    public async Task SettingsStyleSaveReenablesPageAfterAwaitedLibraryOperationAndAllowsAnotherEdit()
+    public async Task LibraryStyleSaveReenablesPageAfterAwaitedLibraryOperationAndAllowsAnotherEdit()
     {
         await using var context = new MainWindowTestContext();
         var main = context.Window;
         await main.Session.Styles.Completion;
-        await main.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
-        var settings = Assert.Single(main.OwnedWindows.OfType<SettingsWindow>());
-        settings.SelectPage(SettingsPage.STYLES);
-        UiTestActions.Click(settings, "AddStyleButton");
-        await settings.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
-        UiTestActions.SetText(UiTestActions.Find<TextBox>(settings, "StyleNameInput"), "Saved from actual settings");
-        UiTestActions.Click(settings, "SaveStyleButton");
-        await settings.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
-        Flush(settings);
+        await main.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_STYLE_LIBRARY);
+        var library = Assert.Single(main.OwnedWindows.OfType<EffectLibraryWindow>());
+        library.SelectPage(EffectLibraryPage.STYLES);
+        UiTestActions.Click(library, "AddStyleButton");
+        await library.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+        UiTestActions.SetText(UiTestActions.Find<TextBox>(library, "StyleNameInput"), "Saved from actual library");
+        UiTestActions.Click(library, "SaveStyleButton");
+        await library.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+        Flush(library);
 
-        Assert.Equal("Saved from actual settings", Assert.Single(main.Session.StyleLibrary.Snapshot.Presets).Name);
-        Assert.False(settings.ViewModel.Styles.IsBusy);
-        Assert.True(UiTestActions.Find<Button>(settings, "DuplicateStyleButton").IsEffectivelyEnabled);
-        UiTestActions.Click(settings, "DuplicateStyleButton");
-        await settings.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
-        UiTestActions.SetText(UiTestActions.Find<TextBox>(settings, "StyleNameInput"), "Second saved style");
-        UiTestActions.Click(settings, "SaveStyleButton");
-        await settings.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
-        Flush(settings);
+        Assert.Equal("Saved from actual library", Assert.Single(main.Session.StyleLibrary.Snapshot.Presets).Name);
+        Assert.False(library.ViewModel.Styles.IsBusy);
+        Assert.True(UiTestActions.Find<Button>(library, "DuplicateStyleButton").IsEffectivelyEnabled);
+        UiTestActions.Click(library, "DuplicateStyleButton");
+        await library.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+        UiTestActions.SetText(UiTestActions.Find<TextBox>(library, "StyleNameInput"), "Second saved style");
+        UiTestActions.Click(library, "SaveStyleButton");
+        await library.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+        Flush(library);
 
         Assert.Equal(2, main.Session.StyleLibrary.Snapshot.Presets.Length);
-        Assert.False(settings.ViewModel.Styles.IsBusy);
-        Assert.True(UiTestActions.Find<Button>(settings, "SaveStyleButton").IsEffectivelyEnabled);
+        Assert.False(library.ViewModel.Styles.IsBusy);
+        Assert.True(UiTestActions.Find<Button>(library, "SaveStyleButton").IsEffectivelyEnabled);
     }
 
     private static TextBox FindRowInput(Control panel, SubtitleRow row, int column)

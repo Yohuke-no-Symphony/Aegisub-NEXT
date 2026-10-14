@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
@@ -62,7 +63,8 @@ public sealed class EffectScriptErrorLogUiTests
         Assert.Equal(WorkbenchLogLevel.ERROR, entry.Level);
         Assert.Contains("EffectScriptException", entry.Details);
         Assert.Contains(model.Error!, entry.Details!);
-        Assert.False(settings.ViewModel.HasError);
+        Assert.True(settings.ViewModel.HasError);
+        Assert.Equal(model.Error, settings.ViewModel.Error);
         AssertErrorVisible(context, entry);
         Assert.Same(host, TopLevel.GetTopLevel(log));
         var expander = Assert.Single(log.GetVisualDescendants().OfType<Expander>(), control => control.IsVisible);
@@ -72,10 +74,10 @@ public sealed class EffectScriptErrorLogUiTests
             Capture(context.Window, "script-validation-error-log.png");
             Capture(settings, "script-validation-error-retained-draft.png");
         }
-        settings.SelectPage(SettingsPage.APPEARANCE);
+        settings.SelectPage(EffectLibraryPage.TRANSFER);
         UiTestActions.Click(Assert.Single(settings.OwnedWindows), "CancelButton");
         await settings.ViewModel.NavigationCompletion;
-        Assert.Equal(SettingsPage.EFFECTS, settings.CurrentPage);
+        Assert.Equal(EffectLibraryPage.EFFECTS, settings.CurrentPage);
         settings.RefreshLanguage();
         Assert.Equal("effect broken\n", model.Source);
         Assert.Single(context.Session.Journal.Entries);
@@ -132,7 +134,8 @@ public sealed class EffectScriptErrorLogUiTests
         Flush(context.Window);
         Assert.False(context.Window.Layouts.IsVisible(WorkbenchPanelIds.LOG));
         Assert.True(settings.IsVisible);
-        Assert.Equal("Other workflow failed", settings.ViewModel.Error);
+        Assert.Null(settings.ViewModel.Error);
+        Assert.False(settings.ViewModel.HasError);
         Assert.Single(context.Session.Journal.Entries, item => item.Level == WorkbenchLogLevel.ERROR);
     }
 
@@ -187,11 +190,11 @@ public sealed class EffectScriptErrorLogUiTests
         Assert.False(context.Window.Layouts.IsVisible(WorkbenchPanelIds.LOG));
     }
 
-    private static async Task<SettingsWindow> OpenSettingsAsync(MainWindowTestContext context)
+    private static async Task<EffectLibraryWindow> OpenSettingsAsync(MainWindowTestContext context)
     {
-        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
-        var settings = Assert.Single(context.Window.OwnedWindows.OfType<SettingsWindow>());
-        settings.SelectPage(SettingsPage.EFFECTS);
+        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY);
+        var settings = Assert.Single(context.Window.OwnedWindows.OfType<EffectLibraryWindow>());
+        settings.SelectPage(EffectLibraryPage.EFFECTS);
         return settings;
     }
 

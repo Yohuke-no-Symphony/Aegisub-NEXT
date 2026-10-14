@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Settings;
@@ -18,9 +19,9 @@ public sealed class EffectLibraryIntegrationUiTests
         context.Session.SelectCue(cueId);
         await context.Session.EffectScripts.Completion;
         var original = context.Session.DocumentSnapshot;
-        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
-        var settings = Assert.Single(context.Window.OwnedWindows.OfType<SettingsWindow>());
-        settings.SelectPage(SettingsPage.EFFECTS);
+        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY);
+        var settings = Assert.Single(context.Window.OwnedWindows.OfType<EffectLibraryWindow>());
+        settings.SelectPage(EffectLibraryPage.EFFECTS);
         UiTestActions.Click(settings, "AddEffectScriptButton");
         settings.ViewModel.Effects.Name = "Personal pairs";
         settings.ViewModel.Effects.Source = """
@@ -70,9 +71,9 @@ public sealed class EffectLibraryIntegrationUiTests
         await UiTestActions.CreateSubtitleAsync(context);
         await context.Session.EffectScripts.Completion;
         var original = context.Session.DocumentSnapshot;
-        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
-        var settings = Assert.Single(context.Window.OwnedWindows.OfType<SettingsWindow>());
-        settings.SelectPage(SettingsPage.EFFECTS);
+        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY);
+        var settings = Assert.Single(context.Window.OwnedWindows.OfType<EffectLibraryWindow>());
+        settings.SelectPage(EffectLibraryPage.EFFECTS);
         UiTestActions.Click(settings, "AddEffectScriptButton");
         settings.ViewModel.Effects.Name = "Personal timing script";
         var source = settings.ViewModel.Effects.Source;
@@ -96,9 +97,9 @@ public sealed class EffectLibraryIntegrationUiTests
         Assert.Equal(layer.End - layer.Start + layer.AnimationOffset, track.Keyframes[^1].Time);
         context.Session.Editor.Undo();
         Assert.Same(original, context.Session.DocumentSnapshot);
-        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
-        var reopened = Assert.Single(context.Window.OwnedWindows.OfType<SettingsWindow>());
-        reopened.SelectPage(SettingsPage.EFFECTS);
+        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY);
+        var reopened = Assert.Single(context.Window.OwnedWindows.OfType<EffectLibraryWindow>());
+        reopened.SelectPage(EffectLibraryPage.EFFECTS);
         Assert.Contains(reopened.ViewModel.Effects.Effects, item => item.Id == preset.Id);
     }
 
@@ -108,9 +109,9 @@ public sealed class EffectLibraryIntegrationUiTests
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
-        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_SETTINGS);
-        var settings = Assert.Single(context.Window.OwnedWindows.OfType<SettingsWindow>());
-        settings.SelectPage(SettingsPage.EFFECTS);
+        await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY);
+        var settings = Assert.Single(context.Window.OwnedWindows.OfType<EffectLibraryWindow>());
+        settings.SelectPage(EffectLibraryPage.EFFECTS);
         UiTestActions.Click(settings, "AddEffectScriptButton");
         var valid = settings.ViewModel.Effects.Source;
         var original = context.Session.DocumentSnapshot;

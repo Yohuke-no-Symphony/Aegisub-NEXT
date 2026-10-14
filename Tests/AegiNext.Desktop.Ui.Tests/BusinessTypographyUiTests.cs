@@ -5,6 +5,7 @@ using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Desktop.Views;
 using AegiNext.Desktop.I18n;
+using AegiNext.Desktop.EffectLibrary;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Headless.XUnit;
@@ -109,6 +110,7 @@ public sealed class BusinessTypographyUiTests
     {
         using var environment = new UiTestEnvironment();
         var window = new SettingsWindow(new());
+        var library = new EffectLibraryWindow(new());
         try
         {
             window.Show();
@@ -117,14 +119,15 @@ public sealed class BusinessTypographyUiTests
             AssertInput(accent.FindControl<TextBox>("ColorInput")!);
             window.SelectPage(SettingsPage.SHORTCUTS);
             AssertInput(UiTestActions.Find<TextBox>(window, "GestureInput"));
-            window.UpdateStyles([new(Guid.NewGuid(), "Typography 中文 123", new())]);
-            window.SelectPage(SettingsPage.STYLES);
-            AssertInput(UiTestActions.Find<TextBox>(window, "StyleNameInput"));
-            var size = UiTestActions.Find<NumericDraftInput>(window, "FontSizeInput");
+            library.Show();
+            library.UpdateStyles([new(Guid.NewGuid(), "Typography 中文 123", new())]);
+            library.SelectPage(EffectLibraryPage.STYLES);
+            AssertInput(UiTestActions.Find<TextBox>(library, "StyleNameInput"));
+            var size = UiTestActions.Find<NumericDraftInput>(library, "FontSizeInput");
             AssertInput(Assert.Single(size.GetVisualDescendants().OfType<TextBox>()));
-            window.SelectPage(SettingsPage.EFFECTS);
-            AssertInput(UiTestActions.Find<TextBox>(window, "EffectScriptNameInput"));
-            var script = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
+            library.SelectPage(EffectLibraryPage.EFFECTS);
+            AssertInput(UiTestActions.Find<TextBox>(library, "EffectScriptNameInput"));
+            var script = UiTestActions.Find<TextBox>(library, "ScriptTextInput");
             Assert.Equal(VerticalAlignment.Top, script.VerticalContentAlignment);
             Assert.Contains(script.FontFamily.Name, monospaceFamilies);
             Assert.DoesNotContain("PingFang", script.FontFamily.Name, StringComparison.Ordinal);
@@ -138,6 +141,7 @@ public sealed class BusinessTypographyUiTests
         }
         finally
         {
+            library.Close();
             window.Close();
         }
     }

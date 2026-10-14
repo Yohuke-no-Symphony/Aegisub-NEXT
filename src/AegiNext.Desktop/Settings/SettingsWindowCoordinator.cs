@@ -1,17 +1,12 @@
 using System.Collections.Immutable;
 using System.ComponentModel;
-using AegiNext.Application.Tasks;
 using AegiNext.Application.ColorTags;
-using AegiNext.Core.Effects;
 using AegiNext.Core.Presets;
-using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Layouts;
-using AegiNext.Desktop.Settings.Effects;
 using AegiNext.Desktop.Settings.Export;
 using AegiNext.Desktop.Settings.Projects;
-using AegiNext.Desktop.Settings.Presets;
 using AegiNext.Desktop.Settings.Preview;
 using AegiNext.Desktop.Settings.Tasks;
 using AegiNext.Desktop.Settings.AudioAnalysis;
@@ -38,15 +33,10 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
     private SettingsExportPresetCoordinator? exportPresets;
     private SettingsTransferCoordinator? transfer;
     private Task closedTransferCompletion = Task.CompletedTask;
-    private CancellationTokenSource? deletionCancellation;
-    private bool deletionActive;
-    private readonly HashSet<AegiTaskHandle> libraryTasks = [];
     internal Task ExportCompletion => exportPresets?.Completion ?? Task.CompletedTask;
     internal Task TransferCompletion => Task.WhenAll(closedTransferCompletion, transfer?.Completion ?? Task.CompletedTask);
     internal Task TimingCompletion { get; private set; } = Task.CompletedTask;
-    internal Task DeletionCompletion { get; private set; } = Task.CompletedTask;
 
-    internal event Action<WorkbenchLogEntry>? EffectScriptErrorReported;
     internal SettingsWindow? Window { get; private set; }
 
     internal Task OpenAsync(Window owner, WorkbenchSession? session = null, SettingsPage? page = null,
@@ -66,23 +56,17 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         }
 
         var window = new SettingsWindow(applicationContext.Preferences);
-        window.ViewModel.Styles.SetFonts(applicationContext.Fonts);
         Window = window;
         this.session = session;
         presentedPreferences = applicationContext.Preferences;
         dialogs = createDialogs?.Invoke(window) ?? new WindowWorkbenchDialogService(window);
-        deletionCancellation = new();
         try
         {
             Subscribe(window);
             exportPresets = new(applicationContext, window, dialogs, session);
             transfer = new(applicationContext, window, dialogs, captureLayout, requestApplicationExit);
-            window.ViewModel.Styles.SetPositionMeasurement((preset, text) => session is null
-                ? MeasureDefaultPosition(preset, text)
-                : session.MeasureStylePosition(preset, text));
             window.UpdateShortcuts(applicationContext.Preferences.ShortcutBindings);
             window.UpdateStyles(applicationContext.StyleLibrary.Snapshot.Presets);
-            window.UpdateEffects(applicationContext.EffectScriptLibrary.Snapshot.Presets);
             window.ViewModel.ColorTags.UpdateLibrary(applicationContext.ColorTagLibrary.Snapshot);
             RefreshAvailability();
             RefreshMediaSettings();
@@ -110,7 +94,6 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         }
         catch
         {
-            CancelDeletion();
             DisposeTransfer();
             exportPresets?.Dispose();
             exportPresets = null;
@@ -140,27 +123,19 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         }
 
         disposed = true;
-        CancelDeletion();
         DisposeTransfer();
         exportPresets?.Dispose();
         Window?.CloseImmediately();
-        EffectScriptErrorReported = null;
     }
 
     private void Subscribe(SettingsWindow window)
     {
-        window.ViewModel.Styles.SaveDraftAsync = preset => RunAsync(() => SaveStylePresetAsync(preset));
-        window.ViewModel.Effects.SaveDraftAsync = preset => RunAsync(() =>
-            applicationContext.RunEffectOperationAsync(() => applicationContext.EffectScriptLibrary.UpsertAsync(preset)), true);
-        window.ViewModel.Styles.ConfirmLeaveAsync = () => dialogs!.ConfirmPresetChangesAsync(false);
-        window.ViewModel.Effects.ConfirmLeaveAsync = () => dialogs!.ConfirmPresetChangesAsync(true);
         window.ViewModel.ColorTags.SaveDraftAsync = async (document, expected) =>
             await RunAsync(() => SaveColorTagsAsync(document, expected, window))
                 ? applicationContext.ColorTagLibrary.Snapshot : null;
         window.ViewModel.ColorTags.ConfirmLeaveAsync = () => dialogs!.ConfirmColorTagChangesAsync();
         applicationContext.PreferencesChanged += OnPreferencesChanged;
         applicationContext.StylesChanged += OnStylesChanged;
-        applicationContext.EffectsChanged += OnEffectsChanged;
         applicationContext.ColorTagsChanged += OnColorTagsChanged;
         applicationContext.BusyChanged += OnBusyChanged;
         applicationContext.ErrorChanged += OnErrorChanged;
@@ -178,41 +153,20 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         window.TimingPreferencesChanged += OnTimingPreferencesChanged;
         window.TimingAssociateRequested += OnTimingAssociationRequested;
         window.TimingUnlinkRequested += OnTimingAssociationRequested;
-        window.UpsertStyleRequested += OnUpsertStyleRequested;
-        window.DeleteStyleRequested += OnDeleteStyleRequested;
-        window.CaptureStyleRequested += OnCaptureStyleRequested;
-        window.ApplyStyleRequested += OnApplyStyleRequested;
-        window.ImportStylesRequested += OnImportStylesRequested;
-        window.ExportStylesRequested += OnExportStylesRequested;
-        window.EffectValidationFailed += OnEffectValidationFailed;
-        window.UpsertEffectRequested += OnUpsertEffectRequested;
-        window.DeleteEffectRequested += OnDeleteEffectRequested;
-        window.ImportEffectRequested += OnImportEffectRequested;
-        window.ExportEffectRequested += OnExportEffectRequested;
         window.Closed += OnWindowClosed;
         if (session is { } active)
         {
             active.PreviewDecodeModeChanged += OnSessionPreviewDecodeModeChanged;
             active.AudioClockChanged += OnSessionPreviewDecodeModeChanged;
-            active.SelectionChanged += OnSelectionChanged;
-            active.Styles.BusyChanged += OnBusyChanged;
-            active.StyleLibraryChanged += OnBusyChanged;
-            active.EffectLibraryChanged += OnBusyChanged;
-            active.ViewModel.PropertyChanged += OnSessionStateChanged;
         }
     }
 
     private void Unsubscribe(SettingsWindow window)
     {
-        window.ViewModel.Styles.SaveDraftAsync = null;
-        window.ViewModel.Effects.SaveDraftAsync = null;
-        window.ViewModel.Styles.ConfirmLeaveAsync = null;
-        window.ViewModel.Effects.ConfirmLeaveAsync = null;
         window.ViewModel.ColorTags.SaveDraftAsync = null;
         window.ViewModel.ColorTags.ConfirmLeaveAsync = null;
         applicationContext.PreferencesChanged -= OnPreferencesChanged;
         applicationContext.StylesChanged -= OnStylesChanged;
-        applicationContext.EffectsChanged -= OnEffectsChanged;
         applicationContext.ColorTagsChanged -= OnColorTagsChanged;
         applicationContext.BusyChanged -= OnBusyChanged;
         applicationContext.ErrorChanged -= OnErrorChanged;
@@ -230,27 +184,11 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         window.TimingPreferencesChanged -= OnTimingPreferencesChanged;
         window.TimingAssociateRequested -= OnTimingAssociationRequested;
         window.TimingUnlinkRequested -= OnTimingAssociationRequested;
-        window.UpsertStyleRequested -= OnUpsertStyleRequested;
-        window.DeleteStyleRequested -= OnDeleteStyleRequested;
-        window.CaptureStyleRequested -= OnCaptureStyleRequested;
-        window.ApplyStyleRequested -= OnApplyStyleRequested;
-        window.ImportStylesRequested -= OnImportStylesRequested;
-        window.ExportStylesRequested -= OnExportStylesRequested;
-        window.EffectValidationFailed -= OnEffectValidationFailed;
-        window.UpsertEffectRequested -= OnUpsertEffectRequested;
-        window.DeleteEffectRequested -= OnDeleteEffectRequested;
-        window.ImportEffectRequested -= OnImportEffectRequested;
-        window.ExportEffectRequested -= OnExportEffectRequested;
         window.Closed -= OnWindowClosed;
         if (session is { } active)
         {
             active.PreviewDecodeModeChanged -= OnSessionPreviewDecodeModeChanged;
             active.AudioClockChanged -= OnSessionPreviewDecodeModeChanged;
-            active.SelectionChanged -= OnSelectionChanged;
-            active.Styles.BusyChanged -= OnBusyChanged;
-            active.StyleLibraryChanged -= OnBusyChanged;
-            active.EffectLibraryChanged -= OnBusyChanged;
-            active.ViewModel.PropertyChanged -= OnSessionStateChanged;
         }
     }
 
@@ -258,7 +196,6 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
     {
         if (sender is SettingsWindow window && ReferenceEquals(Window, window))
         {
-            CancelDeletion();
             DisposeTransfer();
             exportPresets?.Dispose();
             exportPresets = null;
@@ -282,18 +219,6 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         }
     }
 
-    private void CancelDeletion()
-    {
-        deletionCancellation?.Cancel();
-        foreach (var task in libraryTasks.ToArray())
-        {
-            task.RequestCancel();
-        }
-        deletionCancellation?.Dispose();
-        deletionCancellation = null;
-        deletionActive = false;
-    }
-
     private void OnPreferencesChanged(object? sender, EventArgs e)
     {
         var current = applicationContext.Preferences;
@@ -310,11 +235,6 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
     {
         Window?.UpdateStyles(applicationContext.StyleLibrary.Snapshot.Presets);
         RefreshTimingStyles();
-    }
-
-    private void OnEffectsChanged(object? sender, EventArgs e)
-    {
-        Window?.UpdateEffects(applicationContext.EffectScriptLibrary.Snapshot.Presets);
     }
 
     private void OnColorTagsChanged(object? sender, EventArgs e) =>
@@ -344,33 +264,12 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         Window?.ShowError(applicationContext.LastError?.Message);
     }
 
-    private void OnSelectionChanged(object? sender, EventArgs e)
-    {
-        RefreshAvailability();
-    }
-
-    private void OnSessionStateChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(WorkbenchViewModel.IsBusy))
-        {
-            RefreshAvailability();
-        }
-        else if (e.PropertyName == nameof(WorkbenchViewModel.Error))
-        {
-            Window?.ShowError(session?.ViewModel.Error);
-        }
-    }
-
     private void RefreshAvailability()
     {
-        var projectBusy = session is { } active && (active.IsProjectBusy || active.IsClosing);
-        Window?.SetStyleOperationBusy(deletionActive || applicationContext.StylesBusy || projectBusy || session?.Styles.IsBusy == true);
-        Window?.SetEffectOperationBusy(deletionActive || applicationContext.EffectsBusy || projectBusy || session?.EffectScripts.IsBusy == true);
         if (Window is { } window)
         {
             window.ViewModel.ColorTags.IsBusy = applicationContext.ColorTagsBusy;
         }
-        Window?.UpdateSelectionAvailability(session is { HasSelectedCue: true, IsProjectBusy: false, IsClosing: false });
         RefreshTimingStyles();
     }
 
@@ -551,244 +450,7 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         });
     }
 
-    private void OnUpsertStyleRequested(object? sender, SettingsStyleEventArgs e)
-    {
-        _ = RunAsync(() => SaveStylePresetAsync(e.Preset));
-    }
-
-    private Task SaveStylePresetAsync(SubtitleStylePreset preset)
-    {
-        return applicationContext.RunStyleOperationAsync(() =>
-        {
-            var current = applicationContext.StyleLibrary.Snapshot.Presets.FirstOrDefault(value => value.Id == preset.Id);
-            var updated = current is null ? preset : preset with { TimingPostProcessor = current.TimingPostProcessor };
-            return applicationContext.StyleLibrary.UpsertAsync(updated);
-        });
-    }
-
-    private void OnDeleteStyleRequested(object? sender, SettingsStyleDeleteEventArgs e)
-    {
-        RequestPresetDeletion(e.Ids, e.IsDraftOnly, e.DraftId, false);
-    }
-
-    private void RequestPresetDeletion(ImmutableArray<Guid> ids, bool isDraftOnly, Guid? draftId, bool effects)
-    {
-        if (disposed || deletionActive || Window is not { } target || dialogs is not { } service
-            || deletionCancellation is not { } cancellation || (effects ? applicationContext.EffectsBusy : applicationContext.StylesBusy))
-        {
-            return;
-        }
-
-        deletionActive = true;
-        RefreshAvailability();
-        var token = cancellation.Token;
-        DeletionCompletion = RunAsync(async () =>
-        {
-            try
-            {
-                var names = isDraftOnly
-                    ? ImmutableArray.Create(effects ? target.ViewModel.Effects.Name : target.ViewModel.Styles.Name)
-                    : effects
-                        ? ids.Select(id => applicationContext.EffectScriptLibrary.Snapshot.Presets.Single(preset => preset.Id == id).Name).ToImmutableArray()
-                        : ids.Select(id => applicationContext.StyleLibrary.Snapshot.Presets.Single(preset => preset.Id == id).Name).ToImmutableArray();
-                var accepted = await service.ConfirmPresetDeletionAsync(new(names, isDraftOnly), token).WaitAsync(token);
-                token.ThrowIfCancellationRequested();
-                if (!accepted || disposed || !ReferenceEquals(Window, target))
-                {
-                    return;
-                }
-
-                if (!isDraftOnly)
-                {
-                    if (effects)
-                    {
-                        await applicationContext.RunEffectOperationAsync(() => applicationContext.EffectScriptLibrary.RemoveAsync(ids, token));
-                    }
-                    else
-                    {
-                        await applicationContext.RunStyleOperationAsync(() => applicationContext.StyleLibrary.RemoveAsync(ids, token));
-                    }
-                }
-                if (disposed || !ReferenceEquals(Window, target))
-                {
-                    return;
-                }
-
-                var currentDraftId = effects ? target.ViewModel.Effects.Draft?.Id : target.ViewModel.Styles.Draft?.Id;
-                if (currentDraftId is { } current && (isDraftOnly ? current == draftId : ids.Contains(current)))
-                {
-                    if (effects)
-                    {
-                        target.ViewModel.Effects.DiscardDraft();
-                    }
-                    else
-                    {
-                        target.ViewModel.Styles.DiscardDraft();
-                    }
-                }
-            }
-            finally
-            {
-                if (ReferenceEquals(Window, target))
-                {
-                    deletionActive = false;
-                    RefreshAvailability();
-                }
-            }
-        }, effects);
-    }
-
-    private void OnCaptureStyleRequested(object? sender, EventArgs e)
-    {
-        if (session is { } active)
-        {
-            _ = RunAsync(() =>
-            {
-                active.Styles.Queue(active.Styles.CaptureAsync);
-                return active.Styles.Completion;
-            });
-        }
-    }
-
-    private void OnApplyStyleRequested(object? sender, SettingsStyleEventArgs e)
-    {
-        if (session is { } active)
-        {
-            _ = RunAsync(() =>
-            {
-                active.Styles.Queue(() => active.Styles.ApplyAsync(e.Preset));
-                return active.Styles.Completion;
-            });
-        }
-    }
-
-    private void OnImportStylesRequested(object? sender, EventArgs e)
-    {
-        var service = dialogs!;
-        var target = Window;
-        var token = deletionCancellation!.Token;
-        _ = RunAsync(async () =>
-        {
-            var paths = await service.OpenFilesAsync("ImportStyles", "StyleFiles", ["*.aegistyles"]).WaitAsync(token);
-            token.ThrowIfCancellationRequested();
-            if (paths.Count > 0 && !disposed && ReferenceEquals(Window, target))
-            {
-                await SubmitLibraryTaskAsync(new SettingsStyleImportTask(applicationContext, paths), token);
-            }
-        });
-    }
-
-    private void OnExportStylesRequested(object? sender, SettingsStylesExportEventArgs e)
-    {
-        var service = dialogs!;
-        var target = Window;
-        var token = deletionCancellation!.Token;
-        var presets = e.Presets;
-        _ = RunAsync(async () =>
-        {
-            string? destination = null;
-            var batch = presets.Length > 1;
-            if (presets.Length == 1)
-            {
-                destination = await service.SaveFileAsync("ExportStyles", "StyleFiles", ["*.aegistyles"],
-                    ".aegistyles", "styles.aegistyles").WaitAsync(token);
-            }
-            else if (batch)
-            {
-                destination = await service.OpenFolderAsync("ExportStyles").WaitAsync(token);
-            }
-
-            token.ThrowIfCancellationRequested();
-            if (destination is not null && !disposed && ReferenceEquals(Window, target))
-            {
-                await SubmitLibraryTaskAsync(new SettingsStyleExportTask(applicationContext, presets, destination, batch), token);
-            }
-        });
-    }
-
-    private void OnEffectValidationFailed(object? sender, EffectScriptValidationFailedEventArgs e)
-    {
-        if (session is { IsClosing: false } active)
-        {
-            EffectScriptErrorReported?.Invoke(active.LogError("Effects", e.Error));
-        }
-    }
-
-    private void OnUpsertEffectRequested(object? sender, SettingsEffectEventArgs e)
-    {
-        _ = RunAsync(() => applicationContext.RunEffectOperationAsync(() => applicationContext.EffectScriptLibrary.UpsertAsync(e.Preset)), true);
-    }
-
-    private void OnDeleteEffectRequested(object? sender, SettingsEffectDeleteEventArgs e)
-    {
-        RequestPresetDeletion(e.Ids, e.IsDraftOnly, e.DraftId, true);
-    }
-
-    private void OnImportEffectRequested(object? sender, EventArgs e)
-    {
-        var service = dialogs!;
-        var target = Window;
-        var token = deletionCancellation!.Token;
-        _ = RunAsync(async () =>
-        {
-            var paths = await service.OpenFilesAsync("ImportEffectScripts", "EffectScriptFiles", ["*.aegifx"]).WaitAsync(token);
-            token.ThrowIfCancellationRequested();
-            if (paths.Count > 0 && !disposed && ReferenceEquals(Window, target))
-            {
-                await SubmitLibraryTaskAsync(new SettingsEffectImportTask(applicationContext, paths), token);
-            }
-        }, true);
-    }
-
-    private void OnExportEffectRequested(object? sender, SettingsEffectsExportEventArgs e)
-    {
-        var service = dialogs!;
-        var target = Window;
-        var token = deletionCancellation!.Token;
-        var presets = e.Presets;
-        _ = RunAsync(async () =>
-        {
-            string? destination = null;
-            var batch = presets.Length > 1;
-            if (presets.Length == 1)
-            {
-                var script = EffectScriptParser.Parse(presets[0].Source);
-                destination = await service.SaveFileAsync("ExportEffectScripts", "EffectScriptFiles", ["*.aegifx"],
-                    ".aegifx", script.Id + ".aegifx").WaitAsync(token);
-            }
-            else if (batch)
-            {
-                destination = await service.OpenFolderAsync("ExportEffectScripts").WaitAsync(token);
-            }
-
-            token.ThrowIfCancellationRequested();
-            if (destination is not null && !disposed && ReferenceEquals(Window, target))
-            {
-                await SubmitLibraryTaskAsync(new SettingsEffectExportTask(applicationContext, presets, destination, batch), token);
-            }
-        }, true);
-    }
-
-    private async Task SubmitLibraryTaskAsync(AegiTask task, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var handle = applicationContext.Tasks.Submit(task);
-        libraryTasks.Add(handle);
-        try
-        {
-            if (disposed || cancellationToken.IsCancellationRequested)
-            {
-                handle.RequestCancel();
-            }
-            await handle.Completion;
-        }
-        finally
-        {
-            libraryTasks.Remove(handle);
-        }
-    }
-
-    private async Task<bool> RunAsync(Func<Task> operation, bool effectOperation = false)
+    private async Task<bool> RunAsync(Func<Task> operation)
     {
         if (disposed || Window is not { } targetWindow)
         {
@@ -812,11 +474,7 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
                 targetWindow.ShowError(error.Message);
             }
 
-            if (effectOperation)
-            {
-                ReportEffectError(targetSession, error);
-            }
-            else if (targetSession is { IsClosing: false })
+            if (targetSession is { IsClosing: false })
             {
                 targetSession.ShowError(error);
             }
@@ -824,19 +482,4 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         return false;
     }
 
-    private void ReportEffectError(WorkbenchSession? targetSession, Exception error)
-    {
-        if (targetSession is { IsClosing: false })
-        {
-            targetSession.ShowError(error, false);
-            EffectScriptErrorReported?.Invoke(targetSession.LogError("Effects", error));
-        }
-    }
-
-    private SubtitlePositionMeasurement MeasureDefaultPosition(SubtitleStylePreset preset, string text)
-    {
-        var document = new ProjectDocument();
-        return Rendering.SubtitleStylePositionMeasurer.Measure(preset, document.Width, document.Height,
-            text, applicationContext.Fonts.Catalog);
-    }
 }

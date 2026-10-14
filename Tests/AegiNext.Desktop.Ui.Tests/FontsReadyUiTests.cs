@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Application.Tasks;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Controls;
@@ -22,13 +23,13 @@ public sealed class FontsReadyUiTests
         var barrier = service.Submit(blocker);
         await blocker.Started.Task;
         var fonts = new SubtitleFontSelectionService(service);
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         window.ViewModel.Styles.SetFonts(fonts);
         try
         {
             window.Show();
             window.UpdateStyles([new SubtitleStylePreset(Guid.NewGuid(), "Fixture", new())]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var picker = UiTestActions.Find<FontFamilyPicker>(window, "FontInput");
             var box = Assert.Single(picker.GetVisualDescendants().OfType<TextBox>());
             Assert.True(box.Focus());

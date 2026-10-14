@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Settings;
@@ -121,14 +122,14 @@ public sealed class SettingsNumericDraggingUiTests
     public void StylePresetReplacementCancelsTheDragBeforeLoadingTheNewPresetsDraft()
     {
         using var environment = new UiTestEnvironment();
-        var host = new SettingsWindow(new());
+        var host = new EffectLibraryWindow(new());
         try
         {
             host.Show();
             var first = new SubtitleStylePreset(Guid.NewGuid(), "First", new() { FontSize = 40 });
             var second = new SubtitleStylePreset(Guid.NewGuid(), "Second", new() { FontSize = 80 });
             host.UpdateStyles([first, second], first.Id);
-            host.SelectPage(SettingsPage.STYLES);
+            host.SelectPage(EffectLibraryPage.STYLES);
             var input = UiTestActions.Find<NumericDraftInput>(host, "FontSizeInput");
             var end = BeginDrag(host, "FontSizeInputTitle");
             Assert.NotEqual(40m, input.Value);
@@ -153,13 +154,13 @@ public sealed class SettingsNumericDraggingUiTests
     public void DuplicatingAStyleCancelsTheGestureBeforeCopyingTheDraft()
     {
         using var environment = new UiTestEnvironment();
-        var host = new SettingsWindow(new());
+        var host = new EffectLibraryWindow(new());
         try
         {
             host.Show();
             var preset = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontSize = 40 });
             host.UpdateStyles([preset], preset.Id);
-            host.SelectPage(SettingsPage.STYLES);
+            host.SelectPage(EffectLibraryPage.STYLES);
             var input = UiTestActions.Find<NumericDraftInput>(host, "FontSizeInput");
             var end = BeginDrag(host, "FontSizeInputTitle");
             Assert.NotEqual(40m, input.Value);

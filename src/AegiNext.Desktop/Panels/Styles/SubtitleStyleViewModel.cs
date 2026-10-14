@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Windows.Input;
 using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
@@ -68,7 +69,7 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
             }
         };
         ApplyStyleCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.ApplySelectedStyleAsync()));
-        ManageStylesCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.RequestSettingsAsync(SettingsPage.STYLES)));
+        ManageStylesCommand = new AsyncRelayCommand(() => session.RunCommandAsync(() => session.RequestEffectLibraryAsync(EffectLibraryPage.STYLES)));
         RestoreAutomaticPositionCommand = new AsyncRelayCommand(RestoreAutomaticPositionAsync);
     }
 

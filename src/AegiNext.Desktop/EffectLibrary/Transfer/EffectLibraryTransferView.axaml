@@ -1,0 +1,89 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:common="using:AegiNext.Desktop.Controls.Common"
+             xmlns:transfer="using:AegiNext.Desktop.EffectLibrary.Transfer"
+             x:Class="AegiNext.Desktop.EffectLibrary.Transfer.EffectLibraryTransferView"
+             x:DataType="transfer:EffectLibraryTransferViewModel" Classes="business-surface">
+  <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <StackPanel Spacing="16">
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Text="{Loc Key=EffectLibrary.ExportSelected}" FontWeight="SemiBold" />
+          <TextBlock Name="EffectLibrarySelectionSummary" Text="{Binding SelectionSummary}" Classes="field" TextWrapping="Wrap" />
+          <common:PropertyRowControl Header="{Loc Key=EffectLibrary.ExportFormat}" SeparatorThickness="0">
+            <ComboBox Name="EffectLibraryExportFormat" ItemsSource="{Binding ExportFormats}"
+                      SelectedItem="{Binding SelectedFormatChoice, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="transfer:EffectLibraryExportFormatChoice">
+                  <TextBlock Text="{Binding Text}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </common:PropertyRowControl>
+          <TextBlock Text="{Loc Key=EffectLibrary.BuiltinExportHint}" IsVisible="{Binding HasBuiltinSelection}"
+                     Classes="field" TextWrapping="Wrap" />
+          <TextBlock Text="{Loc Key=EffectLibrary.SourceExportHint}" IsVisible="{Binding IsSourceFormat}"
+                     Classes="field" TextWrapping="Wrap" />
+          <Button Name="ExportSelectedEffectLibraryButton" Command="{Binding ExportSelectionCommand}" HorizontalAlignment="Left">
+            <common:IconText IconKey="Export" Text="{Loc Key=EffectLibrary.ExportSelected}" />
+          </Button>
+        </StackPanel>
+      </Border>
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Text="{Loc Key=EffectLibrary.ExportAllDescription}" Classes="field" TextWrapping="Wrap" />
+          <Button Name="ExportAllEffectLibraryButton" Command="{Binding ExportAllCommand}" HorizontalAlignment="Left"
+                  Content="{Loc Key=EffectLibrary.ExportAll}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <TextBlock Text="{Loc Key=EffectLibrary.ImportDescription}" Classes="field" TextWrapping="Wrap" />
+          <Button Name="ImportEffectLibraryButton" Command="{Binding ImportCommand}" HorizontalAlignment="Left">
+            <common:IconText IconKey="Import" Text="{Loc Key=EffectLibrary.ChooseFiles}" />
+          </Button>
+          <StackPanel Name="EffectLibraryImportPreview" IsVisible="{Binding HasPreview}" Spacing="12">
+            <TextBlock Name="EffectLibraryImportSummary" Text="{Binding PreviewSummary}" Classes="field" TextWrapping="Wrap" />
+            <ListBox Name="EffectLibraryImportRows" ItemsSource="{Binding Rows}" MaxHeight="320"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" Background="Transparent">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="transfer:EffectLibraryImportRowViewModel">
+                  <Grid ColumnDefinitions="*,140" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="4" Margin="0,4">
+                    <StackPanel Spacing="2">
+                      <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                      <TextBlock Text="{Binding SourceName}" Classes="field" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceName}" />
+                    </StackPanel>
+                    <ComboBox Name="EffectLibraryImportDecision" Grid.Column="1" ItemsSource="{Binding DecisionChoices}"
+                              SelectedItem="{Binding SelectedDecisionChoice, Mode=TwoWay}" IsEnabled="{Binding IsDecisionAvailable}">
+                      <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="transfer:EffectLibraryImportDecisionChoice">
+                          <TextBlock Text="{Binding Text}" />
+                        </DataTemplate>
+                      </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="{Binding KindText}" Classes="field" />
+                      <TextBlock Text="{Binding StatusText}" Classes="field" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding ConflictDescription}" IsVisible="{Binding HasConflictDescription}"
+                               Classes="field" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding DslIdChangeText}" IsVisible="{Binding HasDslIdChange}"
+                               Classes="field" TextWrapping="Wrap" />
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="{Binding SelectedImportSummary}" Classes="field" />
+            <WrapPanel Orientation="Horizontal">
+              <Button Name="CommitEffectLibraryImportButton" Command="{Binding CommitImportCommand}" Content="{Loc Key=EffectLibrary.ConfirmImport}"
+                      Classes="accent" Margin="0,0,8,0" />
+              <Button Name="ClearEffectLibraryImportPreviewButton" Command="{Binding ClearPreviewCommand}" Content="{Loc Key=EffectLibrary.ClearPreview}" />
+            </WrapPanel>
+          </StackPanel>
+        </StackPanel>
+      </Border>
+      <TextBlock Name="EffectLibraryTransferStatus" Text="{Binding Status}" IsVisible="{Binding HasStatus}" Classes="field" TextWrapping="Wrap" />
+      <TextBlock Name="EffectLibraryTransferError" Text="{Binding Error}" IsVisible="{Binding HasError}"
+                 Foreground="{DynamicResource SettingsError}" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

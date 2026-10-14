@@ -1,9 +1,10 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -26,14 +27,14 @@ public sealed class SettingsPreviewInteractionLifecycleUiTests
         {
             FontFamily = "Embedded preview fixture", StrokeWidth = 0, ShadowColor = SceneColor.Transparent
         }, new("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]));
-        var window = new SettingsWindow(new WorkbenchPreferences());
+        var window = new EffectLibraryWindow(new WorkbenchPreferences());
         IPointer? pointer = null;
         try
         {
             window.UpdateStyles([preset], preset.Id);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             window.Show();
-            var view = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var view = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             var viewport = UiTestActions.Find<PreviewViewportControl>(view, "StylePreviewViewport");
             var frame = UiTestActions.Find<VideoFramePresenter>(view, "StylePreviewFrame");
             viewport.AddHandler(InputElement.PointerPressedEvent, (_, args) => pointer = args.Pointer, handledEventsToo: true);
@@ -61,12 +62,12 @@ public sealed class SettingsPreviewInteractionLifecycleUiTests
             }
             else
             {
-                window.SelectPage(SettingsPage.EFFECTS);
+                window.SelectPage(EffectLibraryPage.EFFECTS);
                 await window.ViewModel.NavigationCompletion.WaitAsync(TimeSpan.FromSeconds(5));
                 Dispatcher.UIThread.RunJobs();
                 Assert.False(view.IsVisible);
                 Assert.Null(pointer.Captured);
-                window.SelectPage(SettingsPage.STYLES);
+                window.SelectPage(EffectLibraryPage.STYLES);
                 await window.ViewModel.NavigationCompletion.WaitAsync(TimeSpan.FromSeconds(5));
                 viewport.BringIntoView();
                 await RenderAsync(window, view);
@@ -88,7 +89,7 @@ public sealed class SettingsPreviewInteractionLifecycleUiTests
         }
     }
 
-    private static async Task RenderAsync(Window window, StyleSettingsView view)
+    private static async Task RenderAsync(Window window, StyleLibraryView view)
     {
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();

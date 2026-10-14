@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using System.Collections.Immutable;
 using System.Globalization;
 using AegiNext.Application;
@@ -253,6 +254,17 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
     internal Task RequestSettingsAsync(SettingsPage? page = null)
     {
         return ViewModel.RequestHostCommandAsync(WorkbenchCommand.OPEN_SETTINGS, page);
+    }
+
+    internal Task RequestEffectLibraryAsync(EffectLibraryPage page)
+    {
+        return ViewModel.RequestHostCommandAsync(page switch
+        {
+            EffectLibraryPage.STYLES => WorkbenchCommand.OPEN_STYLE_LIBRARY,
+            EffectLibraryPage.EFFECTS => WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY,
+            EffectLibraryPage.TRANSFER => WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER,
+            _ => throw new ArgumentOutOfRangeException(nameof(page))
+        });
     }
 
     internal void UpdatePreferences(WorkbenchPreferences value)

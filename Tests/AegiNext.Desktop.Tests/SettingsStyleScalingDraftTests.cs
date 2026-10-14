@@ -1,5 +1,5 @@
 using AegiNext.Core.Presets;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -12,7 +12,7 @@ public sealed class SettingsStyleScalingDraftTests
         {
             FontSize = 72, StrokeWidth = 3, Margins = new(20, 40, 30), ShadowOffset = new(2, 4)
         });
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([original], original.Id);
         SubtitleStylePreset? saved = null;
         model.UpsertRequested += (_, args) => saved = args.Preset;
@@ -38,7 +38,7 @@ public sealed class SettingsStyleScalingDraftTests
     public void InvalidReferenceWidthBlocksPreviewAndSaveWhileKeepingRawText(string text)
     {
         var original = new SubtitleStylePreset(Guid.NewGuid(), "Scaling", new());
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([original], original.Id);
         var requests = 0;
         model.UpsertRequested += (_, _) => requests++;
@@ -59,7 +59,7 @@ public sealed class SettingsStyleScalingDraftTests
     public void RestoringAndRefreshingLanguagePreservesOtherPendingFields()
     {
         var original = new SubtitleStylePreset(Guid.NewGuid(), "Scaling", new());
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([original], original.Id);
         model.Scaling.ReferenceWidth.RawText = "7e-";
         model.Scaling.ReferenceHeight.RawText = "720";
@@ -85,7 +85,7 @@ public sealed class SettingsStyleScalingDraftTests
         {
             Scaling = new() { ReferenceWidth = 1080, ReferenceHeight = 1920, MatchWidthOrHeight = 0.5000000000000001 }
         });
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([original], original.Id);
 
         Assert.False(model.IsDirty);

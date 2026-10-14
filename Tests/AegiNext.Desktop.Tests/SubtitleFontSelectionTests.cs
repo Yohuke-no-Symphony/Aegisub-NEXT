@@ -3,7 +3,7 @@ using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Editing;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using AegiNext.Rendering.Fonts;
 
 namespace AegiNext.Desktop.Tests;
@@ -41,7 +41,7 @@ public sealed class SubtitleFontSelectionTests
     public void SettingsSynchronizeBlackWithoutChangingItAndClearSameFamilyEmbeddedPayload()
     {
         var font = new EmbeddedSubtitleFont("fixture.ttf", Convert.ToHexStringLower(SHA256.HashData([1, 2, 3])), [1, 2, 3]);
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.SetFonts(Fonts());
         model.UpdateStyles([new(Guid.NewGuid(), "Embedded", new() { FontFamily = "Fixture" }, font)]);
         model.CommitFont(new FontSelection("Fixture", Variant("Black", 900), true));

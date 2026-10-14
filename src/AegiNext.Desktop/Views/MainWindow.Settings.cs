@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Windowing;
@@ -16,6 +17,16 @@ public sealed partial class MainWindow
             var settings = (SettingsWindow)window;
             windowRegistry.Register(settings, () => Localization.Get("Settings.Settings"), settings.TitleBar,
                 WorkbenchWindowRole.SETTINGS);
+        });
+    }
+
+    private void OpenEffectLibrary(EffectLibraryPage page)
+    {
+        _ = effectLibraryCoordinator.OpenAsync(this, Session, page, window =>
+        {
+            var library = (EffectLibraryWindow)window;
+            windowRegistry.Register(library, () => Localization.Get("EffectLibrary.Title"), library.TitleBar,
+                WorkbenchWindowRole.EFFECT_LIBRARY);
         });
     }
 

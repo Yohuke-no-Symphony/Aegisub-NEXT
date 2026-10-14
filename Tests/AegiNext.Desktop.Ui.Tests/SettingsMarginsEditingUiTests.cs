@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
@@ -19,12 +20,12 @@ public sealed class SettingsMarginsEditingUiTests
     public void EscapeRestoresOnlyTheFocusedMarginAndSaveFocusesTheRemainingInvalidField()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([new(Guid.NewGuid(), "Original", new() { Margins = new(13, 41, 27) })]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var left = UiTestActions.Find<NumericDraftInput>(window, "MarginLeftInput");
             var right = UiTestActions.Find<NumericDraftInput>(window, "MarginRightInput");
             var saved = 0;
@@ -61,7 +62,7 @@ public sealed class SettingsMarginsEditingUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage("zh-CN");
-        var window = new SettingsWindow(new() { Language = "zh-CN", Theme = WorkbenchTheme.DARK })
+        var window = new EffectLibraryWindow(new() { Language = "zh-CN", Theme = WorkbenchTheme.DARK })
         {
             Width = width, Height = height
         };
@@ -72,7 +73,7 @@ public sealed class SettingsMarginsEditingUiTests
             {
                 Margins = new(13, 41, 27), Alignment = AegiNext.Core.Projects.TextAlignment.BOTTOM_CENTER
             })]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var editor = UiTestActions.Find<SubtitleMarginsEditor>(window, "MarginsEditor");
             var positionEditor = UiTestActions.Find<LayerPositionEditor>(window, "PositionEditor");
             Assert.False(positionEditor.ShowAutomaticPositionAction);
@@ -135,12 +136,12 @@ public sealed class SettingsMarginsEditingUiTests
     public void ExplicitPositionDisablesOnlyVerticalMarginWithoutChangingItsDraft()
     {
         using var environment = new UiTestEnvironment();
-        var window = new SettingsWindow(new());
+        var window = new EffectLibraryWindow(new());
         try
         {
             window.Show();
             window.UpdateStyles([new(Guid.NewGuid(), "Original", new() { Margins = new(13, 41, 27) })]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var left = UiTestActions.Find<NumericDraftInput>(window, "MarginLeftInput");
             var right = UiTestActions.Find<NumericDraftInput>(window, "MarginRightInput");
             var vertical = UiTestActions.Find<NumericDraftInput>(window, "MarginVerticalInput");

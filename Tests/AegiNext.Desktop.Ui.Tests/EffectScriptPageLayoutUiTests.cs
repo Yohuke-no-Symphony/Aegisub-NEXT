@@ -1,9 +1,10 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Application.Presets;
 using AegiNext.Core.Effects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Effects;
+using AegiNext.Desktop.EffectLibrary.Effects;
 using AegiNext.Desktop.Styling;
 using Avalonia;
 using Avalonia.Controls;
@@ -44,7 +45,7 @@ public sealed class EffectScriptPageLayoutUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage(language);
-        var window = new SettingsWindow(new() { Language = language, Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT })
+        var window = new EffectLibraryWindow(new() { Language = language, Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT })
         {
             Width = width, Height = height
         };
@@ -67,7 +68,7 @@ public sealed class EffectScriptPageLayoutUiTests
         try
         {
             window.Show();
-            window.SelectPage(SettingsPage.EFFECTS);
+            window.SelectPage(EffectLibraryPage.EFFECTS);
             Flush(window);
             AssertPageGeometry(window);
             var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
@@ -158,10 +159,10 @@ public sealed class EffectScriptPageLayoutUiTests
         }
     }
 
-    private static void AssertPageGeometry(SettingsWindow window)
+    private static void AssertPageGeometry(EffectLibraryWindow window)
     {
         Flush(window);
-        var page = UiTestActions.Find<EffectSettingsView>(window, "EffectsView");
+        var page = UiTestActions.Find<EffectScriptLibraryView>(window, "EffectsView");
         var toolbar = UiTestActions.Find<WrapPanel>(window, "EffectLibraryToolbar");
         var buttons = toolbar.GetLogicalDescendants().OfType<Button>().ToArray();
         Assert.Equal(toolbarButtons, buttons.Select(button => button.Name));
@@ -205,7 +206,7 @@ public sealed class EffectScriptPageLayoutUiTests
         Assert.True(new Rect(window.ClientSize).Contains(BoundsIn(lineNumbers, window)));
     }
 
-    private static void ClickToolbar(SettingsWindow window, string name)
+    private static void ClickToolbar(EffectLibraryWindow window, string name)
     {
         var button = UiTestActions.Find<Button>(window, name);
         Assert.Contains(UiTestActions.Find<WrapPanel>(window, "EffectLibraryToolbar"), button.GetVisualAncestors());
@@ -223,7 +224,7 @@ public sealed class EffectScriptPageLayoutUiTests
         return new(control.TranslatePoint(default, owner)!.Value, control.Bounds.Size);
     }
 
-    private static void Capture(SettingsWindow window, string name)
+    private static void Capture(EffectLibraryWindow window, string name)
     {
         var directory = Environment.GetEnvironmentVariable("AEGINEXT_UI_CAPTURE_DIRECTORY");
         if (string.IsNullOrWhiteSpace(directory))

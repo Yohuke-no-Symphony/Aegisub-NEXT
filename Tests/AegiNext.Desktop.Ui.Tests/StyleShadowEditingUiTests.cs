@@ -1,10 +1,11 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Panels.Styles;
 using AegiNext.Desktop.Settings;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -25,7 +26,7 @@ public sealed class StyleShadowEditingUiTests
     {
         using var environment = new UiTestEnvironment();
         Localization.SetLanguage(language);
-        var window = new SettingsWindow(new() { Language = language })
+        var window = new EffectLibraryWindow(new() { Language = language })
         {
             RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
         };
@@ -33,14 +34,14 @@ public sealed class StyleShadowEditingUiTests
         {
             window.Show();
             window.UpdateStyles([new SubtitleStylePreset(Guid.NewGuid(), "Shadow", new())]);
-            window.SelectPage(SettingsPage.STYLES);
+            window.SelectPage(EffectLibraryPage.STYLES);
             var offset = UiTestActions.Find<VectorDraftInput>(window, "ShadowOffsetInput");
             var shadow = UiTestActions.Find<ColorDraftInput>(window, "ShadowPicker");
             var blur = UiTestActions.Find<NumericDraftInput>(window, "ShadowBlurInput");
             Assert.DoesNotContain(offset.GetVisualAncestors(), ancestor => ancestor is Expander);
             Assert.DoesNotContain(shadow.GetVisualAncestors(), ancestor => ancestor is Expander);
             Assert.DoesNotContain(blur.GetVisualAncestors(), ancestor => ancestor is Expander);
-            var stylesView = UiTestActions.Find<StyleSettingsView>(window, "StylesView");
+            var stylesView = UiTestActions.Find<StyleLibraryView>(window, "StylesView");
             Assert.All(stylesView.GetVisualDescendants().OfType<Expander>(), expander => Assert.False(expander.IsExpanded));
             var invalid = UiTestActions.Find<NumericDraftInput>(offset, "ShadowXInput");
             var text = Assert.Single(invalid.GetVisualDescendants().OfType<TextBox>());

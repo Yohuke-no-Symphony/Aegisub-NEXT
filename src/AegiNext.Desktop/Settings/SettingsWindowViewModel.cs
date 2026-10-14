@@ -3,10 +3,8 @@ using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings.Appearance;
 using AegiNext.Desktop.Settings.Colors;
 using AegiNext.Desktop.Settings.ColorTags;
-using AegiNext.Desktop.Settings.Effects;
 using AegiNext.Desktop.Settings.Export;
 using AegiNext.Desktop.Settings.Shortcuts;
-using AegiNext.Desktop.Settings.Styles;
 using AegiNext.Desktop.Settings.Media;
 using AegiNext.Desktop.Settings.Projects;
 using AegiNext.Desktop.Settings.Preview;
@@ -26,7 +24,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
     private bool navigating;
     internal Task NavigationCompletion { get; private set; } = Task.CompletedTask;
     public bool IsNavigationAvailable => !navigating;
-    public bool HasUnsavedTemplates => Styles.IsDirty || Effects.IsDirty || ExportPresets.IsDirty || ColorTags.IsDirty;
+    public bool HasUnsavedTemplates => ExportPresets.IsDirty || ColorTags.IsDirty;
     private string? externalError;
     private string title = Localization.Get("Settings.Settings");
 
@@ -39,8 +37,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
         Colors = new(preferences);
         ColorTags = new();
         Shortcuts = new(preferences.ShortcutBindings);
-        Styles = new();
-        Effects = new();
         ExportPresets = new();
         Transfer = new();
         Media = new(preferences);
@@ -51,8 +47,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
         AudioAnalysis = new(preferences);
         Updates = new(preferences);
         Shortcuts.PropertyChanged += PageModelChanged;
-        Styles.PropertyChanged += PageModelChanged;
-        Effects.PropertyChanged += PageModelChanged;
         ExportPresets.PropertyChanged += PageModelChanged;
         Transfer.PropertyChanged += PageModelChanged;
         Projects.PropertyChanged += PageModelChanged;
@@ -67,8 +61,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
     public ColorsSettingsViewModel Colors { get; }
     public SubtitleColorTagsSettingsViewModel ColorTags { get; }
     public ShortcutSettingsViewModel Shortcuts { get; }
-    public StyleSettingsViewModel Styles { get; }
-    public EffectSettingsViewModel Effects { get; }
     public ExportSettingsViewModel ExportPresets { get; }
     public UserSettingsTransferViewModel Transfer { get; }
     public MediaSettingsViewModel Media { get; }
@@ -88,8 +80,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
 
     public bool IsAppearanceVisible => CurrentPage == SettingsPage.APPEARANCE;
     public bool IsShortcutsVisible => CurrentPage == SettingsPage.SHORTCUTS;
-    public bool IsStylesVisible => CurrentPage == SettingsPage.STYLES;
-    public bool IsEffectsVisible => CurrentPage == SettingsPage.EFFECTS;
     public bool IsColorsVisible => CurrentPage == SettingsPage.COLORS;
     public bool IsColorTagsVisible => CurrentPage == SettingsPage.SUBTITLE_COLOR_TAGS;
     public bool IsMediaVisible => CurrentPage == SettingsPage.MEDIA;
@@ -105,8 +95,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
     public string PageTitle => Localization.Get("Settings." + (CurrentPage switch
     {
         SettingsPage.SHORTCUTS => "Shortcuts",
-        SettingsPage.STYLES => "Styles",
-        SettingsPage.EFFECTS => "Effects",
         SettingsPage.COLORS => "Colors",
         SettingsPage.SUBTITLE_COLOR_TAGS => "SubtitleColorTags",
         SettingsPage.MEDIA => "Media",
@@ -124,7 +112,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
     public string? Error => externalError ?? (CurrentPage switch
     {
         SettingsPage.SHORTCUTS => Shortcuts.Error,
-        SettingsPage.STYLES => Styles.Error,
         SettingsPage.PROJECTS => Projects.Error,
         SettingsPage.PREVIEW => Preview.Error,
         SettingsPage.TIMING_POST_PROCESSOR => TimingPostProcessor.Error,
@@ -169,15 +156,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsNavigationAvailable));
         try
         {
-            if (CurrentPage == SettingsPage.STYLES)
-            {
-                await Styles.SelectionCompletion;
-            }
-            else if (CurrentPage == SettingsPage.EFFECTS)
-            {
-                await Effects.SelectionCompletion;
-            }
-            else if (CurrentPage == SettingsPage.EXPORT_PRESETS)
+            if (CurrentPage == SettingsPage.EXPORT_PRESETS)
             {
                 await ExportPresets.SelectionCompletion;
             }
@@ -188,8 +167,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
 
             var accepted = CurrentPage switch
             {
-                SettingsPage.STYLES when Styles.SaveDraftAsync is not null => await Styles.PrepareToLeaveAsync(),
-                SettingsPage.EFFECTS when Effects.SaveDraftAsync is not null => await Effects.PrepareToLeaveAsync(),
                 SettingsPage.EXPORT_PRESETS when ExportPresets.SaveDraftAsync is not null => await ExportPresets
                     .PrepareToLeaveAsync(),
                 SettingsPage.SUBTITLE_COLOR_TAGS when ColorTags.SaveDraftAsync is not null => await ColorTags
@@ -221,8 +198,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(CurrentPage));
             OnPropertyChanged(nameof(IsAppearanceVisible));
             OnPropertyChanged(nameof(IsShortcutsVisible));
-            OnPropertyChanged(nameof(IsStylesVisible));
-            OnPropertyChanged(nameof(IsEffectsVisible));
             OnPropertyChanged(nameof(IsColorsVisible));
             OnPropertyChanged(nameof(IsColorTagsVisible));
             OnPropertyChanged(nameof(IsMediaVisible));
@@ -254,8 +229,6 @@ public sealed class SettingsWindowViewModel : ObservableObject
         Colors.RefreshLanguage();
         ColorTags.RefreshLanguage();
         Shortcuts.RefreshLanguage();
-        Styles.RefreshLanguage();
-        Effects.RefreshLanguage();
         ExportPresets.RefreshLanguage();
         Transfer.RefreshLanguage();
         Media.RefreshLanguage();

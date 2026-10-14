@@ -8,7 +8,9 @@ using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Appearance;
 using AegiNext.Desktop.Settings.Colors;
 using AegiNext.Desktop.Settings.Shortcuts;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
+using AegiNext.Desktop.EffectLibrary;
+using AegiNext.Desktop.EffectLibrary.Effects;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -21,6 +23,49 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class SettingsStartupUiTests
 {
     private const string LEGACY_PREFERENCES = """{"Version":1,"Language":"zh-CN","Theme":0,"Volume":0.20605469}""";
+
+    [AvaloniaFact]
+    public async Task WelcomeOpensANonmodalLibraryWithoutAProjectAndKeepsSettingsSeparate()
+    {
+        using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
+        await using var application = new DesktopApplicationContext(new(environment.DirectoryPath));
+        await application.Initialization;
+        var sessionCreations = 0;
+        await using var coordinator = new DesktopStartupCoordinator(_ => { }, () => { }, application,
+            sessionFactory: (dialogs, context) =>
+            {
+                sessionCreations++;
+                return new(dialogs, applicationContext: context);
+            });
+        coordinator.Start();
+        var welcome = coordinator.WelcomeWindow;
+
+        UiTestActions.Click(welcome, "WelcomeEffectLibraryButton");
+        await welcome.ViewModel.StyleLibraryCommand.ExecutionTask!.WaitAsync(TimeSpan.FromSeconds(5));
+        var library = Assert.Single(welcome.OwnedWindows.OfType<EffectLibraryWindow>());
+
+        Assert.True(library.IsVisible);
+        Assert.True(welcome.IsEffectivelyEnabled);
+        Assert.Equal(EffectLibraryPage.STYLES, library.CurrentPage);
+        Assert.False(library.ViewModel.Styles.HasSelectedSubtitle);
+        Assert.False(UiTestActions.Find<Button>(library, "CaptureStyleButton").IsEffectivelyEnabled);
+        Assert.Null(coordinator.MainWindow);
+        Assert.Equal(0, sessionCreations);
+
+        var settingsOperation = welcome.ViewModel.SettingsCommand.ExecuteAsync(null);
+        var settings = Assert.Single(welcome.OwnedWindows.OfType<SettingsWindow>());
+        Assert.True(settings.IsVisible);
+        Assert.True(library.IsVisible);
+        Assert.NotSame(settings, library);
+        Assert.False(settingsOperation.IsCompleted);
+        settings.Close();
+        await settingsOperation.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await welcome.ViewModel.StyleLibraryCommand.ExecuteAsync(null);
+        Assert.Same(library, Assert.Single(welcome.OwnedWindows.OfType<EffectLibraryWindow>()));
+        Assert.True(welcome.IsEffectivelyEnabled);
+        Assert.Equal(0, sessionCreations);
+    }
 
     /// <summary>A missing optional package preserves the requested ID while the first visible frame uses English.</summary>
     [AvaloniaFact]
@@ -75,21 +120,26 @@ public sealed class SettingsStartupUiTests
         EventHandler<FirstChanceExceptionEventArgs> capture = (_, args) =>
         {
             if (Environment.CurrentManagedThreadId == uiThreadId && args.Exception is InvalidCastException &&
-                args.Exception.Message.Contains("AegiNext.Desktop.Settings.", StringComparison.Ordinal))
+                (args.Exception.Message.Contains("AegiNext.Desktop.Settings.", StringComparison.Ordinal) ||
+                 args.Exception.Message.Contains("AegiNext.Desktop.EffectLibrary.", StringComparison.Ordinal)))
             {
                 failures.Add(args.Exception);
             }
         };
         SettingsWindow? window = null;
+        EffectLibraryWindow? library = null;
         AppDomain.CurrentDomain.FirstChanceException += capture;
         try
         {
             window = new(new WorkbenchPreferences { Language = "en-US" });
+            library = new(new WorkbenchPreferences { Language = "en-US" });
             window.Show();
+            library.Show();
             foreach (var language in new[] { "en-US", "zh-CN", "en-US" })
             {
                 Localization.SetLanguage(language);
                 window.RefreshLanguage();
+                library.RefreshLanguage();
                 foreach (var page in Enum.GetValues<SettingsPage>())
                 {
                     window.SelectPage(page);
@@ -101,13 +151,23 @@ public sealed class SettingsStartupUiTests
                         UiTestActions.Find<ColorsSettingsView>(window, "ColorsView").DataContext);
                     Assert.Same(window.ViewModel.Shortcuts,
                         UiTestActions.Find<ShortcutSettingsView>(window, "ShortcutsView").DataContext);
-                    Assert.Same(window.ViewModel.Styles,
-                        UiTestActions.Find<StyleSettingsView>(window, "StylesView").DataContext);
+                    Assert.Null(window.FindControl<StyleLibraryView>("StylesView"));
+                }
+                foreach (var page in Enum.GetValues<EffectLibraryPage>())
+                {
+                    library.SelectPage(page);
+                    Dispatcher.UIThread.RunJobs();
+                    library.UpdateLayout();
+                    Assert.Same(library.ViewModel.Styles,
+                        UiTestActions.Find<StyleLibraryView>(library, "StylesView").DataContext);
+                    Assert.Same(library.ViewModel.Effects,
+                        UiTestActions.Find<EffectScriptLibraryView>(library, "EffectsView").DataContext);
                 }
             }
         }
         finally
         {
+            library?.Close();
             window?.Close();
             AppDomain.CurrentDomain.FirstChanceException -= capture;
         }
@@ -132,15 +192,19 @@ public sealed class SettingsStartupUiTests
         Localization.SetLanguage(preferences.Language);
 
         var window = new SettingsWindow(preferences);
+        var libraryWindow = new EffectLibraryWindow(preferences);
         try
         {
             window.UpdateShortcuts(preferences.ShortcutBindings);
             window.UpdateStyles(library.Snapshot.Presets);
-            window.UpdateSelectionAvailability(false);
-            window.SetStyleOperationBusy(false);
+            libraryWindow.UpdateStyles(library.Snapshot.Presets);
+            libraryWindow.UpdateSelectionAvailability(false);
+            libraryWindow.SetStyleOperationBusy(false);
             Assert.False(window.IsVisible);
+            Assert.False(libraryWindow.IsVisible);
 
             window.Show();
+            libraryWindow.Show();
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
 
@@ -157,11 +221,13 @@ public sealed class SettingsStartupUiTests
                 Assert.Equal(page, window.CurrentPage);
                 Assert.False(window.ViewModel.HasError);
             }
-            Assert.Equal("nano", UiTestActions.Find<TextBox>(window, "StyleNameInput").Text);
+            Assert.Equal(Localization.Get("EffectLibrary.Title"), libraryWindow.Title);
+            Assert.Equal("nano", UiTestActions.Find<TextBox>(libraryWindow, "StyleNameInput").Text);
             Assert.Equal(LEGACY_PREFERENCES, await File.ReadAllTextAsync(preferencesPath, TestContext.Current.CancellationToken));
         }
         finally
         {
+            libraryWindow.Close();
             window.Close();
             Assert.False(window.IsVisible);
         }

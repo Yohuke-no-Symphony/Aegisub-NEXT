@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Rendering;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -98,7 +98,7 @@ public sealed class SubtitleStylePositionMeasurementTests
     {
         var font = new EmbeddedSubtitleFont("Broken.ttf", Convert.ToHexStringLower(SHA256.HashData([1, 2, 3])), [1, 2, 3]);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Broken example", new() { FontFamily = "Broken embedded face" }, font);
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.SetPositionMeasurement(value => SubtitleStylePositionMeasurer.Measure(value, 320, 180, "Subtitle Preview"));
         model.UpdateStyles([preset]);
 

@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Workspace;
@@ -18,7 +19,7 @@ internal sealed class EffectPresetsPanelViewModel : ObservableObject
         this.session = session;
         ApplyCommand = new(() => session.RunCommandAsync(session.EffectScripts.ApplySelectedAsync),
             () => session.EffectScripts.Availability(SelectedPreset?.Id) == EffectPresetApplyAvailability.READY);
-        ManageEffectScriptsCommand = new(() => session.RequestSettingsAsync(SettingsPage.EFFECTS));
+        ManageEffectScriptsCommand = new(() => session.RequestEffectLibraryAsync(EffectLibraryPage.EFFECTS));
     }
 
     public EffectPresetCardViewModel[] Items

@@ -56,12 +56,11 @@ public sealed class TransferSettingsTests
         Assert.False(model.RestartCommand.CanExecute(null));
     }
 
-    /// <summary>新增导航页追加在末尾，压制预设的未保存草稿仍可取消离开。</summary>
+    /// <summary>分离效果库后，压制预设的草稿仍可取消进入设置传输页。</summary>
     [Fact]
     public async Task TransferNavigationRetainsExistingTemplateLeaveGuard()
     {
-        Assert.Equal(9, (int)SettingsPage.EXPORT_PRESETS);
-        Assert.Equal(10, (int)SettingsPage.TRANSFER);
+        Assert.Equal((int)SettingsPage.EXPORT_PRESETS + 1, (int)SettingsPage.TRANSFER);
         var model = new SettingsWindowViewModel(new());
         var preset = new VideoExportPreset(Guid.NewGuid(), "Saved", new());
         model.ExportPresets.UpdatePresets([preset]);

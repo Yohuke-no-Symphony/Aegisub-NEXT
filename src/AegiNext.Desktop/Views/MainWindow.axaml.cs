@@ -1,3 +1,4 @@
+using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.I18n;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -51,9 +52,11 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
     private Task? disposeTask;
     private Task? closeOperation;
     private readonly SettingsWindowCoordinator settingsCoordinator;
+    private readonly EffectLibraryWindowCoordinator effectLibraryCoordinator;
     private readonly UpdateWindowCoordinator updates;
     private readonly bool ownsUpdates;
     private SettingsWindow? settingsWindow => settingsCoordinator.Window;
+    internal EffectLibraryWindow? EffectLibraryWindow => effectLibraryCoordinator.Window;
 
     /// <summary>通过显式组合根创建唯一工作台会话和固定长生命周期面板。</summary>
     public MainWindow() : this((Func<Action<VideoPreviewUpdate>, VideoPreviewController>?)null)
@@ -117,7 +120,8 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
             Session.ApplicationContext.InitialLayout);
         settingsCoordinator = new(Session.ApplicationContext, captureLayout: layouts.CaptureFile,
             requestApplicationExit: RequestApplicationExit);
-        settingsCoordinator.EffectScriptErrorReported += RevealEffectScriptError;
+        effectLibraryCoordinator = new(Session.ApplicationContext);
+        effectLibraryCoordinator.EffectScriptErrorReported += RevealEffectScriptError;
         workspaceHost.Content = layouts.Host;
         layouts.Changed += OnLayoutChanged;
         layouts.Error += OnLayoutError;
@@ -202,6 +206,17 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
     {
         try
         {
+            if (effectLibraryCoordinator.Window is { } library)
+            {
+                library.Close();
+                await library.CloseCompletion;
+                if (library.IsVisible)
+                {
+                    closing = false;
+                    IsApplicationExitRequested = false;
+                    return;
+                }
+            }
             if (!await Session.RequestCloseAsync(layouts.FlushAsync))
             {
                 closing = false;
@@ -254,7 +269,10 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
         ViewModel.Log.PropertyChanged -= OnLogChanged;
         workspaceHost.IsEnabled = false;
         clockTimer.Stop();
-        settingsCoordinator.EffectScriptErrorReported -= RevealEffectScriptError;
+        effectLibraryCoordinator.EffectScriptErrorReported -= RevealEffectScriptError;
+        effectLibraryCoordinator.Dispose();
+        await effectLibraryCoordinator.TransferCompletion;
+        await effectLibraryCoordinator.DeletionCompletion;
         settingsCoordinator.Dispose();
         await settingsCoordinator.TransferCompletion;
         aboutWindow?.Close();
@@ -328,6 +346,16 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
         else if (request.Command == WorkbenchCommand.OPEN_SETTINGS)
         {
             OpenSettings(request.SettingsPage);
+        }
+        else if (request.Command is WorkbenchCommand.OPEN_STYLE_LIBRARY or WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY or
+                 WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER)
+        {
+            OpenEffectLibrary(request.Command switch
+            {
+                WorkbenchCommand.OPEN_STYLE_LIBRARY => EffectLibraryPage.STYLES,
+                WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY => EffectLibraryPage.EFFECTS,
+                _ => EffectLibraryPage.TRANSFER
+            });
         }
         else if (request.Command == WorkbenchCommand.OPEN_ABOUT)
         {

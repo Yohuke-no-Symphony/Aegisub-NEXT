@@ -1,5 +1,5 @@
 using AegiNext.Application.Presets;
-using AegiNext.Desktop.Settings.Effects;
+using AegiNext.Desktop.EffectLibrary.Effects;
 using AegiNext.Desktop.Workspace.Diagnostics;
 
 namespace AegiNext.Desktop.Tests.Workspace;
@@ -18,7 +18,7 @@ public sealed class EffectScriptFailureWorkflowTests
         await context.InitializeAsync();
         var session = context.Session;
         await session.EffectScripts.Completion;
-        var model = new EffectSettingsViewModel();
+        var model = new EffectScriptLibraryViewModel();
         await model.AddCommand.ExecuteAsync(null);
         var preset = Assert.IsType<EffectScriptPreset>(model.Draft);
         if (operation == "delete")

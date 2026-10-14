@@ -2,7 +2,7 @@ using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Colors;
-using AegiNext.Desktop.Settings.Styles;
+using AegiNext.Desktop.EffectLibrary.Styles;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -38,7 +38,7 @@ public sealed class SettingsColorDraftTests
             Stroke = new(0.25, 0.5, 1.25, 0.8),
             ShadowColor = new(0.25, 0.5, -0.1, 0.6)
         });
-        var model = new StyleSettingsViewModel();
+        var model = new StyleLibraryViewModel();
         model.UpdateStyles([original]);
         model.FillDraft.HexText = "#bad";
         model.StrokeDraft.Blue.RawText = "2.5";
