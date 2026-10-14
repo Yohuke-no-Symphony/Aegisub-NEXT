@@ -5,7 +5,7 @@ namespace AegiNext.Application.Tests;
 public sealed class ClipMaskTopologyEditingTests
 {
     [Fact]
-    public void RemoveNodePreservesOtherIdentitiesHandlesPivotAndTracksInOneFlatTransaction()
+    public void RemoveNodePreservesOtherIdentitiesHandlesPlacementAndTracksInOneFlatTransaction()
     {
         var first = new MaskNode { Position = new(10, 20) };
         var second = new MaskNode { Position = new(30, 40), InHandle = new(-3, 4), OutHandle = new(5, -6) };
@@ -15,7 +15,9 @@ public sealed class ClipMaskTopologyEditingTests
         var mask = new VectorClipMask
         {
             Inverted = true, Contours = [contour, other],
-            Transform = new() { Pivot = new(40, 50), Position = new(4, 5), Scale = new(2, 3), Rotation = 12 }
+            Placement = new() { Pivot = new(0.4, 0.5), Offset = new(40, 50) },
+            ReferenceFrame = new() { Size = new(100, 100) },
+            Transform = new() { Position = new(4, 5), Scale = new(2, 3), Rotation = 12 }
         };
         var editor = Editor(mask);
         var original = editor.Snapshot;
@@ -32,6 +34,8 @@ public sealed class ClipMaskTopologyEditingTests
         Assert.Same(third, result.Contours[0].Nodes[1]);
         Assert.Same(other, result.Contours[1]);
         Assert.Same(mask.Transform, result.Transform);
+        Assert.Same(mask.Placement, result.Placement);
+        Assert.Same(mask.ReferenceFrame, result.ReferenceFrame);
         Assert.True(result.Inverted);
         Assert.Equal(layer.Tracks, resultLayer.Tracks);
         Assert.Equal(1, changes);
@@ -47,7 +51,11 @@ public sealed class ClipMaskTopologyEditingTests
     {
         var first = new MaskContour { Nodes = [new()] };
         var other = new MaskContour { Nodes = [new(), new()] };
-        var mask = new VectorClipMask { Contours = [first, other], Transform = new() { Pivot = new(15, 25) } };
+        var mask = new VectorClipMask
+        {
+            Contours = [first, other], Placement = new() { Pivot = new(0.15, 0.25), Offset = new(15, 25) },
+            ReferenceFrame = new() { Size = new(100, 100) }
+        };
         var editor = Editor(mask);
         var original = editor.Snapshot;
         var layer = original.Layers[0];
@@ -56,6 +64,8 @@ public sealed class ClipMaskTopologyEditingTests
         var result = Assert.IsType<VectorClipMask>(editor.Snapshot.Layers[0].Mask);
         Assert.Same(other, Assert.Single(result.Contours));
         Assert.Same(mask.Transform, result.Transform);
+        Assert.Same(mask.Placement, result.Placement);
+        Assert.Same(mask.ReferenceFrame, result.ReferenceFrame);
         Assert.Equal(layer.Tracks, editor.Snapshot.Layers[0].Tracks);
         Assert.True(editor.Undo());
         Assert.Same(original, editor.Snapshot);
@@ -95,7 +105,11 @@ public sealed class ClipMaskTopologyEditingTests
     {
         var first = new MaskContour { Nodes = [new(), new(), new()] };
         var second = new MaskContour { Nodes = [new(), new()] };
-        var mask = new VectorClipMask { Contours = [first, second], Transform = new() { Pivot = new(22, 33) } };
+        var mask = new VectorClipMask
+        {
+            Contours = [first, second], Placement = new() { Pivot = new(0.22, 0.33), Offset = new(22, 33) },
+            ReferenceFrame = new() { Size = new(100, 100) }
+        };
         var editor = Editor(mask);
         var original = editor.Snapshot;
         var id = original.Layers[0].Id;
@@ -104,6 +118,8 @@ public sealed class ClipMaskTopologyEditingTests
         var remaining = Assert.IsType<VectorClipMask>(once.Layers[0].Mask);
         Assert.Same(second, Assert.Single(remaining.Contours));
         Assert.Same(mask.Transform, remaining.Transform);
+        Assert.Same(mask.Placement, remaining.Placement);
+        Assert.Same(mask.ReferenceFrame, remaining.ReferenceFrame);
         Assert.Equal(original.Layers[0].Tracks, once.Layers[0].Tracks);
         editor.RemoveClipMaskContour(id, second.Id);
         Assert.Null(editor.Snapshot.Layers[0].Mask);

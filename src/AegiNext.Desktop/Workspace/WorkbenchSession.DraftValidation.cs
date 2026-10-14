@@ -22,15 +22,15 @@ internal sealed partial class WorkbenchSession
             lastDraftDiagnostic = diagnostic;
             ShowError(error);
         }
-        var sharedPivot = ViewModel.InvalidFieldKey is "MaskPivotX" or "MaskPivotY";
+        var sharedPlacement = ClipMaskPositionEditingCoordinator.LocalFieldKey(ViewModel.InvalidFieldKey) is not null;
         var animationOptions = ViewModel.InvalidFieldKey is "PowerExponentInput" ||
             ViewModel.InvalidFieldKey?.StartsWith("Operation", StringComparison.Ordinal) == true;
-        if (ViewModel.InvalidPanelId == "effects" || sharedPivot || animationOptions)
+        if (ViewModel.InvalidPanelId == "effects" || sharedPlacement || animationOptions)
         {
             ViewModel.Effects.InvalidFieldKey = ViewModel.InvalidFieldKey;
             ViewModel.Effects.ValidationError = error.Message;
         }
-        if (ViewModel.InvalidPanelId == "masks" || sharedPivot)
+        if (ViewModel.InvalidPanelId == "masks" || sharedPlacement)
         {
             ViewModel.Masks.InvalidFieldKey = ViewModel.InvalidFieldKey;
             ViewModel.Masks.ValidationError = error.Message;

@@ -219,7 +219,7 @@ public sealed class MaskPanelUiTests
             Assert.False(UiTestActions.Find<Button>(context.Window, "ClearMaskNodeAnimationButton").IsEffectivelyEnabled);
             Capture(context.Window, $"mask-dock-{language}-{(dark ? "dark" : "light")}.png");
             var vectors = panel.GetVisualDescendants().OfType<VectorDraftInput>().ToArray();
-            Assert.Equal(5, vectors.Length);
+            Assert.Equal(7, vectors.Length);
             var corner = Assert.Single(vectors, vector => vector.DataContext is MaskVectorField field && field.Target?.Property == AnimationProperty.MASK_RECTANGLE_TOP_LEFT);
             var draft = Assert.IsType<MaskVectorField>(corner.DataContext).X.Draft;
             var x = Assert.Single(corner.GetVisualDescendants().OfType<NumericDraftInput>(), input => input.Name == "MASK_RECTANGLE_TOP_LEFT.0");

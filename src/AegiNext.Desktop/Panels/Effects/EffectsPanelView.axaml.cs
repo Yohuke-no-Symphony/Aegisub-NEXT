@@ -18,6 +18,7 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     private readonly WorkbenchSession session;
     private readonly EffectsPanelViewModel viewModel;
     private readonly ComboBox blend;
+    private readonly LayerPositionEditor maskPosition;
     private readonly (Grid Grid, Control Editor, Control? Actions, int Span)[] propertyGridRows;
     private bool suppressFocusCommit;
     private int focusCommitRevision;
@@ -28,6 +29,8 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         this.session = session;
         this.viewModel = viewModel;
         AvaloniaXamlLoader.Load(this);
+        maskPosition = this.FindControl<LayerPositionEditor>("MaskPositionEditor")!;
+        maskPosition.PresetPositionChanged += OnMaskPositionPresetChanged;
         DataContext = viewModel;
         propertyGridRows = this.GetLogicalDescendants().OfType<Grid>().Where(grid => grid.Classes.Contains("effect-row"))
             .Select(grid => (Grid: grid, Editor: grid.Children.First(control => Grid.GetColumn(control) == 1),
@@ -73,6 +76,10 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
                 return;
             }
             suppressFocusCommit = false;
+            if (e.Source is Control editSource)
+            {
+                BeginFieldEdit(editSource);
+            }
         }, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, (_, e) =>
         {
@@ -186,6 +193,13 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     }
     public void FocusInvalidField(string? fieldKey)
     {
+        if (ClipMaskPositionEditingCoordinator.LocalFieldKey(fieldKey) is { } localKey)
+        {
+            viewModel.MaskExpanded = true;
+            maskPosition.BringIntoView();
+            maskPosition.FocusInvalidField(localKey);
+            return;
+        }
         if (animationOptions.FocusInvalidField(fieldKey))
         {
             return;
@@ -238,6 +252,13 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         if (e.Key == Key.Escape && e.Source is Control source &&
             !source.GetSelfAndVisualAncestors().OfType<ColorDraftInput>().Any())
         {
+            var positionInput = source.GetSelfAndVisualAncestors().OfType<NumericDraftInput>().FirstOrDefault();
+            if (positionInput?.Name is { } localKey && maskPosition.IsVisualAncestorOf(positionInput))
+            {
+                session.MaskEditing.RestorePositionField(ClipMaskPositionEditingCoordinator.FieldKey(localKey));
+                e.Handled = true;
+                return;
+            }
             var propertyRow = source.GetSelfAndVisualAncestors().OfType<EffectPropertyRowView>().FirstOrDefault();
             if (propertyRow?.RestoreInput(source) == true)
             {
@@ -262,15 +283,17 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
 
     private void BeginFieldEdit(Control source)
     {
-        if (source.GetSelfAndVisualAncestors().OfType<EffectPropertyRowView>().FirstOrDefault()?.DataContext is AnimationPropertyRowViewModel row)
+        if (maskPosition.IsVisualAncestorOf(source))
+        {
+            session.MaskEditing.BeginPositionEdit(PanelId);
+        }
+        else if (source.GetSelfAndVisualAncestors().OfType<EffectPropertyRowView>().FirstOrDefault()?.DataContext is AnimationPropertyRowViewModel row)
         {
             row.BeginEdit(PanelId);
         }
-        else if (source.GetSelfAndVisualAncestors().OfType<AnimationPropertyRowControl>().FirstOrDefault()?.FieldKey == "MaskPivot")
-        {
-            session.MaskEditing.BeginPivotEdit(PanelId);
-        }
     }
+
+    private void OnMaskPositionPresetChanged(object? sender, EventArgs args) => viewModel.CommitDrafts();
 
     private void OnColorCommitted(object? sender, ColorDraftCommittedEventArgs e) => viewModel.CommitDrafts();
 
@@ -298,7 +321,9 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
                 {
                     continue;
                 }
-                DataValidationErrors.SetErrors(input, input.Name == viewModel.InvalidFieldKey && viewModel.ValidationError is { } message ? new[] { message } : null);
+                var fieldKey = maskPosition.IsVisualAncestorOf(input) && input.Name is { } localKey
+                    ? ClipMaskPositionEditingCoordinator.FieldKey(localKey) : input.Name;
+                DataValidationErrors.SetErrors(input, fieldKey == viewModel.InvalidFieldKey && viewModel.ValidationError is { } message ? new[] { message } : null);
             }
         }
     }
@@ -337,6 +362,7 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         if (!disposed)
         {
             disposed = true;
+            maskPosition.PresetPositionChanged -= OnMaskPositionPresetChanged;
             animationOptions.Dispose();
             viewModel.ChoicesRefreshing -= OnChoicesRefreshing;
             viewModel.ChoicesRefreshed -= OnChoicesRefreshed;

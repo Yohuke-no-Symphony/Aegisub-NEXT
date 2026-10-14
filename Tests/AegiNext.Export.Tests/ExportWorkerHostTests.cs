@@ -36,6 +36,7 @@ public sealed class ExportWorkerHostTests
     [InlineData(0, false)]
     [InlineData(3, false)]
     [InlineData(4, false)]
+    [InlineData(5, false)]
     [InlineData(ExportWire.VERSION, true)]
     public async Task ProtocolValidationPrecedesTheApplicationProjectLoader(int version, bool expectedLoad)
     {

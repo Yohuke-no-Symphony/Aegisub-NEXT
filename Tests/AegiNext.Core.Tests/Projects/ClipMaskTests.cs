@@ -14,12 +14,13 @@ public sealed class ClipMaskTests
             TopLeft = new(10, 20),
             BottomRight = new(300, 400),
             Inverted = true,
+            Placement = new() { Pivot = new(0.5, 0.5), Offset = new(155, 210) },
+            ReferenceFrame = new() { Origin = new(10, 20), Size = new(290, 380) },
             Transform = new()
             {
                 Position = new(5, -8),
                 Scale = new(2, 0.5),
-                Rotation = 90,
-                Pivot = new(155, 210)
+                Rotation = 90
             }
         };
 
@@ -44,7 +45,8 @@ public sealed class ClipMaskTests
                 new() { Nodes = [first, second] },
                 new() { Nodes = [new() { Position = new(60, 80) }] }
             ],
-            Transform = new() { Pivot = new(100, 125) }
+            Placement = new() { Pivot = new(0.5, 0.5), Offset = new(100, 125) },
+            ReferenceFrame = new() { Origin = new(20, 30), Size = new(160, 190) }
         };
 
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
@@ -59,6 +61,8 @@ public sealed class ClipMaskTests
         Assert.Equal(first.InHandle, restored.Contours[0].Nodes[0].InHandle);
         Assert.Equal(first.OutHandle, restored.Contours[0].Nodes[0].OutHandle);
         Assert.Equal(mask.Transform, restored.Transform);
+        Assert.Equal(mask.Placement, restored.Placement);
+        Assert.Equal(mask.ReferenceFrame, restored.ReferenceFrame);
         ProjectValidator.Validate(CreateProject(restored));
     }
 
@@ -73,7 +77,8 @@ public sealed class ClipMaskTests
         Assert.Equal(mask, restored);
         Assert.Equal(new ScenePoint(1, 1), restored.Transform.Scale);
         Assert.Equal(default, restored.Transform.Position);
-        Assert.Equal(default, restored.Transform.Pivot);
+        Assert.Equal(new LayerPosition(), restored.Placement);
+        Assert.Equal(new MaskReferenceFrame(), restored.ReferenceFrame);
         Assert.Equal(0, restored.Transform.Rotation);
     }
 
@@ -123,7 +128,14 @@ public sealed class ClipMaskTests
         AssertInvalid(rectangle with { Transform = new() { Position = new(double.NaN, 0) } });
         AssertInvalid(rectangle with { Transform = new() { Scale = new(1, double.NegativeInfinity) } });
         AssertInvalid(rectangle with { Transform = new() { Rotation = double.NaN } });
-        AssertInvalid(rectangle with { Transform = new() { Pivot = new(double.PositiveInfinity, 0) } });
+        AssertInvalid(rectangle with { Placement = null! });
+        AssertInvalid(rectangle with { ReferenceFrame = null! });
+        AssertInvalid(rectangle with { Placement = new() { Pivot = new(double.PositiveInfinity, 0) } });
+        AssertInvalid(rectangle with { Placement = new() { Anchor = new(1.01, 0) } });
+        AssertInvalid(rectangle with { Placement = new() { Offset = new(1e9 + 1, 0) } });
+        AssertInvalid(rectangle with { ReferenceFrame = new() { Origin = new(2e9 + 1, 0) } });
+        AssertInvalid(rectangle with { ReferenceFrame = new() { Size = new(0.5, 1) } });
+        AssertInvalid(rectangle with { ReferenceFrame = new() { Size = new(1, double.NaN) } });
     }
 
     [Fact]

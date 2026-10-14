@@ -453,7 +453,9 @@ public sealed class ProjectMergeTests
             Mask = new VectorClipMask
             {
                 Inverted = true, Contours = [new() { Nodes = [node, new() { Position = new(15, 16) }] }],
-                Transform = new() { Position = new(2, 3), Pivot = new(10, 11) }
+                Placement = new() { Pivot = new(0.5, 0.5), Offset = new(10, 11) },
+                ReferenceFrame = new() { Origin = new(5, 6), Size = new(10, 10) },
+                Transform = new() { Position = new(2, 3) }
             },
             Tracks =
             [

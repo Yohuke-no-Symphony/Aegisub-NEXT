@@ -193,7 +193,7 @@ public sealed class SubtitlePositionEditingUiTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.True(window.ViewModel.TryCommitDrafts());
-        Assert.Equal(30, Assert.Single(window.DocumentSnapshot.Layers).Transform.X);
+        Assert.Equal(30, Assert.Single(window.DocumentSnapshot.Layers).Transform.X, 8);
         Assert.Equal(targetX, window.ViewModel.Effects.PositionX);
         await window.ViewModel.ExecuteCommandAsync(WorkbenchCommand.UNDO);
         Dispatcher.UIThread.RunJobs();

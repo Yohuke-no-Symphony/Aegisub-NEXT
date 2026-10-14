@@ -3,9 +3,38 @@ namespace AegiNext.Core.Projects;
 /// <summary>蒙版原生定位、固定参考框及精确仿射边界计算，不依赖渲染或界面框架。</summary>
 public static class ClipMaskPlacementGeometry
 {
+    private const double MAX_PIXEL_POSITION = 1e9;
     public const double MAX_REFERENCE_ORIGIN = 2e9;
     public const double MAX_REFERENCE_SIZE = 4e9;
     public const double MAX_NORMALIZED_PIVOT = 4e9;
+
+    /// <summary>解析完整蒙版的原生定位与动画变换，工程画布尺寸由调用方显式提供。</summary>
+    public static ProjectionMatrix3x3 CreateMatrix(ClipMask mask, ScenePoint canvasSize)
+    {
+        ArgumentNullException.ThrowIfNull(mask);
+        return CreateMatrix(mask.Placement, mask.ReferenceFrame, mask.Transform, canvasSize);
+    }
+
+    /// <summary>为尚未放置的局部几何建立中心定位和固定参考框；极限坐标选择可表示的定位，保留输入几何及独立动画。</summary>
+    public static ClipMask CreatePlacement(ClipMask mask, ScenePoint canvasSize)
+    {
+        ArgumentNullException.ThrowIfNull(mask);
+        RequireCanvas(canvasSize);
+        var frame = CaptureReferenceFrame(mask);
+        var pivot = new ScenePoint(Math.Clamp(frame.Origin.X + frame.Size.X / 2, -MAX_PIXEL_POSITION, MAX_PIXEL_POSITION),
+            Math.Clamp(frame.Origin.Y + frame.Size.Y / 2, -MAX_PIXEL_POSITION, MAX_PIXEL_POSITION));
+        var anchor = new ScenePoint(CreationAnchor(pivot.X, canvasSize.X), CreationAnchor(pivot.Y, canvasSize.Y));
+        return mask with
+        {
+            ReferenceFrame = frame,
+            Placement = new()
+            {
+                Anchor = anchor,
+                Pivot = new((pivot.X - frame.Origin.X) / frame.Size.X, (pivot.Y - frame.Origin.Y) / frame.Size.Y),
+                Offset = new(pivot.X - anchor.X * canvasSize.X, pivot.Y - anchor.Y * canvasSize.Y)
+            }
+        };
+    }
 
     /// <summary>把工程画布锚点、局部归一化轴心和独立动画变换解析为双精度矩阵。</summary>
     public static ProjectionMatrix3x3 CreateMatrix(LayerPosition placement, MaskReferenceFrame frame,
@@ -131,5 +160,11 @@ public static class ClipMaskPlacementGeometry
         {
             throw new ArgumentOutOfRangeException(nameof(canvasSize), "The project canvas must have finite positive dimensions.");
         }
+    }
+
+    private static double CreationAnchor(double pivot, double canvasSize)
+    {
+        var offset = pivot - canvasSize / 2;
+        return Math.Abs(offset) <= MAX_PIXEL_POSITION ? 0.5 : Math.Clamp(pivot / canvasSize, 0, 1);
     }
 }

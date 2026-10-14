@@ -12,7 +12,12 @@ public sealed class ClipMaskAnimationTests
     {
         var first = new MaskNode { Position = new(10, 20), InHandle = new(-2, 0) };
         var second = new MaskNode { Position = new(30, 40) };
-        var mask = new VectorClipMask { Contours = [new() { Nodes = [first, second] }], Transform = new() { Pivot = new(20, 30) } };
+        var mask = new VectorClipMask
+        {
+            Contours = [new() { Nodes = [first, second] }],
+            Placement = new() { Pivot = new(0.5, 0.5), Offset = new(20, 30) },
+            ReferenceFrame = new() { Origin = new(10, 20), Size = new(20, 20) }
+        };
         var layer = new ProjectLayer
         {
             Transform = new(X: 900, Y: 800, ScaleX: 2, Rotation: 60), Mask = mask,
@@ -29,7 +34,8 @@ public sealed class ClipMaskAnimationTests
         Assert.Equal(new ScenePoint(40, 50), evaluated.Contours[0].Nodes[1].Position);
         Assert.Equal(new ScenePoint(-4, 4), evaluated.Contours[0].Nodes[0].InHandle);
         Assert.Equal(new ScenePoint(10, 5), evaluated.Transform.Position);
-        Assert.Equal(mask.Transform.Pivot, evaluated.Transform.Pivot);
+        Assert.Equal(mask.Placement, evaluated.Placement);
+        Assert.Equal(mask.ReferenceFrame, evaluated.ReferenceFrame);
         Assert.Equal(first.Id, evaluated.Contours[0].Nodes[0].Id);
         Assert.Equal(mask.Contours[0].Id, evaluated.Contours[0].Id);
         Assert.Equal(new ScenePoint(10, 20), first.Position);

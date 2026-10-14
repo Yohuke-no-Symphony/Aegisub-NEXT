@@ -44,7 +44,7 @@ public sealed class RotationVectorPersistenceTests
         };
         foreach (var document in loaded)
         {
-            Assert.Equal(17, document.Version);
+            Assert.Equal(ProjectDocument.CURRENT_VERSION, document.Version);
             Assert.Equal(2, document.Layers[0].Tracks.Length);
             Assert.All(document.Layers[0].Tracks, track => Assert.Equal(AnimationProperty.ROTATION_3D, track.Property));
             var whole = document.Layers[0].Tracks.Single(track => track.Target.TextRangeId is null);

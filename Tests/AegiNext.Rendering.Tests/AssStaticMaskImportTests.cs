@@ -98,6 +98,34 @@ public sealed class AssStaticMaskImportTests
         Assert.False(Contains(roundTrip.Clips[0].Mask!, 50, 50));
     }
 
+    [Fact]
+    public void CombinationResolvesEachNativePlacementUsingTheProjectCanvas()
+    {
+        var vector = new VectorClipMask
+        {
+            Placement = new() { Anchor = new(1, 0), Offset = new(-100, 20) },
+            Contours = [new() { Nodes =
+            [
+                new() { Position = new(0, 0) }, new() { Position = new(60, 0) },
+                new() { Position = new(60, 60) }, new() { Position = new(0, 60) }
+            ] }]
+        };
+        var rectangle = new RectangleClipMask
+        {
+            BottomRight = new(60, 60), Placement = new() { Offset = new(570, 40) }
+        };
+        var combiner = new AssMaskGeometryCombiner();
+
+        Assert.True(combiner.TryCombine(vector, rectangle, new(640, 360), out var combined, out var reason), reason);
+        Assert.Equal(new ScenePoint(0.5, 0.5), combined.Placement.Anchor);
+        Assert.Equal(new ScenePoint(0.5, 0.5), combined.Placement.Pivot);
+        Assert.Equal(new MaskReferenceFrame { Origin = new(570, 40), Size = new(30, 40) }, combined.ReferenceFrame);
+        using var path = ClipMaskGeometry.Create(combined, new(640, 360));
+        Assert.True(path.Contains(580, 50));
+        Assert.False(path.Contains(550, 30));
+        Assert.False(path.Contains(610, 50));
+    }
+
     private static AssImportResult Parse(string body, bool completeFile = false)
     {
         return AssSubtitleFormat.Parse(completeFile ? body : """

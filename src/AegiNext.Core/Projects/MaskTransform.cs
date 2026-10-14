@@ -1,10 +1,9 @@
 namespace AegiNext.Core.Projects;
 
-/// <summary>蒙版围绕固定工程坐标轴心的独立缩放、角度旋转及平移。</summary>
+/// <summary>叠加在蒙版原生定位上的独立动画平移、缩放及角度旋转。</summary>
 public sealed record MaskTransform
 {
     public ScenePoint Position { get; init; }
     public ScenePoint Scale { get; init; } = new(1, 1);
     public double Rotation { get; init; }
-    public ScenePoint Pivot { get; init; }
 }

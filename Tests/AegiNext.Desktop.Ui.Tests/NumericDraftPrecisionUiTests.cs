@@ -15,6 +15,54 @@ namespace AegiNext.Desktop.Ui.Tests;
 public sealed class NumericDraftPrecisionUiTests
 {
     [AvaloniaTheory]
+    [InlineData("unfinished")]
+    [InlineData("1e100")]
+    [InlineData("1e-100")]
+    public void ChangingThePrecisionProjectionPreservesActualKeyboardDraftInsteadOfSavingTheLastValidValue(string rawText)
+    {
+        var draft = new NumericValueDraft { PreserveDoublePrecision = true };
+        draft.Load(10);
+        var input = new NumericDraftInput
+        {
+            PreserveDoublePrecision = true,
+            [!NumericUpDown.ValueProperty] = new Binding(nameof(NumericValueDraft.Value)) { Source = draft, Mode = BindingMode.TwoWay },
+            [!NumericDraftInput.RawTextProperty] = new Binding(nameof(NumericValueDraft.RawText)) { Source = draft, Mode = BindingMode.TwoWay }
+        };
+        var other = new Button { Content = "Other" };
+        var window = new Window
+        {
+            Width = 420, Height = 180,
+            Content = new StackPanel { Children = { input, other } }
+        };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            var text = Assert.Single(input.GetVisualDescendants().OfType<TextBox>());
+            Assert.True(text.Focus());
+            text.SelectAll();
+            window.KeyTextInput(rawText);
+            foreach (var preserve in new[] { false, true, false, true })
+            {
+                input.PreserveDoublePrecision = preserve;
+                Dispatcher.UIThread.RunJobs();
+                Assert.Equal(rawText, draft.RawText);
+                Assert.Equal(rawText, input.RawText);
+                Assert.Equal(rawText, text.Text);
+                Assert.Null(draft.Parse());
+            }
+            Assert.True(other.Focus());
+            Dispatcher.UIThread.RunJobs();
+            Assert.Equal(rawText, draft.RawText);
+            Assert.Equal(rawText, text.Text);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTheory]
     [InlineData("1e-100")]
     [InlineData("1e100")]
     public void NonDecimalFiniteDraftIgnoresSpinAndPreservesRawText(string rawText)

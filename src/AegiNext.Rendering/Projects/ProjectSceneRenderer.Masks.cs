@@ -12,7 +12,8 @@ public sealed partial class ProjectSceneRenderer
             return true;
         }
 
-        if (first is null || second is null || first.Inverted != second.Inverted || first.Transform != second.Transform)
+        if (first is null || second is null || first.Inverted != second.Inverted || first.Transform != second.Transform ||
+            first.Placement != second.Placement || first.ReferenceFrame != second.ReferenceFrame)
         {
             return false;
         }
@@ -38,8 +39,8 @@ public sealed partial class ProjectSceneRenderer
         return true;
     }
 
-    private static SKPath ClipMaskPath(ClipMask mask, float scaleX, float scaleY)
+    private static SKPath ClipMaskPath(ClipMask mask, ScenePoint canvasSize, float scaleX, float scaleY)
     {
-        return ClipMaskGeometry.Create(mask, scaleX, scaleY);
+        return ClipMaskGeometry.Create(mask, canvasSize, scaleX, scaleY);
     }
 }

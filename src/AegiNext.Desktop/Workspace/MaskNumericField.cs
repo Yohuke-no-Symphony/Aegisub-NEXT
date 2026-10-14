@@ -6,7 +6,7 @@ namespace AegiNext.Desktop.Workspace;
 
 internal sealed class MaskNumericField(string key, string labelKey, AnimationTrackTarget? target, int component, double minimum, double maximum, AnimationPropertyRowViewModel? row = null)
 {
-    private double pivotOriginal;
+    private double original;
 
     public string Key { get; } = key;
     public string FieldKey => Row is null ? Key : Component == 0 ? Row.XFieldKey : Row.YFieldKey;
@@ -18,11 +18,11 @@ internal sealed class MaskNumericField(string key, string labelKey, AnimationTra
     public decimal Maximum { get; } = (decimal)maximum;
     public AnimationPropertyRowViewModel? Row { get; } = row;
     public NumericValueDraft Draft { get; } = row is null ? new() : component == 0 ? row.X : row.Y;
-    internal double Original => Row?.GetOriginalComponent(Component) ?? pivotOriginal;
+    internal double Original => Row?.GetOriginalComponent(Component) ?? original;
 
-    internal void LoadPivot(double value)
+    internal void Load(double value)
     {
-        pivotOriginal = value;
+        original = value;
         Draft.Load(value);
     }
     internal bool IsDirty => Row is not null ? Row.HasDraft : Draft.RawText != ((decimal)Original).ToString(System.Globalization.CultureInfo.CurrentCulture);

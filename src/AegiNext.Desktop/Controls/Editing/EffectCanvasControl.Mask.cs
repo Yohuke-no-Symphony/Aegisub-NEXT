@@ -45,11 +45,9 @@ public sealed partial class EffectCanvasControl
 
     private Matrix MaskMatrix(ClipMask mask)
     {
-        var transform = mask.Transform;
-        return Matrix.CreateTranslation(-transform.Pivot.X, -transform.Pivot.Y) *
-            Matrix.CreateScale(transform.Scale.X, transform.Scale.Y) *
-            Matrix.CreateRotation(transform.Rotation * Math.PI / 180) *
-            Matrix.CreateTranslation(transform.Pivot.X + transform.Position.X, transform.Pivot.Y + transform.Position.Y) * Fit();
+        var projection = ClipMaskPlacementGeometry.CreateMatrix(mask, new(document.Width, document.Height));
+        return new Matrix(projection.M11, projection.M21, projection.M31,
+            projection.M12, projection.M22, projection.M32, projection.M13, projection.M23, projection.M33) * Fit();
     }
 
     private static Point MaskPoint(ScenePoint point) => new(point.X, point.Y);
@@ -385,12 +383,11 @@ public sealed partial class EffectCanvasControl
             var current = SnapMaskPoint(point) * inverseFit;
             var topLeft = new ScenePoint(Math.Min(first.X, current.X), Math.Min(first.Y, current.Y));
             var bottomRight = new ScenePoint(Math.Max(first.X, current.X), Math.Max(first.Y, current.Y));
-            maskDraft = topLeft.X == bottomRight.X || topLeft.Y == bottomRight.Y ? maskOriginal : new RectangleClipMask
+            maskDraft = topLeft.X == bottomRight.X || topLeft.Y == bottomRight.Y ? maskOriginal : ClipMaskPlacementGeometry.CreatePlacement(new RectangleClipMask
             {
                 TopLeft = topLeft,
-                BottomRight = bottomRight,
-                Transform = new() { Pivot = new((topLeft.X + bottomRight.X) / 2, (topLeft.Y + bottomRight.Y) / 2) }
-            };
+                BottomRight = bottomRight
+            }, new(document.Width, document.Height));
         }
         else if (maskOriginal is { } original)
         {
@@ -528,8 +525,9 @@ public sealed partial class EffectCanvasControl
         var existing = EvaluatedMask() as VectorClipMask;
         var contour = new MaskContour { Id = openContourId!.Value, Nodes = openContour };
         var all = (existing?.Contours ?? []).Add(contour);
-        var pivot = MaskGeometryCenter(all);
-        var vector = existing is null ? new VectorClipMask { Contours = all, Transform = new() { Pivot = pivot } } : existing with { Contours = all };
+        var vector = existing is null
+            ? ClipMaskPlacementGeometry.CreatePlacement(new VectorClipMask { Contours = all }, new(document.Width, document.Height))
+            : existing with { Contours = all };
         var nodeId = openContour[0].Id;
         openContour = [];
         openContourId = null;
@@ -538,12 +536,6 @@ public sealed partial class EffectCanvasControl
         MaskEdited?.Invoke(this, new(selected.Id, vector, nodeId));
         editMode = CanvasEditMode.MASK_VECTOR;
         InvalidateVisual();
-    }
-
-    private static ScenePoint MaskGeometryCenter(ImmutableArray<MaskContour> contours)
-    {
-        var center = MaskCanvasGeometry.Bounds(new VectorClipMask { Contours = contours }, Matrix.Identity).Center;
-        return new(center.X, center.Y);
     }
 
     private void CancelMaskGesture()

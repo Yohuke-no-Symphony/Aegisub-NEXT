@@ -2,6 +2,7 @@ using System.Windows.Input;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
+using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Workspace;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -48,6 +49,7 @@ internal sealed class MaskPanelViewModel : ObservableObject
     public bool CanDeleteNode => session.MaskEditing.CanDeleteSelectedNode;
     public bool HasSelectedPoint => SelectedPoint is not null;
     public bool MaskInverted => session.SelectedLayer?.Mask?.Inverted == true;
+    public LayerPositionDraft Position => session.MaskEditing.PositionDraft;
     public bool IsSnapEnabled
     {
         get => isSnapEnabled;
@@ -124,11 +126,11 @@ internal sealed class MaskPanelViewModel : ObservableObject
             if (!ReferenceEquals(sourceFields, fields))
             {
                 sourceFields = fields;
-                var vectors = fields.Where(field => field.Target is null ||
-                    AnimationPropertyMetadata.GetComponentCount(field.Target.Value.Property) == 2)
+                var vectors = fields.Where(field => field.Target is { } target &&
+                    AnimationPropertyMetadata.GetComponentCount(target.Property) == 2)
                     .GroupBy(field => field.Target).Select(group => new MaskVectorField(
                         group.Single(field => field.Component == 0), group.Single(field => field.Component == 1))).ToArray();
-                GeometryFields = vectors.Where(field => field.Target is null || !AnimationPropertyMetadata.IsNodeProperty(field.Target.Value.Property)).ToArray();
+                GeometryFields = vectors.Where(field => field.Target is { } target && !AnimationPropertyMetadata.IsNodeProperty(target.Property)).ToArray();
                 NodeFields = vectors.Where(field => field.Target is { } target && AnimationPropertyMetadata.IsNodeProperty(target.Property)).ToArray();
                 RotationField = fields.FirstOrDefault(field => field.Target?.Property == AnimationProperty.MASK_ROTATION);
                 OnPropertyChanged(nameof(GeometryFields));
@@ -195,6 +197,10 @@ internal sealed class MaskPanelViewModel : ObservableObject
 
     internal void RestoreField(string? key)
     {
+        if (session.MaskEditing.RestorePositionField(key))
+        {
+            return;
+        }
         var field = session.MaskEditing.Fields.FirstOrDefault(field => field.Key == key);
         if (field is not null)
         {

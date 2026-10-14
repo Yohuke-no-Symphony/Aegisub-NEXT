@@ -113,15 +113,15 @@
           IsExpanded="{Binding MaskExpanded, Mode=TwoWay}" IsVisible="{Binding HasEditableMask}">
         <StackPanel Spacing="4">
           <TextBlock Classes="field" Text="{Loc Key=Workbench.MaskWholeSubtitleHint}" TextWrapping="Wrap" />
+          <TextBlock Classes="field" Text="{Loc Key=Workbench.MaskPlacement}" />
+          <controls:LayerPositionEditor Name="MaskPositionEditor" Draft="{Binding MaskPosition}"
+              ShowPositionMode="False" ShowAutomaticPositionAction="False" />
+          <TextBlock Text="{Loc Key=Workbench.MaskPlacementHint}" TextWrapping="Wrap" />
           <ItemsControl Name="EffectMaskRows" ItemsSource="{Binding MaskRows}">
             <ItemsControl.ItemTemplate>
               <DataTemplate x:DataType="workspace:AnimationPropertyRowViewModel"><vm:EffectPropertyRowView DataContext="{Binding}" /></DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <controls:AnimationPropertyRowControl Name="EffectMaskPivot" Label="{Loc Key=Workbench.MaskPivot}" IsVector="True" ShowAnimationActions="False"
-              IsVisible="{Binding HasMask}" X="{Binding MaskPivotX}" Y="{Binding MaskPivotY}" FieldKey="MaskPivot" XFieldKey="MaskPivotX" YFieldKey="MaskPivotY"
-              XInputName="MaskPivotX" YInputName="MaskPivotY" Minimum="-1000000000" Maximum="1000000000"
-              Error="{Binding ValidationError}" InvalidFieldKey="{Binding InvalidFieldKey}" />
           <TextBlock Text="{Loc Key=Workbench.MaskChooseNodeHint}" IsVisible="{Binding NeedsMaskNodeSelection}" TextWrapping="Wrap" />
         </StackPanel>
       </controlsCommon:PropertySection>

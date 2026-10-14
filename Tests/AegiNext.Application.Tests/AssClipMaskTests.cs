@@ -117,8 +117,10 @@ public sealed class AssClipMaskTests
             AssSubtitleFormat.Parse(File("{\\clip(0,0,100,100)\\t(0,2000,\\clip(20,20,120,120))\\t(500,1500,\\clip(40,40,140,140))}a"), 640, 360), "ASS");
         var line = imported.Subtitles[0];
         var layer = imported.Layers[0];
-        var source = AssTextProjection.Create(line, layer: layer).Source;
-        var edited = AssTextProjection.Apply(line, source.Replace("\\clip(20,20,120,120)", "\\clip(20,20,120,120)\\fs40", StringComparison.Ordinal), layer: layer);
+        var source = AssTextProjection.Create(line, canvasWidth: 640, canvasHeight: 360, layer: layer).Source;
+        var changedSource = source.Replace("\\clip(20,20,120,120)", "\\clip(20,20,120,120)\\fs40", StringComparison.Ordinal);
+        Assert.NotEqual(source, changedSource);
+        var edited = AssTextProjection.Apply(line, changedSource, canvasWidth: 640, canvasHeight: 360, layer: layer);
         Assert.Same(layer.Mask, edited.Mask);
         Assert.Same(layer.Tracks[0], edited.MaskTracks[0]);
         Assert.Equal(layer.Tracks[0].Transforms[0].Id, edited.MaskTracks[0].Transforms[0].Id);
@@ -137,10 +139,14 @@ public sealed class AssClipMaskTests
     }
 
     [Fact]
-    public void AdvancedGeometryEditsKeepTheFixedPivotAndDoNotApplyTheMaskTransformTwice()
+    public void AdvancedGeometryEditsKeepNativePlacementAndDoNotApplyTheMaskTransformTwice()
     {
         var line = new SubtitleLine { Text = "a" };
-        var mask = new VectorClipMask { Transform = new() { Position = new(10, 20), Scale = new(2, 2), Pivot = new(40, 50) },
+        var mask = new VectorClipMask
+        {
+            Placement = new() { Anchor = new(0.25, 0.75), Pivot = new(0.4, 0.5), Offset = new(-440, -760) },
+            ReferenceFrame = new() { Size = new(100, 100) },
+            Transform = new() { Position = new(10, 20), Scale = new(2, 2) },
             Contours = [new() { Nodes = [new() { Position = new(0, 0) }, new() { Position = new(100, 0) }, new() { Position = new(100, 100) }] }] };
         var layer = new ProjectLayer { Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, Mask = mask,
             Tracks = [new(AnimationProperty.MASK_POSITION, [new(MediaTime.Zero, AnimationValue.FromVector(new(10, 20))), new(new(2), AnimationValue.FromVector(new(20, 30)))])] };
@@ -148,6 +154,8 @@ public sealed class AssClipMaskTests
         var edited = AssTextProjection.Apply(line, source.Replace("m -1920 -1920", "m -1280 -1920", StringComparison.Ordinal), layer: layer);
         var changed = Assert.IsType<VectorClipMask>(edited.Mask);
         Assert.Equal(mask.Transform, changed.Transform);
+        Assert.Same(mask.Placement, changed.Placement);
+        Assert.Same(mask.ReferenceFrame, changed.ReferenceFrame);
         Assert.Equal(mask.Contours[0].Nodes[0].Id, changed.Contours[0].Nodes[0].Id);
         Assert.Equal(new ScenePoint(5, 0), changed.Contours[0].Nodes[0].Position);
         Assert.Same(layer.Tracks[0], Assert.Single(edited.MaskTracks));

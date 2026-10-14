@@ -67,9 +67,13 @@ public sealed class MaskPropertyRowsUiTests
                 Assert.Equal(row.FieldKey, effectControl.FieldKey);
                 Assert.Equal(row.FieldKey, maskControl.FieldKey);
             }
-            var pivot = Assert.Single(masks.GetVisualDescendants().OfType<AnimationPropertyRowControl>(),
-                control => control.DataContext is MaskVectorField { Target: null });
-            Assert.False(pivot.ShowAnimationActions);
+            var position = UiTestActions.Find<LayerPositionEditor>(masks, "MaskPositionEditor");
+            var effectPosition = UiTestActions.Find<LayerPositionEditor>(effects, "MaskPositionEditor");
+            Assert.Same(position.Draft, effectPosition.Draft);
+            Assert.Same(session.MaskEditing.PositionDraft, position.Draft);
+            Assert.Equal(3, position.GetVisualDescendants().OfType<VectorDraftInput>().Count());
+            Assert.False(position.ShowPositionMode);
+            Assert.False(position.ShowAutomaticPositionAction);
             Assert.Same(source, session.DocumentSnapshot);
         }
         finally

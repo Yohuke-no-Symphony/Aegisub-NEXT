@@ -1,9 +1,107 @@
+using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
 
 namespace AegiNext.Core.Tests.Projects;
 
 public sealed class ClipMaskPlacementGeometryTests
 {
+    [Theory]
+    [InlineData(800, 600)]
+    [InlineData(3840, 2160)]
+    public void CreatingPlacementPreservesDrawnGeometryAndInitializesCenterPresets(double width, double height)
+    {
+        var original = new RectangleClipMask { TopLeft = new(15, 25), BottomRight = new(215, 125) };
+        var canvasSize = new ScenePoint(width, height);
+
+        var created = Assert.IsType<RectangleClipMask>(ClipMaskPlacementGeometry.CreatePlacement(original, canvasSize));
+        var matrix = ClipMaskPlacementGeometry.CreateMatrix(created, canvasSize);
+
+        Assert.Equal(new ScenePoint(0.5, 0.5), created.Placement.Anchor);
+        Assert.Equal(new ScenePoint(0.5, 0.5), created.Placement.Pivot);
+        Assert.Equal(new ScenePoint(15, 25), created.ReferenceFrame.Origin);
+        Assert.Equal(new ScenePoint(200, 100), created.ReferenceFrame.Size);
+        AssertPoint(original.TopLeft, matrix.Map(created.TopLeft));
+        AssertPoint(original.BottomRight, matrix.Map(created.BottomRight));
+        Assert.Equal(new LayerPosition(), original.Placement);
+    }
+
+    [Fact]
+    public void DegenerateCreationPreservesGeometryDespiteMinimumReferenceSize()
+    {
+        var original = new RectangleClipMask { TopLeft = new(15, 25), BottomRight = new(15, 25) };
+        var created = ClipMaskPlacementGeometry.CreatePlacement(original, new(800, 600));
+
+        AssertPoint(new(15, 25), ClipMaskPlacementGeometry.CreateMatrix(created, new(800, 600)).Map(original.TopLeft));
+        Assert.Equal(new ScenePoint(1, 1), created.ReferenceFrame.Size);
+    }
+
+    [Fact]
+    public void NodeDeformationRetainsTheCapturedReferenceFrameAndPlacement()
+    {
+        var first = new MaskNode { Position = new(10, 20), OutHandle = new(0, 10) };
+        var original = ClipMaskPlacementGeometry.CreatePlacement(new VectorClipMask
+        {
+            Contours = [new() { Nodes = [first, new() { Position = new(100, 80) }] }]
+        }, new(800, 600));
+        var changed = ClipMaskAnimation.SetBaseValue(original,
+            new(AnimationProperty.MASK_NODE_POSITION, first.Id), new ScenePoint(-50, -100));
+
+        Assert.Same(original.ReferenceFrame, changed.ReferenceFrame);
+        Assert.Same(original.Placement, changed.Placement);
+        Assert.Equal(ClipMaskPlacementGeometry.CreateMatrix(original, new(800, 600)),
+            ClipMaskPlacementGeometry.CreateMatrix(changed, new(800, 600)));
+        Assert.NotEqual(ClipMaskPlacementGeometry.CaptureReferenceFrame(changed), original.ReferenceFrame);
+    }
+
+    [Fact]
+    public void CurvesOutsideNodeCoordinateBudgetStillHaveFiniteReferenceAndNormalizedPivot()
+    {
+        var original = new VectorClipMask
+        {
+            Contours = [new() { Nodes = [new()
+            {
+                Position = new(-1e9, 0), InHandle = new(-4d / 3, 0), OutHandle = new(-4d / 3, 0)
+            }] }]
+        };
+        var frame = ClipMaskPlacementGeometry.CaptureReferenceFrame(original);
+        var placement = new LayerPosition
+        {
+            Offset = new(1e9, 0),
+            Pivot = new((1e9 - frame.Origin.X) / frame.Size.X, 0)
+        };
+        var matrix = ClipMaskPlacementGeometry.CreateMatrix(placement, frame, new(), new(800, 600));
+
+        Assert.True(frame.Origin.X < -1e9);
+        Assert.True(placement.Pivot.X > 2e9);
+        Assert.InRange(placement.Pivot.X, -ClipMaskPlacementGeometry.MAX_NORMALIZED_PIVOT,
+            ClipMaskPlacementGeometry.MAX_NORMALIZED_PIVOT);
+        AssertPoint(new(-1e9, 0), matrix.Map(new(-1e9, 0)));
+    }
+
+    [Fact]
+    public void CreatingExtremeGeometryKeepsRepresentableOffsetsWithoutMovingAnyPoint()
+    {
+        var original = new VectorClipMask
+        {
+            Contours = [new() { Nodes = [new()
+            {
+                Position = new(-1e9, 1e9), InHandle = new(-1e9, 0), OutHandle = new(-1e9, 0)
+            }] }]
+        };
+        var canvasSize = new ScenePoint(32768, 1000);
+        var created = ClipMaskPlacementGeometry.CreatePlacement(original, canvasSize);
+        var line = new SubtitleLine();
+
+        ProjectValidator.Validate(new()
+        {
+            Width = (int)canvasSize.X, Height = (int)canvasSize.Y,
+            Subtitles = [line], Layers = [new() { SubtitleId = line.Id, Start = line.Start, End = line.End, Mask = created }]
+        });
+        Assert.InRange(created.Placement.Offset.X, -1e9, 1e9);
+        AssertPoint(original.Contours[0].Nodes[0].Position,
+            ClipMaskPlacementGeometry.CreateMatrix(created, canvasSize).Map(original.Contours[0].Nodes[0].Position));
+    }
+
     [Fact]
     public void PlacementUsesCanvasAnchorLocalReferencePivotAndAnimatedTranslation()
     {

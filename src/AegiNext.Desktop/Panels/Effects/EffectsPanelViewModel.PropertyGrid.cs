@@ -200,6 +200,10 @@ internal sealed partial class EffectsPanelViewModel
 
     internal bool RestorePropertyField(string? key)
     {
+        if (session.MaskEditing.RestorePositionField(key))
+        {
+            return true;
+        }
         if (session.PropertyEditing.Restore(key))
         {
             return true;
@@ -214,14 +218,16 @@ internal sealed partial class EffectsPanelViewModel
 
     internal bool ExpandPropertyField(string? field)
     {
+        if (ClipMaskPositionEditingCoordinator.LocalFieldKey(field) is not null)
+        {
+            MaskExpanded = true;
+            return false;
+        }
         var row = session.PropertyEditing.FindRow(field);
         if (row is null)
         {
             switch (field)
             {
-                case "MaskPivot" or "MaskPivotX" or "MaskPivotY":
-                    MaskExpanded = true;
-                    break;
                 case "LayerStartInput" or "LayerEndInput":
                     ClipExpanded = true;
                     break;

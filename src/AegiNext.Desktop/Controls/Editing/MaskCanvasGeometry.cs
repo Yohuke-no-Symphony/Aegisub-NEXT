@@ -27,28 +27,9 @@ internal static class MaskCanvasGeometry
 
     internal static Rect Bounds(ClipMask mask, Matrix matrix)
     {
-        var left = double.PositiveInfinity;
-        var top = double.PositiveInfinity;
-        var right = double.NegativeInfinity;
-        var bottom = double.NegativeInfinity;
-        foreach (var path in Paths(mask))
-        {
-            var start = Project(path.Start, matrix);
-            foreach (var segment in path.Segments)
-            {
-                var control1 = Project(segment.Control1, matrix);
-                var control2 = Project(segment.Control2, matrix);
-                var end = Project(segment.End, matrix);
-                var x = CubicBounds(start.X, control1.X, control2.X, end.X);
-                var y = CubicBounds(start.Y, control1.Y, control2.Y, end.Y);
-                left = Math.Min(left, x.Minimum);
-                top = Math.Min(top, y.Minimum);
-                right = Math.Max(right, x.Maximum);
-                bottom = Math.Max(bottom, y.Maximum);
-                start = end;
-            }
-        }
-        return double.IsPositiveInfinity(left) ? default : new(new Point(left, top), new Point(right, bottom));
+        var bounds = ClipMaskPlacementGeometry.GetBounds(mask, new(matrix.M11, matrix.M21, matrix.M31,
+            matrix.M12, matrix.M22, matrix.M32, matrix.M13, matrix.M23, matrix.M33));
+        return new(bounds.Origin.X, bounds.Origin.Y, bounds.Size.X, bounds.Size.Y);
     }
 
     private static IEnumerable<PathGeometry> Paths(ClipMask mask)
@@ -75,43 +56,6 @@ internal static class MaskCanvasGeometry
                 yield return new(contour.Nodes[0].Position, segments.MoveToImmutable(), true);
             }
         }
-    }
-
-    private static (double Minimum, double Maximum) CubicBounds(double start, double control1, double control2, double end)
-    {
-        var bounds = (Minimum: Math.Min(start, end), Maximum: Math.Max(start, end));
-        var a = -start + 3 * control1 - 3 * control2 + end;
-        var b = 2 * (start - 2 * control1 + control2);
-        var c = control1 - start;
-        if (a == 0)
-        {
-            return b == 0 ? bounds : IncludeExtremum(bounds, start, control1, control2, end, -c / b);
-        }
-        var discriminant = b * b - 4 * a * c;
-        if (discriminant < 0)
-        {
-            return bounds;
-        }
-        var q = -0.5 * (b + Math.CopySign(Math.Sqrt(discriminant), b));
-        if (q == 0)
-        {
-            return IncludeExtremum(bounds, start, control1, control2, end, -b / (2 * a));
-        }
-        bounds = IncludeExtremum(bounds, start, control1, control2, end, q / a);
-        return IncludeExtremum(bounds, start, control1, control2, end, c / q);
-    }
-
-    private static (double Minimum, double Maximum) IncludeExtremum((double Minimum, double Maximum) bounds,
-        double start, double control1, double control2, double end, double progress)
-    {
-        if (progress is <= 0 or >= 1)
-        {
-            return bounds;
-        }
-        var remaining = 1 - progress;
-        var value = remaining * remaining * remaining * start + 3 * remaining * remaining * progress * control1 +
-            3 * remaining * progress * progress * control2 + progress * progress * progress * end;
-        return (Math.Min(bounds.Minimum, value), Math.Max(bounds.Maximum, value));
     }
 
     private static CubicBezierSegment Line(ScenePoint start, ScenePoint end) => new(start, end, end);

@@ -94,7 +94,8 @@ public sealed class ClipMaskSnappingUiTests
             AssertPoint(expectedFirst, new(mask.TopLeft.X, mask.TopLeft.Y));
             AssertPoint(expectedLast, new(mask.BottomRight.X, mask.BottomRight.Y));
             AssertPoint(new((expectedFirst.X + expectedLast.X) / 2, (expectedFirst.Y + expectedLast.Y) / 2),
-                new(mask.Transform.Pivot.X, mask.Transform.Pivot.Y));
+                new(mask.ReferenceFrame.Origin.X + mask.Placement.Pivot.X * mask.ReferenceFrame.Size.X,
+                    mask.ReferenceFrame.Origin.Y + mask.Placement.Pivot.Y * mask.ReferenceFrame.Size.Y));
             Assert.Equal(1, commits);
             Assert.False(canvas.MaskSnapFeedback.HasSnap);
             Assert.True(editor.Undo());
@@ -141,12 +142,14 @@ public sealed class ClipMaskSnappingUiTests
         var document = Document(rotation: rotation, scaleX: 1.3, scaleY: 0.75);
         var geometry = Geometry(document);
         var targetWorld = new Point(geometry.LocalBounds.MidX, geometry.LocalBounds.MidY) * LocalToWorld(geometry);
-        var transform = new MaskTransform { Position = new(23, -13), Pivot = new(450, 350), Scale = new(1.2, 0.8), Rotation = -17 };
-        var firstLocal = (targetWorld - new Vector(110, 70)) * Inverse(MaskToWorld(transform));
+        var pivot = new ScenePoint(450, 350);
+        var transform = new MaskTransform { Position = new(23, -13), Scale = new(1.2, 0.8), Rotation = -17 };
+        var firstLocal = (targetWorld - new Vector(110, 70)) * Inverse(MaskToWorld(transform, pivot));
         var first = new MaskNode { Position = new(firstLocal.X, firstLocal.Y), InHandle = new(-12, 7), OutHandle = new(18, -9) };
         var original = new VectorClipMask
         {
             Transform = transform,
+            Placement = new() { Pivot = pivot, Offset = pivot },
             Contours = [new() { Nodes = [first, new() { Position = new(firstLocal.X + 120, firstLocal.Y) }, new() { Position = new(firstLocal.X + 60, firstLocal.Y + 130) }] }]
         };
         document = WithMask(document, original);
@@ -184,13 +187,15 @@ public sealed class ClipMaskSnappingUiTests
         var document = Document();
         var geometry = Geometry(document);
         var targetWorld = new Point(geometry.LocalBounds.MidX, geometry.LocalBounds.MidY) * LocalToWorld(geometry);
-        var transform = new MaskTransform { Position = new(17, -11), Pivot = new(430, 330), Scale = new(1.1, 0.85), Rotation = 21 };
-        var targetLocal = targetWorld * Inverse(MaskToWorld(transform));
+        var pivot = new ScenePoint(430, 330);
+        var transform = new MaskTransform { Position = new(17, -11), Scale = new(1.1, 0.85), Rotation = 21 };
+        var targetLocal = targetWorld * Inverse(MaskToWorld(transform, pivot));
         var original = new RectangleClipMask
         {
             TopLeft = new(targetLocal.X - 160, targetLocal.Y - 130),
             BottomRight = new(targetLocal.X - 60, targetLocal.Y - 40),
-            Transform = transform
+            Transform = transform,
+            Placement = new() { Pivot = pivot, Offset = pivot }
         };
         document = WithMask(document, original);
         WithCanvas(document, CanvasEditMode.MASK_RECTANGLE, (canvas, window) =>
@@ -217,16 +222,71 @@ public sealed class ClipMaskSnappingUiTests
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
+    public void WholeMaskDragSnapsToProjectedSubtitleWorldBoundsForRotationOrConstantDepth(bool constantDepth)
+    {
+        var document = Document();
+        var layer = document.Layers[0];
+        document = document with
+        {
+            Layers = [layer with
+            {
+                Transform = layer.Transform with
+                {
+                    RotationX = constantDepth ? 0 : 35,
+                    RotationY = constantDepth ? 0 : -25,
+                    PerspectiveDistance = 500,
+                    ProjectionTranslation = constantDepth ? new(0, 0, 150) : default
+                }
+            }]
+        };
+        var geometry = Geometry(document);
+        Assert.True(geometry.Projection.M31 != 0 || geometry.Projection.M32 != 0 || geometry.Projection.M33 != 1);
+        var bounds = geometry.WorldBounds;
+        var targetWorld = new Point(bounds.MidX, bounds.MidY);
+        var center = targetWorld - new Vector(140, 110);
+        var original = ClipMaskPlacementGeometry.CreatePlacement(new RectangleClipMask
+        {
+            TopLeft = new(center.X - 30, center.Y - 16), BottomRight = new(center.X + 30, center.Y + 16)
+        }, new(document.Width, document.Height));
+        document = WithMask(document, original);
+        WithCanvas(document, CanvasEditMode.MASK_RECTANGLE, (canvas, window) =>
+        {
+            var start = MaskPoint(canvas, document, original, new(center.X, center.Y));
+            var target = targetWorld * Fit(canvas, document);
+            var raw = target + new Vector(4, 3);
+            CanvasMaskEditEventArgs? edited = null;
+            canvas.MaskEdited += (_, args) => edited = args;
+
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(raw);
+
+            Assert.True(canvas.MaskSnapFeedback.HasSnap);
+            Assert.Equal(targetWorld.X, canvas.MaskSnapFeedback.XGuide!.Value, 4);
+            Assert.Equal(targetWorld.Y, canvas.MaskSnapFeedback.YGuide!.Value, 4);
+            window.MouseUp(raw, MouseButton.Left);
+            Assert.NotNull(edited);
+            var movedCenter = MaskPoint(canvas, document, edited.Mask, new(center.X, center.Y));
+            Assert.Equal(target.X, movedCenter.X, 4);
+            Assert.Equal(target.Y, movedCenter.Y, 4);
+            Assert.Equal(original.Placement, edited.Mask.Placement);
+            Assert.Equal(original.ReferenceFrame, edited.Mask.ReferenceFrame);
+        });
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
     public void MovingTheWholeMaskSnapsItsCenterWithoutChangingItsShape(bool vector)
     {
         var document = Document();
         var geometry = Geometry(document);
         var targetWorld = new Point(geometry.LocalBounds.MidX, geometry.LocalBounds.MidY) * LocalToWorld(geometry);
         var center = targetWorld - new Vector(140, 110);
-        var transform = new MaskTransform { Position = new(17, 13), Pivot = new(center.X, center.Y), Scale = new(1.1, 0.9), Rotation = 23 };
+        var transform = new MaskTransform { Position = new(17, 13), Scale = new(1.1, 0.9), Rotation = 23 };
+        var placement = new LayerPosition { Pivot = new(center.X, center.Y), Offset = new(center.X, center.Y) };
         ClipMask original = vector ? new VectorClipMask
         {
-            Transform = transform,
+            Transform = transform, Placement = placement,
             Contours = [new() { Nodes =
             [
                 new() { Position = new(center.X - 30, center.Y - 16) },
@@ -236,7 +296,7 @@ public sealed class ClipMaskSnappingUiTests
             ] }]
         } : new RectangleClipMask
         {
-            Transform = transform,
+            Transform = transform, Placement = placement,
             TopLeft = new(center.X - 30, center.Y - 16), BottomRight = new(center.X + 30, center.Y + 16)
         };
         document = WithMask(document, original);
@@ -474,13 +534,16 @@ public sealed class ClipMaskSnappingUiTests
     private static Matrix SubtitleMatrix(EffectCanvasControl canvas, ProjectDocument document, ProjectLayerGeometry geometry) =>
         LocalToWorld(geometry) * Fit(canvas, document);
 
-    private static Matrix MaskToWorld(MaskTransform transform) =>
-        Matrix.CreateTranslation(-transform.Pivot.X, -transform.Pivot.Y) * Matrix.CreateScale(transform.Scale.X, transform.Scale.Y) *
+    private static Matrix MaskToWorld(MaskTransform transform, ScenePoint pivot) =>
+        Matrix.CreateTranslation(-pivot.X, -pivot.Y) * Matrix.CreateScale(transform.Scale.X, transform.Scale.Y) *
         Matrix.CreateRotation(transform.Rotation * Math.PI / 180) *
-        Matrix.CreateTranslation(transform.Pivot.X + transform.Position.X, transform.Pivot.Y + transform.Position.Y);
+        Matrix.CreateTranslation(pivot.X + transform.Position.X, pivot.Y + transform.Position.Y);
 
-    private static Point MaskPoint(EffectCanvasControl canvas, ProjectDocument document, ClipMask mask, ScenePoint point) =>
-        new Point(point.X, point.Y) * MaskToWorld(mask.Transform) * Fit(canvas, document);
+    private static Point MaskPoint(EffectCanvasControl canvas, ProjectDocument document, ClipMask mask, ScenePoint point)
+    {
+        var projected = ClipMaskPlacementGeometry.CreateMatrix(mask, new(document.Width, document.Height)).Map(point);
+        return new Point(projected.X, projected.Y) * Fit(canvas, document);
+    }
 
     private static Matrix Inverse(Matrix matrix)
     {

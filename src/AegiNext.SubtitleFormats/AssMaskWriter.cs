@@ -8,7 +8,8 @@ namespace AegiNext.SubtitleFormats;
 
 internal static class AssMaskWriter
 {
-    internal static string? WriteTags(ProjectLayer layer, MediaTime origin, ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
+    internal static string? WriteTags(ProjectLayer layer, MediaTime origin, ScenePoint canvasSize,
+        ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
         if (layer.Mask is null)
         {
@@ -17,9 +18,10 @@ internal static class AssMaskWriter
         var tracks = layer.Tracks.Where(track => AnimationPropertyMetadata.IsMaskProperty(track.Property)).ToArray();
         if (tracks.Length == 0)
         {
-            return StaticTags(layer.Mask, layer.SubtitleId, diagnostics);
+            return StaticTags(layer.Mask, canvasSize, layer.SubtitleId, diagnostics);
         }
-        if (layer.Mask is not RectangleClipMask rectangle || rectangle.Transform != new MaskTransform { Pivot = rectangle.Transform.Pivot } ||
+        if (layer.Mask is not RectangleClipMask rectangle || rectangle.Transform.Scale != new ScenePoint(1, 1) ||
+            rectangle.Transform.Rotation % 360 != 0 ||
             tracks.Any(track => track.Property is not (AnimationProperty.MASK_RECTANGLE_TOP_LEFT or AnimationProperty.MASK_RECTANGLE_BOTTOM_RIGHT)))
         {
             return null;
@@ -32,8 +34,9 @@ internal static class AssMaskWriter
             return null;
         }
         var master = top ?? bottom!;
-        var initialTop = Initial(top, rectangle.TopLeft);
-        var initialBottom = Initial(bottom, rectangle.BottomRight);
+        var matrix = ClipMaskPlacementGeometry.CreateMatrix(rectangle, canvasSize);
+        var initialTop = matrix.Map(Initial(top, rectangle.TopLeft));
+        var initialBottom = matrix.Map(Initial(bottom, rectangle.BottomRight));
         var operations = new List<AssMaskWriteOperation>();
         if (!master.Transforms.IsEmpty)
         {
@@ -49,7 +52,8 @@ internal static class AssMaskWriter
                 var start = operation.Curve is { Interpolation: KeyframeInterpolation.HOLD, Reverse: false }
                     ? operation.End : operation.Start;
                 operations.Add(new(start - origin, operation.End - origin, acceleration,
-                    top?.Transforms[index].Value.Vector ?? rectangle.TopLeft, bottom?.Transforms[index].Value.Vector ?? rectangle.BottomRight));
+                    matrix.Map(top?.Transforms[index].Value.Vector ?? rectangle.TopLeft),
+                    matrix.Map(bottom?.Transforms[index].Value.Vector ?? rectangle.BottomRight)));
             }
         }
         else
@@ -63,7 +67,8 @@ internal static class AssMaskWriter
                 }
                 var end = master.Keyframes[index + 1].Time - origin;
                 operations.Add(new(curve.Instant ? end : key.Time - origin, end, curve.Acceleration,
-                    top?.Keyframes[index + 1].Value.Vector ?? rectangle.TopLeft, bottom?.Keyframes[index + 1].Value.Vector ?? rectangle.BottomRight));
+                    matrix.Map(top?.Keyframes[index + 1].Value.Vector ?? rectangle.TopLeft),
+                    matrix.Map(bottom?.Keyframes[index + 1].Value.Vector ?? rectangle.BottomRight)));
             }
         }
         if (!Integral(initialTop) || !Integral(initialBottom) || operations.Any(operation => !Integral(operation.TopLeft) || !Integral(operation.BottomRight) || operation.End == MediaTime.Zero || !ExactMilliseconds(operation.Start) || !ExactMilliseconds(operation.End)))
@@ -80,12 +85,14 @@ internal static class AssMaskWriter
         return result.ToString();
     }
 
-    internal static string StaticTags(ClipMask mask, Guid? subtitleId, ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
+    internal static string StaticTags(ClipMask mask, ScenePoint canvasSize, Guid? subtitleId,
+        ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
+        var matrix = ClipMaskPlacementGeometry.CreateMatrix(mask, canvasSize);
         if (mask is RectangleClipMask rectangle && mask.Transform.Rotation % 360 == 0)
         {
-            var first = AssMaskGeometry.Transform(rectangle.TopLeft, mask.Transform);
-            var second = AssMaskGeometry.Transform(rectangle.BottomRight, mask.Transform);
+            var first = matrix.Map(rectangle.TopLeft);
+            var second = matrix.Map(rectangle.BottomRight);
             if (Integral(first) && Integral(second))
             {
                 return RectangleTag(mask.Inverted, new(Math.Min(first.X, second.X), Math.Min(first.Y, second.Y)),
@@ -136,7 +143,7 @@ internal static class AssMaskWriter
 
         void AppendPoint(ScenePoint point)
         {
-            point = AssMaskGeometry.Transform(point, mask.Transform);
+            point = matrix.Map(point);
             var x = Math.Round(point.X * 64, MidpointRounding.ToEven);
             var y = Math.Round(point.Y * 64, MidpointRounding.ToEven);
             if (x / 64 != point.X || y / 64 != point.Y)

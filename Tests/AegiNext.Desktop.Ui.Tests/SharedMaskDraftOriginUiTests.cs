@@ -64,11 +64,21 @@ public sealed class SharedMaskDraftOriginUiTests
         }
     }
 
-    /// <summary>静态枢轴共享草稿与错误，焦点切换保留输入来源，Esc只恢复当前分量。</summary>
+    /// <summary>六项静态定位共享草稿与错误，焦点切换保留输入来源，Esc 只恢复当前字段。</summary>
     [AvaloniaTheory]
-    [InlineData("effects")]
-    [InlineData("masks")]
-    public async Task StaticPivotSharesDraftsAndErrorsRetainsInputOriginAndEscapeRestoresOnlyTheCurrentField(string origin)
+    [InlineData("effects", "AnchorXInput")]
+    [InlineData("effects", "AnchorYInput")]
+    [InlineData("effects", "PivotXInput")]
+    [InlineData("effects", "PivotYInput")]
+    [InlineData("effects", "OffsetXInput")]
+    [InlineData("effects", "OffsetYInput")]
+    [InlineData("masks", "AnchorXInput")]
+    [InlineData("masks", "AnchorYInput")]
+    [InlineData("masks", "PivotXInput")]
+    [InlineData("masks", "PivotYInput")]
+    [InlineData("masks", "OffsetXInput")]
+    [InlineData("masks", "OffsetYInput")]
+    public async Task StaticPlacementSharesDraftsAndErrorsRetainsInputOriginAndEscapeRestoresOnlyTheCurrentField(string origin, string localKey)
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -76,67 +86,89 @@ public sealed class SharedMaskDraftOriginUiTests
         var session = context.Session;
         session.Editor.SetClipMask(session.SelectedLayer!.Id, new RectangleClipMask
         {
-            TopLeft = new(10, 20),
-            BottomRight = new(400, 300),
-            Transform = new() { Pivot = new(17, 19) }
+            TopLeft = new(10, 20), BottomRight = new(400, 300),
+            ReferenceFrame = new() { Origin = new(10, 20), Size = new(390, 280) },
+            Placement = new() { Anchor = new(0.5, 0.5), Pivot = new(-2, 3), Offset = new(17, 19) }
         });
         MountBothPanels(context);
-        var effectsRow = UiTestActions.Find<AnimationPropertyRowControl>(context.Window.Panels["effects"], "EffectMaskPivot");
-        var masksRow = Assert.Single(context.Window.Panels["masks"].GetVisualDescendants().OfType<AnimationPropertyRowControl>(),
-            control => control.DataContext is MaskVectorField { Target: null });
-        var field = Assert.IsType<MaskVectorField>(masksRow.DataContext);
-        Assert.Same(context.ViewModel.Effects.MaskPivotX, effectsRow.X);
-        Assert.Same(effectsRow.X, masksRow.X);
-        Assert.Same(effectsRow.Y, masksRow.Y);
-        Assert.Same(effectsRow.X, field.X.Draft);
-        Assert.Same(effectsRow.Y, field.Y.Draft);
-        Assert.False(effectsRow.ShowAnimationActions);
-        Assert.False(masksRow.ShowAnimationActions);
-        var originRow = origin == "effects" ? effectsRow : masksRow;
-        var otherRow = origin == "effects" ? masksRow : effectsRow;
-        var host = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(originRow));
-        var otherHost = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(otherRow));
+        var effectsPosition = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels["effects"], "MaskPositionEditor");
+        var masksPosition = UiTestActions.Find<LayerPositionEditor>(context.Window.Panels["masks"], "MaskPositionEditor");
+        Assert.Same(session.MaskEditing.PositionDraft, effectsPosition.Draft);
+        Assert.Same(effectsPosition.Draft, masksPosition.Draft);
+        var originPosition = origin == "effects" ? effectsPosition : masksPosition;
+        var otherPosition = origin == "effects" ? masksPosition : effectsPosition;
+        var host = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(originPosition));
+        var otherHost = Assert.IsAssignableFrom<Window>(TopLevel.GetTopLevel(otherPosition));
         var source = session.DocumentSnapshot;
+        var originalText = PositionField(session.MaskEditing.PositionDraft, localKey).RawText;
+        var otherKey = localKey.Contains("XInput", StringComparison.Ordinal)
+            ? localKey.Replace("XInput", "YInput", StringComparison.Ordinal)
+            : localKey.Replace("YInput", "XInput", StringComparison.Ordinal);
+        var otherValue = otherKey.StartsWith("Anchor", StringComparison.Ordinal) ? "0.75" : "55";
         try
         {
-            var text = FocusComponent(host, originRow, false);
-            originRow.Y!.RawText = "55";
+            var text = FocusPositionField(host, originPosition, localKey);
+            PositionField(session.MaskEditing.PositionDraft, otherKey).RawText = otherValue;
             UiTestActions.Press(host, Key.A, RawInputModifiers.Control);
             host.KeyTextInput("unfinished");
-            var otherText = FocusComponent(otherHost, otherRow, false);
+            var otherText = FocusPositionField(otherHost, otherPosition, localKey);
             Assert.True(otherText.IsFocused);
+            Assert.Equal("unfinished", otherText.Text);
 
             Assert.False(session.TryCommitDrafts());
             Flush(host);
             Flush(otherHost);
 
             Assert.Equal(origin, context.ViewModel.InvalidPanelId);
-            Assert.Equal("MaskPivotX", context.ViewModel.InvalidFieldKey);
+            Assert.Equal(ClipMaskPositionEditingCoordinator.FieldKey(localKey), context.ViewModel.InvalidFieldKey);
             Assert.True(text.IsFocused);
-            Assert.True(DataValidationErrors.GetHasErrors(FindComponent(effectsRow, false)));
-            Assert.True(DataValidationErrors.GetHasErrors(FindComponent(masksRow, false)));
-            Assert.Equal("unfinished", effectsRow.X!.RawText);
-            Assert.Equal("unfinished", masksRow.X!.RawText);
+            Assert.True(DataValidationErrors.GetHasErrors(FindPositionField(effectsPosition, localKey)));
+            Assert.True(DataValidationErrors.GetHasErrors(FindPositionField(masksPosition, localKey)));
+            Assert.Equal("unfinished", PositionField(session.MaskEditing.PositionDraft, localKey).RawText);
             Assert.Same(source, session.DocumentSnapshot);
 
             UiTestActions.Press(host, Key.Escape);
             Flush(host);
             Flush(otherHost);
 
-            Assert.Equal("17", effectsRow.X.RawText);
-            Assert.Equal("17", masksRow.X.RawText);
-            Assert.Equal("55", effectsRow.Y!.RawText);
-            Assert.Equal("55", masksRow.Y!.RawText);
-            Assert.False(DataValidationErrors.GetHasErrors(FindComponent(effectsRow, false)));
-            Assert.False(DataValidationErrors.GetHasErrors(FindComponent(masksRow, false)));
+            Assert.Equal(originalText, PositionField(session.MaskEditing.PositionDraft, localKey).RawText);
+            Assert.Equal(otherValue, PositionField(session.MaskEditing.PositionDraft, otherKey).RawText);
+            Assert.False(DataValidationErrors.GetHasErrors(FindPositionField(effectsPosition, localKey)));
+            Assert.False(DataValidationErrors.GetHasErrors(FindPositionField(masksPosition, localKey)));
             Assert.Same(source, session.DocumentSnapshot);
         }
         finally
         {
-            context.ViewModel.Masks.RestoreField("MaskPivotX");
-            context.ViewModel.Masks.RestoreField("MaskPivotY");
+            foreach (var key in new[] { "AnchorXInput", "AnchorYInput", "PivotXInput", "PivotYInput", "OffsetXInput", "OffsetYInput" })
+            {
+                session.MaskEditing.RestorePositionField(ClipMaskPositionEditingCoordinator.FieldKey(key));
+            }
             session.TryCommitDrafts(false);
         }
+    }
+
+    private static AegiNext.Desktop.Editing.NumericValueDraft PositionField(AegiNext.Desktop.Editing.LayerPositionDraft draft, string field) => field switch
+    {
+        "AnchorXInput" => draft.AnchorX,
+        "AnchorYInput" => draft.AnchorY,
+        "PivotXInput" => draft.PivotX,
+        "PivotYInput" => draft.PivotY,
+        "OffsetXInput" => draft.OffsetX,
+        _ => draft.OffsetY
+    };
+
+    private static NumericDraftInput FindPositionField(LayerPositionEditor editor, string field) =>
+        Assert.Single(editor.GetVisualDescendants().OfType<NumericDraftInput>(), input => input.Name == field);
+
+    private static TextBox FocusPositionField(Window host, LayerPositionEditor editor, string field)
+    {
+        var input = FindPositionField(editor, field);
+        input.BringIntoView();
+        Flush(host);
+        var text = Assert.Single(input.GetVisualDescendants().OfType<TextBox>());
+        Assert.True(text.Focus());
+        Flush(host);
+        return text;
     }
 
     private static void MountBothPanels(MainWindowTestContext context)

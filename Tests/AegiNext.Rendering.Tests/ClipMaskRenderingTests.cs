@@ -349,6 +349,59 @@ public sealed class ClipMaskRenderingTests
         Assert.True(retainedInk > 0);
     }
 
+    [Fact]
+    public void NativePlacementResolvesEngineeringCanvasBeforePreviewScaling()
+    {
+        var mask = new RectangleClipMask
+        {
+            TopLeft = new(10, 20), BottomRight = new(50, 80),
+            ReferenceFrame = new() { Origin = new(10, 20), Size = new(40, 60) },
+            Placement = new() { Anchor = new(1, 0), Pivot = new(0.5, 0.5), Offset = new(-40, 50) }
+        };
+        using var path = ClipMaskGeometry.Create(mask, new(128, 96), 0.5f, 0.5f);
+
+        Assert.Equal(34, path.Bounds.Left);
+        Assert.Equal(10, path.Bounds.Top);
+        Assert.Equal(54, path.Bounds.Right);
+        Assert.Equal(40, path.Bounds.Bottom);
+        Assert.True(path.Contains(40, 20));
+        Assert.False(path.Contains(20, 20));
+        Assert.False(path.Contains(50, 45));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PlacementAndFixedReferenceFrameChangesRefreshCachedPreview(bool changeReferenceFrame)
+    {
+        var document = Document();
+        var mask = new RectangleClipMask
+        {
+            BottomRight = new(64, 96), ReferenceFrame = new() { Size = new(64, 96) },
+            Placement = new() { Anchor = new(0.5, 0.5), Pivot = new(0.5, 0.5), Offset = new(-32, 0) }
+        };
+        var moved = changeReferenceFrame
+            ? mask with { ReferenceFrame = mask.ReferenceFrame with { Origin = new(-64, 0) } }
+            : mask with { Placement = mask.Placement with { Offset = new(32, 0) } };
+        using var renderer = Renderer();
+        var background = Enumerable.Range(0, 12).SelectMany(_ => new byte[] { 16, 32, 48, 255 }).ToArray();
+        var withoutTarget = renderer.ComposePreview(document with { Subtitles = [], Layers = [] }, new(1), background, 4, 3, 16, 64, 48);
+        var original = renderer.ComposePreview(document, new(1), background, 4, 3, 16, 64, 48);
+        var first = renderer.ComposePreview(WithMask(document, mask), new(1), background, 4, 3, 16, 64, 48);
+        var second = renderer.ComposePreview(WithMask(document, moved), new(1), background, 4, 3, 16, 64, 48);
+
+        Assert.False(first.SequenceEqual(second));
+        for (var y = 0; y < 48; y++)
+        {
+            for (var x = 0; x < 64; x++)
+            {
+                var offset = (y * 64 + x) * 4;
+                Assert.Equal((x < 32 ? original : withoutTarget).AsSpan(offset, 4).ToArray(), first.AsSpan(offset, 4).ToArray());
+                Assert.Equal((x >= 32 ? original : withoutTarget).AsSpan(offset, 4).ToArray(), second.AsSpan(offset, 4).ToArray());
+            }
+        }
+    }
+
     private static ProjectDocument Document()
     {
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "Fixtures/NotoSans.ttf");

@@ -160,7 +160,8 @@ public sealed class ClipMaskNodeDeletionUiTests
         var line = new SubtitleLine { End = new(5) };
         var mask = new VectorClipMask
         {
-            Transform = new() { Position = new(17, 13), Scale = new(1.3, 0.9), Rotation = 25, Pivot = new(300, 250) },
+            Transform = new() { Position = new(17, 13), Scale = new(1.3, 0.9), Rotation = 25 },
+            Placement = new() { Pivot = new(300, 250), Offset = new(300, 250) },
             Contours = [new() { Nodes = [new() { Position = new(200, 200) }, new() { Position = new(600, 200) }, new() { Position = new(400, 400) }] }]
         };
         return new() { Width = 1000, Height = 500, Subtitles = [line], Layers = [new() { Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, End = line.End, Mask = mask }] };
@@ -168,11 +169,8 @@ public sealed class ClipMaskNodeDeletionUiTests
 
     private static Point ProjectNode(EffectCanvasControl canvas, ProjectDocument document, ClipMask mask, ScenePoint position)
     {
-        var transform = mask.Transform;
+        var projected = ClipMaskPlacementGeometry.CreateMatrix(mask, new(document.Width, document.Height)).Map(position);
         var board = canvas.ProjectRectangle;
-        var matrix = Matrix.CreateTranslation(-transform.Pivot.X, -transform.Pivot.Y) * Matrix.CreateScale(transform.Scale.X, transform.Scale.Y) *
-            Matrix.CreateRotation(transform.Rotation * Math.PI / 180) * Matrix.CreateTranslation(transform.Pivot.X + transform.Position.X, transform.Pivot.Y + transform.Position.Y) *
-            Matrix.CreateScale(board.Width / document.Width, board.Height / document.Height) * Matrix.CreateTranslation(board.X, board.Y);
-        return new Point(position.X, position.Y) * matrix;
+        return new(board.X + projected.X * board.Width / document.Width, board.Y + projected.Y * board.Height / document.Height);
     }
 }

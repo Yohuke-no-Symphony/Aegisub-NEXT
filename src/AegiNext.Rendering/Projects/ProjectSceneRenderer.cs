@@ -489,7 +489,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                 parent.ResetMatrix();
                 if (layer.Mask is { } mask)
                 {
-                    using var path = ClipMaskPath(mask, (float)surface.Info.Width / document.Width,
+                    using var path = ClipMaskPath(mask, new(document.Width, document.Height), (float)surface.Info.Width / document.Width,
                         (float)surface.Info.Height / document.Height);
                     parent.ClipPath(path, mask.Inverted ? SKClipOperation.Difference : SKClipOperation.Intersect, true);
                 }

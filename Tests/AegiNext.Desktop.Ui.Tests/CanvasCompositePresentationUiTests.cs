@@ -2,6 +2,7 @@ using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Media.Preview;
+using AegiNext.Rendering.Projects;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -193,6 +194,7 @@ public sealed class CanvasCompositePresentationUiTests
             {
                 FontFamily = "sans-serif",
                 FontSize = 160,
+                Scaling = new() { ReferenceWidth = 100, ReferenceHeight = 100 },
                 Fill = new(0, 0, 1),
                 StrokeWidth = 0,
                 ShadowColor = SceneColor.Transparent,
@@ -207,6 +209,16 @@ public sealed class CanvasCompositePresentationUiTests
         };
         var document = new ProjectDocument { Width = 100, Height = 100, Subtitles = [subtitle], Layers = [layer] };
         ProjectValidator.Validate(document);
+        using (var renderer = new ProjectSceneRenderer(new DirectoryProjectAssetResolver(AppContext.BaseDirectory)))
+        using (var scene = renderer.Render(document, new(1)))
+        {
+            var pixels = new Half[scene.Info.ChannelCount];
+            scene.CopyPixels(pixels);
+            var probe = (40 * document.Width + 40) * 4;
+            Assert.True(pixels[probe + 2] > pixels[probe] + (Half)0.4,
+                "The unmasked native scene must cover the draft probe with blue ink.");
+        }
+
         canvas.SetScene(document, layer, new(1));
         canvas.PresentComposite(Frame(0, 255, 0), Frame(255, 0, 0), new(1), document, false,
             new(1), new(2));

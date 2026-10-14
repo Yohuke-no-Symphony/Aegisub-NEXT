@@ -49,7 +49,7 @@
         <controls:VectorDraftInput Name="PivotInput" XFieldKey="PivotXInput" YFieldKey="PivotYInput"
                                   XTextBinding="{Binding PivotX.RawText, Mode=TwoWay}" YTextBinding="{Binding PivotY.RawText, Mode=TwoWay}"
                                   XBinding="{Binding PivotX.Value, Mode=OneWay}" YBinding="{Binding PivotY.Value, Mode=OneWay}"
-                                  Minimum="0" Maximum="1" Increment="0.01" />
+                                  MinimumBinding="{Binding PivotMinimum}" MaximumBinding="{Binding PivotMaximum}" Increment="0.01" />
       </StackPanel>
       <StackPanel Spacing="4">
         <TextBlock Classes="field" Text="{Loc Key=Workbench.Offset}" />

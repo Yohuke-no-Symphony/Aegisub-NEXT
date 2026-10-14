@@ -113,7 +113,7 @@ public sealed class ClipMaskAnimationEditingTests
     }
 
     [Fact]
-    public void SplitAndStretchPreserveOrderedIdsContentClockAndIndependentNodeTargets()
+    public void SplitCreatesIndependentOperationIdsAndStretchPreservesTheirContentClockAndNodeTargets()
     {
         var editor = new ProjectEditor();
         var id = editor.AddSubtitle(new(0), new(4), "abcd");
@@ -131,13 +131,17 @@ public sealed class ClipMaskAnimationEditingTests
         editor.Apply("Split", document => ProjectEditingOperations.SplitSubtitle(document, id, new(2), 2));
         var right = editor.Snapshot.Layers[1];
         Assert.Equal(new MediaTime(2), right.AnimationOffset);
-        Assert.Same(original.Layers[0].Tracks[0], right.Tracks[0]);
+        var splitOperation = Assert.Single(right.Tracks[0].Transforms);
+        Assert.NotEqual(operation.Id, splitOperation.Id);
+        Assert.Equal(operation with { Id = splitOperation.Id }, splitOperation);
+        Assert.Same(mask.Placement, right.Mask!.Placement);
+        Assert.Same(mask.ReferenceFrame, right.Mask.ReferenceFrame);
         var rightMask = Assert.IsType<VectorClipMask>(AegiNext.Core.Editing.SceneEvaluator.EvaluateMask(right, new(3)));
         Assert.Equal(new ScenePoint(11.25, 22.5), rightMask.Contours[0].Nodes[0].Position);
         Assert.Equal(new ScenePoint(25, 50), rightMask.Contours[0].Nodes[1].Position);
         editor.SetLayerTiming(right.Id, right.Start, new(6), AegiNext.Core.Editing.TimelineEditMode.STRETCH);
         var stretched = editor.Snapshot.Layers[1];
-        Assert.Equal(operation.Id, stretched.Tracks[0].Transforms[0].Id);
+        Assert.Equal(splitOperation.Id, stretched.Tracks[0].Transforms[0].Id);
         Assert.Equal(new MediaTime(8), stretched.Tracks[0].Transforms[0].End);
         Assert.Equal(new MediaTime(4), stretched.AnimationOffset);
         var stretchedMask = Assert.IsType<VectorClipMask>(AegiNext.Core.Editing.SceneEvaluator.EvaluateMask(stretched, new(6)));

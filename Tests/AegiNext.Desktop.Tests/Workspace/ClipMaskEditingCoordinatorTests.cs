@@ -99,7 +99,7 @@ public sealed class ClipMaskEditingCoordinatorTests
     {
         var node = new MaskNode { Position = new(50, 70), OutHandle = new(100, -80), InHandle = new(-90, -60) };
         var contour = new MaskContour { Nodes = [node] };
-        var mask = new VectorClipMask { Contours = [contour], Transform = new() { Pivot = new(11, 13) } };
+        var mask = new VectorClipMask { Contours = [contour], Placement = new() { Pivot = new(11, 13), Offset = new(11, 13) } };
         var document = CreateDocument();
         document = document with { Layers = [document.Layers[0] with { Mask = mask }] };
         await using var context = new WorkspaceSessionTestContext(document);
@@ -109,7 +109,8 @@ public sealed class ClipMaskEditingCoordinatorTests
         session.MaskEditing.SelectNode(node.Id);
         session.MaskEditing.Subdivide();
         var changed = Assert.IsType<VectorClipMask>(context.Editor.Snapshot.Layers[0].Mask);
-        Assert.Equal(mask.Transform.Pivot, changed.Transform.Pivot);
+        Assert.Equal(mask.Placement, changed.Placement);
+        Assert.Equal(mask.ReferenceFrame, changed.ReferenceFrame);
         var changedContour = Assert.Single(changed.Contours);
         Assert.Equal(contour.Id, changedContour.Id);
         Assert.Equal(2, changedContour.Nodes.Length);
@@ -147,7 +148,7 @@ public sealed class ClipMaskEditingCoordinatorTests
     public async Task FrozenSegmentInsertionPreservesTransformAnimationSelectsNewNodeAndCreatesOneUndo(double progress)
     {
         var contour = new MaskContour { Nodes = [new() { Position = new(20, 30), OutHandle = new(40, -30) }, new() { Position = new(200, 100), InHandle = new(-20, 50) }] };
-        var mask = new VectorClipMask { Contours = [contour], Transform = new() { Pivot = new(11, 13) } };
+        var mask = new VectorClipMask { Contours = [contour], Placement = new() { Pivot = new(11, 13), Offset = new(11, 13) } };
         var document = CreateDocument();
         var layer = document.Layers[0] with { Mask = mask, Tracks = [new(AnimationProperty.MASK_POSITION, [new(new(0), new ScenePoint(90, 100))])] };
         document = document with { Layers = [layer] };
@@ -353,7 +354,8 @@ public sealed class ClipMaskEditingCoordinatorTests
         {
             TopLeft = new(600, 400),
             BottomRight = new(900, 700),
-            Transform = new() { Pivot = new(750, 550) }
+            Placement = new() { Pivot = new(0.5, 0.5), Anchor = new(0.5, 0.5), Offset = new(750 - document.Width / 2d, 550 - document.Height / 2d) },
+            ReferenceFrame = new() { Origin = new(600, 400), Size = new(300, 300) }
         };
         session.MaskEditing.CommitGesture(new(document.Layers[0].Id, mask));
         Assert.Equal(mask, context.Editor.Snapshot.Layers[0].Mask);

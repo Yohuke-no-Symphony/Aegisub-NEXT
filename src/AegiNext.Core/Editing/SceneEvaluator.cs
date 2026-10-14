@@ -200,7 +200,7 @@ public static class SceneEvaluator
         return value * (1 + value * (0.5 + value * (1d / 6 + value / 24)));
     }
 
-    /// <summary>按片段内容时间求值独立工程坐标蒙版，固定轴心及拓扑身份保持不变。</summary>
+    /// <summary>按片段内容时间求值独立蒙版，原生定位、固定参考框及拓扑身份保持不变。</summary>
     public static ClipMask? EvaluateMask(ProjectLayer layer, MediaTime contentTime)
     {
         ArgumentNullException.ThrowIfNull(layer);

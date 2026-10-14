@@ -58,6 +58,12 @@ public sealed partial class EffectCanvasControl
         {
             return null;
         }
+        var projection = geometry.Projection;
+        if (projection.M31 != 0 || projection.M32 != 0 || projection.M33 != 1)
+        {
+            var worldBounds = geometry.WorldBounds;
+            return MaskSnapGeometry.Create(new(worldBounds.Left, worldBounds.Top, worldBounds.Width, worldBounds.Height), Fit());
+        }
         var bounds = geometry.LocalBounds;
         return MaskSnapGeometry.Create(new(bounds.Left, bounds.Top, bounds.Width, bounds.Height),
             ToMatrix(geometry.LocalToWorld) * Fit());

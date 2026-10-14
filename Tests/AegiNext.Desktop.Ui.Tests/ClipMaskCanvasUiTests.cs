@@ -43,8 +43,14 @@ public sealed class ClipMaskCanvasUiTests
             Assert.Equal(50, mask.TopLeft.Y, 6);
             Assert.Equal(600, mask.BottomRight.X, 6);
             Assert.Equal(300, mask.BottomRight.Y, 6);
-            Assert.Equal(350, mask.Transform.Pivot.X, 6);
-            Assert.Equal(175, mask.Transform.Pivot.Y, 6);
+            Assert.Equal(new ScenePoint(0.5, 0.5), mask.Placement.Anchor);
+            Assert.Equal(new ScenePoint(0.5, 0.5), mask.Placement.Pivot);
+            Assert.Equal(100, mask.ReferenceFrame.Origin.X, 6);
+            Assert.Equal(50, mask.ReferenceFrame.Origin.Y, 6);
+            Assert.Equal(500, mask.ReferenceFrame.Size.X, 6);
+            Assert.Equal(250, mask.ReferenceFrame.Size.Y, 6);
+            Assert.Equal(-150, mask.Placement.Offset.X, 6);
+            Assert.Equal(-75, mask.Placement.Offset.Y, 6);
             Assert.True(editor.Undo());
             Assert.Same(document, editor.Snapshot);
             Assert.False(editor.CanUndo);
@@ -211,7 +217,7 @@ public sealed class ClipMaskCanvasUiTests
     public void DraggingAnExistingRectangleHandleChangesSizeAndKeepsItsPivot()
     {
         var line = new SubtitleLine { End = new(5) };
-        var mask = new RectangleClipMask { TopLeft = new(100, 50), BottomRight = new(250, 150), Transform = new() { Pivot = new(175, 100) } };
+        var mask = new RectangleClipMask { TopLeft = new(100, 50), BottomRight = new(250, 150), Placement = new() { Pivot = new(0.5, 0.5), Offset = new(175, 100) }, ReferenceFrame = new() { Origin = new(100, 50), Size = new(150, 100) } };
         var layer = new ProjectLayer { Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, End = line.End, Mask = mask };
         var document = new ProjectDocument { Width = 1000, Height = 500, Subtitles = [line], Layers = [layer] };
         using var canvas = new EffectCanvasControl { EditMode = CanvasEditMode.MASK_RECTANGLE };
@@ -234,6 +240,8 @@ public sealed class ClipMaskCanvasUiTests
             var resized = Assert.IsType<RectangleClipMask>(changed.Mask);
             Assert.Equal(mask.TopLeft, resized.TopLeft);
             Assert.Equal(mask.Transform, resized.Transform);
+            Assert.Equal(mask.Placement, resized.Placement);
+            Assert.Equal(mask.ReferenceFrame, resized.ReferenceFrame);
             Assert.Equal(400, resized.BottomRight.X, 6);
             Assert.Equal(300, resized.BottomRight.Y, 6);
         }

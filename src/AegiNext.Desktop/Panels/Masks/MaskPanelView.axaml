@@ -103,6 +103,12 @@
           </Button>
         </StackPanel>
       </WrapPanel>
+      <StackPanel Spacing="8" IsVisible="{Binding HasClipMask}">
+        <TextBlock Classes="field" Text="{Loc Key=Workbench.MaskPlacement}" />
+        <controls:LayerPositionEditor Name="MaskPositionEditor" Draft="{Binding Position}"
+            ShowPositionMode="False" ShowAutomaticPositionAction="False" />
+        <TextBlock Text="{Loc Key=Workbench.MaskPlacementHint}" TextWrapping="Wrap" />
+      </StackPanel>
       <ItemsControl Name="MaskGeometryFields" ItemsSource="{Binding GeometryFields}" ItemTemplate="{StaticResource MaskVectorPropertyTemplate}" />
       <ContentControl Name="MaskRotationField" Content="{Binding RotationField}">
         <ContentControl.ContentTemplate>

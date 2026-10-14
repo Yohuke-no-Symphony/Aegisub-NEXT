@@ -7,15 +7,16 @@ namespace AegiNext.Rendering.SubtitleFormats;
 /// <summary>复用字幕渲染的蒙版几何，将 ASS 静态裁切组合为原生闭合路径。</summary>
 public sealed class AssMaskGeometryCombiner : ISubtitleMaskGeometryCombiner
 {
-    /// <summary>按两个裁切的反相状态执行交、差或并；空区域保留为零面积矩形。</summary>
-    public bool TryCombine(VectorClipMask vector, RectangleClipMask rectangle, out ClipMask result, out string? reason)
+    /// <summary>按工程画布解析定位，再按两个裁切的反相状态执行交、差或并；空区域保留为零面积矩形。</summary>
+    public bool TryCombine(VectorClipMask vector, RectangleClipMask rectangle, ScenePoint canvasSize,
+        out ClipMask result, out string? reason)
     {
         ArgumentNullException.ThrowIfNull(vector);
         ArgumentNullException.ThrowIfNull(rectangle);
         result = vector;
         reason = null;
-        using var vectorPath = ClipMaskGeometry.Create(vector);
-        using var rectanglePath = ClipMaskGeometry.Create(rectangle);
+        using var vectorPath = ClipMaskGeometry.Create(vector, canvasSize);
+        using var rectanglePath = ClipMaskGeometry.Create(rectangle, canvasSize);
         var operation = (vector.Inverted, rectangle.Inverted) switch
         {
             (false, false) => SKPathOp.Intersect,
@@ -43,6 +44,7 @@ public sealed class AssMaskGeometryCombiner : ISubtitleMaskGeometryCombiner
         result = contours.IsEmpty
             ? new RectangleClipMask { Inverted = inverted }
             : new VectorClipMask { Contours = contours, Inverted = inverted };
+        result = ClipMaskPlacementGeometry.CreatePlacement(result, canvasSize);
         return true;
     }
 }

@@ -628,8 +628,22 @@ public static partial class ProjectValidator
     private static void Mask(ClipMask mask)
     {
         Require(mask.Transform is not null, "The mask transform is missing.");
+        Require(mask.Placement is not null, "The mask placement is missing.");
+        Require(mask.ReferenceFrame is not null, "The mask reference frame is missing.");
         Point(mask.Transform.Position);
-        Point(mask.Transform.Pivot);
+        Number(mask.Placement.Anchor.X, 0, 1, "Mask Anchor X");
+        Number(mask.Placement.Anchor.Y, 0, 1, "Mask Anchor Y");
+        Number(mask.Placement.Pivot.X, -ClipMaskPlacementGeometry.MAX_NORMALIZED_PIVOT,
+            ClipMaskPlacementGeometry.MAX_NORMALIZED_PIVOT, "Mask Pivot X");
+        Number(mask.Placement.Pivot.Y, -ClipMaskPlacementGeometry.MAX_NORMALIZED_PIVOT,
+            ClipMaskPlacementGeometry.MAX_NORMALIZED_PIVOT, "Mask Pivot Y");
+        Point(mask.Placement.Offset);
+        Number(mask.ReferenceFrame.Origin.X, -ClipMaskPlacementGeometry.MAX_REFERENCE_ORIGIN,
+            ClipMaskPlacementGeometry.MAX_REFERENCE_ORIGIN, "Mask reference origin X");
+        Number(mask.ReferenceFrame.Origin.Y, -ClipMaskPlacementGeometry.MAX_REFERENCE_ORIGIN,
+            ClipMaskPlacementGeometry.MAX_REFERENCE_ORIGIN, "Mask reference origin Y");
+        Number(mask.ReferenceFrame.Size.X, 1, ClipMaskPlacementGeometry.MAX_REFERENCE_SIZE, "Mask reference width");
+        Number(mask.ReferenceFrame.Size.Y, 1, ClipMaskPlacementGeometry.MAX_REFERENCE_SIZE, "Mask reference height");
         Number(mask.Transform.Scale.X, -10000, 10000, "Mask Scale X");
         Number(mask.Transform.Scale.Y, -10000, 10000, "Mask Scale Y");
         Number(mask.Transform.Rotation, -1e9, 1e9, "Mask Rotation");

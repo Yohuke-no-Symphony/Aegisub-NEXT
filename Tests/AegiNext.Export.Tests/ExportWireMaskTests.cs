@@ -58,7 +58,9 @@ public sealed class ExportWireMaskTests
         mask = mask with
         {
             Inverted = true,
-            Transform = new() { Position = new(7, -9), Scale = new(2, 0.5), Rotation = 17, Pivot = new(200, 150) }
+            ReferenceFrame = new() { Origin = new(20, 30), Size = new(380, 270) },
+            Placement = new() { Anchor = new(0.25, 0.75), Pivot = new(0.5, 0.5), Offset = new(7, -9) },
+            Transform = new() { Position = new(13, -17), Scale = new(2, 0.5), Rotation = 17 }
         };
         var line = new SubtitleLine { Text = "masked" };
         var track = new AnimationTrack(AnimationProperty.POSITION, [new(new(1, 3), new ScenePoint(40, 50))]);
@@ -84,6 +86,9 @@ public sealed class ExportWireMaskTests
 
         Assert.Equal(ProjectDocument.CURRENT_VERSION, transmitted.Project.GetProperty("version").GetInt32());
         Assert.Equal(JsonSerializer.Serialize(mask, ExportWire.Options), JsonSerializer.Serialize(restoredMask, ExportWire.Options));
+        Assert.Equal(mask.Placement, restoredMask.Placement);
+        Assert.Equal(mask.ReferenceFrame, restoredMask.ReferenceFrame);
+        Assert.False(layer.GetProperty("mask").GetProperty("transform").TryGetProperty("pivot", out _));
         Assert.Equal(vector ? "VECTOR" : "RECTANGLE", layer.GetProperty("mask").GetProperty("kind").GetString());
         Assert.Equal(track.Target, wireTrack.GetProperty("target").Deserialize<AnimationTrackTarget>(ExportWire.Options));
         Assert.False(wireTrack.TryGetProperty("property", out _));

@@ -85,13 +85,13 @@ public sealed class ClipMaskExportTests
             var mask = new VectorClipMask
             {
                 Inverted = inverted,
-                Transform = new() { Pivot = new(40, 32) },
                 Contours = [new() { Nodes =
                 [
                     new() { Position = new(24, -4) }, new() { Position = new(56, -4) },
                     new() { Position = new(56, 68) }, new() { Position = new(24, 68) }
                 ] }]
             };
+            mask = (VectorClipMask)ClipMaskPlacementGeometry.CreatePlacement(mask, new(WIDTH, HEIGHT));
             var nodeTracks = mask.Contours[0].Nodes.Select((node, index) => new AnimationTrack(
                 new AnimationTrackTarget(AnimationProperty.MASK_NODE_POSITION, node.Id),
                 [new(new(0), node.Position), new(new(2, 25), new ScenePoint(index is 0 or 3 ? 48 : 88, node.Position.Y))]))
@@ -224,6 +224,7 @@ public sealed class ClipMaskExportTests
         {
             Text = "MMMMMMMM", Style = new()
             {
+                Scaling = new() { ReferenceWidth = WIDTH, ReferenceHeight = HEIGHT },
                 FontAssetId = font.Id, FontFamily = "Noto Sans", FontSize = 18, Alignment = TextAlignment.TOP_LEFT,
                 Margins = new(4, 4, 4), Fill = SceneColor.White, Stroke = new(0.4, 0.4, 0.4), StrokeWidth = 1,
                 ShadowColor = SceneColor.Black, ShadowOffset = new(3, 3), ShadowBlur = 1

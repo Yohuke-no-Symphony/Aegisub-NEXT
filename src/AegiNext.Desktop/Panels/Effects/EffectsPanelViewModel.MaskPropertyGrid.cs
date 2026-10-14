@@ -13,14 +13,13 @@ internal sealed partial class EffectsPanelViewModel
     public bool HasEditableMask => CanEditMask && HasMask;
     public bool NeedsMaskNodeSelection => session.ViewModel.Masks.IsVectorMask && !session.ViewModel.Masks.HasSelectedPoint;
     public AnimationPropertyRowViewModel[] MaskRows { get => maskRows; private set => SetItems(ref maskRows, value, nameof(MaskRows)); }
-    public NumericValueDraft? MaskPivotX => session.MaskEditing.Fields.FirstOrDefault(maskField => maskField.Target is null && maskField.Component == 0)?.Draft;
-    public NumericValueDraft? MaskPivotY => session.MaskEditing.Fields.FirstOrDefault(maskField => maskField.Target is null && maskField.Component == 1)?.Draft;
+    public LayerPositionDraft MaskPosition => session.MaskEditing.PositionDraft;
     internal void RefreshMaskPropertyGrid()
     {
         var layer = session.SelectedLayer;
         MaskRows = layer is null ? [] : session.PropertyEditing.GetMaskRows(layer.Id, session.SceneEditing.MaskNodeId);
         foreach (var property in new[] { nameof(MaskExpanded), nameof(CanEditMask), nameof(HasMask), nameof(HasEditableMask),
-            nameof(NeedsMaskNodeSelection), nameof(MaskPivotX), nameof(MaskPivotY) })
+            nameof(NeedsMaskNodeSelection), nameof(MaskPosition) })
         {
             OnPropertyChanged(property);
         }

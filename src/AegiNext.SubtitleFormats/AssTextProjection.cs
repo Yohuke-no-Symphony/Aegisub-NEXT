@@ -28,10 +28,11 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
         var written = AssTextWriter.Write(line, MediaTime.Zero, true, textAnimation: animation);
         var diagnostics = written.Diagnostics.ToBuilder();
         diagnostics.AddRange(animationDiagnostics);
-        var mask = layer is null ? string.Empty : AssMaskWriter.WriteTags(layer, MediaTime.Zero, diagnostics);
+        var canvasSize = new ScenePoint(canvasWidth, canvasHeight);
+        var mask = layer is null ? string.Empty : AssMaskWriter.WriteTags(layer, MediaTime.Zero, canvasSize, diagnostics);
         if (mask is null)
         {
-            mask = AssMaskWriter.StaticTags(layer!.Mask!, line.Id, diagnostics);
+            mask = AssMaskWriter.StaticTags(layer!.Mask!, canvasSize, line.Id, diagnostics);
             diagnostics.Add(new("Ass.NativeMaskAnimation", "Advanced ASS code shows base mask geometry. Mask animations that cannot be represented natively are preserved when clipping tags remain unchanged.", SubtitleId: line.Id));
         }
         var source = "{\\an" + AssFormatValues.Alignment(line.Style.Alignment).ToString(CultureInfo.InvariantCulture) + mask + "}" + written.Text;
@@ -76,12 +77,13 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
         line = animation.Line;
         AssTextParser.ValidateLine(line);
         var unchangedMask = AssOverrideTags.MaskIdentity(projection.Source) == AssOverrideTags.MaskIdentity(source);
-        var mask = unchangedMask ? layer?.Mask : PreserveMaskIdentity(layer?.Mask, parsed.Mask);
+        var canvasSize = new ScenePoint(canvasWidth, canvasHeight);
+        var mask = unchangedMask ? layer?.Mask : PreserveMaskIdentity(layer?.Mask, parsed.Mask, canvasSize);
         if (!unchangedMask && layer is not null && ClipMaskAnimation.IsTopologyLocked(layer) && !ClipMaskAnimation.HasSameTopology(layer.Mask, mask))
         {
             throw new InvalidOperationException("Mask topology cannot be changed through advanced code while node deformation animation exists. Clear the node deformation track first.");
         }
-        var parsedMaskTracks = unchangedMask || layer?.Mask is null ? parsed.MaskTracks : RebaseMaskTracks(parsed.MaskTracks, mask, layer.Mask.Transform);
+        var parsedMaskTracks = unchangedMask || layer?.Mask is null ? parsed.MaskTracks : RebaseMaskTracks(parsed.MaskTracks, mask, layer.Mask, canvasSize);
         var maskTracks = unchangedMask ? MaskTracks(layer) : mask is null ? [] : parsedMaskTracks.AddRange(MaskTracks(layer)
             .Where(track => track.Property is not (AnimationProperty.MASK_RECTANGLE_TOP_LEFT or AnimationProperty.MASK_RECTANGLE_BOTTOM_RIGHT)));
         var diagnostics = RestoreProjectionDiagnostics(original, line, projection.Source, baselineResult, source, parsed);
@@ -130,11 +132,11 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
             layer.Tracks.Where(track => AnimationPropertyMetadata.IsMaskProperty(track.Property)).ToImmutableArray();
     }
 
-    private static ClipMask? PreserveMaskIdentity(ClipMask? original, ClipMask? parsed)
+    private static ClipMask? PreserveMaskIdentity(ClipMask? original, ClipMask? parsed, ScenePoint canvasSize)
     {
         if (original is not null && parsed is not null)
         {
-            parsed = AssMaskGeometry.Rebase(parsed, original.Transform);
+            parsed = AssMaskGeometry.Rebase(parsed, original, canvasSize);
         }
         if (original is not VectorClipMask previous || parsed is not VectorClipMask next || previous.Contours.Length != next.Contours.Length)
         {
@@ -154,21 +156,24 @@ public sealed record AssTextProjection(string Source, ImmutableArray<AssSourceMa
         };
     }
 
-    private static ImmutableArray<AnimationTrack> RebaseMaskTracks(ImmutableArray<AnimationTrack> tracks, ClipMask? mask, MaskTransform transform)
+    private static ImmutableArray<AnimationTrack> RebaseMaskTracks(ImmutableArray<AnimationTrack> tracks, ClipMask? mask,
+        ClipMask original, ScenePoint canvasSize)
     {
         if (tracks.IsEmpty)
         {
             return tracks;
         }
-        if (mask is not RectangleClipMask || transform.Rotation % 360 != 0 || transform.Scale.X <= 0 || transform.Scale.Y <= 0)
+        if (mask is not RectangleClipMask || original.Transform.Rotation % 360 != 0 ||
+            original.Transform.Scale.X <= 0 || original.Transform.Scale.Y <= 0)
         {
             throw new InvalidOperationException("Native tracks cannot be recovered from ASS rectangular transforms for rotated or mirrored masks. Edit animation in the mask panel.");
         }
+        var inverse = AssMaskGeometry.InverseMatrix(original, canvasSize);
         return tracks.Select(track => track with
         {
-            InitialValue = track.InitialValue is { } initial ? AnimationValue.FromVector(AssMaskGeometry.Inverse(initial.Vector, transform)) : null,
-            Keyframes = track.Keyframes.Select(key => key with { Value = AnimationValue.FromVector(AssMaskGeometry.Inverse(key.Value.Vector, transform)) }).ToImmutableArray(),
-            Transforms = track.Transforms.Select(operation => operation with { Value = AnimationValue.FromVector(AssMaskGeometry.Inverse(operation.Value.Vector, transform)) }).ToImmutableArray()
+            InitialValue = track.InitialValue is { } initial ? AnimationValue.FromVector(inverse.Map(initial.Vector)) : null,
+            Keyframes = track.Keyframes.Select(key => key with { Value = AnimationValue.FromVector(inverse.Map(key.Value.Vector)) }).ToImmutableArray(),
+            Transforms = track.Transforms.Select(operation => operation with { Value = AnimationValue.FromVector(inverse.Map(operation.Value.Vector)) }).ToImmutableArray()
         }).ToImmutableArray();
     }
 

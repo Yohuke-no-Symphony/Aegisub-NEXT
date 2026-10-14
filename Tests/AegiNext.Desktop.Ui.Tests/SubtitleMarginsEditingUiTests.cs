@@ -367,6 +367,7 @@ public sealed class SubtitleMarginsEditingUiTests
                 Text = "ABC\nD", Style = Assert.Single(document.Subtitles).Style with
                 {
                     FontFamily = "sans-serif", FontAssetId = null, FontSize = 22, Position = null,
+                    Scaling = new() { ReferenceWidth = 256, ReferenceHeight = 160 },
                     Margins = new(8, 8, 8), StrokeWidth = 0, ShadowColor = SceneColor.Transparent
                 }
             }]
@@ -385,7 +386,7 @@ public sealed class SubtitleMarginsEditingUiTests
         Assert.Equal(new SubtitleMargins(17, 39, 13), preview.Subtitles[0].Style.Margins);
         using var renderer = new ProjectSceneRenderer(new DirectoryProjectAssetResolver(context.Session.ProjectDirectory));
         var measured = renderer.MeasureSubtitlePlacement(preview, preview.Subtitles[0]);
-        var geometry = renderer.GetLayerGeometry(preview, MediaTime.Zero, layerId);
+        var geometry = Assert.IsType<ProjectLayerGeometry>(renderer.GetLayerGeometry(preview, MediaTime.Zero, layerId));
         var pixels = Pixels(renderer, preview);
         Assert.Same(original, context.Session.Editor.Snapshot);
         Assert.Null(preview.Subtitles[0].Style.Position);
@@ -405,7 +406,7 @@ public sealed class SubtitleMarginsEditingUiTests
         var changed = context.Session.Editor.Snapshot;
         Assert.Equal(measured.Position, changed.Subtitles[0].Style.Position);
         Assert.Equal(new SubtitleMargins(17, 39, 13), changed.Subtitles[0].Style.Margins);
-        Assert.Equal(geometry, renderer.GetLayerGeometry(changed, MediaTime.Zero, layerId));
+        AssertGeometry(geometry, Assert.IsType<ProjectLayerGeometry>(renderer.GetLayerGeometry(changed, MediaTime.Zero, layerId)));
         Assert.Equal(pixels, Pixels(renderer, changed));
         Assert.Equal("17", styles.Margins.Left.RawText);
         Assert.Equal("39", styles.Margins.Right.RawText);
@@ -431,6 +432,7 @@ public sealed class SubtitleMarginsEditingUiTests
                 Text = "AAAAAAAAAAAAAA", Style = Assert.Single(document.Subtitles).Style with
                 {
                     FontFamily = "sans-serif", FontAssetId = null, FontSize = 22,
+                    Scaling = new() { ReferenceWidth = 256, ReferenceHeight = 160 },
                     Position = new() { Offset = new(0, -20) },
                     Margins = new(8, 8, 13), StrokeWidth = 0, ShadowColor = SceneColor.Transparent
                 }
@@ -484,6 +486,28 @@ public sealed class SubtitleMarginsEditingUiTests
             host.Close();
             view.Dispose();
         }
+    }
+
+    private static void AssertGeometry(ProjectLayerGeometry expected, ProjectLayerGeometry actual)
+    {
+        Assert.Equal(expected.LocalBounds, actual.LocalBounds);
+        Assert.Equal(expected.LocalPivot, actual.LocalPivot);
+        Assert.Equal(expected.BasePosition, actual.BasePosition);
+        Assert.Equal(expected.LocalToWorld, actual.LocalToWorld);
+        Assert.Equal(expected.ParentToWorld, actual.ParentToWorld);
+        Assert.Equal(expected.HasInk, actual.HasInk);
+        Assert.Equal(expected.VisibleGraphemes, actual.VisibleGraphemes);
+        Assert.Equal(expected.Shape, actual.Shape);
+        Assert.Equal(expected.ShapeStrokeWidth, actual.ShapeStrokeWidth);
+        Assert.Equal(expected.ShapeHasFill, actual.ShapeHasFill);
+        Assert.Equal(expected.AnimationRangeId, actual.AnimationRangeId);
+        Assert.Equal(expected.AnimationRange, actual.AnimationRange);
+        Assert.Equal(expected.Projection, actual.Projection);
+        Assert.Equal(expected.ParentProjection, actual.ParentProjection);
+        Assert.Equal(expected.WorldPivot, actual.WorldPivot);
+        Assert.Equal(expected.VisiblePolygon, actual.VisiblePolygon);
+        Assert.Equal(expected.WorldBounds, actual.WorldBounds);
+        Assert.Equal(expected.WorldCorners, actual.WorldCorners);
     }
 
     private static TextBox Text(NumericDraftInput input)

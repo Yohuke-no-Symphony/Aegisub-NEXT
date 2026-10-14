@@ -10,7 +10,8 @@ internal static class AssMaskSampling
     internal static ImmutableArray<AssMaskSample> Samples(ProjectDocument document, ProjectLayer layer, SubtitleLine line,
         ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics, MediaTime timeOffset = default)
     {
-        var tags = AssMaskWriter.WriteTags(layer, AssEventClock.Origin(line.Start, line.Start, layer.AnimationOffset, timeOffset), diagnostics);
+        var canvasSize = new ScenePoint(document.Width, document.Height);
+        var tags = AssMaskWriter.WriteTags(layer, AssEventClock.Origin(line.Start, line.Start, layer.AnimationOffset, timeOffset), canvasSize, diagnostics);
         if (tags is not null)
         {
             return [new(line.Start, line.End, layer.AnimationOffset, tags, false)];
@@ -38,7 +39,7 @@ internal static class AssMaskSampling
             quantized |= sceneStart != start || buckets.ContainsKey(bucket);
             var content = start - line.Start + layer.AnimationOffset;
             var evaluated = SceneEvaluator.EvaluateMask(layer, content)!;
-            var maskTags = AssMaskWriter.StaticTags(evaluated, line.Id, sampleDiagnostics);
+            var maskTags = AssMaskWriter.StaticTags(evaluated, canvasSize, line.Id, sampleDiagnostics);
             geometryQuantized |= sampleDiagnostics.Count > 0;
             sampleDiagnostics.Clear();
             buckets[bucket] = new(sceneStart, end, content, maskTags, true);

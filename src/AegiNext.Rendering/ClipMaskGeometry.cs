@@ -5,7 +5,7 @@ namespace AegiNext.Rendering;
 
 internal static class ClipMaskGeometry
 {
-    internal static SKPath Create(ClipMask mask, float scaleX = 1, float scaleY = 1)
+    internal static SKPath Create(ClipMask mask, ScenePoint canvasSize, float scaleX = 1, float scaleY = 1)
     {
         var path = new SKPath { FillType = SKPathFillType.Winding };
         try
@@ -44,13 +44,11 @@ internal static class ClipMaskGeometry
                 default:
                     throw new InvalidDataException("Unknown subtitle mask shape.");
             }
-            var transform = mask.Transform;
-            var matrix = SKMatrix.CreateTranslation((float)(transform.Pivot.X + transform.Position.X),
-                (float)(transform.Pivot.Y + transform.Position.Y));
-            matrix = SKMatrix.Concat(matrix, SKMatrix.CreateRotationDegrees((float)transform.Rotation));
-            matrix = SKMatrix.Concat(matrix, SKMatrix.CreateScale((float)transform.Scale.X, (float)transform.Scale.Y));
-            matrix = SKMatrix.Concat(matrix, SKMatrix.CreateTranslation(-(float)transform.Pivot.X, -(float)transform.Pivot.Y));
-            matrix = SKMatrix.Concat(SKMatrix.CreateScale(scaleX, scaleY), matrix);
+            var placement = ClipMaskPlacementGeometry.CreateMatrix(mask, canvasSize);
+            var matrix = new SKMatrix(
+                (float)(placement.M11 * scaleX), (float)(placement.M12 * scaleX), (float)(placement.M13 * scaleX),
+                (float)(placement.M21 * scaleY), (float)(placement.M22 * scaleY), (float)(placement.M23 * scaleY),
+                (float)placement.M31, (float)placement.M32, (float)placement.M33);
             path.Transform(matrix);
             return path;
         }

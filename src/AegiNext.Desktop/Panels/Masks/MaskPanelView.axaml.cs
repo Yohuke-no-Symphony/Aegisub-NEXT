@@ -21,6 +21,7 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
     private readonly MaskPanelViewModel viewModel;
     private readonly ComboBox contourCombo;
     private readonly ListBox pointList;
+    private readonly LayerPositionEditor position;
     private readonly AnimationOptionsPopupHost animationOptions;
     private bool synchronizingSelection;
     private bool suppressFocusCommit;
@@ -36,10 +37,19 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
         AvaloniaXamlLoader.Load(this);
         contourCombo = this.FindControl<ComboBox>("MaskContourCombo")!;
         pointList = this.FindControl<ListBox>("MaskPointList")!;
+        position = this.FindControl<LayerPositionEditor>("MaskPositionEditor")!;
         DataContext = viewModel;
         contourCombo.SelectionChanged += OnContourSelectionChanged;
         pointList.SelectionChanged += OnPointSelectionChanged;
-        AddHandler(PointerPressedEvent, (_, _) => suppressFocusCommit = false, RoutingStrategies.Tunnel);
+        position.PresetPositionChanged += OnPositionPresetChanged;
+        AddHandler(PointerPressedEvent, (_, args) =>
+        {
+            suppressFocusCommit = false;
+            if (args.Source is Control source)
+            {
+                BeginFieldEdit(source);
+            }
+        }, RoutingStrategies.Tunnel);
         AddHandler(GotFocusEvent, OnFieldGotFocus, RoutingStrategies.Bubble);
         AddHandler(KeyDownEvent, OnKeyDown, RoutingStrategies.Tunnel);
         AddHandler(KeyDownEvent, OnCommitKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
@@ -107,6 +117,10 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
             Focus();
             return;
         }
+        if (ClipMaskPositionEditingCoordinator.LocalFieldKey(fieldKey) is { } localKey && position.FocusInvalidField(localKey))
+        {
+            return;
+        }
         foreach (var row in this.GetVisualDescendants().OfType<AnimationPropertyRowControl>())
         {
             if (row.FocusField(ResolveFieldKey(row, fieldKey)))
@@ -126,9 +140,9 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
 
     private void OnFieldGotFocus(object? sender, FocusChangedEventArgs e)
     {
-        if (e.Source is Control source && source.GetSelfAndVisualAncestors().OfType<NumericDraftInput>().FirstOrDefault() is { } input)
+        if (e.Source is Control source)
         {
-            BeginFieldEdit(input);
+            BeginFieldEdit(source);
         }
     }
 
@@ -138,6 +152,12 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
         if (e.Key == Key.Escape && e.Source is Control source &&
             source.GetSelfAndVisualAncestors().OfType<NumericDraftInput>().FirstOrDefault() is { } input)
         {
+            if (position.IsVisualAncestorOf(input) && input.Name is { } localKey)
+            {
+                session.MaskEditing.RestorePositionField(ClipMaskPositionEditingCoordinator.FieldKey(localKey));
+                e.Handled = true;
+                return;
+            }
             var row = source.GetSelfAndVisualAncestors().OfType<AnimationPropertyRowControl>().FirstOrDefault();
             var fieldKey = row?.GetInputField(source);
             if (fieldKey is not null && GetSharedRow(input) is { } sharedRow)
@@ -208,7 +228,9 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
                 {
                     continue;
                 }
-                var key = input.DataContext is MaskNumericField field ? field.Key : input.Name;
+                var key = position.IsVisualAncestorOf(input) && input.Name is { } localKey
+                    ? ClipMaskPositionEditingCoordinator.FieldKey(localKey)
+                    : input.DataContext is MaskNumericField field ? field.Key : input.Name;
                 DataValidationErrors.SetErrors(input, key == viewModel.InvalidFieldKey && viewModel.ValidationError is { } error ? new[] { error } : null);
             }
         }
@@ -267,15 +289,21 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
 
     private void BeginFieldEdit(Control input)
     {
-        if (input.DataContext is MaskVectorField { Target: null })
+        if (position.IsVisualAncestorOf(input))
         {
-            session.MaskEditing.BeginPivotEdit(PanelId);
+            session.MaskEditing.BeginPositionEdit(PanelId);
         }
         else
         {
-            GetSharedRow(input)?.BeginEdit(PanelId);
+            var number = input.GetSelfAndVisualAncestors().OfType<NumericDraftInput>().FirstOrDefault();
+            if (number is not null)
+            {
+                GetSharedRow(number)?.BeginEdit(PanelId);
+            }
         }
     }
+
+    private void OnPositionPresetChanged(object? sender, EventArgs args) => viewModel.CommitDrafts();
 
     private static AnimationPropertyRowViewModel? GetSharedRow(Control control)
     {
@@ -310,6 +338,7 @@ internal sealed partial class MaskPanelView : UserControl, IWorkbenchPanelView, 
         focusCommitRevision++;
         contourCombo.SelectionChanged -= OnContourSelectionChanged;
         pointList.SelectionChanged -= OnPointSelectionChanged;
+        position.PresetPositionChanged -= OnPositionPresetChanged;
         session.NumericGestureCancellationRequested -= OnNumericGestureCancellation;
         session.ViewModel.GesturesCancelled -= OnGesturesCancelled;
         viewModel.PropertyChanged -= OnViewModelChanged;

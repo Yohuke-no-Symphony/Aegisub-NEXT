@@ -102,7 +102,18 @@ public sealed class NumericDraftInput : NumericUpDown
         }
         if (change.Property == PreserveDoublePrecisionProperty)
         {
-            SetCurrentValue(TextConverterProperty, PreserveDoublePrecision ? new FiniteDoubleDraftConverter(this) : null);
+            var text = RawText;
+            var wasPreservingDraft = preservingDraft;
+            preservingDraft = true;
+            try
+            {
+                SetCurrentValue(TextConverterProperty, PreserveDoublePrecision ? new FiniteDoubleDraftConverter(this) : null);
+                SetCurrentValue(TextProperty, text);
+            }
+            finally
+            {
+                preservingDraft = wasPreservingDraft;
+            }
         }
         if (change.Property == RawTextProperty && !synchronizing && !preservingDraft)
         {

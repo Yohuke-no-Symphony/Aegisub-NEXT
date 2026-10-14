@@ -62,7 +62,7 @@ public static class ClipMaskAnimation
         };
     }
 
-    /// <summary>替换完整目标的基础值并保留所有稳定身份及固定轴心。</summary>
+    /// <summary>替换完整目标的基础值并保留所有稳定身份、原生定位及固定参考框。</summary>
     public static ClipMask SetBaseValue(ClipMask mask, AnimationTrackTarget target, AnimationValue value)
     {
         var current = GetBaseValue(mask, target);

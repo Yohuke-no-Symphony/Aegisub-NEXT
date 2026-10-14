@@ -28,7 +28,9 @@ public sealed class ClipMaskPersistenceTests
         mask = mask with
         {
             Inverted = true,
-            Transform = new() { Position = new(13, -7), Scale = new(2, 3), Rotation = 17, Pivot = new(55, 50) }
+            Placement = new() { Anchor = new(0.25, 0.75), Pivot = new(0.5, 0.5), Offset = new(16, -8) },
+            ReferenceFrame = new() { Origin = new(10, 20), Size = new(90, 60) },
+            Transform = new() { Position = new(13, -7), Scale = new(2, 3), Rotation = 17 }
         };
         editor.SetClipMask(id, mask);
         editor.SetKeyframe(id, AnimationProperty.POSITION, new(new(0), new ScenePoint(40, 50), KeyframeInterpolation.EASE_IN)

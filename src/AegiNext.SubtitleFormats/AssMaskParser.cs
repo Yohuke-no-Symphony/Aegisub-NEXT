@@ -38,7 +38,7 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
                 transforms.Clear();
             }
             string? reason = null;
-            if (geometryCombiner is not null && geometryCombiner.TryCombine(vector, rectangle, out var combined, out reason))
+            if (geometryCombiner is not null && geometryCombiner.TryCombine(vector, rectangle, new(width, height), out var combined, out reason))
             {
                 resolved = combined;
                 diagnostics.Add(new("Ass.MaskGeometryPrecision", "Static vector and rectangle clipping were combined into a native path. Floating-point geometry and native edge antialiasing may differ from the source player's pixel clipping.", sourceStart, sourceLength, subtitleId));
@@ -128,7 +128,8 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
                 diagnostics.Add(new("Ass.MaskAcceleration", "Negative accel produces infinity at the transform start and cannot be stored as a finite project mask. Base clipping was preserved and the transform was discarded.", sourceStart, sourceLength, subtitleId));
                 continue;
             }
-            rectangle ??= new RectangleClipMask { BottomRight = new(width, height), Transform = new() { Pivot = new(width / 2d, height / 2d) }, Inverted = target.Inverted };
+            rectangle ??= (RectangleClipMask)ClipMaskPlacementGeometry.CreatePlacement(
+                new RectangleClipMask { BottomRight = new(width, height), Inverted = target.Inverted }, new(width, height));
             if (rectangle.Inverted != target.Inverted)
             {
                 diagnostics.Add(new("Ass.MixedMaskModes", "ASS transforms mixing clip and iclip, or rectangles and vectors, cannot be preserved as one mask. The base shape was preserved and incompatible transforms were discarded.", sourceStart, sourceLength, subtitleId));
@@ -181,11 +182,10 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
             {
                 throw new InvalidDataException("ASS rectangular clipping coordinates must specify the top-left corner followed by the bottom-right corner.");
             }
-            return new RectangleClipMask
+            return ClipMaskPlacementGeometry.CreatePlacement(new RectangleClipMask
             {
-                Inverted = name == "iclip", TopLeft = topLeft, BottomRight = bottomRight,
-                Transform = new() { Pivot = new((topLeft.X + bottomRight.X) / 2, (topLeft.Y + bottomRight.Y) / 2) }
-            };
+                Inverted = name == "iclip", TopLeft = topLeft, BottomRight = bottomRight
+            }, new(width, height));
         }
         if (arguments.Length is not (1 or 2))
         {
@@ -197,7 +197,8 @@ internal sealed class AssMaskParser(MediaTime duration, double scaleX, double sc
             throw new InvalidDataException("ASS vector clipping scale must be between 1 and 31.");
         }
         var divisor = Math.Pow(2, scale - 1);
-        return AssMaskDrawing.Parse(arguments[^1], name == "iclip", scaleX / divisor, scaleY / divisor);
+        var parsed = AssMaskDrawing.Parse(arguments[^1], name == "iclip", scaleX / divisor, scaleY / divisor);
+        return parsed is null ? null : ClipMaskPlacementGeometry.CreatePlacement(parsed, new(width, height));
     }
 
     private static MediaTime Milliseconds(string value)

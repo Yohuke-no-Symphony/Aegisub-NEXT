@@ -6,7 +6,7 @@ namespace AegiNext.Export;
 
 internal static class ExportWire
 {
-    internal const int VERSION = 5;
+    internal const int VERSION = 6;
     internal const string CANCEL_COMMAND = "cancel";
     internal static JsonSerializerOptions Options { get; } = Create();
 

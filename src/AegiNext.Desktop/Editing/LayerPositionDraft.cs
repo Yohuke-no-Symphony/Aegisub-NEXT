@@ -1,9 +1,10 @@
 using AegiNext.Core.Projects;
 using CommunityToolkit.Mvvm.ComponentModel;
+using System.Globalization;
 
 namespace AegiNext.Desktop.Editing;
 
-/// <summary>字幕、图片、绘图和模板编辑共用的非拉伸位置草稿，数值验证先于工程或预设事务。</summary>
+/// <summary>图层、蒙版和模板编辑共用的非拉伸位置草稿，数值验证先于工程或预设事务。</summary>
 public class LayerPositionDraft : ObservableObject
 {
     private bool isExplicit;
@@ -40,6 +41,10 @@ public class LayerPositionDraft : ObservableObject
     public NumericValueDraft PivotY { get; } = new();
     public NumericValueDraft OffsetX { get; } = new();
     public NumericValueDraft OffsetY { get; } = new();
+    /// <summary>允许编辑的归一化轴心下界；普通图层使用零，蒙版可保留框外轴心。</summary>
+    public decimal PivotMinimum { get; init; }
+    /// <summary>允许编辑的归一化轴心上界；普通图层使用一。</summary>
+    public decimal PivotMaximum { get; init; } = 1;
     public LayerPositionDraftGeometry? Geometry => geometry;
     public LayerPositionDraftGeometry? DiagramGeometry
     {
@@ -86,7 +91,7 @@ public class LayerPositionDraft : ObservableObject
         }
     }
 
-    /// <summary>加载图片或绘图共用的位置和逻辑几何；字段始终可编辑。</summary>
+    /// <summary>加载图层或蒙版的位置和逻辑几何；字段始终可编辑。</summary>
     public void Load(LayerPosition position, LayerPositionDraftGeometry geometry)
     {
         LoadCore(position, true, true, geometry);
@@ -199,7 +204,8 @@ public class LayerPositionDraft : ObservableObject
         foreach (var field in new (NumericValueDraft Draft, decimal Minimum, decimal Maximum, string Key)[]
                  {
                      (AnchorX, 0, 1, "AnchorXInput"), (AnchorY, 0, 1, "AnchorYInput"),
-                     (PivotX, 0, 1, "PivotXInput"), (PivotY, 0, 1, "PivotYInput"),
+                     (PivotX, PivotMinimum, PivotMaximum, "PivotXInput"),
+                     (PivotY, PivotMinimum, PivotMaximum, "PivotYInput"),
                      (OffsetX, -1000000000, 1000000000, "OffsetXInput"),
                      (OffsetY, -1000000000, 1000000000, "OffsetYInput")
                  })
@@ -284,7 +290,8 @@ public class LayerPositionDraft : ObservableObject
     private void CompensateAffinePivot()
     {
         if (loading || !IsExplicit || geometry is null || PivotX.Parse() is not { } x || PivotY.Parse() is not { } y ||
-            x is < 0 or > 1 || y is < 0 or > 1 || OffsetX.Parse() is not { } offsetX || OffsetY.Parse() is not { } offsetY)
+            x < PivotMinimum || x > PivotMaximum || y < PivotMinimum || y > PivotMaximum ||
+            OffsetX.Parse() is not { } offsetX || OffsetY.Parse() is not { } offsetY)
         {
             return;
         }
@@ -297,16 +304,11 @@ public class LayerPositionDraft : ObservableObject
         {
             var displacement = geometry.PivotDisplacement(compensatedPivot, next);
             var offset = new ScenePoint((double)offsetX + displacement.X, (double)offsetY + displacement.Y);
-            if (!double.IsFinite(offset.X) || !double.IsFinite(offset.Y) ||
-                offset.X is < -1000000000 or > 1000000000 || offset.Y is < -1000000000 or > 1000000000)
-            {
-                return;
-            }
             loading = true;
             try
             {
-                OffsetX.Load(offset.X);
-                OffsetY.Load(offset.Y);
+                OffsetX.RawText = offset.X.ToString("R", CultureInfo.CurrentCulture);
+                OffsetY.RawText = offset.Y.ToString("R", CultureInfo.CurrentCulture);
             }
             finally
             {

@@ -19,16 +19,10 @@ internal static class AssMaskDrawing
                 Position = Scale(node.Position), InHandle = Scale(node.InHandle), OutHandle = Scale(node.OutHandle)
             }).ToImmutableArray()
         }).ToImmutableArray();
-        var nodes = contours.SelectMany(contour => contour.Nodes).ToArray();
         return new()
         {
             Inverted = inverted,
-            Contours = contours,
-            Transform = new()
-            {
-                Pivot = new((nodes.Min(node => node.Position.X) + nodes.Max(node => node.Position.X)) / 2,
-                    (nodes.Min(node => node.Position.Y) + nodes.Max(node => node.Position.Y)) / 2)
-            }
+            Contours = contours
         };
 
         ScenePoint Scale(ScenePoint point)

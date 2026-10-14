@@ -226,7 +226,9 @@ public sealed class ClipMaskBezierAffordanceUiTests
             var labels = canvas.MaskNodeLabels().ToArray();
             Assert.Equal(["1:1", "1:2", "1:3", "2:1"], labels.Select(label => label.Text));
             Assert.Equal(mask.Contours.SelectMany(contour => contour.Nodes).Select(node => node.Id), labels.Select(label => label.NodeId));
-            Assert.Equal(Project(canvas, document, mask, mask.Contours[0].Nodes[0].Position), labels[0].Position);
+            var expected = Project(canvas, document, mask, mask.Contours[0].Nodes[0].Position);
+            Assert.Equal(expected.X, labels[0].Position.X, 8);
+            Assert.Equal(expected.Y, labels[0].Position.Y, 8);
             using var capture = new RenderTargetBitmap(new(700, 400));
             capture.Render(canvas);
             var directory = Path.GetFullPath("artifacts/verification/clip-mask/bezier-affordances", FindRoot());
@@ -506,7 +508,8 @@ public sealed class ClipMaskBezierAffordanceUiTests
         var line = new SubtitleLine { End = new(5), Text = "中文 ABC 123" };
         var mask = new VectorClipMask
         {
-            Transform = new() { Position = new(17, 13), Scale = new(1.3, 0.9), Rotation = 25, Pivot = new(300, 250) },
+            Transform = new() { Position = new(17, 13), Scale = new(1.3, 0.9), Rotation = 25 },
+            Placement = new() { Pivot = new(300, 250), Offset = new(300, 250) },
             Contours = [new() { Nodes = [new() { Position = new(200, 200), OutHandle = new(80, -90) }, new() { Position = new(600, 200), InHandle = new(-60, 100) }, new() { Position = new(400, 400) }] }]
         };
         return new() { Width = 1000, Height = 500, Subtitles = [line], Layers = [new() { Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, End = line.End, Mask = mask }] };
@@ -523,12 +526,9 @@ public sealed class ClipMaskBezierAffordanceUiTests
 
     private static Point Project(EffectCanvasControl canvas, ProjectDocument document, ClipMask mask, ScenePoint position)
     {
-        var transform = mask.Transform;
+        var projected = ClipMaskPlacementGeometry.CreateMatrix(mask, new(document.Width, document.Height)).Map(position);
         var board = canvas.ProjectRectangle;
-        var matrix = Matrix.CreateTranslation(-transform.Pivot.X, -transform.Pivot.Y) * Matrix.CreateScale(transform.Scale.X, transform.Scale.Y) *
-            Matrix.CreateRotation(transform.Rotation * Math.PI / 180) * Matrix.CreateTranslation(transform.Pivot.X + transform.Position.X, transform.Pivot.Y + transform.Position.Y) *
-            Matrix.CreateScale(board.Width / document.Width, board.Height / document.Height) * Matrix.CreateTranslation(board.X, board.Y);
-        return new Point(position.X, position.Y) * matrix;
+        return new(board.X + projected.X * board.Width / document.Width, board.Y + projected.Y * board.Height / document.Height);
     }
 
     private static string FindRoot()

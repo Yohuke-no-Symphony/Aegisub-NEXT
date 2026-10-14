@@ -20,9 +20,17 @@ public sealed class ClipMaskGeometryOperationsTests
         }).ToImmutableArray();
         var contour = new MaskContour { Nodes = nodes };
         var other = new MaskContour { Nodes = [new() { Position = new(10, 20) }] };
-        var mask = new VectorClipMask { Inverted = true, Transform = new() { Pivot = new(31, 43), Rotation = 27 }, Contours = [contour, other] };
+        var mask = new VectorClipMask
+        {
+            Inverted = true,
+            Placement = new() { Pivot = new(0.25, 0.75), Offset = new(31, 43) },
+            ReferenceFrame = new() { Origin = new(10, 20), Size = new(600, 400) },
+            Transform = new() { Rotation = 27 }, Contours = [contour, other]
+        };
         var changed = ClipMaskGeometryOperations.SubdivideSegment(mask, contour.Id, nodes[segmentIndex].Id, splitProgress);
         Assert.Equal(mask.Transform, changed.Transform);
+        Assert.Equal(mask.Placement, changed.Placement);
+        Assert.Equal(mask.ReferenceFrame, changed.ReferenceFrame);
         Assert.Equal(mask.Inverted, changed.Inverted);
         Assert.Same(other, changed.Contours[1]);
         var result = changed.Contours[0];

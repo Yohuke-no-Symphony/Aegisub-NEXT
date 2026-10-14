@@ -54,7 +54,9 @@ public sealed class EffectScriptMaskTests
         var mask = new RectangleClipMask
         {
             TopLeft = new(10, 20), BottomRight = new(300, 200),
-            Transform = new() { Position = new(5, 6), Scale = new(2, 0.5), Rotation = 10, Pivot = new(155, 110) }
+            Placement = new() { Pivot = new(0.5, 0.5), Offset = new(155, 110) },
+            ReferenceFrame = new() { Origin = new(10, 20), Size = new(290, 180) },
+            Transform = new() { Position = new(5, 6), Scale = new(2, 0.5), Rotation = 10 }
         };
         var tracks = EffectScriptCompiler.Compile(script, new() { End = new(2), Mask = mask });
 
