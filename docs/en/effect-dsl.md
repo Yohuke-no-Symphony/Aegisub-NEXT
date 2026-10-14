@@ -189,7 +189,7 @@ Text edits remap existing ranges through the normal subtitle editing rules. They
 | `shadow-blur` | Subtitle shadow blur, 0–512 pixels or `base` |
 | `shadow-color` | Subtitle shadow linear `rgba(r, g, b, a)` or `base` |
 | `path-progress` | Explicit 0–1 |
-| `mask-rectangle-top-left`, `mask-rectangle-bottom-right` | Project-coordinate corner vectors |
+| `mask-rectangle-top-left`, `mask-rectangle-bottom-right` | Mask-local corner vectors |
 | `mask-position`, `mask-scale`, `mask-rotation` | Independent mask transform |
 | `mask-node(c,n).position`, `.in-handle`, `.out-handle` | Existing node position / relative handle vectors |
 
@@ -212,6 +212,8 @@ Easing is `hold`, `linear`, `ease-in`, `ease-out`, `ease-in-out`, or `power(posi
 ## Masks and validation
 
 Create mask geometry before applying mask scripts. Node selectors are one-based and resolve to stable IDs. Node/handle animation locks topology; clear those tracks before adding/removing/reordering nodes. Scripts combine declared intervals for matching complete targets, preserve other tracks, and never create geometry. Clear an ordered ASS transform target before replacing it with script keyframes.
+
+Static Anchor/Pivot/Offset and a fixed local reference frame place the mask. `mask-position` remains independent animated pixel translation, leaving those static fields intact. Node and rectangle-corner animation uses the same local reference system; handles remain relative to their nodes. Placement edits do not rewrite script tracks or introduce a new DSL version or animation property.
 
 IDs, scope names, and segment names use lowercase ASCII letters, digits, `.` and `-`, begin with a letter, and have at most 64 characters. Limits: 128 scopes, 128 total segments, 4,096 source points, 262,144 source characters, fixed durations and cycle periods up to 24 h, and flex weights in (0, 1,000]. The resulting subtitle permits at most 256 text ranges, and a layer at most 8,192 range/state tracks; expanded keys must also fit their property budget. Budgets reject the application instead of truncating results. Invalid input or conflicting endpoints leave the project and Undo unchanged. Different scopes cannot declare overlapping time intervals on the same complete target; different overlapping ranges retain the existing saved-order composition rules.
 

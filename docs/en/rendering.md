@@ -68,7 +68,9 @@ ASS is an exchange boundary. Its angle convention negates the native axes; `\org
 
 ## Clip masks
 
-Render the complete subtitle and its own blur first, then clip in project coordinates before parent composition. Masks affect only their Clip. Subtitle/parent transforms do not transform the mask; the mask's own fixed-pivot transform does. Preserve contour direction/nonzero winding and inversion. Preview cache identity includes evaluated mask geometry.
+Render the complete subtitle and its own blur first, then clip in project coordinates before parent composition. Masks affect only their Clip; subtitle/parent transforms do not move them. `Placement` reuses `LayerPosition`: Anchor is relative to the project canvas, Pivot to a fixed `ReferenceFrame`, and Offset uses pixels. Independent `MaskTransform` holds animated translation, scale, and rotation. Capture the frame from the static source geometry's exact Bézier bounds, with at least one logical pixel per axis; node morphing does not change it. Existing geometry coordinates need no rebasing.
+
+Core's `ClipMaskPlacementGeometry` resolves one double-precision matrix: `T(Anchor × CanvasSize + Offset + Position) × R × S × T(-LocalPivot)`. Rendering, canvas editing, and ASS exchange receive the project canvas dimensions explicitly; output scaling is applied separately. Preserve contour direction/nonzero winding and inversion. Preview cache identity includes evaluated mask geometry, Placement, and ReferenceFrame. Zero scale remains valid for persistence and forward rendering; operations requiring inverse mapping reject singular matrices.
 
 ## Optional macOS HDR diagnostic
 

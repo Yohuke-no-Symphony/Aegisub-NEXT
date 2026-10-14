@@ -68,7 +68,9 @@ ASS 属于交换边界，其角度约定与原生各轴符号相反，`\org` 通
 
 ## Clip 蒙版
 
-先渲染完整字幕和自身模糊，再在工程坐标裁切，随后合成到父层。蒙版仅影响所属 Clip；字幕/父层变换不移动蒙版，蒙版自身固定 Pivot 变换负责移动。保留轮廓方向、非零环绕规则和反相；预览缓存身份包含求值后的蒙版几何。
+先渲染完整字幕和自身模糊，再在工程坐标裁切，随后合成到父层。蒙版仅影响所属 Clip，字幕／父层变换不移动蒙版。`Placement` 复用 `LayerPosition`：Anchor 相对工程画布，Pivot 相对固定 `ReferenceFrame`，Offset 使用像素；独立 `MaskTransform` 保存动画位移、缩放和旋转。参考框取静态原几何的精确 Bézier 边界，每轴至少一个逻辑像素，节点形变不改变它。旧几何坐标不需要重基准。
+
+Core 的 `ClipMaskPlacementGeometry` 统一解析双精度矩阵：`T(Anchor × CanvasSize + Offset + Position) × R × S × T(-LocalPivot)`。渲染、画布和 ASS 交换显式传入工程画布尺寸；输出尺寸缩放另行叠加。保留轮廓方向、非零环绕规则和反相；预览缓存身份包含求值后的蒙版几何、Placement 和 ReferenceFrame。零缩放可以保存及前向绘制，要求逆映射的操作会拒绝奇异矩阵。
 
 ## 可选 macOS HDR 诊断
 

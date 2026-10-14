@@ -95,7 +95,9 @@ One Undo removes the entire selected batch, and Redo restores it. Resource files
 
 ## Masks
 
-Create rectangle or closed multi-contour Bézier geometry in **Masks**, then edit it in Preview. Masks use project coordinates and crop only their Clip, including text, stroke, shadow, karaoke, and its blur. Subtitle transforms do not move the mask; its own transform does. Inversion and nonzero-winding holes are supported.
+Create rectangle or closed multi-contour Bézier geometry in **Masks**, then edit it in Preview. Native Anchor/Pivot/Offset places the mask on the project canvas, cropping only its Clip, including text, stroke, shadow, karaoke, and its blur. Subtitle transforms do not move the mask; its own transform does. Inversion and nonzero-winding holes are supported.
+
+Use **Mask placement** in Masks or Effects to adjust anchor presets, the diagram, and numeric fields. Pivot refers to the fixed local frame captured at creation, retained during node editing and morph animation. Presets preserve placement, Shift also adjusts Pivot, and Alt clears Offset. Pivot edits compensate Offset to preserve the current frame while keeping existing tracks. **Mask translation** edits animation independently. Rectangle corners and node positions use mask-local coordinates; handles are pixel offsets relative to their nodes. ASS screen coordinates are converted only at import/export boundaries.
 
 Edit mask geometry and animation with the native mask tools. Clear affected node tracks before changing topology when node morph animation exists.
 
