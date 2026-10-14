@@ -12,13 +12,109 @@ using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Material.Icons;
+using Material.Icons.Avalonia;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
 /// <summary>验证导出模态窗口的真实勾选、格式同步、输入和关闭边界。</summary>
 public sealed class EffectLibraryExportDialogUiTests
 {
-    /// <summary>partial 分组实际点击全选可见项，筛选不丢隐藏选择，清空处理全部。</summary>
+    /// <summary>搜索与方形选择图标同排居中，底部动作等高；清词保留勾选与输入焦点。</summary>
+    [AvaloniaTheory]
+    [InlineData("en-US", 600, false)]
+    [InlineData("zh-CN", 600, false)]
+    [InlineData("ja-JP", 600, false)]
+    [InlineData("en-US", 900, false)]
+    [InlineData("zh-CN", 900, false)]
+    [InlineData("ja-JP", 900, false)]
+    [InlineData("en-US", 600, true)]
+    [InlineData("zh-CN", 600, true)]
+    [InlineData("ja-JP", 600, true)]
+    [InlineData("en-US", 900, true)]
+    [InlineData("zh-CN", 900, true)]
+    [InlineData("ja-JP", 900, true)]
+    public void SearchAndSelectionIconsAlignAndClearingSearchPreservesSelection(string language, double width, bool dark)
+    {
+        using var environment = new UiTestEnvironment();
+        Localization.SetLanguage(language);
+        using var model = new EffectLibraryExportDialogViewModel(Snapshot(), (_, _) => Task.FromResult(false));
+        var owner = new Window();
+        var dialog = new EffectLibraryExportDialog(model)
+        {
+            Width = width,
+            Height = 680,
+            RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
+        };
+        try
+        {
+            owner.Show();
+            _ = dialog.ShowDialog<bool>(owner);
+            Pump(dialog);
+            var input = UiTestActions.Find<TextBox>(dialog, "EffectLibraryExportSearch");
+            var selectAll = UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelectAll");
+            var selectNone = UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelectNone");
+            var cancel = UiTestActions.Find<Button>(dialog, "EffectLibraryExportCancel");
+            var export = UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelected");
+            Assert.Null(dialog.FindControl<TextBlock>("EffectLibraryExportSavedHint"));
+            Assert.Null(dialog.FindControl<Button>("EffectLibraryExportAll"));
+            Assert.Null(dialog.FindControl<Button>("EffectLibraryExportSelectVisible"));
+            Assert.Null(dialog.FindControl<Button>("EffectLibraryExportClearSelection"));
+            var inputBounds = BoundsIn(input, dialog);
+            foreach (var button in new[] { selectAll, selectNone })
+            {
+                var bounds = BoundsIn(button, dialog);
+                Assert.Equal(bounds.Width, bounds.Height, 3);
+                Assert.InRange(Math.Abs(inputBounds.Center.Y - bounds.Center.Y), 0, 0.5);
+                Assert.True(bounds.Left >= inputBounds.Right + 7);
+                var icon = Assert.Single(button.GetVisualDescendants().OfType<MaterialIcon>());
+                Assert.Equal(bounds.Center.X, BoundsIn(icon, dialog).Center.X, 3);
+                Assert.Equal(bounds.Center.Y, BoundsIn(icon, dialog).Center.Y, 3);
+                Assert.False(string.IsNullOrWhiteSpace(Avalonia.Automation.AutomationProperties.GetName(button)));
+                Assert.Equal(Avalonia.Automation.AutomationProperties.GetName(button), ToolTip.GetTip(button));
+            }
+            Assert.Equal(BoundsIn(selectAll, dialog).Height, BoundsIn(selectNone, dialog).Height, 3);
+            Assert.Equal(MaterialIconKind.CheckboxMultipleMarkedOutline, Assert.Single(selectAll.GetVisualDescendants().OfType<MaterialIcon>()).Kind);
+            Assert.Equal(MaterialIconKind.CheckboxMultipleBlankOutline, Assert.Single(selectNone.GetVisualDescendants().OfType<MaterialIcon>()).Kind);
+            Assert.True(BoundsIn(selectAll, dialog).Right + 7 <= BoundsIn(selectNone, dialog).Left);
+            var cancelBounds = BoundsIn(cancel, dialog);
+            var exportBounds = BoundsIn(export, dialog);
+            Assert.Equal(cancelBounds.Top, exportBounds.Top, 3);
+            Assert.Equal(cancelBounds.Height, exportBounds.Height, 3);
+            Assert.True(cancelBounds.Right + 7 <= exportBounds.Left);
+            Assert.False(export.IsEffectivelyEnabled);
+            Search(dialog, "missing");
+            Assert.Equal(0, model.VisibleCount);
+            UiTestActions.Click(dialog, selectAll);
+            Assert.Equal(4, model.SelectedCount);
+            Assert.True(export.IsEffectivelyEnabled);
+            Assert.Equal(exportBounds, BoundsIn(export, dialog));
+            var clear = UiTestActions.Find<Button>(dialog, "EffectLibraryExportClearSearch");
+            Assert.True(clear.IsEffectivelyVisible);
+            Assert.Equal(MaterialIconKind.Close, Assert.Single(clear.GetVisualDescendants().OfType<MaterialIcon>()).Kind);
+            Assert.True(input.Focus());
+            var clearBounds = BoundsIn(clear, dialog);
+            Assert.True(BoundsIn(input, dialog).Contains(clearBounds));
+            Assert.Equal(clearBounds.Width, clearBounds.Height, 3);
+            UiTestActions.Click(dialog, clear);
+            Assert.Equal(string.Empty, input.Text);
+            Assert.Equal(string.Empty, model.SearchText);
+            Assert.Same(input, dialog.FocusManager!.GetFocusedElement());
+            Assert.Equal(4, model.SelectedCount);
+            Assert.Equal(4, model.VisibleCount);
+            Assert.False(clear.IsEffectivelyVisible);
+            UiTestActions.Click(dialog, selectNone);
+            Assert.Equal(0, model.SelectedCount);
+            Assert.False(export.IsEffectivelyEnabled);
+        }
+        finally
+        {
+            dialog.CloseImmediately();
+            owner.Close();
+        }
+    }
+
+    /// <summary>partial 分组点击只操作可见项，独立全选和全不选包含隐藏素材。</summary>
     [AvaloniaFact]
     public void PointerCheckboxesDerivePartialStateAndSelectOnlyVisibleMatches()
     {
@@ -48,14 +144,16 @@ public sealed class EffectLibraryExportDialogUiTests
             Assert.False(compact.IsChecked);
             Assert.True(bright.IsChecked);
             Assert.Equal(1, model.HiddenSelectedCount);
-            UiTestActions.Click(dialog, "EffectLibraryExportSelectVisible");
-            Assert.Equal(2, model.SelectedCount);
-            Assert.Equal(Localization.Format("EffectLibrary.ExportSelectionSummary", 2, 1),
+            UiTestActions.Click(dialog, "EffectLibraryExportSelectAll");
+            Assert.Equal(4, model.SelectedCount);
+            Assert.Equal(3, model.HiddenSelectedCount);
+            Assert.Equal(Localization.Format("EffectLibrary.ExportSelectionSummary", 4),
                 UiTestActions.Find<TextBlock>(dialog, "EffectLibraryExportSelectionSummary").Text);
-            UiTestActions.Click(dialog, "EffectLibraryExportClearSelection");
+            UiTestActions.Click(dialog, "EffectLibraryExportSelectNone");
             Assert.False(bright.IsChecked);
             Assert.False(compact.IsChecked);
             Assert.Equal(0, model.SelectedCount);
+            Assert.All(model.Roots.SelectMany(root => root.AllChildren), node => Assert.False(node.IsChecked));
         }
         finally
         {
@@ -312,14 +410,24 @@ public sealed class EffectLibraryExportDialogUiTests
             Pump(dialog);
             Assert.Equal(Localization.Get("EffectLibrary.ExportDialogTitle"), dialog.Title);
             Assert.Equal(dialog.Title, UiTestActions.Find<WindowTitleBar>(dialog, "EffectLibraryExportTitleBar").Title);
-            Assert.Equal(Localization.Get("EffectLibrary.ExportSavedSnapshotHint"), UiTestActions.Find<TextBlock>(dialog, "EffectLibraryExportSavedHint").Text);
             Assert.Equal(Localization.Get("EffectLibrary.ExportSearch"), UiTestActions.Find<TextBox>(dialog, "EffectLibraryExportSearch").PlaceholderText);
+            foreach (var (name, key) in new[]
+            {
+                ("EffectLibraryExportSelectAll", "EffectLibrary.ExportSelectAll"),
+                ("EffectLibraryExportSelectNone", "EffectLibrary.ExportSelectNone"),
+                ("EffectLibraryExportClearSearch", "EffectLibrary.ExportClearSearch")
+            })
+            {
+                var button = UiTestActions.Find<Button>(dialog, name);
+                Assert.Equal(Localization.Get(key), ToolTip.GetTip(button));
+                Assert.Equal(Localization.Get(key), Avalonia.Automation.AutomationProperties.GetName(button));
+            }
             Assert.Same(selected, combo.SelectedItem);
             Assert.Equal(Localization.Get("EffectLibrary.ExportSource"), Assert.IsType<EffectLibraryExportFormatChoice>(combo.SelectedItem).Text);
             Assert.Equal("glow-script", model.SearchText);
             Assert.Equal(1, model.SelectedCount);
             Assert.True(Checkbox(dialog, model.EffectRoot).IsChecked);
-            Assert.Equal(Localization.Format("EffectLibrary.ExportSelectionSummary", 1, 0), UiTestActions.Find<TextBlock>(dialog, "EffectLibraryExportSelectionSummary").Text);
+            Assert.Equal(Localization.Format("EffectLibrary.ExportSelectionSummary", 1), UiTestActions.Find<TextBlock>(dialog, "EffectLibraryExportSelectionSummary").Text);
             dialog.CloseImmediately();
             var changed = 0;
             model.PropertyChanged += (_, _) => changed++;
@@ -364,12 +472,11 @@ public sealed class EffectLibraryExportDialogUiTests
             [
                 UiTestActions.Find<TextBox>(dialog, "EffectLibraryExportSearch"),
                 UiTestActions.Find<TreeView>(dialog, "EffectLibraryExportTree"),
-                UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelectVisible"),
-                UiTestActions.Find<Button>(dialog, "EffectLibraryExportClearSelection"),
+                UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelectAll"),
+                UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelectNone"),
                 combo,
                 UiTestActions.Find<ScrollViewer>(dialog, "EffectLibraryExportErrorScroll"),
                 UiTestActions.Find<Button>(dialog, "EffectLibraryExportCancel"),
-                UiTestActions.Find<Button>(dialog, "EffectLibraryExportAll"),
                 UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelected")
             ];
             var bounds = controls.Select(control => BoundsIn(control, dialog)).ToArray();
@@ -447,9 +554,9 @@ public sealed class EffectLibraryExportDialogUiTests
         }
     }
 
-    /// <summary>空快照无法导出，Escape 返回 false 且关闭全部自有窗口。</summary>
+    /// <summary>空快照无法导出或全选，Escape 返回 false 且关闭全部自有窗口。</summary>
     [AvaloniaFact]
-    public async Task EmptySnapshotDisablesBothExportsAndEscapeClosesTheDialog()
+    public async Task EmptySnapshotDisablesExportAndSelectionAndEscapeClosesTheDialog()
     {
         using var environment = new UiTestEnvironment();
         await using var model = new EffectLibraryExportDialogViewModel(new(), (_, _) => Task.FromResult(true));
@@ -461,7 +568,8 @@ public sealed class EffectLibraryExportDialogUiTests
             var answer = dialog.ShowDialog<bool>(owner);
             Pump(dialog);
             Assert.False(UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelected").IsEffectivelyEnabled);
-            Assert.False(UiTestActions.Find<Button>(dialog, "EffectLibraryExportAll").IsEffectivelyEnabled);
+            Assert.False(UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelectAll").IsEffectivelyEnabled);
+            Assert.False(UiTestActions.Find<Button>(dialog, "EffectLibraryExportSelectNone").IsEffectivelyEnabled);
             Assert.False(Checkbox(dialog, model.StyleRoot).IsEffectivelyEnabled);
             Assert.False(Checkbox(dialog, model.EffectRoot).IsEffectivelyEnabled);
             dialog.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);

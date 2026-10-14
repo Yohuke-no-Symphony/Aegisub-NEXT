@@ -24,7 +24,7 @@ internal sealed class WorkbenchWindowRegistry : IDisposable
     private readonly Action? cancelGestures;
     private readonly WorkbenchApplicationMenu? applicationMenu;
     private readonly Dictionary<Window, WorkbenchWindowEntry> windows = [];
-    private readonly Dictionary<WorkbenchCommand, Bitmap> icons = [];
+    private readonly Dictionary<string, Bitmap> icons = new(StringComparer.Ordinal);
     private WorkbenchPreferences preferences = new();
     private ShortcutRouter router = new(ShortcutDefaults.CreateBindings());
     private bool disposed;
@@ -38,7 +38,7 @@ internal sealed class WorkbenchWindowRegistry : IDisposable
         this.cancelGestures = cancelGestures;
         if (includeApplicationMenu && OperatingSystem.IsMacOS() && Avalonia.Application.Current is { } application)
         {
-            applicationMenu = new(application, catalog);
+            applicationMenu = new(application, catalog, GetIcon);
         }
         catalog.Changed += OnCatalogChanged;
         Localization.LanguageChanged += OnLanguageChanged;
@@ -158,7 +158,7 @@ internal sealed class WorkbenchWindowRegistry : IDisposable
         var prefersWindowMenu = !OperatingSystem.IsMacOS() || preferences.WindowMenuOnMac;
         entry.TitleBar.MenuContent = prefersWindowMenu && entry.Role == WorkbenchWindowRole.MAIN ? entry.MenuBar : null;
         entry.NativeMenu.SetEnabled(!OperatingSystem.IsMacOS() || !prefersWindowMenu);
-        entry.NativeMenu.Update(key => Localization.Get("Workbench." + key), catalog.GetDisplayLabel, catalog.GetGestureLabel);
+        entry.NativeMenu.Update(Localization.Get, catalog.GetDisplayLabel, catalog.GetGestureLabel);
         entry.NativeMenu.UpdateLayouts(catalog.LayoutChoices);
         UpdateMenuWidth(entry);
     }
@@ -168,12 +168,12 @@ internal sealed class WorkbenchWindowRegistry : IDisposable
         entry.MenuBar.SetAvailableWidth(entry.TitleBar.AvailableMenuWidth);
     }
 
-    private Bitmap GetIcon(WorkbenchCommand command)
+    private Bitmap GetIcon(string key)
     {
-        if (!icons.TryGetValue(command, out var value))
+        if (!icons.TryGetValue(key, out var value))
         {
-            value = WorkbenchIcon.CreateNative(command.ToString());
-            icons.Add(command, value);
+            value = WorkbenchIcon.CreateNative(key);
+            icons.Add(key, value);
         }
 
         return value;

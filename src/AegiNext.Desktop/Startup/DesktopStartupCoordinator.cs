@@ -4,6 +4,7 @@ using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Menus;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
+using AegiNext.Desktop.Styling;
 using AegiNext.Desktop.Updates;
 using AegiNext.Desktop.Views;
 using AegiNext.Desktop.Workspace;
@@ -12,6 +13,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
 using CommunityToolkit.Mvvm.Input;
 
@@ -31,6 +33,7 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
     private readonly HashSet<Key> pressedKeys = [];
     private readonly WorkbenchMenuCatalog menuCatalog;
     private readonly WorkbenchApplicationMenu? applicationMenu;
+    private readonly Dictionary<string, Bitmap> applicationIcons = new(StringComparer.Ordinal);
     private readonly RelayCommand exitCommand;
     private readonly RelayCommand unavailableCommand = new(() => { }, () => false);
     private ShortcutRouter shortcuts;
@@ -74,7 +77,7 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         menuCatalog.Update(this.context.Preferences);
         if (OperatingSystem.IsMacOS() && Avalonia.Application.Current is { } application)
         {
-            applicationMenu = new(application, menuCatalog);
+            applicationMenu = new(application, menuCatalog, GetApplicationIcon);
         }
         this.context.PreferencesChanged += OnPreferencesChanged;
         this.context.ErrorChanged += OnApplicationError;
@@ -91,6 +94,16 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
     internal DesktopApplicationContext ApplicationContext => context;
     internal Task Completion => disposeTask ?? operation;
     internal Task AutomaticUpdateCheck => automaticUpdateCheck ?? Task.CompletedTask;
+
+    private Bitmap GetApplicationIcon(string key)
+    {
+        if (!applicationIcons.TryGetValue(key, out var icon))
+        {
+            icon = WorkbenchIcon.CreateNative(key);
+            applicationIcons.Add(key, icon);
+        }
+        return icon;
+    }
 
     internal void Start()
     {
@@ -486,6 +499,11 @@ internal sealed class DesktopStartupCoordinator : IAsyncDisposable
         context.ErrorChanged -= OnApplicationError;
         Localization.LanguageChanged -= OnLanguageChanged;
         applicationMenu?.Dispose();
+        foreach (var icon in applicationIcons.Values)
+        {
+            icon.Dispose();
+        }
+        applicationIcons.Clear();
         if (MainWindow is { } window)
         {
             window.Closed -= OnMainWindowClosed;

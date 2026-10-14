@@ -19,7 +19,7 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
             new("SRT", [WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.EXPORT_SUBTITLES])]),
         new("Edit", [WorkbenchCommand.UNDO, WorkbenchCommand.REDO, null, WorkbenchCommand.OPEN_SETTINGS],
             [new("EffectLibrary", [WorkbenchCommand.OPEN_STYLE_LIBRARY, WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY,
-                WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER])]),
+                WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER], LocalizationKey: "Workbench.MenuEffectLibrary", IconKey: "EffectLibrary")]),
         new("View", [WorkbenchCommand.VIEW_PREVIEW, WorkbenchCommand.VIEW_TIMELINE, WorkbenchCommand.VIEW_SUBTITLES,
             WorkbenchCommand.VIEW_ASSETS, WorkbenchCommand.VIEW_DRAWING_TOOLS, WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS,
             WorkbenchCommand.VIEW_EFFECT_PRESETS, WorkbenchCommand.VIEW_MASKS, WorkbenchCommand.VIEW_EXPORT, WorkbenchCommand.VIEW_LOG]),

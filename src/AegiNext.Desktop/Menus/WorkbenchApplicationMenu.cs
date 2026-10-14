@@ -2,6 +2,7 @@ using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Shortcuts;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 
 namespace AegiNext.Desktop.Menus;
 
@@ -11,9 +12,11 @@ internal sealed class WorkbenchApplicationMenu : IDisposable
     private readonly NativeMenu menu;
     private readonly NativeMenuItem settings;
     private readonly NativeMenuItem effectLibrary;
+    private readonly WorkbenchMenuGroup effectLibraryDefinition;
     private readonly Dictionary<WorkbenchCommand, NativeMenuItem> libraryItems = [];
 
-    internal WorkbenchApplicationMenu(Avalonia.Application application, WorkbenchMenuCatalog catalog)
+    internal WorkbenchApplicationMenu(Avalonia.Application application, WorkbenchMenuCatalog catalog,
+        Func<string, Bitmap> iconProvider)
     {
         this.catalog = catalog;
         menu = NativeMenu.GetMenu(application) ?? new NativeMenu();
@@ -32,7 +35,8 @@ internal sealed class WorkbenchApplicationMenu : IDisposable
             libraryItems.Add(command, item);
             libraryMenu.Items.Add(item);
         }
-        effectLibrary = new() { Menu = libraryMenu };
+        effectLibraryDefinition = WorkbenchMenuCatalog.Groups.Single(group => group.Key == "Edit").Children.Single(group => group.Key == "EffectLibrary");
+        effectLibrary = new() { Menu = libraryMenu, Icon = iconProvider(effectLibraryDefinition.IconKey!) };
         menu.Items.Insert(1, effectLibrary);
         catalog.Changed += OnCatalogChanged;
         Refresh();
@@ -55,7 +59,7 @@ internal sealed class WorkbenchApplicationMenu : IDisposable
     {
         settings.Header = Localization.Get("Settings." + (WorkbenchCommand.OPEN_SETTINGS.ToString()));
         settings.Gesture = catalog.GetGesture(WorkbenchCommand.OPEN_SETTINGS);
-        effectLibrary.Header = Localization.Get("Workbench.MenuEffectLibrary");
+        effectLibrary.Header = Localization.Get(effectLibraryDefinition.LabelKey);
         foreach (var entry in libraryItems)
         {
             entry.Value.Header = WorkbenchMenuCatalog.GetLabel(entry.Key);

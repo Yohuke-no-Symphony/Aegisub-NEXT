@@ -32,6 +32,7 @@ public sealed class WorkbenchLibraryIconUiTests
     [InlineData("ResetColors", MaterialIconKind.FormatColorReset)]
     [InlineData("VIEW_LOG", MaterialIconKind.TextBoxOutline)]
     [InlineData("VIEW_PREVIEW", MaterialIconKind.Monitor)]
+    [InlineData("EffectLibrary", MaterialIconKind.ViewGridOutline)]
     public void SemanticKeysCreateTheLibraryControlAndItsCachedGeometry(string key, MaterialIconKind kind)
     {
         var icon = Assert.IsType<MaterialIcon>(WorkbenchIcon.Create(key, 18));
@@ -48,6 +49,7 @@ public sealed class WorkbenchLibraryIconUiTests
     [InlineData("Play", MaterialIconKind.Play)]
     [InlineData("Settings", MaterialIconKind.Cog)]
     [InlineData("MERGE_PROJECT", MaterialIconKind.CallMerge)]
+    [InlineData("EffectLibrary", MaterialIconKind.ViewGridOutline)]
     public void NativeMenuBitmapMatchesTheSameLibrarySilhouette(string key, MaterialIconKind kind)
     {
         var geometry = new MaterialIcon { Kind = kind }.Drawing.Geometry!;

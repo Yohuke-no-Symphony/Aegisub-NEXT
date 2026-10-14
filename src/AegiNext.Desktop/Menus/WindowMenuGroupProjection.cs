@@ -19,6 +19,10 @@ internal sealed class WindowMenuGroupProjection
     {
         this.definition = definition;
         this.catalog = catalog;
+        if (definition.IconKey is { } iconKey)
+        {
+            Item.Icon = WorkbenchIcon.Create(iconKey);
+        }
         foreach (var command in definition.Commands)
         {
             if (command is { } id)
@@ -55,7 +59,7 @@ internal sealed class WindowMenuGroupProjection
 
     internal void Refresh()
     {
-        Item.Header = Localization.Get("Workbench." + definition.Key);
+        Item.Header = Localization.Get(definition.LabelKey);
         foreach (var child in children)
         {
             child.Refresh();

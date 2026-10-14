@@ -8,6 +8,7 @@ namespace AegiNext.Desktop.Menus;
 internal sealed class WorkbenchNativeMenu
 {
     private readonly Dictionary<string, NativeMenuItem> groups = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, WorkbenchMenuGroup> groupDefinitions = new(StringComparer.Ordinal);
     private readonly Dictionary<WorkbenchCommand, NativeMenuItem> items = [];
     private readonly Dictionary<string, NativeMenuItem> layoutItems = new(StringComparer.Ordinal);
     private readonly WorkbenchMenuGroup[] definitions;
@@ -15,7 +16,7 @@ internal sealed class WorkbenchNativeMenu
     private string[] layoutOrder = [];
 
     internal WorkbenchNativeMenu(IEnumerable<WorkbenchMenuGroup> definitions,
-        Func<WorkbenchCommand, ICommand> commandProvider, Func<WorkbenchCommand, Bitmap> iconProvider)
+        Func<WorkbenchCommand, ICommand> commandProvider, Func<string, Bitmap> iconProvider)
     {
         this.definitions = definitions.ToArray();
         foreach (var definition in this.definitions)
@@ -27,11 +28,16 @@ internal sealed class WorkbenchNativeMenu
     private readonly Dictionary<string, NativeMenu> parents = new(StringComparer.Ordinal);
 
     private void AddGroup(NativeMenu parent, WorkbenchMenuGroup definition,
-        Func<WorkbenchCommand, ICommand> commandProvider, Func<WorkbenchCommand, Bitmap> iconProvider)
+        Func<WorkbenchCommand, ICommand> commandProvider, Func<string, Bitmap> iconProvider)
     {
         var submenu = new NativeMenu();
-        var group = new NativeMenuItem { Menu = submenu };
+        var group = new NativeMenuItem
+        {
+            Menu = submenu,
+            Icon = definition.IconKey is { } iconKey ? iconProvider(iconKey) : null
+        };
         groups.Add(definition.Key, group);
+        groupDefinitions.Add(definition.Key, definition);
         parents.Add(definition.Key, parent);
         parent.Items.Add(group);
         foreach (var command in definition.Commands)
@@ -41,7 +47,7 @@ internal sealed class WorkbenchNativeMenu
                 submenu.Items.Add(new NativeMenuItemSeparator());
                 continue;
             }
-            var item = new NativeMenuItem { Command = commandProvider(value), Icon = iconProvider(value) };
+            var item = new NativeMenuItem { Command = commandProvider(value), Icon = iconProvider(value.ToString()) };
             items.Add(value, item);
             submenu.Items.Add(item);
         }
@@ -61,7 +67,7 @@ internal sealed class WorkbenchNativeMenu
     {
         foreach (var group in groups.ToArray())
         {
-            var label = groupLabel(group.Key);
+            var label = groupLabel(groupDefinitions[group.Key].LabelKey);
             if (group.Value.Header == label)
             {
                 continue;
@@ -84,7 +90,7 @@ internal sealed class WorkbenchNativeMenu
 
             var parent = parents[group.Key];
             var index = parent.Items.IndexOf(group.Value);
-            var replacement = new NativeMenuItem(label) { Menu = submenu };
+            var replacement = new NativeMenuItem(label) { Menu = submenu, Icon = group.Value.Icon };
             if (index >= 0)
             {
                 parent.Items[index] = replacement;

@@ -9,7 +9,6 @@ namespace AegiNext.Desktop.EffectLibrary.Transfer;
 /// <summary>管理已保存个人快照的导出选择；文件选择和写入由注入的操作拥有。</summary>
 internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDisposable, IAsyncDisposable
 {
-    private readonly EffectLibrarySnapshot snapshot;
     private readonly Func<EffectLibraryExportRequest, CancellationToken, Task<bool>> exportAsync;
     private readonly CancellationTokenSource cancellation;
     private readonly ImmutableArray<EffectLibraryExportNode> leaves;
@@ -31,7 +30,6 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(exportAsync);
-        this.snapshot = snapshot;
         this.exportAsync = exportAsync;
         cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         StyleRoot = new("EffectLibrary.StyleKind", [.. snapshot.Styles.Presets.Select(preset => new EffectLibraryExportNode(preset))]);
@@ -39,10 +37,10 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
         Roots = [StyleRoot, EffectRoot];
         leaves = [.. StyleRoot.AllChildren, .. EffectRoot.AllChildren];
         exportFormats = [package, independent];
-        ExportSelectedCommand = new(() => ExportAsync(false), () => CanExportSelected);
-        ExportAllCommand = new(() => ExportAsync(true), () => CanExportAll);
-        SelectVisibleCommand = new(SelectVisible, () => CanInteract && VisibleCount > 0);
+        ExportSelectedCommand = new(ExportAsync, () => CanExportSelected);
+        SelectAllCommand = new(SelectAll, () => CanInteract && SelectedCount < TotalCount);
         ClearSelectionCommand = new(ClearSelection, () => CanInteract && SelectedCount > 0);
+        ClearSearchCommand = new(() => SearchText = string.Empty, () => CanInteract && HasSearchText);
         foreach (var node in Roots.Concat(leaves))
         {
             node.SelectionRequested += OnSelectionRequested;
@@ -59,9 +57,9 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
     public EffectLibraryExportNode StyleRoot { get; }
     public EffectLibraryExportNode EffectRoot { get; }
     public AsyncRelayCommand ExportSelectedCommand { get; }
-    public AsyncRelayCommand ExportAllCommand { get; }
-    public RelayCommand SelectVisibleCommand { get; }
+    public RelayCommand SelectAllCommand { get; }
     public RelayCommand ClearSelectionCommand { get; }
+    public RelayCommand ClearSearchCommand { get; }
     public IReadOnlyList<EffectLibraryExportFormatChoice> ExportFormats => exportFormats;
     public int TotalCount => leaves.Length;
     public int VisibleCount => leaves.Count(node => node.MatchesSearch);
@@ -72,11 +70,11 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
     public bool IsBusy => isBusy;
     public bool CanInteract => !isBusy && !disposed && !cancellation.IsCancellationRequested;
     public bool CanExportSelected => CanInteract && SelectedCount > 0;
-    public bool CanExportAll => CanInteract && TotalCount > 0;
+    public bool HasSearchText => searchText.Length > 0;
     public bool IsSourceFormat => selectedFormat == EffectLibraryExportFormat.SOURCE;
     public bool HasError => error is not null;
     public string? Error => error is null ? null : Localization.Format("EffectLibrary.ExportDialogFailed", error.Message);
-    public string SelectionSummary => Localization.Format("EffectLibrary.ExportSelectionSummary", SelectedCount, HiddenSelectedCount);
+    public string SelectionSummary => Localization.Format("EffectLibrary.ExportSelectionSummary", SelectedCount);
 
     public string SearchText
     {
@@ -89,6 +87,7 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
                 {
                     root.ApplySearch(searchText.Trim());
                 }
+                OnPropertyChanged(nameof(HasSearchText));
                 NotifySelection();
             }
         }
@@ -144,11 +143,11 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
         NotifySelection();
     }
 
-    private void SelectVisible()
+    private void SelectAll()
     {
         if (CanInteract)
         {
-            foreach (var node in leaves.Where(node => node.MatchesSearch))
+            foreach (var node in leaves)
             {
                 node.SetSelected(true);
             }
@@ -207,11 +206,10 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
     private void RefreshCommands()
     {
         OnPropertyChanged(nameof(CanExportSelected));
-        OnPropertyChanged(nameof(CanExportAll));
         ExportSelectedCommand.NotifyCanExecuteChanged();
-        ExportAllCommand.NotifyCanExecuteChanged();
-        SelectVisibleCommand.NotifyCanExecuteChanged();
+        SelectAllCommand.NotifyCanExecuteChanged();
         ClearSelectionCommand.NotifyCanExecuteChanged();
+        ClearSearchCommand.NotifyCanExecuteChanged();
     }
 
     private void SetBusy(bool value)
@@ -226,15 +224,15 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
         RefreshCommands();
     }
 
-    private async Task ExportAsync(bool all)
+    private async Task ExportAsync()
     {
-        if (all ? !CanExportAll : !CanExportSelected)
+        if (!CanExportSelected)
         {
             return;
         }
-        var request = all ? new EffectLibraryExportRequest(snapshot.Styles.Presets, snapshot.Effects.Presets, EffectLibraryExportFormat.PACKAGE) :
-            new([.. leaves.Where(node => node.Style is not null && node.IsChecked == true).Select(node => node.Style!)],
-                [.. leaves.Where(node => node.Effect is not null && node.IsChecked == true).Select(node => node.Effect!)], selectedFormat);
+        var request = new EffectLibraryExportRequest(
+            [.. leaves.Where(node => node.Style is not null && node.IsChecked == true).Select(node => node.Style!)],
+            [.. leaves.Where(node => node.Effect is not null && node.IsChecked == true).Select(node => node.Effect!)], selectedFormat);
         var token = cancellation.Token;
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         operationCompletion = completed;

@@ -19,7 +19,9 @@ public sealed class EffectLibraryExportDialogViewModelTests
         Assert.Equal(4, model.VisibleCount);
         Assert.Equal(0, model.SelectedCount);
         Assert.False(model.ExportSelectedCommand.CanExecute(null));
-        Assert.True(model.ExportAllCommand.CanExecute(null));
+        Assert.True(model.SelectAllCommand.CanExecute(null));
+        Assert.False(model.ClearSelectionCommand.CanExecute(null));
+        Assert.False(model.ClearSearchCommand.CanExecute(null));
         Assert.Equal(EffectLibraryExportFormat.PACKAGE, model.SelectedFormat);
         Assert.DoesNotContain(model.ExportFormats, choice => choice.Format == EffectLibraryExportFormat.SOURCE);
         Assert.All(model.Roots.SelectMany(root => root.Children), node => Assert.False(node.IsChecked));
@@ -83,7 +85,7 @@ public sealed class EffectLibraryExportDialogViewModelTests
         Assert.Empty(model.StyleRoot.Children);
         Assert.Equal("glow-script", effect.DslId);
         Assert.Equal(1, model.HiddenSelectedCount);
-        model.SelectVisibleCommand.Execute(null);
+        effect.IsChecked = true;
         Assert.Equal(2, model.SelectedCount);
         Assert.Equal(1, model.HiddenSelectedCount);
         await model.ExportSelectedCommand.ExecuteAsync(null);
@@ -115,13 +117,13 @@ public sealed class EffectLibraryExportDialogViewModelTests
         Assert.False(model.StyleRoot.IsChecked);
         Assert.Equal(1, model.SelectedCount);
         Assert.Equal(1, model.HiddenSelectedCount);
-        model.SelectVisibleCommand.Execute(null);
+        model.StyleRoot.IsChecked = true;
         Assert.Equal(2, model.SelectedCount);
         Assert.Equal(1, model.HiddenSelectedCount);
         model.SearchText = "missing";
         Assert.False(model.StyleRoot.CanSelect);
         Assert.False(model.EffectRoot.CanSelect);
-        Assert.False(model.SelectVisibleCommand.CanExecute(null));
+        Assert.True(model.SelectAllCommand.CanExecute(null));
         Assert.True(model.ExportSelectedCommand.CanExecute(null));
         model.ClearSelectionCommand.Execute(null);
         Assert.Equal(0, model.SelectedCount);
@@ -148,9 +150,11 @@ public sealed class EffectLibraryExportDialogViewModelTests
         Assert.DoesNotContain(model.ExportFormats, choice => choice.Format == EffectLibraryExportFormat.SOURCE);
     }
 
-    /// <summary>导出全部忽略筛选和勾选，始终冻结完整个人快照并使用包格式。</summary>
-    [Fact]
-    public async Task ExportAllAlwaysUsesTheWholeSavedSnapshotAsAPackage()
+    /// <summary>全选包含搜索隐藏的素材，使用当前格式导出完整保存快照。</summary>
+    [Theory]
+    [InlineData(EffectLibraryExportFormat.PACKAGE)]
+    [InlineData(EffectLibraryExportFormat.INDEPENDENT)]
+    public async Task SelectAllIncludesHiddenMaterialsAndExportsTheSavedSnapshotInTheCurrentFormat(EffectLibraryExportFormat format)
     {
         var snapshot = EffectLibraryExportDialogTestData.Snapshot();
         EffectLibraryExportRequest? exported = null;
@@ -162,13 +166,46 @@ public sealed class EffectLibraryExportDialogViewModelTests
         model.EffectRoot.Children[0].IsChecked = true;
         model.SelectedFormat = EffectLibraryExportFormat.SOURCE;
         model.SearchText = "does not match";
-        await model.ExportAllCommand.ExecuteAsync(null);
-        Assert.Equal(snapshot.Styles.Presets, exported!.Styles);
-        Assert.Equal(snapshot.Effects.Presets, exported.Effects);
-        Assert.Equal(EffectLibraryExportFormat.PACKAGE, exported.Format);
+        model.SelectAllCommand.Execute(null);
+        Assert.Equal(4, model.SelectedCount);
+        Assert.Equal(4, model.HiddenSelectedCount);
+        Assert.False(model.SelectAllCommand.CanExecute(null));
+        Assert.Equal(EffectLibraryExportFormat.PACKAGE, model.SelectedFormat);
+        model.SelectedFormat = format;
+        await model.ExportSelectedCommand.ExecuteAsync(null);
+        Assert.Equal(snapshot.Styles.Presets.ToArray(), exported!.Styles.ToArray());
+        Assert.Equal(snapshot.Effects.Presets.ToArray(), exported.Effects.ToArray());
+        Assert.Equal(format, exported.Format);
+        Assert.Equal(format, model.SelectedFormat);
+        model.ClearSelectionCommand.Execute(null);
+        Assert.Equal(0, model.SelectedCount);
+        Assert.Equal(0, model.HiddenSelectedCount);
+        Assert.False(model.ExportSelectedCommand.CanExecute(null));
+        Assert.True(model.SelectAllCommand.CanExecute(null));
+    }
+
+    /// <summary>清除搜索只恢复完整树，保留隐藏脚本勾选、源码格式及展开状态。</summary>
+    [Fact]
+    public void ClearingSearchPreservesSelectionFormatAndExpansion()
+    {
+        using var model = new EffectLibraryExportDialogViewModel(EffectLibraryExportDialogTestData.Snapshot(), (_, _) => Task.FromResult(false));
+        var effect = model.EffectRoot.Children[0];
+        effect.IsChecked = true;
+        model.SelectedFormat = EffectLibraryExportFormat.SOURCE;
+        model.StyleRoot.IsExpanded = false;
+        model.SearchText = "missing";
+        Assert.Equal(0, model.VisibleCount);
+        Assert.True(model.ClearSearchCommand.CanExecute(null));
+        model.ClearSearchCommand.Execute(null);
+        Assert.Equal(string.Empty, model.SearchText);
+        Assert.False(model.HasSearchText);
+        Assert.False(model.ClearSearchCommand.CanExecute(null));
+        Assert.Equal(4, model.VisibleCount);
+        Assert.True(effect.IsChecked);
         Assert.Equal(1, model.SelectedCount);
-        Assert.Equal(1, model.HiddenSelectedCount);
+        Assert.Equal(0, model.HiddenSelectedCount);
         Assert.Equal(EffectLibraryExportFormat.SOURCE, model.SelectedFormat);
+        Assert.False(model.StyleRoot.IsExpanded);
     }
 
     /// <summary>文件选择取消不清空选择；异常本地显示后同一请求可重试成功。</summary>
@@ -227,7 +264,9 @@ public sealed class EffectLibraryExportDialogViewModelTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(model.IsBusy);
             Assert.False(model.CanInteract);
-            Assert.False(model.ExportAllCommand.CanExecute(null));
+            Assert.False(model.SelectAllCommand.CanExecute(null));
+            Assert.False(model.ClearSelectionCommand.CanExecute(null));
+            Assert.False(model.ClearSearchCommand.CanExecute(null));
             model.SearchText = "changed";
             leaf.IsChecked = false;
             Assert.Equal(string.Empty, model.SearchText);
@@ -258,13 +297,13 @@ public sealed class EffectLibraryExportDialogViewModelTests
     {
         using var empty = new EffectLibraryExportDialogViewModel(new(), (_, _) => Task.FromResult(true));
         Assert.False(empty.ExportSelectedCommand.CanExecute(null));
-        Assert.False(empty.ExportAllCommand.CanExecute(null));
+        Assert.False(empty.SelectAllCommand.CanExecute(null));
         Assert.True(empty.IsEmpty);
         using var cancelled = new CancellationTokenSource();
         cancelled.Cancel();
         using var inactive = new EffectLibraryExportDialogViewModel(EffectLibraryExportDialogTestData.Snapshot(), (_, _) => Task.FromResult(true), cancelled.Token);
         Assert.False(inactive.CanInteract);
-        Assert.False(inactive.ExportAllCommand.CanExecute(null));
+        Assert.False(inactive.SelectAllCommand.CanExecute(null));
         using var model = new EffectLibraryExportDialogViewModel(EffectLibraryExportDialogTestData.Snapshot(), (_, _) => Task.FromResult(false));
         model.EffectRoot.Children[0].IsChecked = true;
         model.SelectedFormat = EffectLibraryExportFormat.SOURCE;

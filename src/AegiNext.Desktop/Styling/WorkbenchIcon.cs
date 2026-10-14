@@ -100,6 +100,8 @@ internal static class WorkbenchIcon
             "Rectangle" => MaterialIconKind.VectorRectangle,
             "RoundedRectangle" => MaterialIconKind.RoundedCorner,
             "SelectGraphic" => MaterialIconKind.CursorDefault,
+            "SelectAll" => MaterialIconKind.CheckboxMultipleMarkedOutline,
+            "SelectNone" => MaterialIconKind.CheckboxMultipleBlankOutline,
             "SpatialTransform" => MaterialIconKind.VectorCircle,
             "DrawPath" or "VIEW_DRAWING_TOOLS" => MaterialIconKind.PencilOutline,
             "CropImage" => MaterialIconKind.Crop,

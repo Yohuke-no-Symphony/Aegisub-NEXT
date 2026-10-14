@@ -8,19 +8,32 @@
         WindowStartupLocation="CenterOwner" Background="{DynamicResource PreviewBackground}">
   <Grid RowDefinitions="Auto,*">
     <common:WindowTitleBar Name="EffectLibraryExportTitleBar" Title="{Loc Key=EffectLibrary.ExportDialogTitle}" />
-    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
-      <StackPanel Spacing="8">
-        <TextBlock Classes="heading" FontSize="20" Text="{Loc Key=EffectLibrary.ExportDialogTitle}" />
-        <TextBlock Name="EffectLibraryExportSavedHint" Classes="field" Text="{Loc Key=EffectLibrary.ExportSavedSnapshotHint}" TextWrapping="Wrap" />
-      </StackPanel>
-      <TextBox Name="EffectLibraryExportSearch" Grid.Row="1" Text="{Binding SearchText, Mode=TwoWay}"
-               PlaceholderText="{Loc Key=EffectLibrary.ExportSearch}" AutomationProperties.Name="{Loc Key=EffectLibrary.ExportSearch}"
-               IsEnabled="{Binding CanInteract}" />
-      <WrapPanel Grid.Row="2">
-        <Button Name="EffectLibraryExportSelectVisible" Command="{Binding SelectVisibleCommand}" Content="{Loc Key=EffectLibrary.ExportSelectVisible}" Margin="0,0,8,0" />
-        <Button Name="EffectLibraryExportClearSelection" Command="{Binding ClearSelectionCommand}" Content="{Loc Key=EffectLibrary.ExportClearSelection}" />
-      </WrapPanel>
-      <Border Grid.Row="3" Classes="card" Padding="8">
+    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto" RowSpacing="8">
+      <TextBlock Classes="heading" FontSize="20" Text="{Loc Key=EffectLibrary.ExportDialogTitle}" />
+      <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+        <TextBox Name="EffectLibraryExportSearch" Text="{Binding SearchText, Mode=TwoWay}"
+                 PlaceholderText="{Loc Key=EffectLibrary.ExportSearch}" AutomationProperties.Name="{Loc Key=EffectLibrary.ExportSearch}"
+                 IsEnabled="{Binding CanInteract}">
+          <TextBox.InnerRightContent>
+            <Button Name="EffectLibraryExportClearSearch" Classes="icon-button" Command="{Binding ClearSearchCommand}"
+                    IsVisible="{Binding HasSearchText}" Focusable="False" Background="Transparent" BorderThickness="0"
+                    ToolTip.Tip="{Loc Key=EffectLibrary.ExportClearSearch}" AutomationProperties.Name="{Loc Key=EffectLibrary.ExportClearSearch}">
+              <common:IconText IconKey="Clear" />
+            </Button>
+          </TextBox.InnerRightContent>
+        </TextBox>
+        <Button Name="EffectLibraryExportSelectAll" Grid.Column="1" Classes="icon-button" VerticalAlignment="Center"
+                Command="{Binding SelectAllCommand}" ToolTip.Tip="{Loc Key=EffectLibrary.ExportSelectAll}"
+                AutomationProperties.Name="{Loc Key=EffectLibrary.ExportSelectAll}">
+          <common:IconText IconKey="SelectAll" />
+        </Button>
+        <Button Name="EffectLibraryExportSelectNone" Grid.Column="2" Classes="icon-button" VerticalAlignment="Center"
+                Command="{Binding ClearSelectionCommand}" ToolTip.Tip="{Loc Key=EffectLibrary.ExportSelectNone}"
+                AutomationProperties.Name="{Loc Key=EffectLibrary.ExportSelectNone}">
+          <common:IconText IconKey="SelectNone" />
+        </Button>
+      </Grid>
+      <Border Grid.Row="2" Classes="card" Padding="8">
         <Grid RowDefinitions="*,Auto">
           <TreeView Name="EffectLibraryExportTree" ItemsSource="{Binding Roots}" Background="Transparent"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" IsEnabled="{Binding CanInteract}">
@@ -46,8 +59,8 @@
           <TextBlock Grid.Row="1" Text="{Loc Key=EffectLibrary.ExportEmptyLibrary}" IsVisible="{Binding IsEmpty}" Classes="field" TextWrapping="Wrap" Margin="8" />
         </Grid>
       </Border>
-      <TextBlock Name="EffectLibraryExportSelectionSummary" Grid.Row="4" Text="{Binding SelectionSummary}" Classes="field" TextWrapping="Wrap" />
-      <common:PropertyRowControl Grid.Row="5" Header="{Loc Key=EffectLibrary.ExportFormat}" SeparatorThickness="0">
+      <TextBlock Name="EffectLibraryExportSelectionSummary" Grid.Row="3" Text="{Binding SelectionSummary}" Classes="field" TextWrapping="Wrap" />
+      <common:PropertyRowControl Grid.Row="4" Header="{Loc Key=EffectLibrary.ExportFormat}" SeparatorThickness="0">
         <ComboBox Name="EffectLibraryExportDialogFormat" IsEnabled="{Binding CanInteract}">
           <ComboBox.ItemTemplate>
             <DataTemplate x:DataType="transfer:EffectLibraryExportFormatChoice">
@@ -56,8 +69,8 @@
           </ComboBox.ItemTemplate>
         </ComboBox>
       </common:PropertyRowControl>
-      <TextBlock Grid.Row="6" Text="{Loc Key=EffectLibrary.SourceExportHint}" IsVisible="{Binding IsSourceFormat}" Classes="field" TextWrapping="Wrap" />
-      <StackPanel Grid.Row="7" Spacing="8">
+      <TextBlock Grid.Row="5" Text="{Loc Key=EffectLibrary.SourceExportHint}" IsVisible="{Binding IsSourceFormat}" Classes="field" TextWrapping="Wrap" />
+      <StackPanel Grid.Row="6" Spacing="8">
         <TextBlock Text="{Loc Key=EffectLibrary.ExportInProgress}" IsVisible="{Binding IsBusy}" Classes="field" />
         <ScrollViewer Name="EffectLibraryExportErrorScroll" MaxHeight="80" IsVisible="{Binding HasError}"
                       HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
@@ -65,12 +78,11 @@
                      Foreground="{DynamicResource SettingsError}" TextWrapping="Wrap" />
         </ScrollViewer>
       </StackPanel>
-      <WrapPanel Grid.Row="8" HorizontalAlignment="Right">
-        <Button Name="EffectLibraryExportCancel" Content="{Loc Key=Workbench.Cancel}" Click="OnCancel" Margin="0,0,8,0" />
-        <Button Name="EffectLibraryExportAll" Command="{Binding ExportAllCommand}" Content="{Loc Key=EffectLibrary.ExportAll}"
-                ToolTip.Tip="{Loc Key=EffectLibrary.ExportAllDescription}" Margin="0,0,8,0" />
-        <Button Name="EffectLibraryExportSelected" Command="{Binding ExportSelectedCommand}" Content="{Loc Key=EffectLibrary.ExportSelected}" Classes="accent" />
-      </WrapPanel>
+      <Grid Grid.Row="7" ColumnDefinitions="Auto,Auto" ColumnSpacing="8" HorizontalAlignment="Right">
+        <Button Name="EffectLibraryExportCancel" Content="{Loc Key=Workbench.Cancel}" Click="OnCancel" VerticalAlignment="Stretch" />
+        <Button Name="EffectLibraryExportSelected" Grid.Column="1" Command="{Binding ExportSelectedCommand}"
+                Content="{Loc Key=EffectLibrary.ExportSelected}" Classes="accent" VerticalAlignment="Stretch" />
+      </Grid>
     </Grid>
   </Grid>
 </Window>

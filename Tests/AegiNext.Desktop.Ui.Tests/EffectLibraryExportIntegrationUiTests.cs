@@ -261,7 +261,8 @@ public sealed class EffectLibraryExportIntegrationUiTests
             Assert.Same(owner, dialog.Owner);
             var model = Assert.IsType<EffectLibraryExportDialogViewModel>(dialog.DataContext);
             Assert.Equal(0, model.SelectedCount);
-            var export = model.ExportAllCommand.ExecuteAsync(null);
+            model.SelectAllCommand.Execute(null);
+            var export = model.ExportSelectedCommand.ExecuteAsync(null);
             Assert.Equal(2, windows.Count);
             Assert.Same(dialog, windows[1].Owner);
             windows[1].Close(false);
