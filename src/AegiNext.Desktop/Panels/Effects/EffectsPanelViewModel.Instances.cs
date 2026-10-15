@@ -21,7 +21,6 @@ internal sealed partial class EffectsPanelViewModel
     internal event EventHandler? InstanceChoicesRefreshed;
 
     public IReadOnlyList<EffectInstance> EffectInstances => effectInstances;
-    public bool HasEffectInstances => EffectInstances.Count > 0;
     public bool HasSelectedEffectInstance => selectedEffectInstance is not null;
     public EffectScriptParameterDraftSet? InstanceParameters => instanceParameters;
     public NumericValueDraft InstanceStart { get; } = new();
@@ -29,13 +28,7 @@ internal sealed partial class EffectsPanelViewModel
     public bool IsInstanceEnabled => selectedEffectInstance?.IsEnabled == true;
     public decimal InstanceTimeMinimum => SelectedLayer is { } layer ? DecimalSeconds(LayerAnimationTiming.GetRange(layer).Minimum) : 0;
     public decimal InstanceTimeMaximum => SelectedLayer is { } layer ? DecimalSeconds(LayerAnimationTiming.GetRange(layer).Maximum) : 0;
-    public bool CanMoveInstanceUp => SelectedLayer is { } layer && selectedEffectInstance is { } instance && layer.Effects.IndexOf(instance) > 0;
-    public bool CanMoveInstanceDown => SelectedLayer is { } layer && selectedEffectInstance is { } instance &&
-        layer.Effects.IndexOf(instance) is var index && index >= 0 && index < layer.Effects.Length - 1;
-    public RelayCommand ReturnToParentCommand { get; private set; } = null!;
     public AsyncRelayCommand RemoveInstanceCommand { get; private set; } = null!;
-    public AsyncRelayCommand MoveInstanceUpCommand { get; private set; } = null!;
-    public AsyncRelayCommand MoveInstanceDownCommand { get; private set; } = null!;
     public RelayCommand ResetInstanceParametersCommand { get; private set; } = null!;
 
     public EffectInstance? SelectedEffectInstance
@@ -64,17 +57,7 @@ internal sealed partial class EffectsPanelViewModel
 
     private void InitializeEffectInstances()
     {
-        ReturnToParentCommand = new(() =>
-        {
-            if (session.TryCommitDrafts())
-            {
-                SelectInstance(null);
-                session.ViewModel.Timeline.ResetEffectSelection();
-            }
-        });
         RemoveInstanceCommand = new(() => EditInstanceAsync((layerId, instanceId) => session.Editor.RemoveEffectInstance(layerId, instanceId)));
-        MoveInstanceUpCommand = new(() => MoveInstanceAsync(-1));
-        MoveInstanceDownCommand = new(() => MoveInstanceAsync(1));
         ResetInstanceParametersCommand = new(() =>
         {
             instanceParameters?.ResetDefaults();
@@ -150,15 +133,12 @@ internal sealed partial class EffectsPanelViewModel
                 effectInstances = next;
                 OnPropertyChanged(nameof(EffectInstances));
             }
-            OnPropertyChanged(nameof(HasEffectInstances));
             OnPropertyChanged(nameof(SelectedEffectInstance));
             OnPropertyChanged(nameof(HasSelectedEffectInstance));
             OnPropertyChanged(nameof(InstanceParameters));
             OnPropertyChanged(nameof(IsInstanceEnabled));
             OnPropertyChanged(nameof(InstanceTimeMinimum));
             OnPropertyChanged(nameof(InstanceTimeMaximum));
-            OnPropertyChanged(nameof(CanMoveInstanceUp));
-            OnPropertyChanged(nameof(CanMoveInstanceDown));
         }
         finally
         {
@@ -236,16 +216,6 @@ internal sealed partial class EffectsPanelViewModel
 
     internal Task CommitInstanceEnabledAsync(bool enabled) => session.IsUpdating || loadingInstance || refreshingInstanceChoices
         ? Task.CompletedTask : EditInstanceAsync((layerId, instanceId) => session.Editor.SetEffectInstanceEnabled(layerId, instanceId, enabled));
-
-    private Task MoveInstanceAsync(int direction) => EditInstanceAsync((layerId, instanceId) =>
-    {
-        var layer = session.Editor.Snapshot.Layers.Single(value => value.Id == layerId);
-        var index = Array.FindIndex(layer.Effects.ToArray(), value => value.Id == instanceId);
-        if (index >= 0 && index + direction >= 0 && index + direction < layer.Effects.Length)
-        {
-            session.Editor.MoveEffectInstance(layerId, instanceId, index + direction);
-        }
-    });
 
     private Task EditInstanceAsync(Action<Guid, Guid> edit)
     {

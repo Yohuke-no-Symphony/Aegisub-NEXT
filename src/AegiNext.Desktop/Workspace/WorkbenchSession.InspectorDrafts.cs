@@ -187,41 +187,6 @@ internal sealed partial class WorkbenchSession
             }
         }
 
-        return PrepareClipTimingDrafts(prepared);
-    }
-
-    private ProjectDocument PrepareClipTimingDrafts(ProjectDocument document)
-    {
-        if (!HasClipTimingDrafts)
-        {
-            return document;
-        }
-        ViewModel.InvalidPanelId = "timeline";
-        ViewModel.InvalidFieldKey = changedClipTimingFields.Contains("LayerStart") ? "TimelineClipStartInput" : "TimelineClipEndInput";
-        if (!ReferenceEquals(clipTimingDraftSource, DocumentSnapshot) || clipTimingDraftLayerId != SelectedLayerId ||
-            clipTimingDraftLayerId is not { } layerId)
-        {
-            throw new InvalidOperationException(Localization.Get("Workbench.SubtitleDraftConflict"));
-        }
-        var layer = document.Layers.Single(value => value.Id == layerId);
-        var timeline = ViewModel.Timeline;
-        ViewModel.InvalidFieldKey = "TimelineClipStartInput";
-        var start = changedClipTimingFields.Contains("LayerStart") ? TimelineTimeText.Parse(timeline.LayerStart) : layer.Start;
-        ViewModel.InvalidFieldKey = "TimelineClipEndInput";
-        var end = changedClipTimingFields.Contains("LayerEnd") ? TimelineTimeText.Parse(timeline.LayerEnd) : layer.End;
-        if (end <= start)
-        {
-            throw new InvalidDataException(Localization.Get("Workbench.InvalidValue"));
-        }
-        if (start == layer.Start && end == layer.End)
-        {
-            return document;
-        }
-        if (layer.SubtitleId is { } subtitleId)
-        {
-            return WorkspaceDraftOperations.UpdateSubtitle(document, subtitleId, line => line with { Start = start, End = end });
-        }
-        return WorkspaceDraftOperations.UpdateLayer(document, layerId,
-            value => LayerAnimationTiming.Retime(value, start, end, TimelineEditMode.CROP));
+        return prepared;
     }
 }

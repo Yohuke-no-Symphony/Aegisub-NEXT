@@ -6,6 +6,5 @@ internal enum EffectPresetApplyAvailability
     NO_SELECTION,
     REQUIRES_SUBTITLE,
     BUSY,
-    INVALID_PARAMETERS,
     INVALID_TARGET
 }

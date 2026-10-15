@@ -7,14 +7,19 @@ namespace AegiNext.Application;
 public static partial class ProjectEditingOperations
 {
     private static ImmutableArray<EffectInstance> CloneEffectInstances(ImmutableArray<EffectInstance> instances,
-        Dictionary<Guid, Guid>? rangeIds = null)
+        Dictionary<Guid, Guid>? rangeIds = null, Dictionary<Guid, Guid>? instanceIds = null)
     {
         return instances.Where(instance => instance.TargetContext?.TextRangeId is not { } rangeId ||
                 rangeIds is null || rangeIds.ContainsKey(rangeId))
-            .Select(instance => instance with
+            .Select(instance =>
             {
-                Id = Guid.NewGuid(),
-                TargetContext = RemapEffectContext(instance.TargetContext, rangeIds)
+                var id = Guid.NewGuid();
+                instanceIds?.Add(instance.Id, id);
+                return instance with
+                {
+                    Id = id,
+                    TargetContext = RemapEffectContext(instance.TargetContext, rangeIds)
+                };
             }).ToImmutableArray();
     }
 

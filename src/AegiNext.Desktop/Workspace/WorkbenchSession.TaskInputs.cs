@@ -12,7 +12,7 @@ internal sealed partial class WorkbenchSession
     internal long TaskInputRevision => taskInputRevision;
     internal Task DispatchTaskCompletionAsync(Action action) => dispatch(action, CancellationToken.None);
     internal bool HasProjectDrafts => ViewModel.Styles.HasDrafts || effectsDirty && SelectedLayer is not null ||
-        Details.HasDrafts || MaskEditing.HasDrafts || HasClipTimingDrafts ||
+        Details.HasDrafts || MaskEditing.HasDrafts ||
         ViewModel.Effects.HasOperationDraft || ViewModel.Effects.HasPropertyDrafts || ViewModel.Effects.HasInstanceDrafts || ViewModel.Subtitles.Rows.Any(row => row.IsDirty);
 
     internal void NotifyTaskInputChanged()

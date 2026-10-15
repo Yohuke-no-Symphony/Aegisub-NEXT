@@ -667,6 +667,9 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
             case TimelineDragMode.TRACK_REORDER:
                 UpdateTrackReorder(point);
                 break;
+            case TimelineDragMode.EFFECT_REORDER:
+                UpdateEffectReorder(point, e.KeyModifiers);
+                break;
             case TimelineDragMode.SEEK:
                 RequestSeek(TimeAt(point.X, e.KeyModifiers));
                 break;
@@ -710,7 +713,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
             InvalidateVisual();
         }
 
-        if (dragMode is not (TimelineDragMode.NONE or TimelineDragMode.SEEK or TimelineDragMode.TRACK_REORDER))
+        if (dragMode is not (TimelineDragMode.NONE or TimelineDragMode.SEEK or TimelineDragMode.TRACK_REORDER or TimelineDragMode.EFFECT_REORDER))
         {
             InvalidateSceneDrawing();
         }
@@ -731,6 +734,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         }
 
         var trackReorder = mode == TimelineDragMode.TRACK_REORDER ? CompleteTrackReorder(e.GetPosition(this)) : null;
+        var effectReorder = mode == TimelineDragMode.EFFECT_REORDER ? CompleteEffectReorder(e.GetPosition(this), e.KeyModifiers) : null;
         var expectedTimingDocument = timingDragDocument;
         var targetTrack = pendingTrackId;
         var canCommit = validDrop;
@@ -739,7 +743,11 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         var wasBatchMove = IsBatchMove;
         var effectTiming = CompleteEffectInstanceDrag();
         CancelDrag();
-        if (effectTiming is not null)
+        if (effectReorder is not null)
+        {
+            EffectClipReorderCompleted?.Invoke(this, effectReorder);
+        }
+        else if (effectTiming is not null)
         {
             EffectInstanceTimingChanged?.Invoke(this, effectTiming);
         }
@@ -888,6 +896,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         dragEffectClipId = null;
         timingDragDocument = null;
         ClearTrackReorder();
+        ClearEffectReorder();
         movingClips.Clear();
         markersDirty = true;
         ClearHover();
@@ -1537,6 +1546,12 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
 
     private void UpdateCursor(Point point)
     {
+        if (dragMode == TimelineDragMode.EFFECT_REORDER)
+        {
+            Cursor = effectReorderHorizontal ? null :
+                !effectReorderStarted && effectReorderId?.InstanceId.HasValue == true ? effectMoveCursor : effectReorderCursor;
+            return;
+        }
         if (IsClassicTimingEnabled && point.X >= HeaderWidth && point.Y >= RulerHeight)
         {
             Cursor = null;
@@ -1555,9 +1570,21 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
             return;
         }
 
+        if (FindKeyframe(point) is not null || IsEffectClipExpanderPoint(point))
+        {
+            Cursor = null;
+            return;
+        }
         if (FindEffectClip(point) is { Id.InstanceId: not null } effect && GetEffectClipRectangle(effect.Id) is { } effectRectangle)
         {
-            Cursor = point.X - effectRectangle.Left < 8 || effectRectangle.Right - point.X < 8 ? resizeCursor : null;
+            var edgeWidth = Math.Min(8, effectRectangle.Width / 3);
+            Cursor = point.X - effectRectangle.Left < edgeWidth || effectRectangle.Right - point.X < edgeWidth
+                ? resizeCursor : effectMoveCursor;
+            return;
+        }
+        if (FindEffectClip(point) is not null)
+        {
+            Cursor = effectReorderCursor;
             return;
         }
         var clip = row.Clips.Reverse().FirstOrDefault(clip => ClipRectangle(clip, row).Contains(point));

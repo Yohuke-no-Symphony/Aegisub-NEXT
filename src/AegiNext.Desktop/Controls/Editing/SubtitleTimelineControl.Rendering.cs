@@ -107,6 +107,7 @@ public sealed partial class SubtitleTimelineControl
         }
         DrawHoveredLabel(context, drawingPalette.Foreground, ActualThemeVariant == ThemeVariant.Dark);
         DrawTrackInsertion(context);
+        DrawEffectInsertion(context);
     }
 
     private void RefreshDrawingState()
@@ -165,7 +166,7 @@ public sealed partial class SubtitleTimelineControl
         var padding = 9 / PixelsPerSecond;
         var start = new MediaTime((long)Math.Floor((ViewStart - padding) * 1000000), 1000000);
         var end = new MediaTime((long)Math.Ceiling((ViewStart + VisibleDuration + padding) * 1000000), 1000000);
-        if (dragMode is not (TimelineDragMode.NONE or TimelineDragMode.SEEK or TimelineDragMode.TRACK_REORDER))
+        if (dragMode is not (TimelineDragMode.NONE or TimelineDragMode.SEEK or TimelineDragMode.TRACK_REORDER or TimelineDragMode.EFFECT_REORDER))
         {
             result = ClipsForRow(row).Where(clip =>
             {

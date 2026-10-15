@@ -147,7 +147,6 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         ViewModel.Styles.Subtitle.PropertyChanged += OnStylePropertyChanged;
         ViewModel.Styles.DraftChanged += OnStyleDraftChanged;
         ViewModel.Effects.PropertyChanged += OnEffectPropertyChanged;
-        ViewModel.Timeline.PropertyChanged += OnClipTimingPropertyChanged;
         ViewModel.Preview.PropertyChanged += OnPreviewPropertyChanged;
         ViewModel.Export.PropertyChanged += OnExportPropertyChanged;
         SubscribeTimelinePreferences();
@@ -428,7 +427,6 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
             }
             lastEditRestriction = restricted;
             ViewModel.IsBusy = restricted || closing;
-            ViewModel.Timeline.RefreshClipTimingAvailability();
             ViewModel.Export.RefreshTaskState();
             ViewModel.RefreshCommands();
         }, CancellationToken.None);
@@ -440,7 +438,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         {
             if (!closing)
             {
-                if (stylesDirty || effectsDirty || HasClipTimingDrafts)
+                if (stylesDirty || effectsDirty)
                 {
                     QueueInspectorPreview(true);
                 }
@@ -591,7 +589,6 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         applicationContext.PreferencesChanged -= OnApplicationPreferencesChanged;
         UnsubscribeMaskPreferences();
         UnsubscribeSubtitleListPreferences();
-        ViewModel.Timeline.PropertyChanged -= OnClipTimingPropertyChanged;
         applicationContext.AudioAnalysisRebuildRequested -= OnAudioAnalysisRebuildRequested;
         applicationContext.StylesChanged -= OnApplicationStylesChanged;
         applicationContext.BusyChanged -= OnTimingLibrariesBusyChanged;
@@ -862,9 +859,6 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         ClearTimingPreview();
         ViewModel.Styles.Reset();
         effectsDirty = false;
-        ResetClipTimingDraftState();
-        ViewModel.Timeline.ClipTimingValidationError = null;
-        ViewModel.Timeline.InvalidClipTimingField = null;
         SceneEditing.DraftTarget = null;
         SceneEditing.GestureTarget = null;
         changedEffectFields.Clear();

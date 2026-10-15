@@ -1,7 +1,8 @@
+using System.Collections.Immutable;
+using AegiNext.Core.Effects;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Rendering;
 using CommunityToolkit.Mvvm.ComponentModel;
-using AegiNext.Desktop.Editing;
 
 namespace AegiNext.Desktop.Panels.EffectPresets;
 
@@ -9,22 +10,13 @@ internal sealed class EffectPresetCardViewModel(string id, string name, string s
 {
     private string name = name;
     private Exception? previewError;
-    private long revision = revision;
 
     public string Id { get; } = id;
     public string Source { get; } = source;
-    public long Revision => revision;
+    public long Revision { get; } = revision;
     internal bool RequiresSubtitle { get; } = requiresSubtitle;
-    public EffectScriptParameterDraftSet Parameters { get; } = new(source);
-    internal bool CommitParameters()
-    {
-        if (!Parameters.TryCapture(out _))
-        {
-            return false;
-        }
-        revision++;
-        return true;
-    }
+    internal ImmutableDictionary<string, EffectScriptParameterValue> DefaultParameters { get; } =
+        EffectScriptParameterBinder.Bind(EffectScriptParser.Parse(source));
     public string Name
     {
         get => name;

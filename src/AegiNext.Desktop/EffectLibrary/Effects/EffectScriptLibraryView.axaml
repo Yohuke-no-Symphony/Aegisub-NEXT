@@ -48,7 +48,10 @@
           <controls:EffectScriptEditor Name="EffectScriptEditor" Grid.Row="2" Source="{Binding Source, Mode=TwoWay}" IsReadOnly="{Binding IsReadOnly}"
                IsEnabled="{Binding !IsBusy}" DiagnosticLine="{Binding DiagnosticLine}" DiagnosticColumn="{Binding DiagnosticColumn}" />
         </Grid>
-        <Grid Name="EffectPreviewPanel" Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto" RowSpacing="6">
+        <ScrollViewer Name="EffectPreviewScrollViewer" Grid.Column="1" HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto" AllowAutoHide="False">
+          <Grid Name="EffectPreviewPanel" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" RowSpacing="6"
+                VerticalAlignment="Top">
           <controlsCommon:PropertyRowControl Name="EffectPreviewTextRow" IsStacked="True" SeparatorThickness="0"
                                             Header="{Loc Key=EffectLibrary.EffectPreviewText}">
             <TextBox Name="EffectPreviewTextInput" Text="{Binding PreviewText, Mode=TwoWay}" AcceptsReturn="True"
@@ -75,14 +78,18 @@
               </ComboBox.ItemTemplate>
             </ComboBox>
           </controlsCommon:PropertyRowControl>
-          <Border Grid.Row="3" Background="{DynamicResource PreviewBackground}" BorderBrush="{DynamicResource PreviewBorder}"
-                  BorderThickness="1" CornerRadius="4" MinHeight="90">
-            <controls:PreviewViewportControl Name="EffectPreviewViewport" Focusable="True"
-                                             AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewTitle}">
-              <controls:VideoFramePresenter Name="EffectPreviewFrame" Stretch="Uniform" IsHitTestVisible="False" />
-            </controls:PreviewViewportControl>
+          <Border Name="EffectPreviewFrameBorder" Grid.Row="3" Background="{DynamicResource PreviewBackground}"
+                  BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="1" CornerRadius="4" ClipToBounds="True">
+            <Viewbox Name="EffectPreviewFrameViewbox" Stretch="Uniform">
+              <Grid Width="320" Height="180">
+                <controls:PreviewViewportControl Name="EffectPreviewViewport" Focusable="True"
+                                                 AutomationProperties.Name="{Loc Key=EffectLibrary.EffectPreviewTitle}">
+                  <controls:VideoFramePresenter Name="EffectPreviewFrame" Stretch="Uniform" IsHitTestVisible="False" />
+                </controls:PreviewViewportControl>
+              </Grid>
+            </Viewbox>
           </Border>
-          <Grid Grid.Row="4" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
+          <Grid Name="EffectPreviewTransport" Grid.Row="4" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="6">
             <controlsCommon:ToolbarToggleButton Name="EffectPreviewPlayPauseButton" Command="{Binding PreviewPlayPauseCommand}"
                                                 IsChecked="{Binding IsPreviewPlaying, Mode=OneWay}"
                                                 ToolTip.Tip="{Binding PreviewPlayPauseText}" AutomationProperties.Name="{Binding PreviewPlayPauseText}">
@@ -105,10 +112,10 @@
             <TextBlock Name="EffectPreviewPlaceholder" Text="{Binding PreviewPlaceholderText}" IsVisible="{Binding HasPreviewPlaceholder}"
                        Classes="field" TextWrapping="Wrap" />
           </Grid>
-          <ScrollViewer Grid.Row="7" MaxHeight="240" IsVisible="{Binding HasPreviewParameters}" HorizontalScrollBarVisibility="Disabled">
-            <controls:EffectScriptParameterEditor Name="PreviewParameterEditor" Drafts="{Binding PreviewParameters}" />
-          </ScrollViewer>
-        </Grid>
+          <controls:EffectScriptParameterEditor Name="PreviewParameterEditor" Grid.Row="7" Drafts="{Binding PreviewParameters}"
+                                               IsVisible="{Binding HasPreviewParameters}" />
+          </Grid>
+        </ScrollViewer>
       </Grid>
     </Grid>
   </Grid>

@@ -15,7 +15,7 @@ public static class SubtitleAnimationEvaluation
         AnimationProperty.SHADOW_COLOR
     ];
 
-    /// <summary>在静态样式上先应用指定状态的整句轨道，再按持久化范围顺序覆盖；几何状态由普通样式共享。</summary>
+    /// <summary>在字素的静态样式上按统一栈执行指定状态的整句及范围操作。</summary>
     public static SubtitleStyle ApplyStyleAnimations(EvaluatedLayer layer, SubtitleStyle style, int utf16Offset,
         SubtitleAnimationState state, bool includeTypography = true)
     {
@@ -47,14 +47,17 @@ public static class SubtitleAnimationEvaluation
         {
             return style;
         }
-        style = ApplyScope(layer, style, null, state, includeTypography, typographyOnly);
-        if (includeRanges)
+        if (!layer.HasOrderedAnimationStack)
         {
-            foreach (var range in subtitle.AnimationRanges)
+            style = ApplyScope(layer, style, null, state, includeTypography, typographyOnly);
+            if (includeRanges)
             {
-                if (utf16Offset >= range.Utf16Start && utf16Offset < range.Utf16Start + range.Utf16Length)
+                foreach (var range in subtitle.AnimationRanges)
                 {
-                    style = ApplyScope(layer, style, range.Id, state, includeTypography, typographyOnly);
+                    if (utf16Offset >= range.Utf16Start && utf16Offset < range.Utf16Start + range.Utf16Length)
+                    {
+                        style = ApplyScope(layer, style, range.Id, state, includeTypography, typographyOnly);
+                    }
                 }
             }
         }

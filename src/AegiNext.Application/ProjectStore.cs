@@ -249,6 +249,8 @@ public static class ProjectStore
                         !(info.Type == typeof(ProjectDocument) && property.Name == "colorTags") &&
                         !(info.Type == typeof(LayerShape) && property.Name == "cornerRadii") &&
                         !(info.Type == typeof(ProjectLayer) && property.Name == "position") &&
+                        !(info.Type == typeof(ProjectLayer) && property.Name == "effectRowOrder") &&
+                        !(info.Type == typeof(TimelineEffectRowIdentity) && property.Name is "target" or "instanceId") &&
                         !(info.Type == typeof(TimelineEffectClipId) && property.Name == "instanceId") &&
                         !(info.Type == typeof(TimelineViewState) && property.Name is "collapsedTrackIds" or "collapsedAnimationRows" or "expandedAnimationClips") &&
                         !(info.Type == typeof(SubtitleStyle) && property.Name is "fontVariant" or "textAlign") &&
@@ -271,6 +273,10 @@ public static class ProjectStore
                     if (info.Type == typeof(TimelineViewState) && property.Name == "collapsedAnimationRows")
                     {
                         property.ShouldSerialize = static (_, _) => false;
+                    }
+                    if (info.Type == typeof(ProjectLayer) && property.Name == "effectRowOrder")
+                    {
+                        property.ShouldSerialize = static (instance, _) => !((ProjectLayer)instance).EffectRowOrder.IsEmpty;
                     }
                     if (info.Type == typeof(SubtitleLine) && property.Name == "animationRanges")
                     {

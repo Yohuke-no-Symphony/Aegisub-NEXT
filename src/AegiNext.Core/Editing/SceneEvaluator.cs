@@ -294,7 +294,7 @@ public static class SceneEvaluator
         EffectCompilationCache? effectCache = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
-        var effects = layer.Effects.IsEmpty ? null : PreparedEffectLayer.Create(layer, subtitle, effectCache ?? new());
+        var effects = layer.Effects.IsEmpty && layer.Tracks.IsEmpty ? null : PreparedEffectLayer.Create(layer, subtitle, effectCache ?? new());
         return EvaluateLayer(layer, subtitle, contentTime, effects);
     }
 
@@ -311,7 +311,7 @@ public static class SceneEvaluator
     private static EvaluatedLayer EvaluateLayer(ProjectLayer layer, SubtitleLine? subtitle, MediaTime contentTime,
         PreparedEffectLayer? effects, bool beforeDiscontinuity = false)
     {
-        var values = layer.Tracks.ToDictionary(track => track.Target, track => EvaluateTrack(track, contentTime, beforeDiscontinuity));
+        var values = new Dictionary<AnimationTrackTarget, AnimationValue>();
         var styleOperations = effects is null ? [] : EffectRuntimeEvaluation.Apply(layer, effects, contentTime, values, beforeDiscontinuity);
         subtitle = effects?.Subtitle ?? subtitle;
         var appearance = EffectRuntimeEvaluation.WholeStyleValues(layer, subtitle, values, styleOperations);
@@ -367,6 +367,7 @@ public static class SceneEvaluator
             HasShadowColorAnimation = appearance.ContainsKey(new(AnimationProperty.SHADOW_COLOR)),
             AnimationValues = values.ToImmutableDictionary(),
             EffectStyleOperations = styleOperations,
+            HasOrderedAnimationStack = effects is not null,
             AnimationRanges = subtitle is null ? [] : subtitle.AnimationRanges.Select(range => EvaluateRange(range, values)).ToImmutableArray()
         };
     }

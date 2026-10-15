@@ -12,7 +12,6 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
-using AegiNext.Desktop.Controls;
 
 namespace AegiNext.Desktop.Panels.EffectPresets;
 
@@ -47,14 +46,6 @@ internal sealed partial class EffectPresetsPanelView : UserControl, IWorkbenchPa
         DataContext = viewModel;
         presetList = this.FindControl<ListBox>("EffectPresetList")!;
         scheduler = new(QueueResult, createRenderer: createRenderer, deferLoopUntilPresented: true);
-        this.FindControl<EffectScriptParameterEditor>("PresetParameterEditor")!.CommitRequested += (_, _) =>
-        {
-            viewModel.RefreshAvailability();
-            if (viewModel.SelectedPreset?.CommitParameters() == true)
-            {
-                RefreshVisibility();
-            }
-        };
         presetList.ItemTemplate = new FuncDataTemplate<EffectPresetCardViewModel>((item, _) => CreateCard(item));
         presetList.DoubleTapped += OnDoubleTapped;
         AddHandler(GotFocusEvent, OnGotFocus, RoutingStrategies.Bubble);
@@ -274,8 +265,7 @@ internal sealed partial class EffectPresetsPanelView : UserControl, IWorkbenchPa
                 !request.RenderScaling.Equals(scaling) || !ReferenceEquals(request.FontCatalog, session.Fonts.Catalog))
             {
                 card.Clear();
-                _ = model.Parameters.TryCapture(out var parameters);
-                card.Request = new(model.Id, model.Source, model.Revision, scaling, session.Fonts.Catalog, parameters);
+                card.Request = new(model.Id, model.Source, model.Revision, scaling, session.Fonts.Catalog, model.DefaultParameters);
             }
             requests.Add(card.Request!);
         }

@@ -34,6 +34,10 @@ public sealed partial class SubtitleTimelineControl
             {
                 return;
             }
+            if (effectReorderId is { } gestureId && gestureId != value)
+            {
+                CancelDrag();
+            }
             selectedEffectClipId = value;
             InvalidateSceneDrawing();
             InvalidateVisual();
@@ -192,23 +196,25 @@ public sealed partial class SubtitleTimelineControl
         if (request.SelectionAccepted)
         {
             SelectedEffectClipId = block.Id;
-            if (block.Id.InstanceId is { } instanceId && layersById.TryGetValue(block.Id.LayerId, out var layer) &&
-                layer.Effects.FirstOrDefault(instance => instance.Id == instanceId) is { } instance &&
-                GetEffectClipRectangle(block.Id) is { } rectangle)
-            {
-                dragMode = point.X - rectangle.Left < 8 ? TimelineDragMode.EFFECT_TRIM_START :
-                    rectangle.Right - point.X < 8 ? TimelineDragMode.EFFECT_TRIM_END : TimelineDragMode.EFFECT_MOVE;
-                dragEffectClipId = block.Id;
-                timingDragDocument = document;
-                dragId = layer.Id;
-                dragPointer = point.X;
-                originalStart = pendingStart = instance.Start;
-                originalEnd = pendingEnd = instance.End;
-                capturedPointer = pointer;
-                pointer.Capture(this);
-            }
+            BeginEffectClipDrag(block.Id, point, pointer);
         }
         return true;
+    }
+
+    private void BeginEffectInstanceTimingDrag(TimelineEffectClipId id, Point point)
+    {
+        var layer = layersById[id.LayerId];
+        var instance = layer.Effects.Single(instance => instance.Id == id.InstanceId);
+        var rectangle = GetEffectClipRectangle(id)!.Value;
+        var edgeWidth = Math.Min(8, rectangle.Width / 3);
+        dragMode = point.X - rectangle.Left < edgeWidth ? TimelineDragMode.EFFECT_TRIM_START :
+            rectangle.Right - point.X < edgeWidth ? TimelineDragMode.EFFECT_TRIM_END : TimelineDragMode.EFFECT_MOVE;
+        dragEffectClipId = id;
+        timingDragDocument = document;
+        dragId = layer.Id;
+        dragPointer = point.X;
+        originalStart = pendingStart = instance.Start;
+        originalEnd = pendingEnd = instance.End;
     }
 
     private void UpdateEffectInstanceDrag(MediaTime delta, KeyModifiers modifiers)

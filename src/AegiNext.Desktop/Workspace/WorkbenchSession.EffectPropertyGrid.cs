@@ -92,20 +92,6 @@ internal sealed partial class WorkbenchSession
         }
     }));
 
-    internal Task MoveSelectedTextAnimationRangeAsync(int direction) => RunCommandAsync(() => EditAsync(() =>
-    {
-        if (SelectedCue is not { } subtitle || SceneEditing.Target.TextRangeId is not { } id)
-        {
-            return;
-        }
-        var index = Array.FindIndex(subtitle.AnimationRanges.ToArray(), range => range.Id == id);
-        var next = index + direction;
-        if (index >= 0 && next >= 0 && next < subtitle.AnimationRanges.Length)
-        {
-            editor.MoveSubtitleAnimationRange(subtitle.Id, id, next);
-        }
-    }));
-
     internal Task ToggleEffectPropertyAnimationAsync(AnimationProperty property)
     {
         var target = RotationTargetCompatibility.Canonicalize(SceneEditing.Target with { Property = property, NodeId = null });

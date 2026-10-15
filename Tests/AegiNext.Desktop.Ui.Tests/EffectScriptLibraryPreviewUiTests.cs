@@ -3,6 +3,8 @@ using System.Reflection;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Effects;
+using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.EffectLibrary;
@@ -28,6 +30,54 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class EffectScriptLibraryPreviewUiTests
 {
+    [AvaloniaFact]
+    public async Task BuiltinPreviewParameterInputUpdatesTheRequestWithoutChangingSourceOrSaving()
+    {
+        using var environment = new UiTestEnvironment();
+        var renderer = new EffectScriptPreviewTestRenderer();
+        var model = new EffectScriptLibraryViewModel();
+        var builtin = model.Effects.Single(item => item.IsBuiltin && item.Preset.Source == BuiltinEffectScripts.Get("letter-bounce").Source);
+        model.SelectEffects(builtin.Id, [builtin.Id]);
+        var original = model.Draft;
+        var source = model.Source;
+        var saves = 0;
+        model.SaveRequested += (_, _) => saves++;
+        var view = new EffectScriptLibraryView(() => renderer, timeProvider: new ManualPlaybackTimeProvider(),
+            debounce: TimeSpan.Zero) { DataContext = model };
+        var window = new Window { Width = 900, Height = 420, Content = view };
+        try
+        {
+            window.Show();
+            await PresentAsync(window, view);
+            Assert.True(model.IsReadOnly);
+            Assert.True(model.HasPreviewParameters);
+            var parameters = UiTestActions.Find<EffectScriptParameterEditor>(window, "PreviewParameterEditor");
+            var input = parameters.GetVisualDescendants().OfType<TextBox>().Single(field => field.Name == "EffectParameter_duration");
+            input.BringIntoView();
+            Flush(window);
+            Assert.True(input.Focus());
+            UiTestActions.Press(window, Key.A, RawInputModifiers.Control);
+            window.KeyTextInput("0.4s");
+            UiTestActions.Press(window, Key.Enter);
+
+            await PresentAsync(window, view);
+
+            Assert.Equal(new MediaTime(2, 5), renderer.Requests.Last().Input.Parameters["duration"].Duration);
+            Assert.Equal(source, renderer.Requests.Last().Input.Source);
+            Assert.Equal(source, model.Source);
+            Assert.Same(original, model.Draft);
+            Assert.False(model.IsDirty);
+            Assert.Equal(0, saves);
+            Assert.Null(model.PreviewError);
+            Assert.NotNull(UiTestActions.Find<VideoFramePresenter>(window, "EffectPreviewFrame").Source);
+        }
+        finally
+        {
+            await view.DisposePreviewAsync();
+            window.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task PreviewUsesSharedControlsAndCurrentUnsavedSourceWithoutSavingTheDraft()
     {

@@ -123,6 +123,11 @@ public sealed partial class SubtitleTimelineControl
 
     private void OnTrackReorderScroll(object? sender, EventArgs e)
     {
+        if (dragMode == TimelineDragMode.EFFECT_REORDER)
+        {
+            ScrollEffectReorder();
+            return;
+        }
         if (dragMode != TimelineDragMode.TRACK_REORDER || !ReferenceEquals(document, trackReorderDocument))
         {
             CancelDrag();

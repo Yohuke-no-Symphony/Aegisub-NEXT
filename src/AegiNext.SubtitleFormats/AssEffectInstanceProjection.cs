@@ -11,7 +11,7 @@ internal static class AssEffectInstanceProjection
     internal static ProjectDocument Create(ProjectDocument document,
         ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
-        if (!document.Layers.Any(layer => layer.Effects.Any(instance => instance.IsEnabled)))
+        if (!document.Layers.Any(RequiresProjection))
         {
             return document;
         }
@@ -19,7 +19,7 @@ internal static class AssEffectInstanceProjection
         var subtitles = document.Subtitles.ToDictionary(line => line.Id);
         var layers = document.Layers.Select(layer =>
         {
-            if (!layer.Effects.Any(instance => instance.IsEnabled))
+            if (!RequiresProjection(layer))
             {
                 return layer;
             }
@@ -30,7 +30,7 @@ internal static class AssEffectInstanceProjection
             {
                 subtitles[line.Id] = line;
             }
-            diagnostics.Add(new("Ass.EffectInstances", "Effect instances were evaluated into temporary ASS animation. Editable script snapshots, parameters, and stack identities remain only in the project.",
+            diagnostics.Add(new("Ass.EffectInstances", "The ordered animation stack was evaluated into temporary ASS animation. Editable script snapshots, parameters, and stack identities remain only in the project.",
                 SubtitleId: layer.SubtitleId, LayerId: layer.SubtitleId is null ? layer.Id : null));
             return projected.Layer;
         }).ToImmutableArray();
@@ -40,6 +40,9 @@ internal static class AssEffectInstanceProjection
             Subtitles = document.Subtitles.Select(line => subtitles[line.Id]).ToImmutableArray()
         };
     }
+
+    private static bool RequiresProjection(ProjectLayer layer) =>
+        !layer.EffectRowOrder.IsEmpty || layer.Effects.Any(instance => instance.IsEnabled);
 
     private static (ProjectLayer Layer, SubtitleLine? Subtitle) ProjectClip(PreparedProjectScene scene, ProjectLayer layer,
         SubtitleLine? subtitle, ImmutableArray<CompiledEffectScript> plans,
@@ -87,7 +90,7 @@ internal static class AssEffectInstanceProjection
                 sampled.Limited ? "Effect animation reached the 1-millisecond or 4096-point sampling limit; some checked intervals exceed the output error tolerance." :
                     "Effect animation was sampled as ASS linear transforms with millisecond timing and checked component errors below 1/255.",
                 SubtitleId: layer.SubtitleId, LayerId: layer.SubtitleId is null ? layer.Id : null));
-            return LayerAnimationTiming.Clip(layer with { Effects = [], Tracks = [new(target, sampled.Frames)] }).Tracks[0];
+            return LayerAnimationTiming.Clip(layer with { Effects = [], EffectRowOrder = [], Tracks = [new(target, sampled.Frames)] }).Tracks[0];
         }
         foreach (var target in channels.Select(channel => Canonical(channel.Target)).Where(target =>
                      subtitle is null || !IsStyle(target.Property)).Distinct())
@@ -100,8 +103,9 @@ internal static class AssEffectInstanceProjection
         }
         if (subtitle is not null)
         {
-            var affected = channels.Where(channel => IsStyle(channel.Target.Property))
-                .Select(channel => (channel.Target.Property, channel.Target.State)).Distinct().ToArray();
+            var affected = channels.Select(channel => channel.Target)
+                .Concat(layer.EffectRowOrder.IsEmpty ? [] : layer.Tracks.Select(track => track.Target))
+                .Where(target => IsStyle(target.Property)).Select(target => (target.Property, target.State)).Distinct().ToArray();
             foreach (var existing in output.Keys.Where(target => affected.Contains((target.Property, target.State))).ToArray())
             {
                 output.Remove(existing);
@@ -155,7 +159,7 @@ internal static class AssEffectInstanceProjection
                 }
             }
         }
-        return (layer with { Effects = [], Tracks = output.Values.ToImmutableArray() },
+        return (layer with { Effects = [], EffectRowOrder = [], Tracks = output.Values.ToImmutableArray() },
             subtitle is null ? null : subtitle with { AnimationRanges = ranges.ToImmutable() });
     }
 

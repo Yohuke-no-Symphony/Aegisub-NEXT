@@ -133,7 +133,10 @@ public static partial class ProjectValidator
             Layer(layer, assets, subtitles, ids, referenced, enforceAnimationRange);
             Require(trackIds.Contains(layer.TrackId), "The clip references a missing track.");
             Effects(layer, layer.SubtitleId is { } subtitleId ? subtitles[subtitleId] : null, effectIds);
+            EffectRowOrder(layer);
         }
+        Require(document.Layers.Sum(layer => (long)layer.EffectRowOrder.Length) <= MAXIMUM_EFFECT_ROW_IDENTITIES,
+            "工程动画行显示身份总数超过预算。");
 
         foreach (var track in document.Layers.GroupBy(layer => layer.TrackId))
         {

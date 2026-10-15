@@ -109,11 +109,20 @@ public sealed class BusinessTypographyUiTests
         await context.OpenMediaAsync();
         await UiTestActions.CreateSubtitleAsync(context);
         UiTestActions.ExpandEffectsCategory(context.Window, "CompositeCategory");
-        var names = new[] { "TimelineClipStartInput", "TimelineClipEndInput" };
-        foreach (var name in names)
+        context.ViewModel.Subtitles.HideTimes = false;
+        context.Window.Layouts.Activate(WorkbenchPanelIds.SUBTITLES);
+        var list = UiTestActions.Find<ListBox>(context.Window, "SubtitleList");
+        var row = Assert.Single(context.ViewModel.Subtitles.Rows);
+        list.ScrollIntoView(row);
+        context.Window.UpdateLayout();
+        var timeInputs = list.GetVisualDescendants().OfType<TextBox>()
+            .Where(input => ReferenceEquals(input.DataContext, row) && !input.AcceptsReturn).ToArray();
+        Assert.Equal(2, timeInputs.Length);
+        foreach (var input in timeInputs)
         {
-            AssertInput(UiTestActions.Find<TextBox>(context.Window, name));
+            AssertInput(input);
         }
+        context.Window.Layouts.Activate(WorkbenchPanelIds.EFFECTS);
         foreach (var name in new[] { "RotationInput", "OpacityInput", "BlurInput", "QualityInput", "AudioBitrateInput" })
         {
             if (name == "AudioBitrateInput")

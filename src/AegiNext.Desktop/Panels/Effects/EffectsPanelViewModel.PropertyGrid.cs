@@ -77,8 +77,6 @@ internal sealed partial class EffectsPanelViewModel
     public AnimationPropertyRowViewModel[] PathRows { get => pathRows; private set => SetItems(ref pathRows, value, nameof(PathRows)); }
     public ICommand CreateRangeCommand { get; private set; } = null!;
     public ICommand DeleteRangeCommand { get; private set; } = null!;
-    public ICommand MoveRangeUpCommand { get; private set; } = null!;
-    public ICommand MoveRangeDownCommand { get; private set; } = null!;
     public ICommand AnimationOptionsPropertyCommand { get; private set; } = null!;
     public ICommand AddPropertyKeyframeCommand { get; private set; } = null!;
     public ICommand ResetPropertyCommand { get; private set; } = null!;
@@ -117,8 +115,6 @@ internal sealed partial class EffectsPanelViewModel
             session.EditAsync(session.MaskEditing.ClearNodeAnimation)), () => CanClearMaskNodeAnimation);
         CreateRangeCommand = new AsyncRelayCommand(session.CreateSelectedTextAnimationRangeAsync);
         DeleteRangeCommand = new AsyncRelayCommand(session.DeleteSelectedTextAnimationRangeAsync);
-        MoveRangeUpCommand = new AsyncRelayCommand(() => session.MoveSelectedTextAnimationRangeAsync(-1));
-        MoveRangeDownCommand = new AsyncRelayCommand(() => session.MoveSelectedTextAnimationRangeAsync(1));
         AnimationOptionsPropertyCommand = new RelayCommand<AnimationProperty>(property =>
         {
             if (session.SelectedLayerId is { } layerId)

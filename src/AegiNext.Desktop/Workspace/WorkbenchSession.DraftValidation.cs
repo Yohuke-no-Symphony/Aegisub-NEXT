@@ -36,11 +36,6 @@ internal sealed partial class WorkbenchSession
             ViewModel.Masks.InvalidFieldKey = ViewModel.InvalidFieldKey;
             ViewModel.Masks.ValidationError = error.Message;
         }
-        if (ViewModel.InvalidPanelId == "timeline")
-        {
-            ViewModel.Timeline.InvalidClipTimingField = ViewModel.InvalidFieldKey;
-            ViewModel.Timeline.ClipTimingValidationError = error.Message;
-        }
         var focus = (draftRevision, ViewModel.InvalidPanelId, ViewModel.InvalidFieldKey);
         if (focusInvalid && lastDraftFocus != focus)
         {
@@ -172,42 +167,4 @@ internal sealed partial class WorkbenchSession
         QueueInspectorPreview(true);
     }
 
-    internal void RestoreClipTimingField(string fieldKey)
-    {
-        if (IsUpdating || fieldKey is not ("TimelineClipStartInput" or "TimelineClipEndInput"))
-        {
-            return;
-        }
-        var property = fieldKey == "TimelineClipStartInput" ? "LayerStart" : "LayerEnd";
-        using (BeginWorkbenchUpdate())
-        {
-            var timeline = ViewModel.Timeline;
-            if (property == "LayerStart")
-            {
-                timeline.LayerStart = SelectedLayer is { } layer ? TimelineTimeText.Format(layer.Start) : string.Empty;
-            }
-            else
-            {
-                timeline.LayerEnd = SelectedLayer is { } layer ? TimelineTimeText.Format(layer.End) : string.Empty;
-            }
-            changedClipTimingFields.Remove(property);
-            if (!HasClipTimingDrafts)
-            {
-                ResetClipTimingDraftState();
-            }
-            if (timeline.InvalidClipTimingField == fieldKey)
-            {
-                timeline.InvalidClipTimingField = null;
-                timeline.ClipTimingValidationError = null;
-                if (ViewModel.InvalidPanelId == "timeline" && ViewModel.InvalidFieldKey == fieldKey)
-                {
-                    ViewModel.InvalidPanelId = null;
-                    ViewModel.InvalidFieldKey = null;
-                }
-            }
-        }
-        draftRevision++;
-        NotifyTaskInputChanged();
-        QueueInspectorPreview(true);
-    }
 }

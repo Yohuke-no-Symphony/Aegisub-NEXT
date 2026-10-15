@@ -4,7 +4,8 @@ using AegiNext.Core.Projects;
 
 namespace AegiNext.Core.Editing;
 
-internal sealed record PreparedEffectLayer(SubtitleLine? Subtitle, ImmutableArray<PreparedEffectInstance> Instances)
+internal sealed record PreparedEffectLayer(SubtitleLine? Subtitle, ImmutableArray<PreparedEffectInstance> Instances,
+    ImmutableArray<PreparedAnimationStackEntry> ExecutionOrder)
 {
     internal static PreparedEffectLayer Create(ProjectLayer layer, SubtitleLine? subtitle, EffectCompilationCache cache,
         CancellationToken cancellationToken = default)
@@ -12,8 +13,14 @@ internal sealed record PreparedEffectLayer(SubtitleLine? Subtitle, ImmutableArra
         var instances = ImmutableArray.CreateBuilder<PreparedEffectInstance>();
         var ranges = subtitle?.AnimationRanges.ToBuilder() ?? ImmutableArray.CreateBuilder<SubtitleAnimationRange>();
         var targets = layer.Tracks.Select(track => track.Target).ToHashSet();
-        foreach (var instance in layer.Effects.Where(value => value.IsEnabled))
+        var executionOrder = TimelineEffectRowOrdering.GetOrder(layer, subtitle).Reverse().ToImmutableArray();
+        var enabledInstances = layer.Effects.Where(instance => instance.IsEnabled).ToDictionary(instance => instance.Id);
+        foreach (var identity in executionOrder)
         {
+            if (identity.InstanceId is not { } instanceId || !enabledInstances.TryGetValue(instanceId, out var instance))
+            {
+                continue;
+            }
             cancellationToken.ThrowIfCancellationRequested();
             var plan = cache.GetOrCompile(instance, layer, subtitle, cancellationToken);
             ranges.AddRange(plan.Ranges);
@@ -26,6 +33,21 @@ internal sealed record PreparedEffectLayer(SubtitleLine? Subtitle, ImmutableArra
         }
         var projected = subtitle is null || ranges.Count == subtitle.AnimationRanges.Length
             ? subtitle : subtitle with { AnimationRanges = ranges.ToImmutable() };
-        return new(projected, instances.ToImmutable());
+        var preparedInstances = instances.ToImmutable();
+        var instanceIndex = preparedInstances.ToDictionary(instance => instance.Source.Id);
+        var tracks = layer.Tracks.ToDictionary(track => track.Target);
+        var order = ImmutableArray.CreateBuilder<PreparedAnimationStackEntry>();
+        foreach (var identity in executionOrder)
+        {
+            if (identity.Target is { } target)
+            {
+                order.Add(new(Track: tracks[target]));
+            }
+            else if (identity.InstanceId is { } id && instanceIndex.TryGetValue(id, out var instance))
+            {
+                order.Add(new(Instance: instance));
+            }
+        }
+        return new(projected, preparedInstances, order.ToImmutable());
     }
 }

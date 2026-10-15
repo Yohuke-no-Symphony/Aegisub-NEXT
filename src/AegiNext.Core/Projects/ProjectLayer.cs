@@ -28,4 +28,6 @@ public sealed record ProjectLayer
     public MotionPath? MotionPath { get; init; }
     public ImmutableArray<AnimationTrack> Tracks { get; init; } = [];
     public ImmutableArray<EffectInstance> Effects { get; init; } = [];
+    /// <summary>从上到下的统一特效栈；求值自下而上，空集合沿用原生动画先于实例的默认顺序。</summary>
+    public ImmutableArray<TimelineEffectRowIdentity> EffectRowOrder { get; init; } = [];
 }

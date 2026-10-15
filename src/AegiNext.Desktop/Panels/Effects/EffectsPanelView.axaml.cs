@@ -15,10 +15,14 @@ namespace AegiNext.Desktop.Panels.Effects;
 
 internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelView
 {
+    private const double COMPACT_RANGE_ACTIONS_WIDTH = 420;
     private readonly WorkbenchSession session;
     private readonly EffectsPanelViewModel viewModel;
     private readonly ComboBox blend;
     private readonly ComboBox effectInstances;
+    private readonly Grid rangeActions;
+    private readonly Button resetPosition;
+    private bool? compactRangeActions;
     private bool suppressFocusCommit;
     private int focusCommitRevision;
     private NumericDragEditSnapshot? numericDragTarget;
@@ -29,6 +33,9 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         this.viewModel = viewModel;
         AvaloniaXamlLoader.Load(this);
         DataContext = viewModel;
+        rangeActions = this.FindControl<Grid>("RangeActions")!;
+        resetPosition = this.FindControl<Button>("ResetPositionButton")!;
+        rangeActions.SizeChanged += OnRangeActionsSizeChanged;
         effectInstances = this.FindControl<ComboBox>("EffectInstancesCombo")!;
         viewModel.InstanceChoicesRefreshing += OnInstanceChoicesRefreshing;
         viewModel.InstanceChoicesRefreshed += OnInstanceChoicesRefreshed;
@@ -298,6 +305,17 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
 
     private void OnGesturesCancelled(object? sender, EventArgs e) => CancelGestures();
 
+    private void OnRangeActionsSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        var compact = e.NewSize.Width < COMPACT_RANGE_ACTIONS_WIDTH;
+        if (compactRangeActions != compact)
+        {
+            compactRangeActions = compact;
+            rangeActions.ColumnDefinitions = new(compact ? "*,*,*" : "Auto,Auto,*,Auto");
+            Grid.SetColumn(resetPosition, compact ? 2 : 3);
+        }
+    }
+
     private void OnNumericGestureCancellationRequested(object? sender, EventArgs e)
     {
         ++focusCommitRevision;
@@ -339,6 +357,7 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         {
             disposed = true;
             animationOptions.Dispose();
+            rangeActions.SizeChanged -= OnRangeActionsSizeChanged;
             viewModel.ChoicesRefreshing -= OnChoicesRefreshing;
             viewModel.ChoicesRefreshed -= OnChoicesRefreshed;
             viewModel.InstanceChoicesRefreshing -= OnInstanceChoicesRefreshing;

@@ -13,13 +13,12 @@
                  IsVisible="{Binding ValidationError, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"
                  Foreground="Tomato" TextWrapping="Wrap" />
       <TextBlock Name="EditingTarget" Text="{Binding EditTargetLabel}" IsVisible="{Binding EditTargetLabel, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Classes="field" />
-      <controlsCommon:PropertyRowControl Header="{Loc Key=Workbench.EffectInstances}" IsVisible="{Binding HasEffectInstances}">
+      <controlsCommon:PropertyRowControl Name="EffectInstancesRow" Header="{Loc Key=Workbench.EffectInstances}" IsVisible="{Binding HasSelectedEffectInstance}">
         <ComboBox Name="EffectInstancesCombo" ItemsSource="{Binding EffectInstances}" SelectedItem="{Binding SelectedEffectInstance, Mode=TwoWay}" HorizontalAlignment="Stretch">
           <ComboBox.ItemTemplate><DataTemplate x:DataType="core:EffectInstance"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" /></DataTemplate></ComboBox.ItemTemplate>
         </ComboBox>
       </controlsCommon:PropertyRowControl>
       <StackPanel Name="EffectInstanceInspector" IsVisible="{Binding HasSelectedEffectInstance}" Spacing="6">
-        <Button Name="ReturnToParentEffectsButton" Content="{Loc Key=Workbench.EffectInstanceParent}" Command="{Binding ReturnToParentCommand}" HorizontalAlignment="Left" />
         <CheckBox Name="EffectInstanceEnabledCheck" Content="{Loc Key=Workbench.EffectInstanceEnabled}" IsChecked="{Binding IsInstanceEnabled, Mode=OneWay}" />
         <controlsCommon:PropertyRowControl Header="{Loc Key=Workbench.EffectInstanceStart}">
           <controls:NumericDraftInput Name="InstanceStartInput" RawText="{Binding InstanceStart.RawText, Mode=TwoWay}" Value="{Binding InstanceStart.Value, Mode=TwoWay}" Minimum="{Binding InstanceTimeMinimum}" Maximum="{Binding InstanceTimeMaximum}" Increment="0.1" />
@@ -30,8 +29,6 @@
         <controls:EffectScriptParameterEditor Name="InstanceParameterEditor" Drafts="{Binding InstanceParameters}" />
         <WrapPanel>
           <Button Name="ResetEffectParametersButton" Content="{Loc Key=Workbench.EffectInstanceResetParameters}" Command="{Binding ResetInstanceParametersCommand}" />
-          <Button Name="MoveEffectInstanceUpButton" Command="{Binding MoveInstanceUpCommand}" IsEnabled="{Binding CanMoveInstanceUp}" Classes="icon-button" ToolTip.Tip="{Loc Key=Workbench.EffectInstanceMoveUp}" AutomationProperties.Name="{Loc Key=Workbench.EffectInstanceMoveUp}"><controlsCommon:IconText IconKey="Up" /></Button>
-          <Button Name="MoveEffectInstanceDownButton" Command="{Binding MoveInstanceDownCommand}" IsEnabled="{Binding CanMoveInstanceDown}" Classes="icon-button" ToolTip.Tip="{Loc Key=Workbench.EffectInstanceMoveDown}" AutomationProperties.Name="{Loc Key=Workbench.EffectInstanceMoveDown}"><controlsCommon:IconText IconKey="Down" /></Button>
           <Button Name="RemoveEffectInstanceButton" Content="{Loc Key=Workbench.EffectInstanceRemove}" Command="{Binding RemoveInstanceCommand}" />
         </WrapPanel>
       </StackPanel>
@@ -44,12 +41,26 @@
         <ComboBox Name="EffectStateCombo" ItemsSource="{Binding States}"
             SelectedItem="{Binding SelectedState, Mode=TwoWay}" HorizontalAlignment="Stretch" />
       </controlsCommon:PropertyRowControl>
-      <WrapPanel IsVisible="{Binding CanEditTextScope}">
-        <Button Name="CreateAnimationRangeButton" Content="{Loc Key=Workbench.CreateAnimationRange}" Command="{Binding CreateRangeCommand}" IsEnabled="{Binding CanCreateRange}" />
-        <Button Name="DeleteAnimationRangeButton" Content="{Loc Key=Workbench.DeleteAnimationRange}" Command="{Binding DeleteRangeCommand}" IsEnabled="{Binding CanManageRange}" />
-        <Button Command="{Binding MoveRangeUpCommand}" IsEnabled="{Binding CanManageRange}" ToolTip.Tip="{Loc Key=Workbench.MoveRangeUp}" ><controlsCommon:IconText IconKey="Up" /></Button>
-        <Button Command="{Binding MoveRangeDownCommand}" IsEnabled="{Binding CanManageRange}" ToolTip.Tip="{Loc Key=Workbench.MoveRangeDown}" ><controlsCommon:IconText IconKey="Down" /></Button>
-      </WrapPanel>
+      <Grid Name="RangeActions" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+        <Button Name="CreateAnimationRangeButton" Grid.Column="0" Command="{Binding CreateRangeCommand}" IsEnabled="{Binding CanCreateRange}"
+            IsVisible="{Binding CanEditTextScope}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+            ToolTip.Tip="{Loc Key=Workbench.CreateAnimationRange}" AutomationProperties.Name="{Loc Key=Workbench.CreateAnimationRange}">
+          <TextBlock Text="{Loc Key=Workbench.CreateAnimationRange}" TextWrapping="Wrap" TextAlignment="Center" />
+        </Button>
+        <Button Name="DeleteAnimationRangeButton" Grid.Column="1" Command="{Binding DeleteRangeCommand}" IsEnabled="{Binding CanManageRange}"
+            IsVisible="{Binding CanEditTextScope}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+            ToolTip.Tip="{Loc Key=Workbench.DeleteAnimationRange}" AutomationProperties.Name="{Loc Key=Workbench.DeleteAnimationRange}">
+          <TextBlock Text="{Loc Key=Workbench.DeleteAnimationRange}" TextWrapping="Wrap" TextAlignment="Center" />
+        </Button>
+        <Button Name="ResetPositionButton" Grid.Column="3" IsVisible="{Binding IsWholeLayerTarget}" Command="{Binding ResetPositionCommand}"
+            IsEnabled="{Binding CanResetPosition}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+            ToolTip.Tip="{Loc Key=Workbench.ResetPosition}" AutomationProperties.Name="{Loc Key=Workbench.ResetPosition}">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+            <controlsCommon:IconText IconKey="ResetPosition" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Text="{Loc Key=Workbench.ResetPosition}" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" />
+          </Grid>
+        </Button>
+      </Grid>
       <controlsCommon:PropertySection Name="TransformCategory" Classes="effect-category" Header="{Loc Key=Workbench.EffectCategoryTransform}" IsExpanded="{Binding TransformExpanded, Mode=TwoWay}" IsEnabled="{Binding CanEditTargetTransform}">
         <StackPanel>
           <controls:AnimationPropertyRowControl Name="PositionRow" Label="{Binding PositionLabel}" IsVector="True"
@@ -79,7 +90,6 @@
           <ItemsControl ItemsSource="{Binding PerspectiveRows}">
             <ItemsControl.ItemTemplate><DataTemplate x:DataType="workspace:AnimationPropertyRowViewModel"><vm:EffectPropertyRowView DataContext="{Binding}" /></DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
-          <Button Name="ResetPositionButton" IsVisible="{Binding IsWholeLayerTarget}" Command="{Binding ResetPositionCommand}" IsEnabled="{Binding CanResetPosition}"><controlsCommon:IconText IconKey="ResetPosition" Text="{Loc Key=Workbench.ResetPosition}" /></Button>
         </StackPanel>
       </controlsCommon:PropertySection>
       <controlsCommon:PropertySection Name="TypographyCategory" Classes="effect-category" Header="{Loc Key=Workbench.EffectCategoryTypography}" IsExpanded="{Binding TypographyExpanded, Mode=TwoWay}">

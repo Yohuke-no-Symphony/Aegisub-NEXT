@@ -51,11 +51,17 @@ public static partial class ProjectEditingOperations
             KaraokeStyleSpans = SubtitleContentSplitMerge.SplitKaraokeStyleSpans(original.KaraokeStyleSpans, utf16Offset, true),
             KaraokeStyle = !rightKaraoke.IsEmpty || !rightInactiveKaraoke.IsEmpty ? original.KaraokeStyle : null
         };
+        var leftRangeIds = left.AnimationRanges.ToDictionary(range => range.Id, range => range.Id);
+        var leftInstanceIds = new Dictionary<Guid, Guid>();
+        var rightInstanceIds = new Dictionary<Guid, Guid>();
+        var leftEffects = CloneEffectInstances(layer.Effects, leftRangeIds, leftInstanceIds);
+        var rightEffects = CloneEffectInstances(layer.Effects, rightRangeIds, rightInstanceIds);
         var layerIndex = document.Layers.IndexOf(layer);
         var layers = document.Layers
             .SetItem(layerIndex, LayerAnimationTiming.Clip(PruneEffectInstanceTargets(SubtitleAnimationRangeEditing.PruneTargets(layer, left) with
             {
-                End = playhead, Effects = CloneEffectInstances(layer.Effects)
+                End = playhead, Effects = leftEffects,
+                EffectRowOrder = RemapEffectRowOrder(layer.EffectRowOrder, leftRangeIds, instanceIds: leftInstanceIds)
             }, left)))
             .Insert(layerIndex + 1, LayerAnimationTiming.Clip(SubtitleAnimationRangeEditing.PruneTargets(layer with
             {
@@ -67,7 +73,8 @@ public static partial class ProjectEditingOperations
                         Target = track.Target.TextRangeId is { } id ? track.Target with { TextRangeId = rightRangeIds[id] } : track.Target,
                         Transforms = track.Transforms.Select(operation => operation with { Id = Guid.NewGuid() }).ToImmutableArray()
                     }).ToImmutableArray(),
-                Effects = CloneEffectInstances(layer.Effects, rightRangeIds)
+                Effects = rightEffects,
+                EffectRowOrder = RemapEffectRowOrder(layer.EffectRowOrder, rightRangeIds, instanceIds: rightInstanceIds)
             }, right)));
         return Verified(document with
         {
@@ -147,7 +154,10 @@ public static partial class ProjectEditingOperations
             {
                 End = second.End, AnimationOffset = mergedOffset,
                 Effects = RebaseEffectInstances(firstLayer.Effects, firstOrigin - mergedOrigin)
-                    .AddRange(RebaseEffectInstances(secondLayer.Effects, secondOrigin - mergedOrigin, secondRangeIds))
+                    .AddRange(RebaseEffectInstances(secondLayer.Effects, secondOrigin - mergedOrigin, secondRangeIds)),
+                EffectRowOrder = firstLayer.EffectRowOrder.IsEmpty && secondLayer.EffectRowOrder.IsEmpty ? [] :
+                    RemapEffectRowOrder(TimelineEffectRowOrdering.GetOrder(secondLayer, second), secondRangeIds)
+                        .AddRange(TimelineEffectRowOrdering.GetOrder(firstLayer, first)).Distinct().ToImmutableArray()
             }).Remove(secondLayer);
         return Verified(document with
         {

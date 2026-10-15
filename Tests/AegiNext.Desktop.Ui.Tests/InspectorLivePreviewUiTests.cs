@@ -184,17 +184,24 @@ public sealed class InspectorLivePreviewUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData("TimelineClipStartInput")]
-    [InlineData("TimelineClipEndInput")]
-    public async Task IncompleteTimingTextKeepsFocusAndDoesNotThrowFromThePreviewQueue(string field)
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task IncompleteSubtitleListTimingKeepsFocusAndDoesNotThrowFromThePreviewQueue(int column)
     {
         await using var context = new MainWindowTestContext();
         await PrepareAsync(context);
-        context.Window.Layouts.Activate(WorkbenchPanelIds.TIMELINE);
-        var box = UiTestActions.Find<TextBox>(context.Window, field);
+        context.ViewModel.Subtitles.HideTimes = false;
+        context.Window.Layouts.Activate(WorkbenchPanelIds.SUBTITLES);
+        var list = UiTestActions.Find<ListBox>(context.Window, "SubtitleList");
+        var row = Assert.Single(context.ViewModel.Subtitles.Rows);
+        list.ScrollIntoView(row);
+        context.Window.UpdateLayout();
+        var box = list.GetVisualDescendants().OfType<TextBox>().Single(input =>
+            ReferenceEquals(input.DataContext, row) && Grid.GetColumn(input) == column);
         box.BringIntoView();
         context.Window.UpdateLayout();
         var before = context.Session.DocumentSnapshot;
+        var originalText = box.Text!;
         var entries = context.ViewModel.Log.Entries.Count;
         Enter(context, box, "00:00:");
         Assert.True(box.IsFocused);
@@ -202,9 +209,9 @@ public sealed class InspectorLivePreviewUiTests
         Assert.Same(before, context.Session.PreviewDocument);
         Assert.Same(before, context.Session.DocumentSnapshot);
         Assert.Equal(entries, context.ViewModel.Log.Entries.Count);
-        UiTestActions.Press(context.Window, Key.Escape);
-        Dispatcher.UIThread.RunJobs();
+        Enter(context, box, originalText);
         Assert.True(context.Session.TryCommitDrafts(false));
+        Assert.Same(before, context.Session.DocumentSnapshot);
     }
 
     private static async Task PrepareAsync(MainWindowTestContext context, bool explicitPosition = false)

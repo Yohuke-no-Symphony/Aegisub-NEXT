@@ -252,7 +252,6 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
         {
             if (SetProperty(ref selectedLayer, value))
             {
-                RefreshClipTimingAvailability();
                 if (selectedEffectClipId is { } id && id.LayerId != value?.Id)
                 {
                     InvalidateEffectSelection();

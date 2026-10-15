@@ -108,4 +108,30 @@ internal sealed partial class WorkbenchSession
             HasTimelineEffectClip(editor.Snapshot, value.Id)
                 ? EditAsync(() => editor.SetEffectInstanceTiming(value.Id.LayerId, instanceId, value.Start, value.End))
                 : Task.CompletedTask);
+
+    internal async Task<bool> CommitTimelineEffectReorderAsync(TimelineEffectClipReorderEventArgs value)
+    {
+        var changed = false;
+        await RunCommandAsync(() => TimelineContextIsCurrent(value.ExpectedDocument)
+            ? EditAsync(() =>
+            {
+                if (!TimelineContextIsCurrent(value.ExpectedDocument) || SelectedLayerId != value.Id.LayerId ||
+                    !HasTimelineEffectClip(editor.Snapshot, value.Id))
+                {
+                    return;
+                }
+                if (value.BeforeId is { } anchor && (anchor.LayerId != value.Id.LayerId ||
+                    !HasTimelineEffectClip(editor.Snapshot, anchor)))
+                {
+                    return;
+                }
+                editor.MoveTimelineEffectRow(value.Id.LayerId, EffectRowIdentity(value.Id),
+                    value.BeforeId is { } before ? EffectRowIdentity(before) : null);
+                changed = !ReferenceEquals(value.ExpectedDocument, editor.Snapshot);
+            }) : Task.CompletedTask);
+        return changed;
+    }
+
+    private static TimelineEffectRowIdentity EffectRowIdentity(TimelineEffectClipId id) => id.InstanceId is { } instanceId
+        ? new(InstanceId: instanceId) : new(id.Target);
 }

@@ -53,7 +53,6 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         AvaloniaXamlLoader.Load(this);
         DataContext = viewModel;
         timeline = this.FindControl<SubtitleTimelineControl>("Timeline")!;
-        BindClipTimingInputs();
         InitializeAssetDrop();
         timeline.SetAudioGraphPalette(session.Preferences.AudioGraph);
         timeline.SetAudioAnalysisDisplay(session.Preferences.AudioAnalysis.Display);
@@ -114,6 +113,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         timeline.EffectClipContextRequested += OnEffectClipContextRequested;
         timeline.EffectClipSelected += OnEffectClipSelected;
         timeline.EffectInstanceTimingChanged += OnEffectInstanceTimingChanged;
+        timeline.EffectClipReorderCompleted += OnEffectClipReorderCompleted;
         timeline.TrackSoloRequested += OnTrackSoloRequested;
         timeline.TrackCollapseRequested += OnTrackCollapseRequested;
         timeline.SeekRequested += async (_, e) =>
@@ -246,7 +246,6 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     }
     public void CancelGestures()
     {
-        clipTimingFocusRevision++;
         session.CancelInteractiveSeeking();
         releasingTransportSeek = false;
         timeline.CancelGesture();
@@ -255,18 +254,6 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     }
     public void FocusInvalidField(string? fieldKey)
     {
-        var input = fieldKey switch
-        {
-            "TimelineClipStartInput" => clipStartInput,
-            "TimelineClipEndInput" => clipEndInput,
-            _ => null
-        };
-        if (input is not null)
-        {
-            input.BringIntoView();
-            input.Focus();
-            return;
-        }
         timeline.Focus();
     }
     private void OnViewModelChanged(object? sender, PropertyChangedEventArgs e)
@@ -278,10 +265,6 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
 
         switch (e.PropertyName)
         {
-            case nameof(viewModel.ClipTimingValidationError):
-            case nameof(viewModel.InvalidClipTimingField):
-                RefreshClipTimingErrors();
-                break;
             case nameof(viewModel.Position):
                 timeline.Position = viewModel.Position;
                 overview.Position = viewModel.Position;
@@ -343,6 +326,9 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
 
     private async void OnEffectInstanceTimingChanged(object? sender, TimelineEffectInstanceTimingEventArgs e) =>
         await viewModel.CommitEffectInstanceTimingAsync(e);
+
+    private async void OnEffectClipReorderCompleted(object? sender, TimelineEffectClipReorderEventArgs e) =>
+        await viewModel.CommitEffectClipReorderAsync(e);
 
     private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
@@ -566,7 +552,6 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     /// <inheritdoc />
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        clipTimingFocusRevision++;
         DetachScalingHost();
         base.OnDetachedFromVisualTree(e);
     }
@@ -594,7 +579,6 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         if (!disposed)
         {
             disposed = true;
-            UnbindClipTimingInputs();
             DetachScalingHost();
             viewModel.PropertyChanged -= OnViewModelChanged;
             session.PreferencesChanged -= OnPreferencesChanged;
@@ -608,6 +592,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             timeline.EffectClipContextRequested -= OnEffectClipContextRequested;
             timeline.EffectClipSelected -= OnEffectClipSelected;
             timeline.EffectInstanceTimingChanged -= OnEffectInstanceTimingChanged;
+            timeline.EffectClipReorderCompleted -= OnEffectClipReorderCompleted;
             timeline.TrackSoloRequested -= OnTrackSoloRequested;
             timeline.TrackCollapseRequested -= OnTrackCollapseRequested;
             timeline.EffectClipCollapseRequested -= OnEffectClipCollapseRequested;

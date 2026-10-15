@@ -1,6 +1,7 @@
 using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Application.Presets;
 using AegiNext.Core.Effects;
+using AegiNext.Core.Presets;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
@@ -8,6 +9,7 @@ using AegiNext.Desktop.EffectLibrary.Effects;
 using AegiNext.Desktop.Styling;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -159,6 +161,93 @@ public sealed class EffectScriptPageLayoutUiTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(900, 420)]
+    [InlineData(1000, 600)]
+    public async Task ShortPreviewColumnScrollsAllParametersWithoutOverlappingStyleViewportOrTransport(double width, double height)
+    {
+        using var environment = new UiTestEnvironment();
+        var renderer = new EffectScriptPreviewTestRenderer();
+        var model = new EffectScriptLibraryViewModel();
+        await model.AddCommand.ExecuteAsync(null);
+        model.Source = "effect \"many-preview-parameters\" version 3\nshort-clip compress\n" +
+            string.Join('\n', Enumerable.Range(0, 12).Select(index => $"var amount{index} = {index} label \"Parameter {index}\"")) +
+            "\nscope whole current\nsegment all flex 1\nat 0 rotation offset(amount0)\nat 1 rotation offset(amount0)\nend\nend";
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Preview style 中文", new());
+        model.UpdatePreviewStyles([style]);
+        var view = new EffectScriptLibraryView(() => renderer, debounce: TimeSpan.Zero) { DataContext = model };
+        var window = new Window { Width = width, Height = height, Content = view };
+        try
+        {
+            window.Show();
+            await view.PreviewCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+            Flush(window);
+            var scroll = UiTestActions.Find<ScrollViewer>(window, "EffectPreviewScrollViewer");
+            var panel = UiTestActions.Find<Grid>(window, "EffectPreviewPanel");
+            var editor = UiTestActions.Find<EffectScriptEditor>(window, "EffectScriptEditor");
+            var editorBounds = BoundsIn(editor, view);
+            var parameters = UiTestActions.Find<EffectScriptParameterEditor>(window, "PreviewParameterEditor");
+            var stylePicker = UiTestActions.Find<ComboBox>(window, "EffectPreviewStyleInput");
+            var frame = UiTestActions.Find<Viewbox>(window, "EffectPreviewFrameViewbox");
+            Assert.True(model.HasPreviewParameters);
+            Assert.Equal(12, model.PreviewParameters!.Rows.Count);
+            Assert.True(scroll.Extent.Height > scroll.Viewport.Height);
+            Assert.True(scroll.Viewport.Height > 0);
+            Assert.Same(scroll, Assert.Single(parameters.GetVisualAncestors().OfType<ScrollViewer>()));
+            Assert.DoesNotContain(scroll, editor.GetVisualAncestors());
+            Assert.InRange(Math.Abs(frame.Bounds.Width / frame.Bounds.Height - 16d / 9), 0, 0.02);
+            var sections = new Control[]
+            {
+                UiTestActions.Find<Control>(window, "EffectPreviewTextRow"),
+                UiTestActions.Find<Control>(window, "EffectPreviewDurationRow"),
+                UiTestActions.Find<Control>(window, "EffectPreviewStyleRow"),
+                UiTestActions.Find<Control>(window, "EffectPreviewFrameBorder"),
+                UiTestActions.Find<Control>(window, "EffectPreviewTransport"),
+                UiTestActions.Find<Control>(window, "EffectPreviewPositionSlider"), parameters
+            };
+            for (var index = 1; index < sections.Length; index++)
+            {
+                Assert.True(BoundsIn(sections[index - 1], panel).Bottom <= BoundsIn(sections[index], panel).Top);
+            }
+            frame.BringIntoView();
+            Flush(window);
+            var initialOffset = scroll.Offset.Y;
+            window.MouseWheel(BoundsIn(frame, window).Center, new(0, -3));
+            Flush(window);
+            Assert.True(scroll.Offset.Y > initialOffset);
+            Assert.Equal(1, UiTestActions.Find<PreviewViewportControl>(window, "EffectPreviewViewport").Zoom);
+            AssertControlCanReceivePointer(window, stylePicker);
+            Assert.True(stylePicker.Focus());
+            UiTestActions.Press(window, Key.F4);
+            Assert.True(stylePicker.IsDropDownOpen);
+            UiTestActions.Press(window, Key.End);
+            UiTestActions.Press(window, Key.Enter);
+            Flush(window);
+            Assert.False(stylePicker.IsDropDownOpen);
+            Assert.Equal(style.Id, Assert.IsType<SubtitleStylePreset>(stylePicker.SelectedItem).Id);
+            var play = UiTestActions.Find<Control>(window, "EffectPreviewPlayPauseButton");
+            AssertControlCanReceivePointer(window, play);
+            var wasPlaying = model.IsPreviewPlaying;
+            var playPoint = BoundsIn(play, window).Center;
+            window.MouseDown(playPoint, MouseButton.Left);
+            window.MouseUp(playPoint, MouseButton.Left);
+            Flush(window);
+            Assert.Equal(!wasPlaying, model.IsPreviewPlaying);
+            AssertControlCanReceivePointer(window, UiTestActions.Find<Control>(window, "EffectPreviewLoopButton"));
+            AssertControlCanReceivePointer(window, UiTestActions.Find<Control>(window, "EffectPreviewPositionSlider"));
+            var last = parameters.GetVisualDescendants().OfType<NumericDraftInput>().Single(input => input.Name == "EffectParameter_amount11");
+            AssertControlCanReceivePointer(window, last);
+            Assert.True(scroll.Offset.Y > 0);
+            Assert.True(new Rect(scroll.Bounds.Size).Contains(BoundsIn(last, scroll)));
+            Assert.Equal(editorBounds, BoundsIn(editor, view));
+        }
+        finally
+        {
+            await view.DisposePreviewAsync();
+            window.Close();
+        }
+    }
+
     private static void AssertPageGeometry(EffectLibraryWindow window)
     {
         Flush(window);
@@ -199,7 +288,7 @@ public sealed class EffectScriptPageLayoutUiTests
         Assert.InRange(Math.Abs(editorBounds.Bottom - page.Bounds.Height), 0, 1);
         Assert.True(editorBounds.Height >= 180);
         Assert.True(editorBounds.Width >= 180);
-        var previewPanel = UiTestActions.Find<Grid>(window, "EffectPreviewPanel");
+        var previewPanel = UiTestActions.Find<ScrollViewer>(window, "EffectPreviewScrollViewer");
         var previewBounds = BoundsIn(previewPanel, page);
         Assert.InRange(previewBounds.Width, 200, 260);
         Assert.False(previewBounds.Intersects(editorBounds));
@@ -207,12 +296,52 @@ public sealed class EffectScriptPageLayoutUiTests
         var viewport = UiTestActions.Find<PreviewViewportControl>(window, "EffectPreviewViewport");
         Assert.True(viewport.Bounds.Width > 0 && viewport.Bounds.Height >= 88);
         Assert.True(new Rect(window.ClientSize).Contains(BoundsIn(previewPanel, window)));
+        AssertPreviewFitsItsViewport(window, previewPanel);
         var input = UiTestActions.Find<TextBox>(window, "ScriptTextInput");
         Assert.InRange(editorBounds.Bottom - BoundsIn(input, page).Bottom, 0, 8);
         var lineNumbers = UiTestActions.Find<ScriptLineNumberMargin>(window, "ScriptLineNumbers");
         Assert.True(lineNumbers.IsEffectivelyVisible);
         Assert.True(lineNumbers.Bounds.Width > 0 && lineNumbers.Bounds.Height >= 180);
         Assert.True(new Rect(window.ClientSize).Contains(BoundsIn(lineNumbers, window)));
+    }
+
+    private static void AssertPreviewFitsItsViewport(EffectLibraryWindow window, ScrollViewer scroll)
+    {
+        var panel = UiTestActions.Find<Grid>(window, "EffectPreviewPanel");
+        var frame = UiTestActions.Find<Border>(window, "EffectPreviewFrameBorder");
+        var viewbox = UiTestActions.Find<Viewbox>(window, "EffectPreviewFrameViewbox");
+        var position = UiTestActions.Find<TextBlock>(window, "EffectPreviewPositionText");
+        var style = UiTestActions.Find<ComboBox>(window, "EffectPreviewStyleInput");
+        Assert.InRange(panel.Bounds.Width, 1, scroll.Viewport.Width + 1);
+        Assert.InRange(Math.Abs(viewbox.Bounds.Width / viewbox.Bounds.Height - 16d / 9), 0, 0.02);
+        Assert.InRange(Math.Abs(frame.Bounds.Width - frame.BorderThickness.Left - frame.BorderThickness.Right - viewbox.Bounds.Width), 0, 1);
+        Assert.InRange(Math.Abs(frame.Bounds.Height - frame.BorderThickness.Top - frame.BorderThickness.Bottom - viewbox.Bounds.Height), 0, 1);
+        foreach (var control in new Control[] { frame, position, style })
+        {
+            var bounds = BoundsIn(control, scroll);
+            Assert.InRange(bounds.Left, 0, scroll.Viewport.Width);
+            Assert.True(bounds.Right <= scroll.Viewport.Width + 1);
+        }
+        var scrollbar = scroll.GetVisualDescendants().OfType<ScrollBar>().Single(bar =>
+            ReferenceEquals(bar.TemplatedParent, scroll) && bar.Name == "PART_VerticalScrollBar");
+        Assert.Equal(Orientation.Vertical, scrollbar.Orientation);
+        if (scrollbar.IsVisible && scroll.Extent.Height > scroll.Viewport.Height)
+        {
+            var scrollbarBounds = BoundsIn(scrollbar, window);
+            Assert.True(BoundsIn(frame, window).Right <= scrollbarBounds.Left + 1);
+            Assert.True(BoundsIn(position, window).Right <= scrollbarBounds.Left + 1);
+            Assert.True(BoundsIn(style, window).Right <= scrollbarBounds.Left + 1);
+        }
+    }
+
+    private static void AssertControlCanReceivePointer(Window window, Control control)
+    {
+        control.BringIntoView();
+        Flush(window);
+        var bounds = BoundsIn(control, window);
+        Assert.True(new Rect(window.ClientSize).Contains(bounds));
+        var hit = Assert.IsAssignableFrom<Visual>(window.InputHitTest(bounds.Center));
+        Assert.True(ReferenceEquals(hit, control) || hit.GetVisualAncestors().Contains(control));
     }
 
     private static void ClickToolbar(EffectLibraryWindow window, string name)

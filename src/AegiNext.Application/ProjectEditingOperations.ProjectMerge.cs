@@ -293,6 +293,9 @@ public static partial class ProjectEditingOperations
                 Nodes = contour.Nodes.Select(node => node with { Id = maskIds[node.Id] }).ToImmutableArray()
             }).ToImmutableArray()
         } : layer.Mask;
+        var instanceIds = new Dictionary<Guid, Guid>();
+        var targetRangeIds = layer.SubtitleId is { } effectSubtitleId ? rangeIds[effectSubtitleId] : null;
+        var effects = CloneEffectInstances(layer.Effects, targetRangeIds, instanceIds);
         return layer with
         {
             Id = id,
@@ -300,7 +303,8 @@ public static partial class ProjectEditingOperations
             SubtitleId = layer.SubtitleId is { } referencedId ? subtitleIds[referencedId] : null,
             Image = layer.Image is { } image ? image with { AssetId = assetIds[image.AssetId] } : null,
             Mask = mask,
-            Effects = CloneEffectInstances(layer.Effects, layer.SubtitleId is { } effectSubtitleId ? rangeIds[effectSubtitleId] : null),
+            Effects = effects,
+            EffectRowOrder = RemapEffectRowOrder(layer.EffectRowOrder, targetRangeIds, maskIds, instanceIds),
             Tracks = CloneMergeAnimationTracks(layer.Tracks, maskIds, reservedIds,
                 layer.SubtitleId is { } referencedSubtitle ? rangeIds[referencedSubtitle] : null)
         };

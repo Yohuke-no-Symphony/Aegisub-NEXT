@@ -20,10 +20,16 @@ internal static class RotationVectorProjectMigration
         var subtitles = document.Subtitles.ToDictionary(line => line.Id);
         var layers = document.Layers.Select(layer =>
         {
+            if (!layer.EffectRowOrder.IsEmpty && layer.Tracks.Any(track => IsLegacyRotation(track.Property)))
+            {
+                return layer;
+            }
             var subtitle = layer.SubtitleId is { } subtitleId ? subtitles.GetValueOrDefault(subtitleId) : null;
             var tracks = RotationAnimationTrackMigration.Normalize(layer, subtitle);
             return tracks == layer.Tracks ? layer : layer with { Tracks = tracks };
         }).ToImmutableArray();
+        var retainedRotationClips = layers.SelectMany(layer => layer.Tracks.Where(track => IsLegacyRotation(track.Property))
+            .Select(track => new TimelineEffectClipId(layer.Id, track.Target))).ToHashSet();
         var presets = document.Presets.Select(preset =>
         {
             var tracks = RotationAnimationTrackMigration.Normalize(new() { Tracks = preset.Tracks }, null);
@@ -32,10 +38,11 @@ internal static class RotationVectorProjectMigration
         var timeline = document.TimelineViewState;
         timeline = timeline with
         {
-            ExpandedAnimationClips = timeline.ExpandedAnimationClips.Select(clip => clip with
-            {
-                Target = clip.Target with { Property = CanonicalProperty(clip.Target.Property) }
-            }).Distinct().ToImmutableArray(),
+            ExpandedAnimationClips = timeline.ExpandedAnimationClips.Select(clip => retainedRotationClips.Contains(clip)
+                ? clip : clip with
+                {
+                    Target = clip.Target with { Property = CanonicalProperty(clip.Target.Property) }
+                }).Distinct().ToImmutableArray(),
             CollapsedAnimationRows = timeline.CollapsedAnimationRows.Select(row => row with
             {
                 Property = CanonicalProperty(row.Property)

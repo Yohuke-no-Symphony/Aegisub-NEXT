@@ -114,6 +114,16 @@ internal sealed partial class TimelinePanelViewModel
     /// <summary>以冻结身份和工程版本提交一个特效块时间手势。</summary>
     public Task CommitEffectInstanceTimingAsync(TimelineEffectInstanceTimingEventArgs value) => session.CommitEffectInstanceTimingAsync(value);
 
+    /// <summary>按冻结的完整目标锚点移动一条特效行，并保留其选择。</summary>
+    public async Task CommitEffectClipReorderAsync(TimelineEffectClipReorderEventArgs value)
+    {
+        if (await session.CommitTimelineEffectReorderAsync(value) && session.SelectedLayerId == value.Id.LayerId &&
+            WorkbenchSession.HasTimelineEffectClip(Document, value.Id))
+        {
+            SetEffectSelection(value.Id, null);
+        }
+    }
+
     private void RebindEffectSelection(ProjectDocument value)
     {
         if (selectedEffectClipId is { InstanceId: not null } id && WorkbenchSession.HasTimelineEffectClip(value, id))

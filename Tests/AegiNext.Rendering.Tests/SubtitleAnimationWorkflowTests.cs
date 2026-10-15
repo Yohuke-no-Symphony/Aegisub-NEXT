@@ -10,7 +10,7 @@ namespace AegiNext.Rendering.Tests;
 public sealed class SubtitleAnimationWorkflowTests
 {
     [Fact]
-    public void RangeScriptPersistsAndRendersThroughTheSameProjectSnapshotUsedForAssExchange()
+    public void LegacyRangeScriptPersistsAndRendersThroughTheSameProjectSnapshotUsedForAssExchange()
     {
         var font = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.FONT, "Fixtures/NotoSans.ttf");
         var range = new SubtitleAnimationRange(Guid.NewGuid(), 1, 1);
@@ -26,7 +26,7 @@ public sealed class SubtitleAnimationWorkflowTests
         };
         var layer = new ProjectLayer { SubtitleId = line.Id, End = line.End };
         var document = new ProjectDocument { Width = 640, Height = 360, Assets = [font], Subtitles = [line], Layers = [layer] };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "range-typography" version 1
             short-clip compress
             segment animate flex 1

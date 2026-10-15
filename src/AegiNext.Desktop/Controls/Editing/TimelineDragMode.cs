@@ -8,6 +8,7 @@ internal enum TimelineDragMode
     TRIM_START,
     TRIM_END,
     TRACK_REORDER,
+    EFFECT_REORDER,
     KEYFRAME,
     EFFECT_MOVE,
     EFFECT_TRIM_START,

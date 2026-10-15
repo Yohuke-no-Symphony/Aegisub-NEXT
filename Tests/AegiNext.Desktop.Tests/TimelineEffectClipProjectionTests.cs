@@ -9,6 +9,44 @@ namespace AegiNext.Desktop.Tests;
 public sealed class TimelineEffectClipProjectionTests
 {
     [Fact]
+    public void RangeArrayOrderGroupsEveryPropertyAndStateRegardlessOfTextPosition()
+    {
+        var later = new SubtitleAnimationRange(Guid.NewGuid(), 2, 2);
+        var hidden = new SubtitleAnimationRange(Guid.NewGuid(), 1, 1);
+        var earlier = new SubtitleAnimationRange(Guid.NewGuid(), 0, 2);
+        var line = new SubtitleLine { Text = "ABCD", AnimationRanges = [later, hidden, earlier] };
+        var layer = new ProjectLayer
+        {
+            SubtitleId = line.Id,
+            Tracks =
+            [
+                Track(new(AnimationProperty.FILL, TextRangeId: earlier.Id)),
+                Track(new(AnimationProperty.FILL, TextRangeId: later.Id, State: SubtitleAnimationState.INACTIVE)),
+                Track(new(AnimationProperty.POSITION)),
+                Track(new(AnimationProperty.FONT_SIZE, TextRangeId: later.Id)),
+                Track(new(AnimationProperty.FILL, TextRangeId: later.Id, State: SubtitleAnimationState.ACTIVE)),
+                Track(new(AnimationProperty.FILL, TextRangeId: later.Id))
+            ]
+        };
+        var subtitles = new Dictionary<Guid, SubtitleLine> { [line.Id] = line };
+        var expanded = new HashSet<TimelineEffectClipId> { new(layer.Id, new(AnimationProperty.FONT_SIZE, TextRangeId: later.Id)) };
+
+        var first = TimelineEffectClipProjection.Create([layer], subtitles, expanded).ForLayer(layer.Id);
+        subtitles[line.Id] = line with { AnimationRanges = [earlier, hidden, later] };
+        var moved = TimelineEffectClipProjection.Create([layer], subtitles, expanded).ForLayer(layer.Id);
+
+        Assert.Equal(new Guid?[] { null, later.Id, later.Id, later.Id, later.Id, earlier.Id },
+            first.Select(block => block.Id.Target.TextRangeId));
+        Assert.Equal(new Guid?[] { null, earlier.Id, later.Id, later.Id, later.Id, later.Id },
+            moved.Select(block => block.Id.Target.TextRangeId));
+        Assert.DoesNotContain(first, block => block.Id.Target.TextRangeId == hidden.Id);
+        Assert.Equal(first.Select(block => block.Id).OrderBy(id => id.Target.ToString()),
+            moved.Select(block => block.Id).OrderBy(id => id.Target.ToString()));
+        Assert.Single(moved, block => !block.IsCollapsed);
+        Assert.Equal(layer.Tracks[0].Target, new AnimationTrackTarget(AnimationProperty.FILL, TextRangeId: earlier.Id));
+    }
+
+    [Fact]
     public void ConsecutiveClipsShareTheMaximumStackHeightAndAlignAboveTheirOwnParent()
     {
         var first = new ProjectLayer

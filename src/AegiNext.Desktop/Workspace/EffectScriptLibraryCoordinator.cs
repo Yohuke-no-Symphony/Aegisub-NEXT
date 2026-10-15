@@ -104,11 +104,7 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
         if (Availability(preset?.Id) == EffectPresetApplyAvailability.READY &&
             choices.FirstOrDefault(choice => choice.Id == preset!.Id && choice.Source == preset.Source) is { } selected)
         {
-            if (!preset!.Parameters.TryCapture(out var parameters))
-            {
-                return Task.CompletedTask;
-            }
-            return ApplyAsync(selected.Source, selected.Name, parameters);
+            return ApplyAsync(selected.Source, selected.Name, preset!.DefaultParameters);
         }
         return Task.CompletedTask;
     }
@@ -126,11 +122,7 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
             return EffectPresetApplyAvailability.NO_SELECTION;
         }
         var card = session.ViewModel.EffectPresets.Items.FirstOrDefault(item => item.Id == presetId);
-        if (card is not null && !card.Parameters.TryCapture(out _))
-        {
-            return EffectPresetApplyAvailability.INVALID_PARAMETERS;
-        }
-        var parameters = card?.Parameters.TryCapture(out var captured) == true ? captured :
+        var parameters = card?.DefaultParameters ??
             ImmutableDictionary<string, EffectScriptParameterValue>.Empty;
         var document = session.Editor.Snapshot;
         var signature = EffectScriptParameterIdentity.Create(parameters);

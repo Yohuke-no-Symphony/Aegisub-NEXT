@@ -138,8 +138,10 @@ public sealed class EffectInstanceWorkflowTests
         var panel = context.Session.ViewModel.EffectPresets;
         panel.SelectedPreset = panel.Items.Single(item => item.Id == preset.Id.ToString("D"));
         Assert.True(panel.ApplyCommand.CanExecute(null));
-        panel.Parameters!.Rows[0].RawText = "true";
-        panel.RefreshAvailability();
+        await context.Session.EffectScripts.UpsertAsync(preset with
+        {
+            Source = preset.Source.Replace("var letters = false", "var letters = true", StringComparison.Ordinal)
+        });
         Assert.False(panel.ApplyCommand.CanExecute(null));
     }
 

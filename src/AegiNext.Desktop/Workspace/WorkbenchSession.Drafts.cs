@@ -25,12 +25,6 @@ internal sealed partial class WorkbenchSession
     ];
 
     private readonly HashSet<string> changedEffectFields = [];
-    private readonly HashSet<string> changedClipTimingFields = [];
-    private ProjectDocument? clipTimingDraftSource;
-    private Guid? clipTimingDraftLayerId;
-
-    internal bool HasClipTimingDrafts => changedClipTimingFields.Count > 0;
-
     internal bool TryCommitDrafts(bool focusInvalid = true)
     {
         return TryCommitDraftsCore(focusInvalid, false);
@@ -114,12 +108,8 @@ internal sealed partial class WorkbenchSession
             }
             var originalStylesDirty = stylesDirty;
             var originalEffectsDirty = effectsDirty;
-            var originalClipTimingFields = changedClipTimingFields.ToArray();
-            var originalClipTimingSource = clipTimingDraftSource;
-            var originalClipTimingLayerId = clipTimingDraftLayerId;
             stylesDirty = false;
             effectsDirty = false;
-            ResetClipTimingDraftState();
             var originalFields = changedEffectFields.ToArray();
             var originalTarget = SceneEditing.DraftTarget;
             SceneEditing.DraftTarget = null;
@@ -140,16 +130,13 @@ internal sealed partial class WorkbenchSession
                 }
                 else
                 {
-                    RefreshCommittedDrafts(changes, originalStylesDirty, originalEffectsDirty, originalFields, originalClipTimingFields.Length > 0);
+                    RefreshCommittedDrafts(changes, originalStylesDirty, originalEffectsDirty, originalFields);
                 }
             }
             catch
             {
                 stylesDirty = originalStylesDirty;
                 effectsDirty = originalEffectsDirty;
-                changedClipTimingFields.UnionWith(originalClipTimingFields);
-                clipTimingDraftSource = originalClipTimingSource;
-                clipTimingDraftLayerId = originalClipTimingLayerId;
                 changedEffectFields.UnionWith(originalFields);
                 SceneEditing.DraftTarget = originalTarget;
                 throw;
@@ -163,8 +150,6 @@ internal sealed partial class WorkbenchSession
             ViewModel.Effects.InvalidFieldKey = null;
             ViewModel.Masks.ValidationError = null;
             ViewModel.Masks.InvalidFieldKey = null;
-            ViewModel.Timeline.ClipTimingValidationError = null;
-            ViewModel.Timeline.InvalidClipTimingField = null;
             lastDraftDiagnostic = null;
             return true;
         }
@@ -178,7 +163,7 @@ internal sealed partial class WorkbenchSession
     }
 
     private void RefreshCommittedDrafts(Dictionary<Guid, SubtitleLine> changes, bool refreshStyles, bool refreshEffects,
-        string[] effectFields, bool refreshClipTiming)
+        string[] effectFields)
     {
         using var updateLease = BeginWorkbenchUpdate();
         try
@@ -215,10 +200,6 @@ internal sealed partial class WorkbenchSession
             else if (ViewModel.Effects.SelectedOperation is not null)
             {
                 ViewModel.Effects.RefreshTransformOperations(SelectedLayer is { } layer ? InspectorTrack(layer, SceneEditing.Target) : null);
-            }
-            if (refreshClipTiming)
-            {
-                RefreshClipTimingDrafts();
             }
             RefreshEditingPreview();
         }
@@ -398,53 +379,6 @@ internal sealed partial class WorkbenchSession
         }
     }
 
-    private void OnClipTimingPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (IsUpdating || closing || SelectedLayer is not { } layer || e.PropertyName is not ("LayerStart" or "LayerEnd"))
-        {
-            return;
-        }
-        clipTimingDraftSource ??= DocumentSnapshot;
-        clipTimingDraftLayerId ??= layer.Id;
-        var baseline = clipTimingDraftSource.Layers.Single(value => value.Id == clipTimingDraftLayerId);
-        var originalText = TimelineTimeText.Format(e.PropertyName == "LayerStart" ? baseline.Start : baseline.End);
-        var text = e.PropertyName == "LayerStart" ? ViewModel.Timeline.LayerStart : ViewModel.Timeline.LayerEnd;
-        if (text == originalText)
-        {
-            changedClipTimingFields.Remove(e.PropertyName);
-        }
-        else
-        {
-            changedClipTimingFields.Add(e.PropertyName);
-        }
-        if (!HasClipTimingDrafts)
-        {
-            ResetClipTimingDraftState();
-        }
-        draftRevision++;
-        NotifyTaskInputChanged();
-        _ = RunCommandAsync(PauseForSceneEditAsync);
-        QueueInspectorPreview();
-    }
-
-    private void ResetClipTimingDraftState()
-    {
-        changedClipTimingFields.Clear();
-        clipTimingDraftSource = null;
-        clipTimingDraftLayerId = null;
-    }
-
-    private void RefreshClipTimingDrafts()
-    {
-        var timeline = ViewModel.Timeline;
-        if (!HasClipTimingDrafts)
-        {
-            timeline.LayerStart = SelectedLayer is { } startLayer ? TimelineTimeText.Format(startLayer.Start) : string.Empty;
-            timeline.LayerEnd = SelectedLayer is { } endLayer ? TimelineTimeText.Format(endLayer.End) : string.Empty;
-        }
-        timeline.RefreshClipTimingAvailability();
-    }
-
     internal void RefreshDocument(bool preserveDrafts = false)
     {
         using var updateLease = BeginWorkbenchUpdate();
@@ -520,7 +454,6 @@ internal sealed partial class WorkbenchSession
     private void RefreshInspector()
     {
         var layer = SelectedLayer;
-        RefreshClipTimingDrafts();
         var placement = ResolvePlacement(editor.Snapshot, layer);
         ViewModel.Styles.Load(editor.Snapshot, layer, TimelineClipIds().Length);
 

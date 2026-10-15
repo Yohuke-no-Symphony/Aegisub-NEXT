@@ -27,17 +27,29 @@ public sealed class ClipMaskEffectEditContext
         originalTargets = NativeMask is null ? [] : Targets(NativeMask).ToHashSet();
         IsTopologyLocked = ClipMaskAnimation.IsTopologyLocked(layer);
         var prepared = PreparedEffectLayer.Create(layer, subtitle, cache);
-        foreach (var instance in prepared.Instances)
+        IsTopologyLocked |= prepared.Instances.Any(instance => instance.Plan.Channels.Any(channel =>
+            AnimationPropertyMetadata.IsNodeProperty(channel.Target.Property)));
+        foreach (var entry in prepared.ExecutionOrder)
         {
-            IsTopologyLocked |= instance.Plan.Channels.Any(channel => AnimationPropertyMetadata.IsNodeProperty(channel.Target.Property));
-            if (contentTime < instance.Source.Start || contentTime >= instance.Source.End)
+            if (entry.Track is { } track)
+            {
+                if (AnimationPropertyMetadata.IsMaskProperty(track.Property))
+                {
+                    mappings.Remove(track.Target);
+                    operations.RemoveAll(operation => operation.Target == track.Target);
+                }
+                continue;
+            }
+            var instance = entry.Instance!;
+            if (!EffectRuntimeEvaluation.IsActive(contentTime, instance.Source.Start, instance.Source.End))
             {
                 continue;
             }
             foreach (var channel in instance.Plan.Channels)
             {
                 var target = channel.Target;
-                if (!AnimationPropertyMetadata.IsMaskProperty(target.Property) || contentTime < channel.Start || contentTime >= channel.End)
+                if (!AnimationPropertyMetadata.IsMaskProperty(target.Property) ||
+                    !EffectRuntimeEvaluation.IsActive(contentTime, channel.Start, channel.End))
                 {
                     continue;
                 }

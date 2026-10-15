@@ -17,7 +17,7 @@ public sealed class PreparedProjectScene
         Clips = new(document);
         Layers = document.Layers.ToFrozenDictionary(layer => layer.Id);
         effectCache ??= new();
-        Effects = document.Layers.Where(layer => !layer.Effects.IsEmpty).ToFrozenDictionary(layer => layer.Id,
+        Effects = document.Layers.Where(layer => !layer.Tracks.IsEmpty || !layer.Effects.IsEmpty).ToFrozenDictionary(layer => layer.Id,
             layer => PreparedEffectLayer.Create(layer, layer.SubtitleId is { } id ? Subtitles[id] : null, effectCache));
     }
 

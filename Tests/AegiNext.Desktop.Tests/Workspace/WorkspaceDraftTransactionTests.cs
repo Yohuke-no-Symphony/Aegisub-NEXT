@@ -92,7 +92,7 @@ public sealed class WorkspaceDraftTransactionTests
         model.Styles.Subtitle.FontSizeText = invalidStyle ? "invalid font size" : "72";
         model.Effects.PositionX = 640;
         model.Effects.PositionXText = "640";
-        model.Timeline.LayerEnd = invalidStyle ? "00:00:02.000" : "invalid end";
+        model.Subtitles.Rows[0].EndText = invalidStyle ? "00:00:02.000" : "invalid end";
 
         Assert.False(model.TryCommitDrafts());
 
@@ -100,11 +100,11 @@ public sealed class WorkspaceDraftTransactionTests
         Assert.False(context.Editor.CanUndo);
         Assert.Equal("Pending text", model.Subtitles.Rows[0].Text);
         Assert.Equal(640, model.Effects.PositionX);
-        Assert.Equal(invalidStyle ? "styles" : "timeline", model.InvalidPanelId);
+        Assert.Equal(invalidStyle ? "styles" : "subtitles", model.InvalidPanelId);
         Assert.NotNull(model.Error);
 
         model.Styles.Subtitle.FontSize = 72;
-        model.Timeline.LayerEnd = "00:00:02.000";
+        model.Subtitles.Rows[0].EndText = "00:00:02.000";
         Assert.True(model.TryCommitDrafts());
         Assert.Equal("Pending text", context.Editor.Snapshot.Subtitles[0].Text);
         Assert.Equal(72, context.Editor.Snapshot.Subtitles[0].Style.FontSize);

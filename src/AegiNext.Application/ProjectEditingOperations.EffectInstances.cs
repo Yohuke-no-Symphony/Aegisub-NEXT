@@ -36,13 +36,15 @@ public static partial class ProjectEditingOperations
                 return layer;
             }
             var (start, end) = LayerAnimationTiming.GetRange(layer);
+            var instance = new EffectInstance
+            {
+                Name = name, Source = source, Parameters = bound, Start = start, End = end,
+                TargetContext = targetContext
+            };
             return layer with
             {
-                Effects = layer.Effects.Add(new()
-                {
-                    Name = name, Source = source, Parameters = bound, Start = start, End = end,
-                    TargetContext = targetContext
-                })
+                Effects = layer.Effects.Add(instance),
+                EffectRowOrder = layer.EffectRowOrder.IsEmpty ? [] : layer.EffectRowOrder.Insert(0, new(InstanceId: instance.Id))
             };
         });
         if (selection.Count != 0)
@@ -120,7 +122,9 @@ public static partial class ProjectEditingOperations
         {
             return document;
         }
-        var next = layer with { Effects = layer.Effects.RemoveAt(oldIndex).Insert(newIndex, layer.Effects[oldIndex]) };
+        var effects = layer.Effects.RemoveAt(oldIndex).Insert(newIndex, layer.Effects[oldIndex]);
+        var subtitle = layer.SubtitleId is { } subtitleId ? document.Subtitles.Single(line => line.Id == subtitleId) : null;
+        var next = layer with { Effects = effects, EffectRowOrder = ReplaceInstanceRowOrder(layer, subtitle, effects) };
         return VerifyEffectInstanceEdit(document with { Layers = document.Layers.Replace(layer, next) }, document, cancellationToken);
     }
 

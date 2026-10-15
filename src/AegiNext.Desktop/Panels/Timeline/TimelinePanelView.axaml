@@ -1,14 +1,13 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controlsCommon="using:AegiNext.Desktop.Controls.Common"
-              xmlns:converters="using:Avalonia.Data.Converters"
              xmlns:materialIcons="using:Material.Icons.Avalonia"
-             xmlns:controls="using:AegiNext.Desktop.Controls" xmlns:editing="using:AegiNext.Desktop.Editing"
+             xmlns:controls="using:AegiNext.Desktop.Controls"
              xmlns:vm="using:AegiNext.Desktop.Panels.Timeline" x:DataType="vm:TimelinePanelViewModel"
              x:Class="AegiNext.Desktop.Panels.Timeline.TimelinePanelView" Classes="business-surface">
   <Border Background="{DynamicResource PreviewSurface}" BorderThickness="0"
           CornerRadius="{DynamicResource WorkbenchPanelCornerRadius}" ClipToBounds="True">
-    <Grid RowDefinitions="Auto,28,*" ColumnDefinitions="37,*">
-      <Border Grid.RowSpan="3" BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,1,0">
+    <Grid RowDefinitions="28,*" ColumnDefinitions="37,*">
+      <Border Grid.RowSpan="2" BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,1,0">
         <Grid RowDefinitions="*,Auto">
         <ScrollViewer Name="TimelineToolbarScroller" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
         <StackPanel Spacing="4" Margin="2,4">
@@ -64,27 +63,9 @@
         </StackPanel>
         </Grid>
       </Border>
-      <StackPanel Name="TimelineClipTimingSection" Grid.Column="1" Margin="8,4,8,0" Spacing="4"
-                  IsVisible="{Binding HasSelectedClip}" IsEnabled="{Binding CanEditClipTiming}">
-        <WrapPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,12,4">
-            <TextBlock Name="TimelineClipStartLabel" Classes="field" VerticalAlignment="Center" Text="{Loc Key=Workbench.Start}" />
-            <TextBox Name="TimelineClipStartInput" Width="124" Text="{Binding LayerStart, Mode=TwoWay}"
-                     AutomationProperties.Name="{Loc Key=Workbench.Start}" />
-          </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
-            <TextBlock Name="TimelineClipEndLabel" Classes="field" VerticalAlignment="Center" Text="{Loc Key=Workbench.End}" />
-            <TextBox Name="TimelineClipEndInput" Width="124" Text="{Binding LayerEnd, Mode=TwoWay}"
-                     AutomationProperties.Name="{Loc Key=Workbench.End}" />
-          </StackPanel>
-        </WrapPanel>
-        <TextBlock Name="TimelineClipTimingValidation" Classes="error" Text="{Binding ClipTimingValidationError}"
-                   IsVisible="{Binding ClipTimingValidationError, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"
-                   TextWrapping="Wrap" />
-      </StackPanel>
-      <controls:TimelineOverviewControl Name="TimelineMinimap" Grid.Row="1" Grid.Column="1" Margin="4,2" />
-      <controls:SubtitleTimelineControl Name="Timeline" Grid.Row="2" Grid.Column="1" />
-      <Border Name="TrackRenameEditor" Grid.Row="2" Grid.Column="1" Margin="8" Padding="12" Width="260"
+      <controls:TimelineOverviewControl Name="TimelineMinimap" Grid.Column="1" Margin="4,2" />
+      <controls:SubtitleTimelineControl Name="Timeline" Grid.Row="1" Grid.Column="1" />
+      <Border Name="TrackRenameEditor" Grid.Row="1" Grid.Column="1" Margin="8" Padding="12" Width="260"
               HorizontalAlignment="Left" VerticalAlignment="Top" Background="{DynamicResource PreviewSurface}"
               BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="1" CornerRadius="8"
               IsVisible="{Binding IsRenamingTrack}">

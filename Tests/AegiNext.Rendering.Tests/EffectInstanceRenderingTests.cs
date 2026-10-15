@@ -110,7 +110,7 @@ public sealed class EffectInstanceRenderingTests
         var document = Document();
         var effect = Instance("at 0 font-size factor(amount)\nat 1 font-size factor(amount)") with
         {
-            Source = "effect \"render-test\" version 3\nshort-clip compress\nVAR amount = 1\n" +
+            Source = "effect \"render-test\" version 3\nshort-clip compress\nvar amount = 1\n" +
                 "scope whole current\nsegment animate flex 1\nat 0 font-size factor(amount)\nat 1 font-size factor(amount)\nend\nend"
         };
         document = document with { Layers = [document.Layers[0] with { Effects = [effect] }] };

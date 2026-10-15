@@ -222,11 +222,15 @@ public static partial class ProjectEditingOperations
             }).ToImmutableArray()
         } : layer.Mask;
 
+        var instanceIds = new Dictionary<Guid, Guid>();
+        var targetRangeIds = layer.SubtitleId is { } effectSubtitleId ? rangeIds[effectSubtitleId] : null;
+        var effects = CloneEffectInstances(layer.Effects, targetRangeIds, instanceIds);
         return layer with
         {
             Id = id, SubtitleId = layer.SubtitleId is { } subtitleId ? subtitleIds[subtitleId] : null,
             Start = layer.Start + offset, End = layer.End + offset, Mask = mask,
-            Effects = CloneEffectInstances(layer.Effects, layer.SubtitleId is { } effectSubtitleId ? rangeIds[effectSubtitleId] : null),
+            Effects = effects,
+            EffectRowOrder = RemapEffectRowOrder(layer.EffectRowOrder, targetRangeIds, maskIds, instanceIds),
             Tracks = layer.Tracks.Select(track => track with
             {
                 Target = track.Target with

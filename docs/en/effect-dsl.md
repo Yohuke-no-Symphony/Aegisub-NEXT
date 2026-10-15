@@ -4,11 +4,13 @@
 
 ## Add and edit an effect
 
-1. Select one or more clips, choose a card in **Effect presets**, adjust its parameters, and click **Add effect**. A double-click also adds the selected template; a single click only selects it.
-2. Select the new block in Timeline or its instance in **Effects**. Edit parameters, content-clock start/end, enabled state, or evaluation order. **Reset parameters** restores the source defaults; **Remove effect** deletes only that instance.
-3. Choose **Edit clip properties** to return to manual animation. Drag an instance block to move it or either edge to trim it. Release creates one Undo operation; Esc or capture loss cancels the gesture.
+1. Select one or more clips, choose a card in **Effect presets**, and click **Add effect**. Cards preview and add the source defaults. A double-click also adds the selected template; a single click only selects it.
+2. Select the new attached block in Timeline to open its **Effects** inspector. Edit parameters, content-clock start/end, and enabled state; the top selector switches between instances. **Reset parameters** restores the source defaults; **Remove effect** deletes only that instance.
+3. Select the parent clip in Timeline to return to manual animation. Drag any effect block vertically to reorder that individual row within the clip, including manual properties, text-range states, mask nodes, and script instances. Instance blocks move horizontally; drag an edge horizontally to trim. The initial drag direction locks the operation. Folding buttons and keyframes retain their own actions. Release creates one Undo operation; Esc or capture loss cancels the gesture.
 
 Each addition creates an independent instance with a source snapshot. Project files retain parameters, order, and time range; later library edits do not update existing instances. Parameters currently have no keyframes. Manual tracks and hand-created text ranges remain editable. Generated groups and channels exist only in the execution plan.
+
+Row order saves with the project as a unified effect stack, evaluated from bottom to top. A manual animation row writes its sampled value at that position; a script instance combines its channels with the values reached so far. Moving a manual row across a script instance can change the result, just as reordering instances does. Each text range retains its local geometry hierarchy.
 
 Open **Edit → Effect Library → Effect Scripts** to create or edit templates. Builtin source is read-only, while its preview parameters remain adjustable. **Validate** reports source locations and **Locate Error** moves the caret. Completion opens while typing or with Cmd/Ctrl + Space; arrows select, Enter/Tab insert, and Esc dismisses.
 
@@ -72,7 +74,7 @@ The loop example requires at least three subtitle graphemes. `if / elif / else /
 
 ## Combining instances
 
-The manual animation is evaluated first, followed by enabled instances in their saved order. Every channel reads the upstream value at that same frame: factor multiplies animated upstream input, offset adds to it, and an absolute value replaces it. Undeclared intervals and frames outside the instance's half-open time range pass through. Reordering two instances can change the result; disabling or removing one restores its upstream contribution.
+Manual animation rows and enabled instances run in their shared stack order, from bottom to top. Existing clips without a custom order keep manual animation below the instances. Every script channel reads the upstream value at that same frame: factor multiplies animated upstream input, offset adds to it, and an absolute value replaces it. A manual row replaces its complete target with the sampled animation value when reached. Undeclared intervals and frames outside an instance's half-open time range pass through. Reordering rows can change the result; disabling or removing an instance reveals its upstream contribution.
 
 Moving preserves instance duration. Trimming or changing duration reallocates fixed/flex timing. Parent trimming intersects attached ranges and removes empty instances; stretching maps their times proportionally. Copy and split create new instance IDs. Text edits rebuild temporary grouping from the current text; deleting an instance's selected parent text range deletes that instance.
 
