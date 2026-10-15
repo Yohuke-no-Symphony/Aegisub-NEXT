@@ -45,6 +45,12 @@ internal static class TimelineEffectClipProjection
                 height += blockHeight;
                 blocks.Add(new(id, collapsed, -height, blockHeight, label, node.Contour, node.Node));
             }
+            foreach (var instance in layer.Effects)
+            {
+                height += COLLAPSED_HEIGHT;
+                blocks.Add(new(new(layer.Id, instance.TargetContext ?? new(AnimationProperty.OPACITY), instance.Id),
+                    true, -height, COLLAPSED_HEIGHT, InstanceName: instance.Name, IsEnabled: instance.IsEnabled));
+            }
             result.Add(layer.Id, blocks.ToImmutable());
             maximum = Math.Max(maximum, height);
         }

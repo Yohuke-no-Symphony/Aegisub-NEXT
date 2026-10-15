@@ -33,6 +33,7 @@ internal sealed partial class WorkbenchSession
         ViewModel.Effects.Target = id.Target;
         SceneEditing.MaskNodeId = id.Target.NodeId;
         ViewModel.Timeline.EffectTarget = id.Target;
+        ViewModel.Effects.SelectInstance(id.InstanceId);
         SynchronizeSubtitleSelectionFromLayers();
         RevealSubtitleColorTagTargets(layer.SubtitleId is { } cueId ? [cueId] : []);
         RefreshDocument();
@@ -56,7 +57,14 @@ internal sealed partial class WorkbenchSession
             ? EditAsync(() =>
             {
                 ViewModel.CancelGestures();
-                editor.ClearAnimationTracks([id.LayerId], id.Target);
+                if (id.InstanceId is { } instanceId)
+                {
+                    editor.RemoveEffectInstance(id.LayerId, instanceId);
+                }
+                else
+                {
+                    editor.ClearAnimationTracks([id.LayerId], id.Target);
+                }
                 ClearKeyframeSelection();
             }) : Task.CompletedTask);
 
@@ -91,6 +99,13 @@ internal sealed partial class WorkbenchSession
             }) : Task.CompletedTask);
 
     internal static bool HasTimelineEffectClip(ProjectDocument document, TimelineEffectClipId id) =>
-        document.Layers.Any(layer => layer.Id == id.LayerId && layer.Tracks.Any(track => track.Target == id.Target &&
-            (!track.Keyframes.IsEmpty || !track.Transforms.IsEmpty)));
+        document.Layers.Any(layer => layer.Id == id.LayerId && (id.InstanceId is { } instanceId
+            ? layer.Effects.Any(instance => instance.Id == instanceId)
+            : layer.Tracks.Any(track => track.Target == id.Target && (!track.Keyframes.IsEmpty || !track.Transforms.IsEmpty))));
+
+    internal Task CommitEffectInstanceTimingAsync(TimelineEffectInstanceTimingEventArgs value) =>
+        RunCommandAsync(() => TimelineContextIsCurrent(value.ExpectedDocument) && value.Id.InstanceId is { } instanceId &&
+            HasTimelineEffectClip(editor.Snapshot, value.Id)
+                ? EditAsync(() => editor.SetEffectInstanceTiming(value.Id.LayerId, instanceId, value.Start, value.End))
+                : Task.CompletedTask);
 }

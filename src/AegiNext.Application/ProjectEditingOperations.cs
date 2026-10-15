@@ -53,7 +53,10 @@ public static partial class ProjectEditingOperations
         };
         var layerIndex = document.Layers.IndexOf(layer);
         var layers = document.Layers
-            .SetItem(layerIndex, LayerAnimationTiming.Clip(SubtitleAnimationRangeEditing.PruneTargets(layer, left) with { End = playhead }))
+            .SetItem(layerIndex, LayerAnimationTiming.Clip(PruneEffectInstanceTargets(SubtitleAnimationRangeEditing.PruneTargets(layer, left) with
+            {
+                End = playhead, Effects = CloneEffectInstances(layer.Effects)
+            }, left)))
             .Insert(layerIndex + 1, LayerAnimationTiming.Clip(SubtitleAnimationRangeEditing.PruneTargets(layer with
             {
                 Id = right.Id, SubtitleId = right.Id, Start = playhead,
@@ -63,7 +66,8 @@ public static partial class ProjectEditingOperations
                     {
                         Target = track.Target.TextRangeId is { } id ? track.Target with { TextRangeId = rightRangeIds[id] } : track.Target,
                         Transforms = track.Transforms.Select(operation => operation with { Id = Guid.NewGuid() }).ToImmutableArray()
-                    }).ToImmutableArray()
+                    }).ToImmutableArray(),
+                Effects = CloneEffectInstances(layer.Effects, rightRangeIds)
             }, right)));
         return Verified(document with
         {
@@ -139,7 +143,12 @@ public static partial class ProjectEditingOperations
             KaraokeStyle = mergedKaraokeStyle
         };
         var layers = document.Layers.SetItem(document.Layers.IndexOf(firstLayer),
-            firstLayer with { End = second.End, AnimationOffset = mergedOffset }).Remove(secondLayer);
+            firstLayer with
+            {
+                End = second.End, AnimationOffset = mergedOffset,
+                Effects = RebaseEffectInstances(firstLayer.Effects, firstOrigin - mergedOrigin)
+                    .AddRange(RebaseEffectInstances(secondLayer.Effects, secondOrigin - mergedOrigin, secondRangeIds))
+            }).Remove(secondLayer);
         return Verified(document with
         {
             Subtitles = document.Subtitles.SetItem(firstIndex, merged).RemoveAt(secondIndex),
@@ -234,6 +243,7 @@ public static partial class ProjectEditingOperations
     private static ProjectDocument Verified(ProjectDocument document)
     {
         ProjectValidator.Validate(document);
+        ValidateEffectInstanceCompilation(document);
         return document;
     }
 }

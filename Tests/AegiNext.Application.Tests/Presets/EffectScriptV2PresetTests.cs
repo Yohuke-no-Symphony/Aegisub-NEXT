@@ -10,7 +10,7 @@ public sealed class EffectScriptV2PresetTests
     public async Task ScopedSourceSurvivesLibraryReloadAndSourceExchangeThenGeneratesEditableRanges()
     {
         const string SOURCE = """
-            effect "personal-split" version 2
+            effect "personal-split" version 3
             short-clip compress
             scope tokens subtitle
                 unit split(" # ", "\"", "\\")
@@ -38,7 +38,7 @@ public sealed class EffectScriptV2PresetTests
         Assert.Equal(preset, Assert.Single(reopened.Snapshot.Presets));
         var exported = await EffectScriptPresetStore.ReadScriptAsync(exportPath);
         Assert.Equal(SOURCE, exported.Source);
-        Assert.Equal(2, exported.Script.Version);
+        Assert.Equal(3, exported.Script.Version);
         Assert.Equal([" # ", "\"", "\\"], Assert.Single(exported.Script.Scopes).Unit.Delimiters.ToArray());
         using var imported = new EffectScriptPresetLibrary(Path.Combine(directory.Path, "imported.json"));
         await imported.ImportAsync(exportPath);

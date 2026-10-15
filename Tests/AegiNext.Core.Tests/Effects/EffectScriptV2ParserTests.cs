@@ -13,7 +13,7 @@ public sealed class EffectScriptV2ParserTests
     [Fact]
     public void NamedScopesKeepIndependentTargetsGroupingTimingAndSegmentModifiers()
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "grouped-pop" version 2
             short-clip compress
             scope fade subtitle
@@ -66,7 +66,7 @@ public sealed class EffectScriptV2ParserTests
     [Fact]
     public void ScopeAndSegmentDefaultsPreserveTheExistingConstructorContract()
     {
-        var v1 = BuiltinEffectScripts.Get("pop-in").Script;
+        var v1 = EffectScriptRegressionParser.Parse(EffectScriptRegressionParser.POP_IN);
         Assert.Equal(1, v1.Version);
         Assert.Empty(v1.Scopes);
         Assert.All(v1.Segments, segment =>
@@ -76,7 +76,7 @@ public sealed class EffectScriptV2ParserTests
             Assert.Null(segment.CycleDuration);
         });
 
-        var scope = Assert.Single(EffectScriptParser.Parse(Source()).Scopes);
+        var scope = Assert.Single(EffectScriptRegressionParser.Parse(Source()).Scopes);
         Assert.Equal(EffectScriptTargetKind.CURRENT, scope.Target.Kind);
         Assert.Equal(EffectScriptUnitKind.GROUP, scope.Unit.Kind);
         Assert.Equal(MediaTime.Zero, scope.Delay);
@@ -93,7 +93,7 @@ public sealed class EffectScriptV2ParserTests
     [InlineData("paragraph", EffectScriptUnitKind.PARAGRAPH)]
     public void SimpleUnitsAreParsedWithoutInferringTextSegmentation(string name, EffectScriptUnitKind kind)
     {
-        var scope = Assert.Single(EffectScriptParser.Parse(Source($"unit {name}")).Scopes);
+        var scope = Assert.Single(EffectScriptRegressionParser.Parse(Source($"unit {name}")).Scopes);
         Assert.Equal(kind, scope.Unit.Kind);
     }
 
@@ -101,7 +101,7 @@ public sealed class EffectScriptV2ParserTests
     public void SplitLiteralsKeepQuotedHashesEscapesCommasAndFullNewlines()
     {
         var source = Source("""unit split("#", ",", "\"", "\\", "\r\n", "、", "\t") # outside comment""");
-        var scope = Assert.Single(EffectScriptParser.Parse("\uFEFF# header\r\n" + source.Replace("\n", "\r\n", StringComparison.Ordinal)).Scopes);
+        var scope = Assert.Single(EffectScriptRegressionParser.Parse("\uFEFF# header\r\n" + source.Replace("\n", "\r\n", StringComparison.Ordinal)).Scopes);
 
         Assert.Equal(EffectScriptUnitKind.SPLIT, scope.Unit.Kind);
         Assert.Equal(splitLiterals, scope.Unit.Delimiters);
@@ -112,7 +112,7 @@ public sealed class EffectScriptV2ParserTests
     [InlineData("inactive", SubtitleAnimationState.INACTIVE)]
     public void ScopeStateIsExplicitAndIndependentFromTheCaller(string value, SubtitleAnimationState state)
     {
-        var scope = Assert.Single(EffectScriptParser.Parse(Source($"state {value}")).Scopes);
+        var scope = Assert.Single(EffectScriptRegressionParser.Parse(Source($"state {value}")).Scopes);
         Assert.Equal(state, scope.State);
     }
 
@@ -124,7 +124,7 @@ public sealed class EffectScriptV2ParserTests
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
             var source = Source(segment: "wave flex 0.5 cycle 0.000001ms pingpong");
-            var segment = Assert.Single(Assert.Single(EffectScriptParser.Parse(source).Scopes).Segments);
+            var segment = Assert.Single(Assert.Single(EffectScriptRegressionParser.Parse(source).Scopes).Segments);
 
             Assert.Null(segment.FixedDuration);
             Assert.Equal(0.5m, segment.FlexWeight);
@@ -163,7 +163,7 @@ public sealed class EffectScriptV2ParserTests
     [InlineData("delay 0ms\n    delay 0ms")]
     public void InvalidOrDuplicateScopeFieldsAreLocatedAndRejected(string directive)
     {
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(Source(directive)));
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(Source(directive)));
         Assert.True(error.Line >= 4);
         Assert.True(error.Column > 0);
     }
@@ -181,7 +181,7 @@ public sealed class EffectScriptV2ParserTests
     [InlineData("pulse flex 1 cycle 1s pingpong pingpong")]
     public void InvalidSegmentModifiersAreRejectedBeforeCompilation(string segment)
     {
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(Source(segment: segment)));
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(Source(segment: segment)));
         Assert.Equal(4, error.Line);
         Assert.True(error.Column > 0);
     }
@@ -194,7 +194,7 @@ public sealed class EffectScriptV2ParserTests
     [InlineData("unknown")]
     public void InvalidFixedRangeSelectorsAreRejected(string target)
     {
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(Source(target: target)));
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(Source(target: target)));
         Assert.Equal(3, error.Line);
     }
 
@@ -202,7 +202,7 @@ public sealed class EffectScriptV2ParserTests
     public void SharedPropertyParserPreservesExactIndentedDiagnostics()
     {
         var source = Source().Replace("at 0 scale", "at 0 unknown", StringComparison.Ordinal);
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source));
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source));
         Assert.Equal(5, error.Line);
         Assert.Equal(14, error.Column);
     }
@@ -211,9 +211,9 @@ public sealed class EffectScriptV2ParserTests
     public void ScopeFieldsCannotAppearAfterSegmentsAndBothLevelsRequireEnd()
     {
         var source = Source();
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source + "\nend"));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source[..source.LastIndexOf("end", StringComparison.Ordinal)]));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source.Replace("    end\nend", "    end\n    unit word\nend", StringComparison.Ordinal)));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source + "\nend"));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source[..source.LastIndexOf("end", StringComparison.Ordinal)]));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source.Replace("    end\nend", "    end\n    unit word\nend", StringComparison.Ordinal)));
     }
 
     [Fact]
@@ -221,25 +221,25 @@ public sealed class EffectScriptV2ParserTests
     {
         var source = Source();
         var body = source[source.IndexOf("scope ", StringComparison.Ordinal)..];
-        Assert.Equal(2, EffectScriptParser.Parse(source + "\n" + body.Replace("scope main", "scope other", StringComparison.Ordinal)).Scopes.Length);
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source + "\n" + body));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source.Replace("end\nend", "end\n    segment rest flex 1\n    end\nend", StringComparison.Ordinal)));
+        Assert.Equal(2, EffectScriptRegressionParser.Parse(source + "\n" + body.Replace("scope main", "scope other", StringComparison.Ordinal)).Scopes.Length);
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source + "\n" + body));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source.Replace("end\nend", "end\n    segment rest flex 1\n    end\nend", StringComparison.Ordinal)));
     }
 
     [Fact]
     public void VersionTwoRequiresScopesAndEachScopeRequiresKeysAndAFlexSegment()
     {
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(Source().Replace("version 2", "version 1", StringComparison.Ordinal)));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(Source(segment: "pulse fixed 1s")));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse("effect \"empty\" version 2\nshort-clip compress"));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse("effect \"empty\" version 2\nshort-clip compress\nscope main current\nsegment rest flex 1\nend\nend"));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(BuiltinEffectScripts.Get("pop-in").Source.Replace("version 1", "version 2", StringComparison.Ordinal)));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(Source().Replace("version 2", "version 1", StringComparison.Ordinal)));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(Source(segment: "pulse fixed 1s")));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse("effect \"empty\" version 2\nshort-clip compress"));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse("effect \"empty\" version 2\nshort-clip compress\nscope main current\nsegment rest flex 1\nend\nend"));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(EffectScriptRegressionParser.POP_IN.Replace("version 1", "version 2", StringComparison.Ordinal)));
     }
 
     [Fact]
     public void SegmentAndKeyBudgetsAreAggregatedAcrossScopes()
     {
-        var valid = EffectScriptParser.Parse(Source());
+        var valid = EffectScriptRegressionParser.Parse(Source());
         var scope = valid.Scopes[0];
         var duplicatedSegments = Enumerable.Range(0, 65).Select(index => scope with
         {
@@ -259,7 +259,7 @@ public sealed class EffectScriptV2ParserTests
     [Fact]
     public void PublicModelValidationRejectsCrossVersionShapesAndInvalidMetadata()
     {
-        var valid = EffectScriptParser.Parse(Source());
+        var valid = EffectScriptRegressionParser.Parse(Source());
         var scope = valid.Scopes[0];
         Assert.Throws<EffectScriptException>(() => EffectScriptValidator.Validate(valid with { Version = 3 }));
         Assert.Throws<EffectScriptException>(() => EffectScriptValidator.Validate(valid with { Version = 1 }));
@@ -269,7 +269,7 @@ public sealed class EffectScriptV2ParserTests
         Assert.Throws<EffectScriptException>(() => EffectScriptValidator.Validate(valid with { Scopes = [scope with { Unit = new(EffectScriptUnitKind.CHUNK) { Count = 0 } }] }));
         Assert.Throws<EffectScriptException>(() => EffectScriptValidator.Validate(valid with { Scopes = [scope with { Segments = [scope.Segments[0] with { RepeatCount = 2 }] }] }));
 
-        var v1 = BuiltinEffectScripts.Get("pop-in").Script;
+        var v1 = EffectScriptRegressionParser.Parse(EffectScriptRegressionParser.POP_IN);
         Assert.Throws<EffectScriptException>(() => EffectScriptValidator.Validate(v1 with
         {
             Segments = v1.Segments.SetItem(0, v1.Segments[0] with { PingPong = true })

@@ -93,6 +93,7 @@ internal sealed partial class WorkbenchSession
             prepared = MaskEditing.Prepare(prepared);
             prepared = ViewModel.Effects.PrepareOperationDraft(prepared);
             prepared = PropertyEditing.Prepare(prepared);
+            prepared = ViewModel.Effects.PrepareInstanceDraft(prepared);
 
             if (!ReferenceEquals(prepared, document))
             {
@@ -135,6 +136,7 @@ internal sealed partial class WorkbenchSession
                     ProjectValidator.Validate(prepared);
                     InvalidateTimingSession();
                     editor.Apply("Commit workspace drafts", _ => prepared);
+                    ViewModel.Effects.AcceptInstanceDraft(prepared);
                 }
                 else
                 {
@@ -605,7 +607,8 @@ internal sealed partial class WorkbenchSession
 
     internal void SelectCue(Guid id)
     {
-        if (IsUpdating || IsProjectBusy || id == SelectedCueId && SelectedLayer?.SubtitleId == id && SelectedSubtitleIds.Count <= 1)
+        if (IsUpdating || IsProjectBusy || id == SelectedCueId && SelectedLayer?.SubtitleId == id && SelectedSubtitleIds.Count <= 1 &&
+            !ViewModel.Effects.HasSelectedEffectInstance)
         {
             return;
         }
@@ -629,6 +632,8 @@ internal sealed partial class WorkbenchSession
 
     private void SynchronizeCueSelection(Guid id)
     {
+        ViewModel.Effects.SelectInstance(null);
+        ViewModel.Timeline.ClearInstanceSelection();
         ResetSubtitleSelection(id);
         SelectedCueId = id;
         ViewModel.Effects.SelectedIds = [];
@@ -644,7 +649,7 @@ internal sealed partial class WorkbenchSession
             return;
         }
 
-        if (id != SelectedLayerId && !TryCommitDrafts())
+        if ((id != SelectedLayerId || ViewModel.Effects.HasInstanceDrafts) && !TryCommitDrafts())
         {
             RefreshDocument();
             return;
@@ -656,6 +661,8 @@ internal sealed partial class WorkbenchSession
             InvalidateTimingSession();
         }
         SelectedLayerId = id;
+        ViewModel.Effects.SelectInstance(null);
+        ViewModel.Timeline.ClearInstanceSelection();
         var revealed = RevealSubtitleColorTagTargets(editor.Snapshot.Layers.Where(layer => selectedIds.Contains(layer.Id) || layer.Id == id)
             .Select(layer => layer.SubtitleId).OfType<Guid>());
         ViewModel.Effects.SelectedIds = selectedIds;

@@ -1,5 +1,5 @@
 # Tilt the selected whole subtitle or Normal text range, then return to its native base.
-effect "spatial-tilt" version 2
+effect "spatial-tilt" version 3
 short-clip compress
 
 scope tilt current

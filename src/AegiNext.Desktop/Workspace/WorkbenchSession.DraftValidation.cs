@@ -8,7 +8,7 @@ namespace AegiNext.Desktop.Workspace;
 
 internal sealed partial class WorkbenchSession
 {
-    internal bool HasEffectDrafts => effectsDirty || PropertyEditing.HasDrafts;
+    internal bool HasEffectDrafts => effectsDirty || PropertyEditing.HasDrafts || ViewModel.Effects.HasInstanceDrafts;
     internal bool CanChangeKeyframeCurveComponent => !changedEffectFields.Overlaps(["Interpolation", "PowerExponent"]);
     internal void RefreshKeyframeCurveInspector() => layerEditing.RefreshKeyframeCurveInspector();
     private long draftRevision;

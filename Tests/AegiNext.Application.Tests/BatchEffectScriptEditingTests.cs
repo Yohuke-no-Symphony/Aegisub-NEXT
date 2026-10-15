@@ -26,7 +26,7 @@ public sealed class BatchEffectScriptEditingTests
         var editor = new ProjectEditor(original);
         var changes = 0;
         editor.Changed += (_, _) => changes++;
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "per-clip-values" version 1
             short-clip compress
             segment all flex 1
@@ -104,7 +104,7 @@ public sealed class BatchEffectScriptEditingTests
         else if (failure == "missing-mask")
         {
             initial.SetClipMask(first, new VectorClipMask { Contours = [new() { Nodes = [new(), new() { Position = new(10, 20) }] }] });
-            script = EffectScriptParser.Parse("""
+            script = EffectScriptParser.ParseLegacy("""
                 effect "mask-node" version 1
                 short-clip compress
                 segment all flex 1

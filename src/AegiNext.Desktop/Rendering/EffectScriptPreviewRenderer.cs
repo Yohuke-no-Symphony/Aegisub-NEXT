@@ -82,7 +82,7 @@ internal sealed class EffectScriptPreviewRenderer : IEffectScriptPreviewRenderer
             renderingError = null;
             try
             {
-                var prepared = EffectPresetPreviewScene.Create(input.Options, input.Source, input.StylePreset, cancellationToken);
+                var prepared = EffectPresetPreviewScene.Create(input.Options, input.Source, input.StylePreset, cancellationToken, input.Parameters);
                 cancellationToken.ThrowIfCancellationRequested();
                 scene = prepared;
             }

@@ -1,6 +1,7 @@
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Rendering;
 using CommunityToolkit.Mvvm.ComponentModel;
+using AegiNext.Desktop.Editing;
 
 namespace AegiNext.Desktop.Panels.EffectPresets;
 
@@ -8,11 +9,22 @@ internal sealed class EffectPresetCardViewModel(string id, string name, string s
 {
     private string name = name;
     private Exception? previewError;
+    private long revision = revision;
 
     public string Id { get; } = id;
     public string Source { get; } = source;
-    public long Revision { get; } = revision;
+    public long Revision => revision;
     internal bool RequiresSubtitle { get; } = requiresSubtitle;
+    public EffectScriptParameterDraftSet Parameters { get; } = new(source);
+    internal bool CommitParameters()
+    {
+        if (!Parameters.TryCapture(out _))
+        {
+            return false;
+        }
+        revision++;
+        return true;
+    }
     public string Name
     {
         get => name;

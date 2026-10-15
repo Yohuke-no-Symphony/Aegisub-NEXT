@@ -10,9 +10,10 @@ namespace AegiNext.Desktop.Workspace;
 internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
 {
     private readonly ClipMaskPositionEditingCoordinator positionEditing = new(session);
+    private readonly EffectCompilationCache effectPlans = new();
     private ProjectDocument? gestureSource;
     private ProjectLayer? gestureLayer;
-    private ClipMask? gestureMask;
+    private ClipMaskEffectEditContext? gestureEffectEdit;
     private AnimationEditTarget? gestureTarget;
     private ProjectDocument? lastValidPreview;
     private ProjectDocument? lastValidSource;
@@ -23,7 +24,7 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
     internal bool CanEdit => session.SelectedLayer is { Kind: LayerKind.SUBTITLE, SubtitleId: not null };
     internal bool CanCreate => CanEdit && session.SelectedLayer?.Mask is null;
     internal bool IsEditing => session.SceneEditing.Mode is CanvasEditMode.MASK_RECTANGLE or CanvasEditMode.MASK_VECTOR or CanvasEditMode.MASK_DRAW_VECTOR;
-    internal bool IsTopologyLocked => session.SelectedLayer is { } layer && ClipMaskAnimation.IsTopologyLocked(layer);
+    internal bool IsTopologyLocked => session.SelectedLayer is { } layer && CreateEffectEditContext(layer).IsTopologyLocked;
     internal bool CanDeleteSelectedNode => !IsTopologyLocked && session.SelectedLayer?.Mask is VectorClipMask vector &&
         vector.Contours.SelectMany(contour => contour.Nodes).Any(node => node.Id == session.SceneEditing.MaskNodeId);
     internal bool CanDeleteSelectedContour => !IsTopologyLocked && session.SelectedLayer?.Mask is VectorClipMask vector &&
@@ -321,9 +322,10 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
     internal void CommitNodeDeletion(CanvasMaskNodeEventArgs e)
     {
         var source = gestureLayer;
+        var topologyLocked = gestureEffectEdit?.IsTopologyLocked ?? true;
         CancelGesture();
         if (source is null || e.LayerId != source.Id || session.SelectedLayerId != source.Id ||
-            !ReferenceEquals(gestureSource, session.DocumentSnapshot) || ClipMaskAnimation.IsTopologyLocked(source))
+            !ReferenceEquals(gestureSource, session.DocumentSnapshot) || topologyLocked)
         {
             return;
         }
@@ -333,9 +335,10 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
     internal void CommitSegmentInsertion(CanvasMaskSegmentEventArgs e)
     {
         var source = gestureLayer;
+        var topologyLocked = gestureEffectEdit?.IsTopologyLocked ?? true;
         CancelGesture();
         if (source is null || e.LayerId != source.Id || session.SelectedLayerId != source.Id ||
-            !ReferenceEquals(gestureSource, session.DocumentSnapshot) || ClipMaskAnimation.IsTopologyLocked(source) || source.Mask is not VectorClipMask vector)
+            !ReferenceEquals(gestureSource, session.DocumentSnapshot) || topologyLocked || source.Mask is not VectorClipMask vector)
         {
             return;
         }
@@ -376,16 +379,24 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
         gestureSource = session.DocumentSnapshot;
         gestureLayer = layer;
         gestureTarget = target;
-        gestureMask = SceneEvaluator.EvaluateMask(layer, target.LocalTime);
+        gestureEffectEdit = CreateEffectEditContext(layer);
         session.SceneEditing.GestureTarget = target;
         _ = session.RunCommandAsync(session.PauseForSceneEditAsync);
         return true;
     }
 
+    private ClipMaskEffectEditContext CreateEffectEditContext(ProjectLayer layer)
+    {
+        var subtitle = layer.SubtitleId is { } id ? session.DocumentSnapshot.Subtitles.Single(line => line.Id == id) : null;
+        var time = session.AnimationTarget?.LocalTime ?? LayerAnimationTiming.ClampTime(layer,
+            session.ProjectPosition - layer.Start + layer.AnimationOffset);
+        return ClipMaskEffectEditContext.Create(layer, subtitle, time, effectPlans);
+    }
+
     internal void CancelGesture()
     {
         gestureLayer = null;
-        gestureMask = null;
+        gestureEffectEdit = null;
         gestureTarget = null;
         session.SceneEditing.GestureTarget = null;
     }
@@ -394,9 +405,10 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
     {
         var source = gestureLayer;
         var target = gestureTarget;
-        var originalMask = gestureMask;
+        var effectEdit = gestureEffectEdit;
+        var originalMask = effectEdit?.VisibleMask;
         CancelGesture();
-        if (source is null || target is null || e.LayerId != source.Id || session.SelectedLayerId != source.Id || !ReferenceEquals(gestureSource, session.DocumentSnapshot))
+        if (source is null || target is null || effectEdit is null || e.LayerId != source.Id || session.SelectedLayerId != source.Id || !ReferenceEquals(gestureSource, session.DocumentSnapshot))
         {
             return;
         }
@@ -404,19 +416,27 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
         var prepared = document;
         if (originalMask is null || !ClipMaskAnimation.HasSameTopology(originalMask, e.Mask))
         {
-            if (ClipMaskAnimation.IsTopologyLocked(source))
+            if (effectEdit.IsTopologyLocked)
             {
                 throw new InvalidOperationException(Localization.Get("Workbench.MaskTopologyLocked"));
             }
+            if (!effectEdit.TryGetTopologyDraft(e.Mask, out var nativeMask))
+            {
+                return;
+            }
             prepared = WorkspaceDraftOperations.UpdateLayer(document, source.Id, layer => layer with
             {
-                Mask = e.Mask,
+                Mask = nativeMask,
                 Tracks = layer.Tracks.Where(track => !AnimationPropertyMetadata.IsMaskProperty(track.Property) ||
                     !AnimationPropertyMetadata.IsNodeProperty(track.Property) && track.Property is not (AnimationProperty.MASK_RECTANGLE_TOP_LEFT or AnimationProperty.MASK_RECTANGLE_BOTTOM_RIGHT)).ToImmutableArray()
             });
         }
         else
         {
+            if (!effectEdit.TryGetNativePose(e.Mask, out var nativeMask))
+            {
+                return;
+            }
             foreach (var property in AnimationPropertyMetadata.CurrentProperties.Where(AnimationPropertyMetadata.IsMaskProperty))
             {
                 var ids = AnimationPropertyMetadata.IsNodeProperty(property)
@@ -429,8 +449,8 @@ internal sealed class ClipMaskEditingCoordinator(WorkbenchSession session)
                         continue;
                     }
                     var identity = new AnimationTrackTarget(property, id);
-                    var before = ClipMaskAnimation.GetBaseValue(originalMask, identity);
-                    var after = ClipMaskAnimation.GetBaseValue(e.Mask, identity);
+                    var before = ClipMaskAnimation.GetBaseValue(effectEdit.NativeMask!, identity);
+                    var after = ClipMaskAnimation.GetBaseValue(nativeMask, identity);
                     if (before != after)
                     {
                         prepared = AnimationEditOperations.SetValue(prepared, target, identity, after);

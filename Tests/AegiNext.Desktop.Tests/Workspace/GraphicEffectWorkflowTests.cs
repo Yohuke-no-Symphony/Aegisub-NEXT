@@ -72,7 +72,7 @@ public sealed class GraphicEffectWorkflowTests
         Assert.False(context.Editor.CanUndo);
 
         await session.EffectScripts.ApplyAsync(BuiltinEffectScripts.Get("fade-in-out").Source);
-        Assert.All(context.Editor.Snapshot.Layers, layer => Assert.Single(layer.Tracks));
+        Assert.All(context.Editor.Snapshot.Layers, layer => Assert.Single(layer.Effects));
         Assert.True(context.Editor.Undo());
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
@@ -98,7 +98,7 @@ public sealed class GraphicEffectWorkflowTests
         var originalRevision = model.SelectedPreset.Revision;
         Assert.True(model.ApplyCommand.CanExecute(null));
         await model.ApplyCommand.ExecuteAsync(null);
-        Assert.Single(context.Editor.Snapshot.Layers[0].Tracks);
+        Assert.Single(context.Editor.Snapshot.Layers[0].Effects);
         Assert.True(context.Editor.Undo());
 
         await session.EffectScripts.UpsertAsync(preset with { Source = ScopedSource("font-size") });
@@ -112,7 +112,7 @@ public sealed class GraphicEffectWorkflowTests
     }
 
     private static string ScopedSource(string property) => $$"""
-        effect "personal-scope" version 2
+        effect "personal-scope" version 3
         short-clip compress
         scope clip current
             segment hold flex 1

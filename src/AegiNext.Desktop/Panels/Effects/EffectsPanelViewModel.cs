@@ -41,6 +41,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
     internal EffectsPanelViewModel(WorkbenchSession session)
     {
         this.session = session;
+        InitializeEffectInstances();
         InitializeNumericDrafts();
         PowerExponent.Load(1);
         InitializeOperationDrafts();
@@ -87,6 +88,7 @@ internal sealed partial class EffectsPanelViewModel : ObservableObject
         {
             if (SetProperty(ref selectedLayer, value))
             {
+                RefreshEffectInstances();
                 OnPropertyChanged(nameof(CanResetPosition));
                 OnPropertyChanged(nameof(CanEditOpacity));
                 OnPropertyChanged(nameof(OpacityEditingHint));

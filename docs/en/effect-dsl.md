@@ -2,101 +2,81 @@
 
 [English](effect-dsl.md) · [简体中文](../zh-cn/effect-dsl.md) · [All guides](README.md)
 
-## Apply and edit
+## Add and edit an effect
 
-1. Select a subtitle, choose a preset in **Effects**, and click **Apply Preset**.
-2. Open **Edit → Effect Library → Effect Scripts** to manage templates. Builtins are read-only. Use **Add** to create a personal draft.
-3. Edit, **Validate**, then save. Click **Export…** to choose saved personal scripts and a complete `.aegieffect`, `.aegilibrary` package, or UTF-8 `.aegifx` source format. Validation reports line/column errors; **Locate Error** moves the caret.
+1. Select one or more clips, choose a card in **Effect presets**, adjust its parameters, and click **Add effect**. A double-click also adds the selected template; a single click only selects it.
+2. Select the new block in Timeline or its instance in **Effects**. Edit parameters, content-clock start/end, enabled state, or evaluation order. **Reset parameters** restores the source defaults; **Remove effect** deletes only that instance.
+3. Choose **Edit clip properties** to return to manual animation. Drag an instance block to move it or either edge to trim it. Release creates one Undo operation; Esc or capture loss cancels the gesture.
 
-Completion opens while typing or with Cmd/Ctrl + Space. Arrows select, Enter/Tab insert, and Esc dismisses. Templates belong to the effect library; applying recompiles for the current Clip and creates one Undo transaction.
+Each addition creates an independent instance with a source snapshot. Project files retain parameters, order, and time range; later library edits do not update existing instances. Parameters currently have no keyframes. Manual tracks and hand-created text ranges remain editable. Generated groups and channels exist only in the execution plan.
 
-DSL version 1 keeps its existing whole-target segment syntax. Version 2 adds named scopes, text grouping, staggered starts, repeats, and pingpong. Choose **Letter bounce** or **Letter pulse** in the same preset selector for the built-in grouped effects; create a personal script to adjust grouping or timing.
+Open **Edit → Effect Library → Effect Scripts** to create or edit templates. Builtin source is read-only, while its preview parameters remain adjustable. **Validate** reports source locations and **Locate Error** moves the caret. Completion opens while typing or with Cmd/Ctrl + Space; arrows select, Enter/Tab insert, and Esc dismisses.
 
-The export dialog starts unchecked and preserves the editor's current page and draft. Search personal scripts by name or DSL ID, then check the entries to share; **Script source (.aegifx)** is available for a selection containing only scripts. The script page's separate **Export source…** action exports selected saved personal scripts and read-only builtins. See [Share styles and scripts](workbench.md#share-styles-and-scripts) for selection, packages, and full-library export.
+All new scripts use **version 3**. Earlier source versions must be rewritten; older native projects still retain their existing manual animation.
 
 ## Preview a draft
 
-Selecting one script automatically loops its current source in the preview, including unsaved edits. Adjust **Preview text**, **Duration (seconds)**, and **Preview style**; embedded fonts in the selected style are used for rendering. The default sample is `YOSYMPH666`, one second, centered 32 px text, and a gray background.
+Select one script to loop its current source, including unsaved edits. Adjust **Preview text**, **Duration (seconds)**, **Preview style**, and declared parameters. Embedded fonts in the selected style are used. Parameter trials do not rewrite source defaults or save the template.
 
-Use play/pause and loop, or drag the position slider to inspect a particular time. Space toggles playback in the preview area; text inputs and the script editor retain normal space input. Cmd/Ctrl + wheel zooms and left drag pans. Leaving the page pauses at the current position; playback can be resumed after returning.
+Use play/pause, loop, and the position slider to inspect a frame. Space toggles playback in the preview area; text inputs retain normal space input. Cmd/Ctrl + wheel zooms and left drag pans. Leaving the page pauses playback. Source changes update after about 200 ms; errors stay local to preview. Correct invalid parameter input or press Esc to restore only that field.
 
-The preview updates about 200 ms after typing stops. Syntax, duration, and rendering errors appear locally and recover when the input is corrected. Previewing neither saves the draft nor applies it to project subtitles; use **Apply Preset** in the workbench to apply an effect.
+The export dialog shares saved personal materials without saving an editor draft. **Export source…** also permits builtin source. See [Share styles and scripts](workbench.md#share-styles-and-scripts).
 
-## Combining presets
+## Parameters and control flow
 
-Apply presets successively to combine them. Each preset replaces only the intervals in which it explicitly declares a complete animation target. Undeclared intervals preserve existing animation and its interpolation curves. With no existing target track, empty intervals retain the script's base or preceding value. Segment names such as `stay` and `hold` have no special meaning, and a `flex` segment may contain animation. Version 2 generated text groups additionally have the replacement ownership described below.
-
-For a 4 s Clip, applying builtin fade-in followed by fade-out preserves the first 300 ms entrance and the middle animation, then adds the last 300 ms exit. Reversing the order produces the same result. A batch application creates one Undo transaction. Composition also works after saving and reopening the project.
-
-An empty stay declares no properties:
+The header declares the ID, one explicit short-clip policy, and constant parameter defaults before any scopes. Keywords use lowercase. Parameter names are case-sensitive letters, digits, and underscores, beginning with a letter or underscore. A label is author text, preserved across interface languages:
 
 ```text
-segment stay flex 1
-end
-```
-
-This stay explicitly fixes opacity at its base value, replacing existing opacity animation:
-
-```text
-segment stay flex 1
-    at 0 opacity base hold
-    at 1 opacity base
-end
-```
-
-`hold` is keyframe interpolation, not a request to skip an interval. `base` always reads the static layer property or subtitle style, not the old animation value at the join. Values must agree where new animation meets retained animation; otherwise the entire application fails without changing the project or Undo/Redo. Adjust the preset endpoints or clear the corresponding track first.
-
-Independent presets allocate their timing separately and do not jointly compress fixed segments. Two 300 ms transitions join on a 600 ms Clip. On a 400 ms Clip they overlap, and builtin fade-in followed by fade-out fails because the join values differ. On Clips of 300 ms or less, each preset covers the entire Clip, so the last preset replaces the first. To retain both transitions with joint compression on short Clips, use one preset containing both segments, such as builtin fade-in-out.
-
-## A first script
-
-```text
-effect "fade-in-out" version 1
+effect "personal-pulse" version 3
 short-clip compress
-
-segment enter fixed 300ms
-    at 0 opacity 0 ease-out
-    at 1 opacity base
-end
-
-segment stay flex 1
-    at 0 opacity base hold
-    at 1 opacity base
-end
-
-segment exit fixed 300ms
-    at 0 opacity base ease-in
-    at 1 opacity 0
-end
+var duration = 0.1s label "Duration" suggest ["Fast": 50ms, "Slow": 200ms]
+var strength = 1.25 label "Strength" options ["Subtle": 1.25, "Strong": 1.5]
+var enabled = true
+var title = "Pulse"
+var movement = vec2(0, -12)
+var tilt = vec3(10, 20, 0)
+var color = rgba(1, 0.25, 0, 1)
 ```
 
-`fixed` preserves entrance/exit duration; `flex` divides the remaining time by weight. At least one flexible segment is required. Positions run from 0 to 1 inside each segment; each declared property must cover both endpoints in increasing order.
+`options` is a strict dropdown; its default must be one of the choices. `suggest` offers named values and accepts a custom value of the same type. Available types are number, duration, boolean, string, Vector2, Vector3, and linear RGBA. Choices and defaults are target-independent constants. Durations accept seconds or milliseconds.
 
-`short-clip compress` shrinks fixed segments proportionally when needed; `reject` refuses insufficient duration. For this script, a 5 s Clip holds for 4.4 s; a 400 ms Clip compresses to 200 ms in and 200 ms out. Shared endpoints must agree, including a zero-duration flexible segment.
-
-## Version 2: grouped text
-
-This personal template scales each grapheme up and back down, starting each group 60 ms after the previous group:
+Expressions support parentheses, arithmetic, comparisons, `and/or/not`, and vector components. Numeric and time expressions use exact rational calculation; `at i / 3` does not round its time to six decimals. Units are checked. Boolean expressions short-circuit.
 
 ```text
-effect "personal-letter-pulse" version 2
-short-clip compress
-
-scope letters current
-    unit grapheme
-    stagger 60ms
-    segment pulse fixed 150ms pingpong
-        at 0 scale base ease-in-out
-        at 1 scale factor(1.25, 1.25)
+if enabled
+    for i in range(0, 3)
+        scope pulse range(i + 1, 1)
+            delay i * 100ms
+            segment grow fixed duration pingpong
+                at 0 scale base
+                at 1 scale factor(strength, strength)
+            end
+            segment rest flex 1
+            end
+        end
     end
-    segment rest flex 1
+elif strength > 1
+    scope fallback current
+        segment stay flex 1
+            at 0 scale base
+            at 1 scale base
+        end
     end
+else
 end
 ```
 
-`fixed 150ms` is one leg. `pingpong` adds the time-reversed return leg, so the pulse lasts 300 ms: local scale 1 → 1.25 → 1. `stagger 60ms` overlaps adjacent pulses; `stagger 300ms` starts the next group after the previous pulse completes. A personal bounce uses the same structure with `position base` → `position offset(0, -12)`; the built-in Letter bounce uses −20 pixels. Easing controls these curves; no spring or elastic-physics simulation is implied.
+The loop example requires at least three subtitle graphemes. `if / elif / else / end` and `for i in range(start, stop[, step]) / end` expand scopes, segments, or keyframes at their corresponding nesting level. Loops use integer half-open ranges and a read-only index; step cannot be zero. All branches receive syntax, symbol, and type checking, while only selected branches evaluate. Empty branches pass through. There is no assignment, while loop, file access, custom function, or per-frame control flow.
 
-Every `scope` and `segment` ends with `end`. Put `unit`, `delay`, `stagger`, `order`, and `state` before the scope's first segment. Fields cannot repeat. Scope names are unique in the script; segment names are unique within their scope. Each scope requires at least one flex segment and some keyframes. Multiple scopes share the Clip but allocate timing independently; a whole-subtitle fade and grouped scale pulses can run together.
+`clip.duration` is the parent clip's duration; `effect.duration` is the instance's duration. After grouping, `group.index` is the zero-based start order after whitespace filtering and `order`, and `group.count` is the resulting count. These group values can control that group's segments and keyframes; they cannot configure the current scope's grouping.
+
+## Combining instances
+
+The manual animation is evaluated first, followed by enabled instances in their saved order. Every channel reads the upstream value at that same frame: factor multiplies animated upstream input, offset adds to it, and an absolute value replaces it. Undeclared intervals and frames outside the instance's half-open time range pass through. Reordering two instances can change the result; disabling or removing one restores its upstream contribution.
+
+Moving preserves instance duration. Trimming or changing duration reallocates fixed/flex timing. Parent trimming intersects attached ranges and removes empty instances; stretching maps their times proportionally. Copy and split create new instance IDs. Text edits rebuild temporary grouping from the current text; deleting an instance's selected parent text range deletes that instance.
+
+## Grouped text
 
 ### Select the source text
 
@@ -108,7 +88,7 @@ Every `scope` and `segment` ends with `end`. Put `unit`, `delay`, `stagger`, `or
 
 `range(start, count)` uses one-based grapheme indices, including spaces and hard line breaks in the index; a complete CRLF is one grapheme. It does not use UTF-16 code units or indices relative to the current selection. In `你好 世界`, `range(4, 2)` selects `世界`. An emoji sequence or a combining character remains one complete grapheme. Out-of-bounds ranges fail the entire application; the compiler does not clip them.
 
-The default `unit group` treats the selected source as one group. With `current` and an existing text range it reuses that range. With a whole-subtitle target it applies to the layer and creates no text range, including when the subtitle is empty. `range(...)` creates a persistent text range. Text-specific units require a matching subtitle; an empty or all-whitespace selection produces no text groups and consumes no stagger slots.
+The default `unit group` treats the selected source as one group. With `current` and an existing text range it reuses that range. With a whole-subtitle target it applies to the layer and creates no text range, including when the subtitle is empty. `range(...)` creates a temporary execution range. Text-specific units require a matching subtitle; an empty or all-whitespace selection produces no text groups and consumes no stagger slots.
 
 ### Group the source
 
@@ -128,17 +108,17 @@ Hard-line units recognize LF and CRLF. Chunking restarts after each hard line; w
 
 `split` matches case-sensitive literal text, takes the longest matching separator at a position, and proceeds without overlapping matches. It operates across hard lines, so a separator can contain a complete `\r\n`. Empty or duplicate separators are invalid. Leading/trailing horizontal spaces and tabs are excluded from each emitted range; original subtitle text is preserved. With no match, the selected non-whitespace text becomes one group. A match that cuts a combining grapheme, emoji sequence, or CRLF rejects the entire application.
 
-Quoted separators support `\"`, `\\`, `\n`, `\r`, and `\t`; unknown escapes fail validation. `#` begins a comment only outside quotes in version 2, so `split("#")` is valid. Regexes, natural-language tokenization, soft-layout-line grouping, random order, and nested group clocks are not language features.
+Quoted separators support `\"`, `\\`, `\n`, `\r`, and `\t`; unknown escapes fail validation. `#` begins a comment only outside quotes, so `split("#")` is valid. Regexes, natural-language tokenization, soft-layout-line grouping, random order, and nested group clocks are not language features.
 
 ### Start groups and choose a state
 
 Defaults are `delay 0ms`, `stagger 0ms`, `order forward`, and `state normal`. For group index `i`, starting at zero after whitespace filtering and ordering, its start is:
 
 ```text
-Clip content origin + delay + i × stagger
+Effect instance start + delay + i × stagger
 ```
 
-The content origin includes the layer's `AnimationOffset`. `order reverse` reverses group start order while preserving the subtitle's text. Delay and stagger are nonnegative. Unlike version 1, version 2 uses the scope's declared state and defaults to Normal even if another state is selected in Effects. `state active` and `state inactive` target the existing karaoke painting channels; they do not create karaoke timing or change geometry.
+Instance times use the layer's content clock, including `AnimationOffset`. `order reverse` reverses group start order while preserving the subtitle's text. Delay and stagger are nonnegative. Each scope uses the scope's declared state and defaults to Normal even if another state is selected in Effects. `state active` and `state inactive` target the existing karaoke painting channels; they do not create karaoke timing or change geometry.
 
 ### Repeat and cycle
 
@@ -157,27 +137,14 @@ end
 
 ### Short Clips
 
-For each nonempty scope, version 2 considers delay, the final group's stagger, expanded fixed segments, and the minimum flex allocation needed for one complete period in every cyclic flex segment. Let:
+Each group may expand a different set of segments. Let `Fi` be its fixed total and `Qi` the minimum flex allocation needed to fit a complete period in each cyclic segment, accounting for its flex weights. For `N` groups and instance duration `T`:
 
 ```text
-U = number of groups
-S = max(U − 1, 0) × stagger
-F = sum(fixed leg duration × repeat × (pingpong ? 2 : 1))
-W = sum(all flex weights, including empty stay segments)
-Rmin = max(cycle period × W / that segment's weight), or 0 without cycles
-E = delay + S + F + Rmin
-k = T / E when Clip duration T < E; otherwise 1
+E = delay + max(N − 1, 0) × stagger + max(Fi + Qi)
+k = T / E when T < E; otherwise 1
 ```
 
-`reject` refuses `T < E`. `compress` scales delay, stagger, fixed leg durations, and cycle periods together by `k`. The remaining `T − k × (delay + S + F)` is divided between flex segments by weight. When `E = 0`, no compression is needed. This keeps group spacing and pulse proportions together and reserves at least one complete cyclic period on a positive-duration Clip. Noncyclic flex segments can still collapse; their resolved keyframes must agree when their duration becomes zero.
-
-### Editable results and reapplication
-
-Applying version 2 bakes the groups into persistent editable text ranges and ordinary animation tracks. It creates one Undo transaction, including a multi-subtitle application. Invalid grouping, mixed base values, conflicts, or budgets reject the whole transaction.
-
-A generated block is identified by the source effect ID, scope name, and current parent range ID. Reapplying that block replaces all its generated ranges and tracks, including manual edits to those results. Unchanged grouping and spans reuse range identities and coverage order; changing `chunk(2)` to `chunk(3)` removes stale groups. Other hand-created ranges and other generated blocks remain independent. Removing or renaming a scope in the source does not delete its old named block; delete those old generated ranges explicitly in Effects when retiring it.
-
-Text edits remap existing ranges through the normal subtitle editing rules. They do not rerun grouping, stagger allocation, or repeats. Reapply the template after changing text when new grouping or timing is required. Deleting a parent range also deletes its generated descendants and their tracks.
+`reject` refuses `T < E`. `compress` scales delay, stagger, fixed durations, and cycle periods together by `k`. Each group shares the resulting animation window; after its fixed total is deducted, its own flex weights divide the remainder. Zero-duration noncyclic segments must have identical collapsed endpoints. Empty expansion passes the upstream result through.
 
 ## Properties and values
 
@@ -185,7 +152,7 @@ Text edits remap existing ranges through the normal subtitle editing rules. They
 |---|---|
 | `position` | Pixel vector: `base`, `(100, 20)`, `offset(-250, 0)` |
 | `scale` | Vector: `base`, `(1, 1)`, `factor(0.2, 0.2)` |
-| `rotation` | Z degrees: `0`, `base`, `offset(15)` |
+| `rotation` | Z degrees: `0`, `base`, `offset(15)`; or XYZ degrees: `vec3(10, 20, 30)` |
 | `rotation-x`, `rotation-y` | X/Y degrees: `0`, `base`, `offset(45)` |
 | `perspective-distance` | Project pixels, 0.001–1e9: `312.5`, `base`, `factor(0.75)` |
 | `opacity` | 0–1 or `base` |
@@ -203,40 +170,27 @@ Text edits remap existing ranges through the normal subtitle editing rules. They
 | `mask-position`, `mask-scale`, `mask-rotation` | Independent mask transform |
 | `mask-node(c,n).position`, `.in-handle`, `.out-handle` | Existing node position / relative handle vectors |
 
-`base` reads the original target value; `offset` adds and `factor` multiplies it. Colors use straight linear RGB, permitting HDR values, with alpha 0–1; UI HEX is sRGB. HEX literals are not script values. `#` starts a comment, outside quoted strings in version 2.
+`base` reads the upstream value at the current frame. `offset` adds to it and `factor` multiplies it; an absolute value replaces that component. Color and typography bases are evaluated per grapheme, preserving mixed rich text. Colors are straight linear RGBA, including HDR RGB values and alpha from 0 to 1. UI HEX and byte RGBA input uses sRGB. Script colors use `rgba(...)`.
 
-`font-size`, `letter-spacing`, `fill-blur`, `stroke-blur`, and the three shadow properties require a subtitle Clip and its original subtitle style, including when using explicit numbers. Their `base` values come from that style. The existing `blur` applies to the composited layer; the two channel blurs affect fill and outline separately. Wrap mode is a static subtitle style setting and is not an animated DSL property. These properties remain part of DSL version 1.
+`position` and `scale` require complete vectors. Vector3 parameters use `vec3(...)`; assign one directly to `rotation` for XYZ rotation, or read `.x`, `.y`, and `.z` to drive individual axes. Rotation keeps complete turns and independent component curves. A range's local transform acts on its laid-out geometry without changing occupancy; font size and spacing reflow. Whole-layer, manual-range, and generated-group transforms retain their local geometry hierarchy.
 
-Version 1 uses the Effects panel's current whole-line / text-range scope and Normal / Active / Inactive visual state. Version 2 selects source text and state per scope as described above. Templates do not store project range IDs, so the same template can target ranges in different subtitles. A current-range application targets one subtitle Clip; whole-subtitle application can target multiple subtitle Clips, each resolving its own groups and base values.
-
-A Normal text range supports font size, letter spacing, fill / stroke colors and blurs, stroke width, shadow, and independent position, scale, XYZ rotation, and perspective distance. Local `position` is the range's pixel Offset, with a default of `(0, 0)`; it translates that group's laid-out geometry. Font size and spacing reflow on every frame. Local translation, scale, and rotation retain layout space and use the range's configured pivot. Active / Inactive targets support colors, stroke width, fill / stroke blur, and shadow, sharing Normal geometry. Opacity, composited layer blur, paths, and masks cannot target text ranges. Unsupported properties produce a source location diagnostic and reject the entire application.
-
-Both language versions support the spatial properties. Rotation values remain unwrapped: `rotation-x offset(720)` adds two complete turns. The script declares axes separately; compilation combines them into one XYZ Vector3 track, sharing the union of keyframe times while retaining component curves. Declaring one axis preserves existing animation on the other axes. A generated range begins with each rotation at 0 and perspective distance at 312.5. Distance must stay positive and within its limits at every resolved keyframe. Static Pivot compensation is native placement data and has no DSL animation property; see [3D editing](workbench.md#3d-rotation-and-perspective) and [projection math](rendering.md#flat-plane-projection).
-
-Inherited base values may be mixed within a range or a whole-line visual state because of rich text or karaoke overrides. Reading mixed values with `base`, `offset`, or `factor` rejects the entire application. With no existing target track, an undeclared leading interval also requires a uniform base. Unify the property first, or use explicit values starting at the Clip origin. Color scripts interpolate in linear RGB. If an existing matching target uses sRGB, cover its complete duration or clear the track first; partial overlays are rejected to preserve the retained intervals' interpolation.
-
-Generated groups begin with local scale `(1, 1)`, position `(0, 0)`, and rotation `0`. A scale pulse therefore works across mixed font sizes without changing their layout. A whole word or paragraph using mixed font-size or color `base` values still fails; the compiler does not pick the first style or silently split the requested group.
-
-Easing is `hold`, `linear`, `ease-in`, `ease-out`, `ease-in-out`, or `power(positiveExponent)`. A point controls interpolation to the next point; default is linear.
+Text ranges support typography, paint, shadow, local position/scale/XYZ rotation, and perspective distance. Active/inactive states support painting properties and share Normal geometry. Opacity, composited layer blur, paths, and masks require a whole-layer target. Unsupported properties fail with source locations. Easing is `hold`, `linear`, `ease-in`, `ease-out`, `ease-in-out`, or `power(positiveExponent)`; each point controls the transition to the next point.
 
 ## Masks and validation
 
-Create mask geometry before applying mask scripts. Node selectors are one-based and resolve to stable IDs. Node/handle animation locks topology; clear those tracks before adding/removing/reordering nodes. Scripts combine declared intervals for matching complete targets, preserve other tracks, and never create geometry. Clear an ordered ASS transform target before replacing it with script keyframes.
+Create mask geometry before using mask scripts. One-based node selectors resolve existing nodes, with handles relative to them. Static Anchor/Pivot/Offset remains independent from animated mask translation. Scripts never create geometry.
 
-Static Anchor/Pivot/Offset and a fixed local reference frame place the mask. `mask-position` remains independent animated pixel translation, leaving those static fields intact. Node and rectangle-corner animation uses the same local reference system; handles remain relative to their nodes. Placement edits do not rewrite script tracks or introduce a new DSL version or animation property.
-
-IDs, scope names, and segment names use lowercase ASCII letters, digits, `.` and `-`, begin with a letter, and have at most 64 characters. Limits: 128 scopes, 128 total segments, 4,096 source points, 262,144 source characters, fixed durations and cycle periods up to 24 h, and flex weights in (0, 1,000]. The resulting subtitle permits at most 256 text ranges, and a layer at most 8,192 range/state tracks; expanded keys must also fit their property budget. Budgets reject the application instead of truncating results. Invalid input or conflicting endpoints leave the project and Undo unchanged. Different scopes cannot declare overlapping time intervals on the same complete target; different overlapping ranges retain the existing saved-order composition rules.
+Script IDs and declared scope/segment names use lowercase ASCII letters, digits, `.` and `-`, start with a letter, and contain at most 64 characters. Source limits include 128 scopes, 128 segments, 4096 keyframes, and 262144 characters. Control nesting is limited to 16 levels and expression trees to 64 levels, one loop to 4096 iterations, and one target to 100000 expanded statements. Output range/track/keyframe budgets also apply. Overflow, invalid references, and failed target validation reject the entire edit without adding an Undo entry; nothing is silently truncated.
 
 ## Native project and ASS exchange
 
-Projects save as v17. Versions v3–v16 migrate through the normal project loader, including scalar rotation axes becoming a shared Vector3 track. Layers and ranges predating v16 receive X/Y rotation 0, perspective distance 312.5, and zero projection compensation; files claiming older schemas cannot declare later spatial or Vector3 capabilities. Local Offset, reversed curves, and generated-block origins were introduced in v13 and remain supported; v12 ranges retain their identities with zero Offset, false Reverse, and no generated origin. See [storage compatibility](architecture.md#time-and-storage).
+Project format v19 saves source snapshots and typed parameters separately from manual animation. Older supported projects load with an empty instance collection. Save `.aeginext` to retain complete editable instances.
 
-ASS cannot represent independent range translation; export reports `Ass.RangeTranslation` and omits that movement. Range scale/pivots have the existing layout differences, and reversed nonlinear curves use sampling or explicit approximation diagnostics. Advanced ASS source edits retain native Offset, generated ownership, and unrepresentable reversed tracks. Save `.aeginext` to preserve the complete editable result; see [ASS interoperability](ass-compatibility.md).
-
-ASS `\frx` / `\fry` / `\frz`, including supported `\t` and reset sequences, convert through native XYZ axes and anchors. Adjustable distance, projection compensation, and coupled whole/range spatial transforms have explicit loss diagnostics. Export keeps source Bézier curves plus rotation tags; it does not turn projected control points into a different cubic curve.
+Preview and video export use the native ordered stack. ASS creates a temporary sampled projection, without modifying the project, and reports `Ass.EffectInstances`: source, parameters, and instance identity cannot be retained in ASS. Existing sampling and geometry loss diagnostics still apply; range translation and perspective may be unrepresentable. SRT and subtitle-only mux paths report `Srt.EffectInstances` for enabled visual instances. Disabled instances produce no visual contribution. See [ASS interoperability](ass-compatibility.md).
 
 ## Examples
 
+- [Parameterized letters with conditions and loops](examples/effects/parameterized-letters.aegifx)
 - [Builtin fade](../../src/AegiNext.Core/Effects/Scripts/fade-in-out.aegifx)
 - [Slide/pop](examples/effects/slide-pop.aegifx)
 - [3D tilt and perspective](examples/effects/spatial-tilt.aegifx)
@@ -251,4 +205,4 @@ ASS `\frx` / `\fry` / `\frz`, including supported `\t` and reset sequences, conv
 - [Hard lines](examples/effects/grouped-lines.aegifx)
 - [Whole-subtitle fade with grouped pulses](examples/effects/scoped-fade-pulse.aegifx)
 
-Parser/compiler: `src/AegiNext.Core/Effects/`. Integrations use `EffectScriptCompiler.CompileTarget` or `EffectScriptComposer.ComposeTarget` and apply both the returned subtitle ranges and tracks; the tracks-only API rejects version 2. For assisted authoring, use the repository [effect DSL skill](../../.agents/skills/aeginext-effect-dsl/SKILL.md).
+Parser/compiler: `src/AegiNext.Core/Effects/`. Native integration uses `EffectScriptParser.Parse`, `EffectScriptParameterBinder.Bind`, and `EffectScriptCompiler.CompileInstance`; the compiled ranges and affine channels are transient. Project changes use the atomic effect-instance operations. For assisted authoring, use the repository [effect DSL skill](../../.agents/skills/aeginext-effect-dsl/SKILL.md).

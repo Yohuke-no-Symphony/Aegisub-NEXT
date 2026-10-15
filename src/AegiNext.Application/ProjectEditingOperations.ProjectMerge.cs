@@ -177,6 +177,7 @@ public static partial class ProjectEditingOperations
             ColorTags = colorTags.Count == document.ColorTags.Length ? document.ColorTags : colorTags.ToImmutable()
         };
         ProjectValidator.Validate(merged);
+        ValidateEffectInstanceCompilation(merged, document);
         return new(merged, importedTrackIds.ToImmutable(), importedLayerIds.ToImmutable(), importedSubtitleIds.ToImmutable());
     }
 
@@ -299,6 +300,7 @@ public static partial class ProjectEditingOperations
             SubtitleId = layer.SubtitleId is { } referencedId ? subtitleIds[referencedId] : null,
             Image = layer.Image is { } image ? image with { AssetId = assetIds[image.AssetId] } : null,
             Mask = mask,
+            Effects = CloneEffectInstances(layer.Effects, layer.SubtitleId is { } effectSubtitleId ? rangeIds[effectSubtitleId] : null),
             Tracks = CloneMergeAnimationTracks(layer.Tracks, maskIds, reservedIds,
                 layer.SubtitleId is { } referencedSubtitle ? rangeIds[referencedSubtitle] : null)
         };

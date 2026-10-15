@@ -92,7 +92,7 @@ public sealed class GroupedEffectRenderingTests
 
     private static ProjectDocument Compile(ProjectDocument document, string source)
     {
-        var result = EffectScriptCompiler.CompileTarget(EffectScriptParser.Parse(source), document.Layers[0], subtitle: document.Subtitles[0]);
+        var result = EffectScriptCompiler.CompileTarget(EffectScriptParser.ParseLegacy(source), document.Layers[0], subtitle: document.Subtitles[0]);
         return document with { Subtitles = [result.Subtitle!], Layers = [result.PreparedLayer! with { Tracks = result.Tracks }] };
     }
 

@@ -156,7 +156,7 @@ public static class ProjectStore
         if (root.ValueKind != JsonValueKind.Object ||
             !root.TryGetProperty("version", out var version) ||
             version.ValueKind != JsonValueKind.Number ||
-            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or ProjectDocument.CURRENT_VERSION))
+            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or ProjectDocument.CURRENT_VERSION))
         {
             throw new InvalidDataException($"Only project versions 3 through {ProjectDocument.CURRENT_VERSION} are supported; open older projects with the corresponding application version.");
         }
@@ -175,6 +175,7 @@ public static class ProjectStore
         }
 
         var content = JsonNode.Parse(root.GetRawText(), documentOptions: documentOptions)!.AsObject();
+        EffectInstanceJsonMigration.Upgrade(content);
         if (number < 17)
         {
             RotationVectorJsonMigration.RejectUndeclaredFields(content);
@@ -248,6 +249,7 @@ public static class ProjectStore
                         !(info.Type == typeof(ProjectDocument) && property.Name == "colorTags") &&
                         !(info.Type == typeof(LayerShape) && property.Name == "cornerRadii") &&
                         !(info.Type == typeof(ProjectLayer) && property.Name == "position") &&
+                        !(info.Type == typeof(TimelineEffectClipId) && property.Name == "instanceId") &&
                         !(info.Type == typeof(TimelineViewState) && property.Name is "collapsedTrackIds" or "collapsedAnimationRows" or "expandedAnimationClips") &&
                         !(info.Type == typeof(SubtitleStyle) && property.Name is "fontVariant" or "textAlign") &&
                         !(info.Type == typeof(SubtitleFontVariant) && property.Name == "postScriptName") &&

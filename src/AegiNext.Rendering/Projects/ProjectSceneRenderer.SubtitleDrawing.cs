@@ -61,8 +61,9 @@ public sealed partial class ProjectSceneRenderer
         {
             foreach (var run in line.Runs)
             {
-                var normal = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, run.Style, run.Utf16Offset, SubtitleAnimationState.NORMAL);
+                var normal = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, run.Style, run.Utf16Offset, SubtitleAnimationState.NORMAL, includeTypography: false);
                 if (layer.AnimationRanges.IsEmpty && layer.AnimationValues.Keys.All(target => target.TextRangeId is null && target.State == SubtitleAnimationState.NORMAL) &&
+                    layer.EffectStyleOperations.All(operation => operation.Target.TextRangeId is null && operation.Target.State == SubtitleAnimationState.NORMAL) &&
                     (previewMode == SubtitlePreviewMode.NORMAL || run.Karaoke.IsEmpty && previewMode == SubtitlePreviewMode.TIMED))
                 {
                     DrawSubtitleRun(canvas, run, normal);

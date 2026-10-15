@@ -15,8 +15,8 @@ public sealed class EffectScriptV2SampleTests
     public void EmbeddedLetterEffectsGrowOrBounceOnceAndReturnToTheLocalBase(string id, AnimationProperty property)
     {
         var template = BuiltinEffectScripts.Get(id);
-        Assert.Equal(2, template.Script.Version);
-        Assert.Equal(id, EffectScriptParser.Parse(template.Source).Id);
+        Assert.Equal(3, template.Script.Version);
+        Assert.Equal(id, EffectScriptRegressionParser.Parse(template.Source).Id);
         foreach (var duration in durations)
         {
             var line = new SubtitleLine { Text = "甲 A👩‍💻é", End = duration };
@@ -50,7 +50,7 @@ public sealed class EffectScriptV2SampleTests
     public void DocumentedGroupingSamplesCompileAtShortAndLongDurations(string id, string text, int count)
     {
         var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Samples", id + ".aegifx"));
-        var script = EffectScriptParser.Parse(source);
+        var script = EffectScriptRegressionParser.Parse(source);
         Assert.Equal(id, script.Id);
         foreach (var duration in durations)
         {

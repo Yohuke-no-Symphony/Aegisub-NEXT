@@ -220,15 +220,36 @@ public sealed class SubtitleEffectsWorkflowUiTests
             context.Session.Editor.SetSubtitleTiming(id, MediaTime.Zero, duration, TimelineEditMode.STRETCH);
             context.Session.SelectCue(id);
             var before = context.Session.DocumentSnapshot;
-            var expected = EffectScriptCompiler.Compile(BuiltinEffectScripts.Get(scriptId).Script, before.Layers[0]);
+            var template = BuiltinEffectScripts.Get(scriptId);
             UiTestActions.SelectBuiltinPreset(context.Window, scriptId);
             UiTestActions.Click(context.Window, "ApplyPresetButton");
             await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
             var after = context.Session.DocumentSnapshot;
-            Assert.Equal(expected.SelectMany(track => track.Keyframes), after.Layers[0].Tracks.SelectMany(track => track.Keyframes));
-            Assert.All(after.Layers[0].Tracks, track => Assert.Equal(duration, track.Keyframes[^1].Time));
+            Assert.Empty(after.Layers[0].Tracks);
+            Assert.Equal(before.Subtitles[0].AnimationRanges, after.Subtitles[0].AnimationRanges);
+            var instance = Assert.Single(after.Layers[0].Effects);
+            Assert.Equal(template.Source, instance.Source);
+            Assert.Equal(MediaTime.Zero, instance.Start);
+            Assert.Equal(duration, instance.End);
+            var plan = EffectScriptCompiler.CompileInstance(template.Script, instance, after.Layers[0], after.Subtitles[0]);
+            Assert.NotEmpty(plan.Channels);
+            Assert.All(plan.Channels, channel =>
+            {
+                Assert.True(channel.Start >= instance.Start && channel.Start <= instance.End);
+                Assert.True(channel.End >= channel.Start && channel.End <= instance.End);
+            });
             var restored = ProjectStore.Deserialize(ProjectStore.Serialize(after));
-            Assert.Equal(after.Layers[0].Tracks.SelectMany(track => track.Keyframes), restored.Layers[0].Tracks.SelectMany(track => track.Keyframes));
+            var restoredInstance = Assert.Single(restored.Layers[0].Effects);
+            Assert.Equal(instance.Id, restoredInstance.Id);
+            Assert.Equal(instance.Source, restoredInstance.Source);
+            Assert.Equal(instance.Parameters.OrderBy(value => value.Key), restoredInstance.Parameters.OrderBy(value => value.Key));
+            foreach (var time in new[] { MediaTime.Zero, new(duration.Numerator, duration.Denominator * 2), duration })
+            {
+                var expected = SceneEvaluator.EvaluateLayer(after.Layers[0], after.Subtitles[0], time);
+                var actual = SceneEvaluator.EvaluateLayer(restored.Layers[0], restored.Subtitles[0], time);
+                Assert.Equal(expected.Transform, actual.Transform);
+                Assert.Equal(expected.Opacity, actual.Opacity);
+            }
             Assert.True(context.Session.Editor.Undo());
             Assert.Same(before, context.Session.DocumentSnapshot);
         }

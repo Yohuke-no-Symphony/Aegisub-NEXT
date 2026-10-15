@@ -48,7 +48,7 @@
           <controls:EffectScriptEditor Name="EffectScriptEditor" Grid.Row="2" Source="{Binding Source, Mode=TwoWay}" IsReadOnly="{Binding IsReadOnly}"
                IsEnabled="{Binding !IsBusy}" DiagnosticLine="{Binding DiagnosticLine}" DiagnosticColumn="{Binding DiagnosticColumn}" />
         </Grid>
-        <Grid Name="EffectPreviewPanel" Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto" RowSpacing="6">
+        <Grid Name="EffectPreviewPanel" Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto" RowSpacing="6">
           <controlsCommon:PropertyRowControl Name="EffectPreviewTextRow" IsStacked="True" SeparatorThickness="0"
                                             Header="{Loc Key=EffectLibrary.EffectPreviewText}">
             <TextBox Name="EffectPreviewTextInput" Text="{Binding PreviewText, Mode=TwoWay}" AcceptsReturn="True"
@@ -105,6 +105,9 @@
             <TextBlock Name="EffectPreviewPlaceholder" Text="{Binding PreviewPlaceholderText}" IsVisible="{Binding HasPreviewPlaceholder}"
                        Classes="field" TextWrapping="Wrap" />
           </Grid>
+          <ScrollViewer Grid.Row="7" MaxHeight="240" IsVisible="{Binding HasPreviewParameters}" HorizontalScrollBarVisibility="Disabled">
+            <controls:EffectScriptParameterEditor Name="PreviewParameterEditor" Drafts="{Binding PreviewParameters}" />
+          </ScrollViewer>
         </Grid>
       </Grid>
     </Grid>

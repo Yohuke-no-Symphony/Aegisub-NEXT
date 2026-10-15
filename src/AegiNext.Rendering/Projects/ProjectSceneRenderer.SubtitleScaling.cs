@@ -64,7 +64,12 @@ public sealed partial class ProjectSceneRenderer
             StrokeBlur = layer.StrokeBlur * scale,
             ShadowOffset = new(layer.ShadowOffset.X * scale, layer.ShadowOffset.Y * scale),
             ShadowBlur = layer.ShadowBlur * scale,
-            AnimationValues = projection.CanvasValues
+            AnimationValues = projection.CanvasValues,
+            EffectStyleOperations = layer.EffectStyleOperations.Select(operation => operation with
+            {
+                Offset = SubtitleStyleScaling.ScaleDimensions(operation.Target.Property, operation.Offset, scale),
+                NativeToCanvasScale = operation.NativeToCanvasScale * scale
+            }).ToImmutableArray()
         };
     }
 }

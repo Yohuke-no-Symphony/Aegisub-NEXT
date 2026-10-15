@@ -1,12 +1,13 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AegiNext.Desktop.Panels.EffectPresets" xmlns:common="using:AegiNext.Desktop.Controls.Common"
+             xmlns:controls="using:AegiNext.Desktop.Controls"
              x:Class="AegiNext.Desktop.Panels.EffectPresets.EffectPresetsPanelView" x:DataType="vm:EffectPresetsPanelViewModel"
              Classes="business-surface">
-  <Grid RowDefinitions="Auto,Auto,*" RowSpacing="6" Margin="6">
+  <Grid RowDefinitions="Auto,Auto,Auto,*" RowSpacing="6" Margin="6">
     <WrapPanel>
       <Button Name="ApplyPresetButton" Command="{Binding ApplyCommand}" ToolTip.Tip="{Binding ApplyHint}"
-              AutomationProperties.Name="{Loc Key=Workbench.ApplyPreset}">
-        <common:IconText Text="{Loc Key=Workbench.ApplyPreset}" IconKey="ApplyPreset" />
+              AutomationProperties.Name="{Loc Key=Workbench.AddEffectInstance}">
+        <common:IconText Text="{Loc Key=Workbench.AddEffectInstance}" IconKey="ApplyPreset" />
       </Button>
       <Button Name="ManageEffectScriptsButton" Command="{Binding ManageEffectScriptsCommand}"
               AutomationProperties.Name="{Loc Key=Workbench.ManageEffectScripts}">
@@ -14,7 +15,10 @@
       </Button>
     </WrapPanel>
     <TextBlock Grid.Row="1" Text="{Binding ApplyHint}" IsVisible="{Binding ShowApplyHint}" Classes="field" TextWrapping="Wrap" />
-    <ListBox Grid.Row="2" Name="EffectPresetList" ItemsSource="{Binding Items}"
+    <ScrollViewer Grid.Row="2" MaxHeight="260" IsVisible="{Binding HasParameters}" HorizontalScrollBarVisibility="Disabled">
+      <controls:EffectScriptParameterEditor Name="PresetParameterEditor" Drafts="{Binding Parameters}" />
+    </ScrollViewer>
+    <ListBox Grid.Row="3" Name="EffectPresetList" ItemsSource="{Binding Items}"
              SelectedItem="{Binding SelectedPreset, Mode=TwoWay}" Background="Transparent" BorderThickness="0"
              ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="{Loc Key=Layout.effectPresets}">
       <ListBox.ItemsPanel>

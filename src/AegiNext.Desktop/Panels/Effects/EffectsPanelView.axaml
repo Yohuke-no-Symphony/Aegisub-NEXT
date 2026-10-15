@@ -13,6 +13,29 @@
                  IsVisible="{Binding ValidationError, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}"
                  Foreground="Tomato" TextWrapping="Wrap" />
       <TextBlock Name="EditingTarget" Text="{Binding EditTargetLabel}" IsVisible="{Binding EditTargetLabel, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Classes="field" />
+      <controlsCommon:PropertyRowControl Header="{Loc Key=Workbench.EffectInstances}" IsVisible="{Binding HasEffectInstances}">
+        <ComboBox Name="EffectInstancesCombo" ItemsSource="{Binding EffectInstances}" SelectedItem="{Binding SelectedEffectInstance, Mode=TwoWay}" HorizontalAlignment="Stretch">
+          <ComboBox.ItemTemplate><DataTemplate x:DataType="core:EffectInstance"><TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" /></DataTemplate></ComboBox.ItemTemplate>
+        </ComboBox>
+      </controlsCommon:PropertyRowControl>
+      <StackPanel Name="EffectInstanceInspector" IsVisible="{Binding HasSelectedEffectInstance}" Spacing="6">
+        <Button Name="ReturnToParentEffectsButton" Content="{Loc Key=Workbench.EffectInstanceParent}" Command="{Binding ReturnToParentCommand}" HorizontalAlignment="Left" />
+        <CheckBox Name="EffectInstanceEnabledCheck" Content="{Loc Key=Workbench.EffectInstanceEnabled}" IsChecked="{Binding IsInstanceEnabled, Mode=OneWay}" />
+        <controlsCommon:PropertyRowControl Header="{Loc Key=Workbench.EffectInstanceStart}">
+          <controls:NumericDraftInput Name="InstanceStartInput" RawText="{Binding InstanceStart.RawText, Mode=TwoWay}" Value="{Binding InstanceStart.Value, Mode=TwoWay}" Minimum="{Binding InstanceTimeMinimum}" Maximum="{Binding InstanceTimeMaximum}" Increment="0.1" />
+        </controlsCommon:PropertyRowControl>
+        <controlsCommon:PropertyRowControl Header="{Loc Key=Workbench.EffectInstanceEnd}">
+          <controls:NumericDraftInput Name="InstanceEndInput" RawText="{Binding InstanceEnd.RawText, Mode=TwoWay}" Value="{Binding InstanceEnd.Value, Mode=TwoWay}" Minimum="{Binding InstanceTimeMinimum}" Maximum="{Binding InstanceTimeMaximum}" Increment="0.1" />
+        </controlsCommon:PropertyRowControl>
+        <controls:EffectScriptParameterEditor Name="InstanceParameterEditor" Drafts="{Binding InstanceParameters}" />
+        <WrapPanel>
+          <Button Name="ResetEffectParametersButton" Content="{Loc Key=Workbench.EffectInstanceResetParameters}" Command="{Binding ResetInstanceParametersCommand}" />
+          <Button Name="MoveEffectInstanceUpButton" Command="{Binding MoveInstanceUpCommand}" IsEnabled="{Binding CanMoveInstanceUp}" Classes="icon-button" ToolTip.Tip="{Loc Key=Workbench.EffectInstanceMoveUp}" AutomationProperties.Name="{Loc Key=Workbench.EffectInstanceMoveUp}"><controlsCommon:IconText IconKey="Up" /></Button>
+          <Button Name="MoveEffectInstanceDownButton" Command="{Binding MoveInstanceDownCommand}" IsEnabled="{Binding CanMoveInstanceDown}" Classes="icon-button" ToolTip.Tip="{Loc Key=Workbench.EffectInstanceMoveDown}" AutomationProperties.Name="{Loc Key=Workbench.EffectInstanceMoveDown}"><controlsCommon:IconText IconKey="Down" /></Button>
+          <Button Name="RemoveEffectInstanceButton" Content="{Loc Key=Workbench.EffectInstanceRemove}" Command="{Binding RemoveInstanceCommand}" />
+        </WrapPanel>
+      </StackPanel>
+      <StackPanel Name="ManualEffectProperties" IsVisible="{Binding !HasSelectedEffectInstance}" Spacing="6">
       <controlsCommon:PropertyRowControl Name="EffectScopeRow" Header="{Loc Key=Workbench.EffectScope}">
         <ComboBox Name="EffectScopeCombo" ItemsSource="{Binding Scopes}"
             SelectedItem="{Binding SelectedScope, Mode=TwoWay}" IsEnabled="{Binding CanEditTextScope}" HorizontalAlignment="Stretch" />
@@ -143,7 +166,7 @@
       </StackPanel>
         </StackPanel>
       </controlsCommon:PropertySection>
-
+      </StackPanel>
     </StackPanel>
   </ScrollViewer>
   </Grid>

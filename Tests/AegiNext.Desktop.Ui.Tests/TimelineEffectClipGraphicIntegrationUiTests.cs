@@ -1,6 +1,7 @@
 using AegiNext.Application;
 using AegiNext.Core.Editing;
 using AegiNext.Core.Projects;
+using AegiNext.Desktop.Layouts;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Panels.Timeline;
@@ -24,6 +25,7 @@ public sealed class TimelineEffectClipGraphicIntegrationUiTests
     {
         await using var context = new MainWindowTestContext();
         await context.Session.ApplicationContext.Initialization;
+        Assert.True(await context.Window.Layouts.ApplyPresetAsync(WorkspaceLayoutPresets.EFFECTS));
         var asset = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.IMAGE, "images/effect-block.png");
         var track = new ProjectTrack { Name = "Graphics" };
         var layer = GraphicLayer(kind, asset.Id) with { TrackId = track.Id };
@@ -39,6 +41,10 @@ public sealed class TimelineEffectClipGraphicIntegrationUiTests
         context.Window.MouseDown(point, MouseButton.Left);
         context.Window.MouseUp(point, MouseButton.Left);
         Flush(context.Window);
+        block = timeline.GetEffectClipRectangle(id)!.Value;
+        local = new(block.Left + 37, block.Top + 10);
+        point = timeline.TranslatePoint(local, context.Window)!.Value;
+        Assert.Same(timeline, context.Window.InputHitTest(point));
         context.Window.MouseMove(point);
 
         Assert.Equal(layer.Id, context.Session.SelectedLayerId);

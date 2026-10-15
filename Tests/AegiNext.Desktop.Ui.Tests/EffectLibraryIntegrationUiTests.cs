@@ -25,7 +25,7 @@ public sealed class EffectLibraryIntegrationUiTests
         UiTestActions.Click(settings, "AddEffectScriptButton");
         settings.ViewModel.Effects.Name = "Personal pairs";
         settings.ViewModel.Effects.Source = """
-            effect "personal-pairs" version 2
+            effect "personal-pairs" version 3
             short-clip compress
             scope pairs current
                 unit chunk(2)
@@ -43,7 +43,7 @@ public sealed class EffectLibraryIntegrationUiTests
         await context.Session.EffectScripts.Completion;
         Dispatcher.UIThread.RunJobs();
         var preset = Assert.Single(context.Session.EffectScriptLibrary.Snapshot.Presets);
-        Assert.Equal(2, EffectScriptParser.Parse(preset.Source).Version);
+        Assert.Equal(3, EffectScriptParser.Parse(preset.Source).Version);
         Assert.False(settings.ViewModel.Effects.IsDirty);
         Assert.Same(original, context.Session.DocumentSnapshot);
         settings.Close();
@@ -53,10 +53,13 @@ public sealed class EffectLibraryIntegrationUiTests
         await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
 
         var applied = context.Session.DocumentSnapshot;
-        Assert.Equal([(0, 2), (2, 2)], applied.Subtitles[0].AnimationRanges.Select(range => (range.Utf16Start, range.Utf16Length)));
-        Assert.All(applied.Subtitles[0].AnimationRanges, range => Assert.Equal("personal-pairs", range.GeneratedOrigin!.EffectId));
-        Assert.Equal(2, applied.Layers[0].Tracks.Length);
-        Assert.All(applied.Layers[0].Tracks, track => Assert.Equal(AnimationProperty.SCALE, track.Property));
+        Assert.Empty(applied.Subtitles[0].AnimationRanges);
+        Assert.Empty(applied.Layers[0].Tracks);
+        var instance = Assert.Single(applied.Layers[0].Effects);
+        var plan = EffectScriptCompiler.CompileInstance(EffectScriptParser.Parse(instance.Source), instance,
+            applied.Layers[0], applied.Subtitles[0]);
+        Assert.Equal([(0, 2), (2, 2)], plan.Ranges.Select(range => (range.Utf16Start, range.Utf16Length)));
+        Assert.All(plan.Channels, channel => Assert.Equal(AnimationProperty.SCALE, channel.Target.Property));
         Assert.True(context.Session.Editor.Undo());
         Assert.Same(original, context.Session.DocumentSnapshot);
         Assert.True(context.Session.Editor.Redo());
@@ -92,9 +95,10 @@ public sealed class EffectLibraryIntegrationUiTests
         UiTestActions.Click(context.Window, "ApplyPresetButton");
         await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
         var layer = context.Session.SelectedLayer!;
-        var track = Assert.Single(layer.Tracks);
-        Assert.Equal(AnimationProperty.OPACITY, track.Property);
-        Assert.Equal(layer.End - layer.Start + layer.AnimationOffset, track.Keyframes[^1].Time);
+        var instance = Assert.Single(layer.Effects);
+        Assert.Equal(source, instance.Source);
+        Assert.Equal(layer.End - layer.Start + layer.AnimationOffset, instance.End);
+        Assert.Empty(layer.Tracks);
         context.Session.Editor.Undo();
         Assert.Same(original, context.Session.DocumentSnapshot);
         await context.ViewModel.ExecuteCommandAsync(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY);
@@ -132,7 +136,7 @@ public sealed class EffectLibraryIntegrationUiTests
         UiTestActions.SelectEffectPreset(context.Window, preset.Id.ToString("D"));
         UiTestActions.Click(context.Window, "ApplyPresetButton");
         await Assert.IsAssignableFrom<CommunityToolkit.Mvvm.Input.IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
-        Assert.Single(context.Session.SelectedLayer!.Tracks);
+        Assert.Single(context.Session.SelectedLayer!.Effects);
         Assert.False(settings.ViewModel.Effects.IsDirty);
     }
 }

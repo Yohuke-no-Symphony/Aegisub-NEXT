@@ -94,7 +94,7 @@ public sealed class EffectScriptComposerTests
     [Fact]
     public void MultipleDeclaredIntervalsPreserveLeadingIntermediateAndTrailingEmptySegments()
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "separate-overlays" version 1
             short-clip compress
             segment before flex 1
@@ -182,7 +182,7 @@ public sealed class EffectScriptComposerTests
             Mask = mask,
             Tracks = [firstTrack, secondTrack, handleTrack]
         };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "one-node-overlay" version 1
             short-clip compress
             segment before flex 1
@@ -298,7 +298,7 @@ public sealed class EffectScriptComposerTests
                 .Select(index => new Keyframe(new(index, 2500), 0.8)).ToImmutableArray());
         var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 1, 1), End = new(4), Opacity = 0.8, Tracks = [original] };
         Validate(layer, layer.Tracks);
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "budget-overlay" version 1
             short-clip compress
             segment before flex 1
@@ -323,7 +323,7 @@ public sealed class EffectScriptComposerTests
     {
         var original = new AnimationTrack(AnimationProperty.OPACITY, [new(new(0), 0.5)]);
         var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 1, 1), End = new(2), Tracks = [original] };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "collapsed-stay" version 1
             short-clip compress
             segment enter fixed 1s
@@ -387,7 +387,7 @@ public sealed class EffectScriptComposerTests
 
     private static EffectScript ZeroLengthOpacityScript()
     {
-        return EffectScriptParser.Parse("""
+        return EffectScriptRegressionParser.Parse("""
             effect "isolated-point" version 1
             short-clip compress
             segment before fixed 1s

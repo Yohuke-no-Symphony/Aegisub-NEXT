@@ -297,10 +297,11 @@ public sealed partial class SubtitleTimelineControl
         }
         var active = SelectedEffectClipId == block.Id;
         using var bounds = context.PushClip(rectangle.Intersect(BodyRectangle()));
+        using var opacity = context.PushOpacity(block.IsEnabled ? 1 : 0.45);
         context.DrawRectangle(active ? drawingPalette.SelectedTrack : drawingPalette.Track,
             active ? new Pen(drawingPalette.ActiveClipBorder, 1.5) : drawingPalette.Grid,
             rectangle.Deflate(new Thickness(0, 1)), 3, 3);
-        if (CurveRectangle(layer.Id, block.Id.Target) is { } curve)
+        if (!block.Id.InstanceId.HasValue && CurveRectangle(layer.Id, block.Id.Target) is { } curve)
         {
             DrawEffects(context, source, layer, DisplayedTrack(layer, block.Id.Target, tracks), curve, block.IsCollapsed);
         }

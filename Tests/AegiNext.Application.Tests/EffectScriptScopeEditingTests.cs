@@ -145,7 +145,7 @@ public sealed class EffectScriptScopeEditingTests
         {
             initial.UpdateSubtitle(second, line => line with { Text = "CD" });
             initial.UpdateSubtitle(second, line => line with { InlineSpans = [new(1, 1, new() { FontSize = 50 })] });
-            script = EffectScriptParser.Parse(Source("chunk(2)").Replace("scale", "font-size", StringComparison.Ordinal)
+            script = EffectScriptParser.ParseLegacy(Source("chunk(2)").Replace("scale", "font-size", StringComparison.Ordinal)
                 .Replace("factor(1.25, 1.25)", "factor(1.25)", StringComparison.Ordinal));
         }
         var original = initial.Snapshot;
@@ -196,7 +196,7 @@ public sealed class EffectScriptScopeEditingTests
         Assert.False(editor.CanUndo);
     }
 
-    private static EffectScript Script(string unit = "grapheme", string target = "current") => EffectScriptParser.Parse(Source(unit, target));
+    private static EffectScript Script(string unit = "grapheme", string target = "current") => EffectScriptParser.ParseLegacy(Source(unit, target));
 
     private static string Source(string unit = "grapheme", string target = "current") => $"""
         effect "scope-edit" version 2

@@ -75,7 +75,7 @@ public sealed class EffectScriptCompositionTests
         var editor = CreateEditorWithChangingOpacity(KeyframeInterpolation.EASE_IN);
         var id = Assert.Single(editor.Snapshot.Layers).Id;
         Assert.NotEqual(1, SceneEvaluator.EvaluateScalarTrack(OpacityTrack(editor.Snapshot), new(3, 2)));
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "explicit-hold-fade-out" version 1
             short-clip compress
             segment stay flex 1
@@ -103,7 +103,7 @@ public sealed class EffectScriptCompositionTests
         var editor = new ProjectEditor();
         var id = editor.AddSubtitle(new(0), new(4), "Per-property composition");
         editor.ApplyEffectScript(id, BuiltinEffectScripts.Get("fade-in").Script);
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "scale-and-fade-out" version 1
             short-clip compress
             segment stay flex 1

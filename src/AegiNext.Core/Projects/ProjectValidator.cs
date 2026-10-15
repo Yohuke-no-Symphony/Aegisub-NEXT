@@ -127,10 +127,12 @@ public static partial class ProjectValidator
 
         var ids = new HashSet<Guid>();
         var referenced = new HashSet<Guid>();
+        var effectIds = new HashSet<Guid>();
         foreach (var layer in document.Layers)
         {
             Layer(layer, assets, subtitles, ids, referenced, enforceAnimationRange);
             Require(trackIds.Contains(layer.TrackId), "The clip references a missing track.");
+            Effects(layer, layer.SubtitleId is { } subtitleId ? subtitles[subtitleId] : null, effectIds);
         }
 
         foreach (var track in document.Layers.GroupBy(layer => layer.TrackId))

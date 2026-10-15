@@ -5,9 +5,9 @@ using AegiNext.Desktop.I18n;
 namespace AegiNext.Desktop.Controls;
 
 internal sealed record TimelineEffectClip(TimelineEffectClipId Id, bool IsCollapsed, double Top, double Height,
-    string? RangeLabel = null, int ContourNumber = 0, int NodeNumber = 0)
+    string? RangeLabel = null, int ContourNumber = 0, int NodeNumber = 0, string? InstanceName = null, bool IsEnabled = true)
 {
-    internal string Title => (Id.Target.NodeId.HasValue
+    internal string Title => Id.InstanceId.HasValue ? InstanceName ?? string.Empty : (Id.Target.NodeId.HasValue
         ? Localization.Format("Workbench.MaskNodeAnimationRow", AnimationPropertyLocalization.Get(Id.Target.Property),
             ContourNumber, NodeNumber)
         : AnimationPropertyLocalization.Get(Id.Target.Property)) +

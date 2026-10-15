@@ -1,22 +1,24 @@
-effect "color-cycle" version 1
+effect "color-cycle" version 3
 short-clip compress
 
 # rgba uses straight linear values; the UI's HEX input represents sRGB.
-segment enter fixed 400ms
-    at 0 fill base ease-out
-    at 1 fill rgba(1, 0.08, 0.02, 1) linear
-    at 0 stroke base ease-out
-    at 1 stroke rgba(0.02, 0.02, 0.08, 1) linear
-end
-segment stay flex 1
-    at 0 fill rgba(1, 0.08, 0.02, 1) hold
-    at 1 fill rgba(1, 0.08, 0.02, 1) hold
-    at 0 stroke rgba(0.02, 0.02, 0.08, 1) hold
-    at 1 stroke rgba(0.02, 0.02, 0.08, 1) hold
-end
-segment exit fixed 400ms
-    at 0 fill rgba(1, 0.08, 0.02, 1) ease-in
-    at 1 fill base linear
-    at 0 stroke rgba(0.02, 0.02, 0.08, 1) ease-in
-    at 1 stroke base linear
+scope whole current
+    segment enter fixed 400ms
+        at 0 fill base ease-out
+        at 1 fill rgba(1, 0.08, 0.02, 1) linear
+        at 0 stroke base ease-out
+        at 1 stroke rgba(0.02, 0.02, 0.08, 1) linear
+    end
+    segment stay flex 1
+        at 0 fill rgba(1, 0.08, 0.02, 1) hold
+        at 1 fill rgba(1, 0.08, 0.02, 1) hold
+        at 0 stroke rgba(0.02, 0.02, 0.08, 1) hold
+        at 1 stroke rgba(0.02, 0.02, 0.08, 1) hold
+    end
+    segment exit fixed 400ms
+        at 0 fill rgba(1, 0.08, 0.02, 1) ease-in
+        at 1 fill base linear
+        at 0 stroke rgba(0.02, 0.02, 0.08, 1) ease-in
+        at 1 stroke base linear
+    end
 end

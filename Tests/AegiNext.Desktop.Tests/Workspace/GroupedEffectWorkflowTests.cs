@@ -26,14 +26,15 @@ public sealed class GroupedEffectWorkflowTests
         for (var index = 0; index < 2; index++)
         {
             var line = applied.Subtitles[index];
-            Assert.Equal(2, line.AnimationRanges.Length);
-            Assert.All(line.AnimationRanges, range => Assert.Equal("grouped-workflow", range.GeneratedOrigin!.EffectId));
-            Assert.Equal(2, applied.Layers[index].Tracks.Length);
-            Assert.All(applied.Layers[index].Tracks, track => Assert.Contains(line.AnimationRanges, range => range.Id == track.Target.TextRangeId));
+            Assert.Empty(line.AnimationRanges);
+            Assert.Empty(applied.Layers[index].Tracks);
+            var instance = Assert.Single(applied.Layers[index].Effects);
+            var plan = EffectScriptCompiler.CompileInstance(EffectScriptParser.Parse(instance.Source), instance, applied.Layers[index], line);
+            Assert.Equal(2, plan.Ranges.Length);
         }
         Assert.Same(document.Subtitles[2], applied.Subtitles[2]);
         Assert.Same(document.Layers[2], applied.Layers[2]);
-        Assert.Equal("Apply effect script", context.Editor.UndoLabel);
+        Assert.Equal("Add effect instances", context.Editor.UndoLabel);
         Assert.True(context.Editor.Undo());
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
@@ -63,7 +64,7 @@ public sealed class GroupedEffectWorkflowTests
     private static string Source(string target, string unit)
     {
         return $$"""
-            effect "grouped-workflow" version 2
+            effect "grouped-workflow" version 3
             short-clip compress
             scope letters {{target}}
                 unit {{unit}}

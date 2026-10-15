@@ -48,7 +48,11 @@ public sealed class EffectScriptPreviewRendererTests
         var request = Request(input);
         var scene = EffectPresetPreviewScene.Create(input.Options, input.Source, preset, CancellationToken.None);
         var subtitle = Assert.Single(scene.Document.Subtitles);
-        Assert.Equal(4, subtitle.AnimationRanges.Length);
+        Assert.Empty(subtitle.AnimationRanges);
+        var instance = Assert.Single(scene.Document.Layers[0].Effects);
+        var plan = EffectScriptCompiler.CompileInstance(EffectScriptParser.Parse(instance.Source), instance,
+            scene.Document.Layers[0], subtitle);
+        Assert.Equal(4, plan.Ranges.Length);
         var asset = Assert.Single(scene.Document.Assets);
         Assert.Equal(asset.Id, subtitle.Style.FontAssetId);
         using var stream = scene.Assets.Open(asset);

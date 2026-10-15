@@ -3,6 +3,7 @@ using AegiNext.Core.Effects;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Rendering.Projects;
+using System.Collections.Immutable;
 
 namespace AegiNext.Desktop.Rendering;
 
@@ -15,7 +16,8 @@ internal sealed record EffectPresetPreviewScene(ProjectDocument Document, IProje
     }
 
     internal static EffectPresetPreviewScene Create(EffectPresetPreviewOptions options, string source,
-        SubtitleStylePreset? stylePreset, CancellationToken cancellationToken)
+        SubtitleStylePreset? stylePreset, CancellationToken cancellationToken,
+        ImmutableDictionary<string, EffectScriptParameterValue>? parameters = null)
     {
         options.Validate();
         cancellationToken.ThrowIfCancellationRequested();
@@ -36,8 +38,8 @@ internal sealed record EffectPresetPreviewScene(ProjectDocument Document, IProje
             Subtitles = [subtitle],
             Layers = [layer]
         };
-        var prepared = ProjectEditingOperations.ApplyEffectScript(document, [layer.Id],
-            script, cancellationToken);
+        var prepared = ProjectEditingOperations.AddEffectInstances(document, [layer.Id],
+            script.Id, source, parameters, cancellationToken: cancellationToken);
         return new(prepared, seed.Assets);
     }
 

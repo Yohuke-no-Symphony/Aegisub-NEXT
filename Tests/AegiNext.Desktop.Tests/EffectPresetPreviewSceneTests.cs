@@ -32,7 +32,8 @@ public sealed class EffectPresetPreviewSceneTests
         Assert.Equal(subtitle.End, layer.End);
         Assert.Null(layer.MotionPath);
         Assert.Null(layer.Mask);
-        Assert.NotEmpty(layer.Tracks);
+        Assert.Empty(layer.Tracks);
+        Assert.Single(layer.Effects);
         Assert.Equal(0xFF404040u, options.BackgroundBgra);
         Assert.Equal(24, options.FramesPerSecond);
         Assert.Equal(32L * 1024 * 1024, options.StaticCacheBytes);
@@ -80,10 +81,14 @@ public sealed class EffectPresetPreviewSceneTests
         var scene = EffectPresetPreviewScene.Create(new(), BuiltinEffectScripts.Get(id).Source, CancellationToken.None);
         ProjectValidator.Validate(scene.Document);
 
-        Assert.NotEmpty(scene.Document.Layers[0].Tracks);
+        Assert.Empty(scene.Document.Layers[0].Tracks);
+        var instance = Assert.Single(scene.Document.Layers[0].Effects);
         if (id.StartsWith("letter-", StringComparison.Ordinal))
         {
-            Assert.Equal(10, scene.Document.Subtitles[0].AnimationRanges.Length);
+            var plan = EffectScriptCompiler.CompileInstance(EffectScriptParser.Parse(instance.Source), instance,
+                scene.Document.Layers[0], scene.Document.Subtitles[0]);
+            Assert.Equal(10, plan.Ranges.Length);
+            Assert.Empty(scene.Document.Subtitles[0].AnimationRanges);
         }
     }
 
@@ -109,7 +114,7 @@ public sealed class EffectPresetPreviewSceneTests
             EffectPresetPreviewScene.Create(new(), EffectPresetPreviewTestSources.PATH, CancellationToken.None));
 
         Assert.Equal(EffectPresetPreviewRequirement.MOTION_PATH, error.Requirement);
-        Assert.Equal(4, error.Line);
+        Assert.Equal(5, error.Line);
         Assert.True(error.Column > 0);
     }
 

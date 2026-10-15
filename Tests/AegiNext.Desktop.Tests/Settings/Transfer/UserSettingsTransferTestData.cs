@@ -77,7 +77,7 @@ internal static class UserSettingsTransferTestData
             }),
             ["effect-scripts.json"] = EffectScriptPresetStore.Serialize(new()
             {
-                Presets = [new(Guid.NewGuid(), "Legacy effect", "effect \"legacy-transfer\" version 1\nshort-clip compress\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\n")]
+                Presets = [new(Guid.NewGuid(), "Legacy effect", "effect \"legacy-transfer\" version 3\nshort-clip compress\nscope clip current\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\nend\n")]
             }),
             ["export-presets.aegiexports"] = VideoExportPresetStore.Serialize(bundle.ExportPresets),
             ["layouts.json"] = WorkspaceLayoutStore.Serialize(bundle.Layouts)

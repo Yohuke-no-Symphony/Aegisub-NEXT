@@ -1,11 +1,16 @@
 # 倍率作用于应用前的完整缩放向量，保留已有的非等比缩放。
-effect "pop-in" version 1
+effect "pop-in" version 3
 short-clip compress
 
-segment enter fixed 250ms
-    at 0 scale factor(0.2, 0.2) ease-out
-    at 1 scale base
-end
+var duration = 250ms label "Duration" suggest ["Fast":150ms, "Normal":250ms, "Slow":500ms]
+var scale = vec2(0.2, 0.2) label "Scale" suggest ["Small":vec2(0.2, 0.2), "Half":vec2(0.5, 0.5)]
 
-segment stay flex 1
+scope whole current
+    segment enter fixed duration
+        at 0 scale factor(scale) ease-out
+        at 1 scale base
+    end
+
+    segment stay flex 1
+    end
 end

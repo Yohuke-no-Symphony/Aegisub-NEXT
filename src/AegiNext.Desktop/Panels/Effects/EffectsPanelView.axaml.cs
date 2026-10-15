@@ -3,6 +3,7 @@ using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Workspace;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -17,6 +18,7 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     private readonly WorkbenchSession session;
     private readonly EffectsPanelViewModel viewModel;
     private readonly ComboBox blend;
+    private readonly ComboBox effectInstances;
     private bool suppressFocusCommit;
     private int focusCommitRevision;
     private NumericDragEditSnapshot? numericDragTarget;
@@ -27,6 +29,17 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         this.viewModel = viewModel;
         AvaloniaXamlLoader.Load(this);
         DataContext = viewModel;
+        effectInstances = this.FindControl<ComboBox>("EffectInstancesCombo")!;
+        viewModel.InstanceChoicesRefreshing += OnInstanceChoicesRefreshing;
+        viewModel.InstanceChoicesRefreshed += OnInstanceChoicesRefreshed;
+        this.FindControl<EffectScriptParameterEditor>("InstanceParameterEditor")!.CommitRequested += (_, _) => viewModel.CommitDrafts();
+        this.FindControl<CheckBox>("EffectInstanceEnabledCheck")!.IsCheckedChanged += async (sender, _) =>
+        {
+            if (!session.IsUpdating && sender is CheckBox input)
+            {
+                await viewModel.CommitInstanceEnabledAsync(input.IsChecked == true);
+            }
+        };
         blend = this.FindControl<ComboBox>("BlendCombo")!;
         blend.SelectionChanged += (_, _) =>
         {
@@ -164,6 +177,10 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     }
     public void FocusInvalidField(string? fieldKey)
     {
+        if (viewModel.HasSelectedEffectInstance && this.FindControl<EffectScriptParameterEditor>("InstanceParameterEditor")!.FocusInvalidField())
+        {
+            return;
+        }
         if (animationOptions.FocusInvalidField(fieldKey))
         {
             return;
@@ -214,7 +231,8 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
     {
         suppressFocusCommit = false;
         if (e.Key == Key.Escape && e.Source is Control source &&
-            !source.GetSelfAndVisualAncestors().OfType<ColorDraftInput>().Any())
+            !source.GetSelfAndVisualAncestors().OfType<ColorDraftInput>().Any() &&
+            !source.GetSelfAndVisualAncestors().OfType<EffectScriptParameterEditor>().Any())
         {
             var propertyRow = source.GetSelfAndVisualAncestors().OfType<EffectPropertyRowView>().FirstOrDefault();
             if (propertyRow?.RestoreInput(source) == true)
@@ -300,6 +318,14 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
         blend.EndInit();
     }
 
+    private void OnInstanceChoicesRefreshing(object? sender, EventArgs e) => effectInstances.BeginInit();
+
+    private void OnInstanceChoicesRefreshed(object? sender, EventArgs e)
+    {
+        effectInstances.EndInit();
+        effectInstances.SetCurrentValue(SelectingItemsControl.SelectedItemProperty, viewModel.SelectedEffectInstance);
+    }
+
     private static void BeginChoiceRefresh(ComboBox choice)
     {
         var selectedIndex = choice.SelectedIndex;
@@ -315,6 +341,8 @@ internal sealed partial class EffectsPanelView : UserControl, IWorkbenchPanelVie
             animationOptions.Dispose();
             viewModel.ChoicesRefreshing -= OnChoicesRefreshing;
             viewModel.ChoicesRefreshed -= OnChoicesRefreshed;
+            viewModel.InstanceChoicesRefreshing -= OnInstanceChoicesRefreshing;
+            viewModel.InstanceChoicesRefreshed -= OnInstanceChoicesRefreshed;
             viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             session.ViewModel.GesturesCancelled -= OnGesturesCancelled;
             session.NumericGestureCancellationRequested -= OnNumericGestureCancellationRequested;

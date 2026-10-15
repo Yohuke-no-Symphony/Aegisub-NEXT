@@ -161,7 +161,8 @@ public sealed class EffectPresetsGridUiTests
         Assert.NotNull(host.ViewModel.ApplyCommand.ExecutionTask);
         await host.ViewModel.ApplyCommand.ExecutionTask!;
         Assert.Null(host.Session.LastError);
-        Assert.Single(host.Session.SelectedLayer!.Tracks);
+        Assert.Single(host.Session.SelectedLayer!.Effects);
+        Assert.Empty(host.Session.SelectedLayer.Tracks);
         Assert.True(host.Session.Editor.Undo());
         Assert.Same(source, host.Session.DocumentSnapshot);
         Assert.False(host.Session.Editor.CanUndo);

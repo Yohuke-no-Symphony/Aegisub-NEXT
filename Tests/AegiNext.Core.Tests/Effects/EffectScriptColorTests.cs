@@ -35,7 +35,7 @@ public sealed class EffectScriptColorTests
     [InlineData(4, 1)]
     public void RgbaScriptsKeepCompleteLinearColorsAtFixedFlexBoundariesForShortAndLongClips(int numerator, int denominator)
     {
-        var script = EffectScriptParser.Parse(COLOR_SCRIPT);
+        var script = EffectScriptRegressionParser.Parse(COLOR_SCRIPT);
         var duration = new MediaTime(numerator, denominator);
         var target = new ProjectLayer { End = duration, SubtitleId = Guid.NewGuid(), Fill = new(99, 99, 99), Stroke = new(88, 88, 88) };
         var style = new SubtitleStyle { Fill = new(2, 3, 5, 0.8), Stroke = new(0.25, 0.5, 0.75, 0.6) };
@@ -69,7 +69,7 @@ public sealed class EffectScriptColorTests
     public void WrongDimensionsUnsupportedColorExpressionsAndOutOfRangeComponentsHaveSourceDiagnostics(string expression)
     {
         var source = $"effect \"invalid-color\" version 1\nshort-clip compress\nsegment all flex 1\n    at 0 {expression}\n    at 1 {expression}\nend";
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source));
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source));
         Assert.Equal(4, error.Line);
         Assert.True(error.Column > 0);
     }
@@ -77,7 +77,7 @@ public sealed class EffectScriptColorTests
     [Fact]
     public void ProgrammaticColorOffsetAndFactorAreRejectedBeforeCompilation()
     {
-        var parsed = EffectScriptParser.Parse(COLOR_SCRIPT);
+        var parsed = EffectScriptRegressionParser.Parse(COLOR_SCRIPT);
         foreach (var kind in new[] { EffectScriptValueKind.OFFSET, EffectScriptValueKind.FACTOR })
         {
             var segment = parsed.Segments[0];

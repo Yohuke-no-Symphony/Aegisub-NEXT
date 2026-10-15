@@ -25,7 +25,7 @@ public sealed record TimelineViewState
         var effectIdentities = new HashSet<TimelineEffectClipId>();
         foreach (var clip in ExpandedAnimationClips)
         {
-            if (clip is null || clip.LayerId == Guid.Empty || !effectIdentities.Add(clip))
+            if (clip is null || clip.LayerId == Guid.Empty || clip.InstanceId == Guid.Empty || !effectIdentities.Add(clip))
             {
                 throw new InvalidDataException("A timeline expanded effect-block identity is invalid or duplicated.");
             }

@@ -33,6 +33,7 @@ public sealed partial class EffectScriptLibraryView : UserControl, IDisposable, 
         previewStylePicker = this.FindControl<ComboBox>("EffectPreviewStyleInput")!;
         postPreviewDrain = postDrain ?? (action => Dispatcher.UIThread.Post(action));
         preview = new(QueuePreviewUpdate, createRenderer, timeProvider, debounce);
+        this.FindControl<EffectScriptParameterEditor>("PreviewParameterEditor")!.CommitRequested += (_, _) => model?.CommitPreviewParameters();
         InitializePreviewEvents();
         DataContextChanged += OnDataContextChanged;
     }

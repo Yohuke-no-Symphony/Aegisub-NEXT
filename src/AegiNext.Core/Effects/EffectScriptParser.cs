@@ -24,6 +24,19 @@ public static class EffectScriptParser
     /// <summary>从 UTF-8 文本内容读取脚本；不读取文件、程序集或运行环境。</summary>
     public static EffectScript Parse(string source)
     {
+        try
+        {
+            return EffectScriptV3Parser.Parse(source);
+        }
+        catch (Exception error) when (error is OverflowException or DivideByZeroException or InvalidOperationException or System.Text.Json.JsonException or InvalidDataException)
+        {
+            throw new EffectScriptException("脚本解析失败：" + error.Message, innerException: error);
+        }
+    }
+
+    /// <summary>解析历史测试及离线旧轨道工具使用的具体脚本；实例入口只接受版本 3。</summary>
+    public static EffectScript ParseLegacy(string source)
+    {
         ArgumentNullException.ThrowIfNull(source);
         if (source.Length > MAXIMUM_SOURCE_CHARACTERS)
         {

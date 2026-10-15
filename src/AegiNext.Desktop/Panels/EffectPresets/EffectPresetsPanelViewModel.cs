@@ -4,6 +4,7 @@ using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Workspace;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using AegiNext.Desktop.Editing;
 
 namespace AegiNext.Desktop.Panels.EffectPresets;
 
@@ -34,20 +35,27 @@ internal sealed class EffectPresetsPanelViewModel : ObservableObject
         {
             if (SetProperty(ref selectedPreset, value))
             {
+                OnPropertyChanged(nameof(Parameters));
+                OnPropertyChanged(nameof(HasParameters));
                 RefreshAvailability();
             }
         }
     }
+    public EffectScriptParameterDraftSet? Parameters => SelectedPreset?.Parameters;
+    public bool HasParameters => Parameters?.Rows.Count > 0;
     public AsyncRelayCommand ApplyCommand { get; }
     public AsyncRelayCommand ManageEffectScriptsCommand { get; }
-    public string ApplyHint => Localization.Get(session.EffectScripts.Availability(SelectedPreset?.Id) switch
+    public string ApplyHint => session.EffectScripts.Availability(SelectedPreset?.Id) == EffectPresetApplyAvailability.INVALID_TARGET
+        ? session.EffectScripts.AvailabilityError ?? string.Empty : Localization.Get(session.EffectScripts.Availability(SelectedPreset?.Id) switch
     {
         EffectPresetApplyAvailability.NO_SELECTION => "Workbench.EffectPresetNoSelection",
         EffectPresetApplyAvailability.REQUIRES_SUBTITLE => "Workbench.EffectPresetRequiresSubtitle",
-        _ => "Workbench.ApplyPreset"
+        EffectPresetApplyAvailability.INVALID_PARAMETERS => "Workbench.EffectParameterInvalid",
+        _ => "Workbench.AddEffectInstance"
     });
     public bool ShowApplyHint => session.EffectScripts.Availability(SelectedPreset?.Id) is
-        EffectPresetApplyAvailability.NO_SELECTION or EffectPresetApplyAvailability.REQUIRES_SUBTITLE;
+        EffectPresetApplyAvailability.NO_SELECTION or EffectPresetApplyAvailability.REQUIRES_SUBTITLE or
+            EffectPresetApplyAvailability.INVALID_PARAMETERS or EffectPresetApplyAvailability.INVALID_TARGET;
 
     internal void RefreshCatalog(IReadOnlyList<EffectScriptChoice> choices)
     {

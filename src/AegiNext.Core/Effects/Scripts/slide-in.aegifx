@@ -1,11 +1,16 @@
 # position 是相对自然字幕位置的局部像素平移，不修改 Anchor、Pivot 或字号。
-effect "slide-in" version 1
+effect "slide-in" version 3
 short-clip compress
 
-segment enter fixed 250ms
-    at 0 position offset(-250, 0) ease-out
-    at 1 position base
-end
+var duration = 250ms label "Duration" suggest ["Fast":150ms, "Normal":250ms, "Slow":500ms]
+var distance = vec2(-250, 0) label "Offset"
 
-segment stay flex 1
+scope whole current
+    segment enter fixed duration
+        at 0 position offset(distance) ease-out
+        at 1 position base
+    end
+
+    segment stay flex 1
+    end
 end

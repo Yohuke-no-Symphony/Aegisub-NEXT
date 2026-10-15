@@ -19,6 +19,7 @@ internal sealed partial class TimelinePanelViewModel
     public bool CanDeleteTimelineSelection => suppressParentClipDelete || session.CanCopyTimelineClips;
     public bool IsContextEffectClipCollapsed => effectClipContext is { } id && !TimelineViewState.ExpandedAnimationClips.Contains(id);
     public bool HasContextKeyframe => contextKeyframe.HasValue;
+    public bool IsContextEffectInstance => effectClipContext?.InstanceId.HasValue == true;
     private bool CanDeleteContextKeyframe => IsEffectClipContextCurrent && contextKeyframe is { } key &&
         Document.Layers.Single(layer => layer.Id == key.LayerId).Tracks.Any(track => track.Target == key.Target &&
             (key.OperationId is { } operationId ? track.Transforms.Any(operation => operation.Id == operationId) :
@@ -94,7 +95,8 @@ internal sealed partial class TimelinePanelViewModel
         }
 
         if (selectedEffectClipId is not { } id || !ReferenceEquals(effectSelectionDocument, Document) ||
-            session.SelectedLayerId != id.LayerId || session.SceneEditing.Target != id.Target)
+            session.SelectedLayerId != id.LayerId || (id.InstanceId is { } instanceId
+                ? session.ViewModel.Effects.SelectedEffectInstance?.Id != instanceId : session.SceneEditing.Target != id.Target))
         {
             return Task.CompletedTask;
         }
@@ -109,6 +111,21 @@ internal sealed partial class TimelinePanelViewModel
         return session.ClearTimelineEffectClipAsync(id, Document);
     }
 
+    /// <summary>以冻结身份和工程版本提交一个特效块时间手势。</summary>
+    public Task CommitEffectInstanceTimingAsync(TimelineEffectInstanceTimingEventArgs value) => session.CommitEffectInstanceTimingAsync(value);
+
+    private void RebindEffectSelection(ProjectDocument value)
+    {
+        if (selectedEffectClipId is { InstanceId: not null } id && WorkbenchSession.HasTimelineEffectClip(value, id))
+        {
+            effectSelectionDocument = value;
+        }
+        else
+        {
+            InvalidateEffectSelection();
+        }
+    }
+
     internal void ResetEffectSelection()
     {
         suppressParentClipDelete = false;
@@ -116,6 +133,14 @@ internal sealed partial class TimelinePanelViewModel
         effectClipContext = null;
         effectClipContextDocument = null;
         contextKeyframe = null;
+    }
+
+    internal void ClearInstanceSelection()
+    {
+        if (selectedEffectClipId?.InstanceId.HasValue == true)
+        {
+            InvalidateEffectSelection();
+        }
     }
 
     private void InvalidateEffectSelection()
@@ -141,7 +166,7 @@ internal sealed partial class TimelinePanelViewModel
 
     private void ToggleContextEffectClipCollapse()
     {
-        if (IsEffectClipContextCurrent && effectClipContext is { } id)
+        if (IsEffectClipContextCurrent && effectClipContext is { InstanceId: null } id)
         {
             session.SetTimelineEffectClipCollapsed(id, !IsContextEffectClipCollapsed);
         }

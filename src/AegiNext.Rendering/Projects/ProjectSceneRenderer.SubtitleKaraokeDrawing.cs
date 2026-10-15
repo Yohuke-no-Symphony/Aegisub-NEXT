@@ -99,7 +99,7 @@ public sealed partial class ProjectSceneRenderer
             var pieces = new List<SubtitleVisualFragment>();
             foreach (var glyph in run.Graphemes.AsSpan(firstMember, glyphCursor - firstMember))
             {
-                var ordinary = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, run.Style, glyph.Utf16Start, SubtitleAnimationState.NORMAL);
+                var ordinary = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, run.Style, glyph.Utf16Start, SubtitleAnimationState.NORMAL, includeTypography: false);
                 var matrix = RangeMatrix(layer, matrices, glyph.Utf16Start);
                 timing.TryGetValue(glyph.Utf16Start, out var clock);
                 var segment = clock.Span?.Segment;
@@ -115,8 +115,8 @@ public sealed partial class ProjectSceneRenderer
                 }
                 var inactive = KaraokeVisualStyleResolver.ResolveInactive(ordinary, segment, range?.InactiveStyle);
                 var active = KaraokeVisualStyleResolver.ResolveActive(ordinary, subtitle.KaraokeStyle, segment, range?.ActiveStyle);
-                inactive = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, inactive, glyph.Utf16Start, SubtitleAnimationState.INACTIVE);
-                active = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, active, glyph.Utf16Start, SubtitleAnimationState.ACTIVE);
+                inactive = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, inactive, glyph.Utf16Start, SubtitleAnimationState.INACTIVE, includeTypography: false);
+                active = SubtitleAnimationEvaluation.ApplyStyleAnimations(layer, active, glyph.Utf16Start, SubtitleAnimationState.ACTIVE, includeTypography: false);
                 if (segment?.HighlightKind == KaraokeHighlightKind.OUTLINE_STEP)
                 {
                     inactive = inactive with { StrokeWidth = 0 };

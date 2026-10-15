@@ -84,7 +84,7 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
         {
             if (SetProperty(ref document, value))
             {
-                InvalidateEffectSelection();
+                RebindEffectSelection(value);
                 effectClipContext = null;
                 effectClipContextDocument = null;
                 contextKeyframe = null;

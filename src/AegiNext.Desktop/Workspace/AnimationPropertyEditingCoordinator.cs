@@ -101,16 +101,13 @@ internal sealed class AnimationPropertyEditingCoordinator(WorkbenchSession sessi
         {
             foreach (var row in rows.Values.Where(row => row.HasDraft))
             {
-                try
-                {
-                    var candidate = row.Prepare(document);
-                    ProjectValidator.Validate(candidate);
-                    document = candidate;
-                }
-                catch (Exception error) when (error is InvalidOperationException or InvalidDataException or ArgumentException)
-                {
-                }
+                document = row.Prepare(document);
             }
+            ProjectValidator.Validate(document);
+        }
+        catch (Exception error) when (error is InvalidOperationException or InvalidDataException or ArgumentException)
+        {
+            document = ReferenceEquals(overlaySource, source) ? overlayResult ?? source : source;
         }
         finally
         {

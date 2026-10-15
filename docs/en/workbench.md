@@ -4,7 +4,7 @@
 
 ## Panels and layouts
 
-The workbench has eleven panels: Video preview, Timeline, Subtitles, Styles, Effects, Subtitle details, Masks, Encoding, Log, Project assets, and Drawing. Drag their headings to dock, split, tab, or float. **View** reopens hidden panels, including **Project assets** and **Drawing tools**; **Layout** selects Standard, Timing, Effects, Encoding, or a personal preset. The current layout saves automatically; named presets update only when explicitly saved.
+The workbench has twelve panels: Video preview, Timeline, Subtitles, Styles, Effects, Effect presets, Subtitle details, Masks, Encoding, Log, Project assets, and Drawing. Drag their headings to dock, split, tab, or float. **View** reopens hidden panels, including **Project assets** and **Drawing tools**; **Layout** selects Standard, Timing, Effects, Encoding, or a personal preset. The current layout saves automatically; named presets update only when explicitly saved.
 
 ## Tracks and navigation
 
@@ -13,7 +13,7 @@ The workbench has eleven panels: Video preview, Timeline, Subtitles, Styles, Eff
 - **Snap** aligns with other clip boundaries; **Step** aligns with ruler divisions. Alt temporarily bypasses both. Without Step, dragging uses millisecond precision.
 - Wheel scrolls tracks, Shift + wheel pans, and Cmd/Ctrl + wheel zooms around the pointer. Touchpads support pinch and horizontal scrolling. The minimap changes the viewport without seeking playback.
 - With Timeline focused, **Cmd/Ctrl + C/V** copies clips and pastes at the pointer. Multi-track copies retain their spacing relative to the track selected when copied; missing destination tracks or collisions reject the whole paste.
-- Expanding a track shows each clip's effect blocks. Expand a block to edit its keyframes and curves; blocks start collapsed. Track collapse and individual block expansion save with the project, including autosave, without entering content Undo. The left toolbar expands or collapses all tracks while retaining individual block states.
+- Expanding a track shows each clip's manual animation blocks and attached effect instances. Manual blocks expand to show keyframes and curves; instance blocks select their parameters and support independent movement and trimming. Track collapse and individual block expansion save with the project, including autosave, without entering content Undo. The left toolbar expands or collapses all tracks while retaining individual block states.
 - The **S** button in a subtitle track heading shows only that track in the timeline. Toggle it off, or select another track in the subtitle list, to show all tracks again.
 
 Subtitle list selection centers the primary clip without changing zoom. Enter commits the current text and advances; at the last row, it can create the next cue from that row's end to the playhead. Shift + Enter inserts a newline. Invalid inputs and IME confirmation retain editing focus.
@@ -50,11 +50,11 @@ Valid numeric/color drafts preview immediately and commit on Enter or blur; inva
 
 Numeric inputs use editable text without spinner buttons. Hold a numeric field's heading and drag horizontally to adjust its draft; vector fields use their X/Y headings. Release commits once. Esc, capture loss, or changing the editing target cancels the gesture and restores its original text. Invalid text does not start a drag. Collapsible property groups use the shared compact `PropertySection` control with subdued headings and a separator matching shortcut settings.
 
-The Effects panel uses collapsible property tables for clip, transform, typography, fill, stroke, shadow, composite, path, and animation categories, using existing workbench styles and draft controls. Presets stay at the bottom. Rows expose the current value, animation toggle, add-keyframe action, and reset action. Detailed keyframe editing remains in the panel; timing and curves use the main timeline.
+The Effects panel uses collapsible property tables for clip, transform, typography, fill, stroke, shadow, composite, path, and animation categories, using existing workbench styles and draft controls. The separate Effect presets panel selects templates, exposes their parameters, and adds independent instances. The Effects selector switches between instances and manual clip properties. Rows expose the current value, animation toggle, add-keyframe action, and reset action. Detailed keyframe editing remains in the panel; timing and curves use the main timeline.
 
 Select text in Subtitle Details, then create an animation range in Effects. The scope selector switches between the whole subtitle and text ranges; the state selector switches normal, active, and inactive appearance. Ranges can be deleted or reordered. Active/inactive states edit painting properties and share normal font-size, spacing, and transform geometry. Disabling animation clears only the complete target. Range identities follow text editing, splitting, and duplication.
 
-For a Normal text range, Position edits its local pixel offset; Scale and Rotation also act on that group's laid-out geometry without changing its layout occupancy. Whole-subtitle Position still moves the layer. Apply **Letter bounce** or **Letter pulse** through the existing preset selector to generate editable grapheme ranges. Version 2 scripts can also group pairs, words, explicit lines, paragraphs, or literal-separated text. Reapplying the same named generated block resets manual changes to its ranges and tracks; editing text remaps the existing result, and reapplication rebuilds its grouping and stagger. See [Effect scripts](effect-dsl.md#version-2-grouped-text) for the complete rules.
+For a Normal text range, Position edits its local pixel offset; Scale and Rotation also act on its laid-out geometry while preserving occupancy. Whole-subtitle Position moves the layer. **Add effect** creates an independent source snapshot, parameter set, and time range. Choose an instance in Effects or Timeline to edit it, change evaluation order, disable it, restore parameter defaults, or remove it. **Edit clip properties** returns to manual animation. Letter bounce/pulse and custom version-3 scripts generate temporary groups from the current text; they do not create editable manual tracks or text ranges. See [Effect scripts](effect-dsl.md#grouped-text).
 
 Category folding is a personal preference and creates no project undo entry. Folding or refreshing theme/language does not submit drafts. Invalid input keeps its raw text and opens its category when validation fails. Scope/state/property changes handle the current draft first; deferred commits retain the complete target that originally owned the draft.
 
@@ -77,7 +77,7 @@ Anchor chooses the canvas position; Pivot chooses the local rotation center. Cha
 
 Open **Edit → Effect Library** and choose **Style Library**, **Effect Scripts**, or **Import & Export**. The welcome screen also opens the same three-page library without a project. Switching pages or closing handles unsaved material drafts; existing workbench apply/capture actions remain available.
 
-**Effect Scripts** previews the current draft with adjustable text, duration, and personal styles with embedded fonts. Play/pause, loop, and scrubbing work without saving or opening a project. See [Preview a draft](effect-dsl.md#preview-a-draft).
+**Effect Scripts** previews the current draft with adjustable text, duration, and personal styles with embedded fonts. Declared parameters can be tried without changing source defaults. Play/pause, loop, and scrubbing work without saving or opening a project. See [Preview a draft](effect-dsl.md#preview-a-draft).
 
 Click **Export…** on any library page to open **Export effect library**. Each export starts with an unchecked tree of personal styles and scripts saved when the dialog opened. The dialog retains your current editor page and unsaved draft; save a draft before opening it if you want to share that version.
 

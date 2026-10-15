@@ -454,7 +454,7 @@ public sealed partial class EffectScriptLibraryViewModel : ObservableObject
             var id = Guid.NewGuid();
             var scriptId = "effect-" + id.ToString("N");
             newDraft = new(id, UniqueName(Localization.Get("Settings.NewEffect")),
-                $"effect \"{scriptId}\" version 1\nshort-clip compress\nsegment enter fixed 300ms\n    at 0 opacity 0 ease-out\n    at 1 opacity base\nend\nsegment stay flex 1\n    at 0 opacity base hold\n    at 1 opacity base\nend\n");
+                $"effect \"{scriptId}\" version 3\nshort-clip compress\nscope clip current\nsegment enter fixed 300ms\n    at 0 opacity 0 ease-out\n    at 1 opacity base\nend\nsegment stay flex 1\n    at 0 opacity base hold\n    at 1 opacity base\nend\nend\n");
             selectedEffect = null;
             selectedIds = [];
             NotifySelection();

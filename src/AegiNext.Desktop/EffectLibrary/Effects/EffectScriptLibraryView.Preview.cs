@@ -163,10 +163,15 @@ public sealed partial class EffectScriptLibraryView
             previewViewport.ResetView();
             previewPresenter.Clear();
         }
+        if (!model.TryCapturePreviewParameters(out var parameters))
+        {
+            model.SetPreviewError(I18n.Localization.Get("Workbench.EffectParameterInvalid"));
+            return;
+        }
         var input = new EffectScriptPreviewInput(model.Source, new()
         {
             Text = model.PreviewText, Duration = duration
-        }, model.SelectedPreviewStyle);
+        }, model.SelectedPreviewStyle) { Parameters = parameters };
         preview.Loop = model.PreviewLoop;
         if (!preview.Submit(new(draft.Id, model.PreviewRevision, input, scaling, model.PreviewFonts),
                 autoPlay: model.IsPreviewPlaying, debounce: !selected))

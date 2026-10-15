@@ -6,6 +6,8 @@ namespace AegiNext.Core.Effects;
 public sealed record EffectScript(string Id, EffectScriptShortClipPolicy ShortClipPolicy,
     ImmutableArray<EffectScriptSegment> Segments)
 {
+    public ImmutableArray<EffectScriptParameter> Parameters { get; init; } = [];
+    public ImmutableArray<EffectScriptStatement> Statements { get; init; } = [];
     public int Version { get; init; } = 1;
     public ImmutableArray<EffectScriptScope> Scopes { get; init; } = [];
 }

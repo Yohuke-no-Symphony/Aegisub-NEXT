@@ -1,5 +1,5 @@
 # Whole-subtitle opacity and local grapheme scale animate simultaneously.
-effect "scoped-fade-pulse" version 2
+effect "scoped-fade-pulse" version 3
 short-clip compress
 
 scope whole subtitle

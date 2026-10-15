@@ -17,7 +17,20 @@ public static class SubtitleAnimationEvaluation
 
     /// <summary>在静态样式上先应用指定状态的整句轨道，再按持久化范围顺序覆盖；几何状态由普通样式共享。</summary>
     public static SubtitleStyle ApplyStyleAnimations(EvaluatedLayer layer, SubtitleStyle style, int utf16Offset,
-        SubtitleAnimationState state)
+        SubtitleAnimationState state, bool includeTypography = true)
+    {
+        return ApplyAnimations(layer, style, utf16Offset, state, true, includeTypography, false);
+    }
+
+    /// <summary>在排版前计算当前字素的字号和字距，不重复应用绘制属性。</summary>
+    public static SubtitleStyle ApplyTypographyAnimations(EvaluatedLayer layer, SubtitleStyle style, int utf16Offset,
+        bool includeRanges = true)
+    {
+        return ApplyAnimations(layer, style, utf16Offset, SubtitleAnimationState.NORMAL, includeRanges, true, true);
+    }
+
+    private static SubtitleStyle ApplyAnimations(EvaluatedLayer layer, SubtitleStyle style, int utf16Offset,
+        SubtitleAnimationState state, bool includeRanges, bool includeTypography, bool typographyOnly)
     {
         ArgumentNullException.ThrowIfNull(layer);
         ArgumentNullException.ThrowIfNull(style);
@@ -30,17 +43,32 @@ public static class SubtitleAnimationEvaluation
         {
             throw new ArgumentOutOfRangeException(nameof(utf16Offset));
         }
-        if (layer.AnimationValues.IsEmpty)
+        if (layer.AnimationValues.IsEmpty && layer.EffectStyleOperations.IsEmpty)
         {
             return style;
         }
-        style = ApplyScope(layer, style, null, state);
-        foreach (var range in subtitle.AnimationRanges)
+        style = ApplyScope(layer, style, null, state, includeTypography, typographyOnly);
+        if (includeRanges)
         {
-            if (utf16Offset >= range.Utf16Start && utf16Offset < range.Utf16Start + range.Utf16Length)
+            foreach (var range in subtitle.AnimationRanges)
             {
-                style = ApplyScope(layer, style, range.Id, state);
+                if (utf16Offset >= range.Utf16Start && utf16Offset < range.Utf16Start + range.Utf16Length)
+                {
+                    style = ApplyScope(layer, style, range.Id, state, includeTypography, typographyOnly);
+                }
             }
+        }
+        foreach (var operation in layer.EffectStyleOperations)
+        {
+            var typography = operation.Target.Property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING;
+            if (operation.Target.State != state || !includeTypography && typography || typographyOnly && !typography ||
+                !includeRanges && operation.Target.TextRangeId.HasValue ||
+                utf16Offset < operation.Utf16Start || utf16Offset >= operation.Utf16Start + operation.Utf16Length)
+            {
+                continue;
+            }
+            style = WithStyleValue(style, operation.Target.Property,
+                operation.Apply(GetStyleValue(style, operation.Target.Property)));
         }
         return style;
     }
@@ -155,10 +183,15 @@ public static class SubtitleAnimationEvaluation
     }
 
     private static SubtitleStyle ApplyScope(EvaluatedLayer layer, SubtitleStyle style, Guid? rangeId,
-        SubtitleAnimationState state)
+        SubtitleAnimationState state, bool includeTypography, bool typographyOnly)
     {
         foreach (var property in styleProperties)
         {
+            var typography = property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING;
+            if (!includeTypography && typography || typographyOnly && !typography)
+            {
+                continue;
+            }
             if (layer.AnimationValues.TryGetValue(new(property, TextRangeId: rangeId, State: state), out var value))
             {
                 style = WithStyleValue(style, property, value);

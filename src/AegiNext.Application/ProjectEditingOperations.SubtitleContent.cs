@@ -72,7 +72,7 @@ public static partial class ProjectEditingOperations
         {
             Subtitles = document.Subtitles.SetItem(index, line),
             Layers = MapTrackLayers(document.Layers, layer => layer.SubtitleId == line.Id
-                ? SubtitleAnimationRangeEditing.PruneTargets(layer, line) : layer)
+                ? PruneEffectInstanceTargets(SubtitleAnimationRangeEditing.PruneTargets(layer, line), line) : layer)
         });
     }
 }

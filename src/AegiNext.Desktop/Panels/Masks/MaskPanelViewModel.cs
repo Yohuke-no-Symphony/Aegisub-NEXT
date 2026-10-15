@@ -136,7 +136,7 @@ internal sealed class MaskPanelViewModel : ObservableObject
             {
                 field.RefreshLabel();
             }
-            var mask = session.SelectedLayer is { } layer ? SceneEvaluator.EvaluateMask(layer, session.AnimationTarget?.LocalTime ?? new(0)) : null;
+            var mask = session.SelectedLayer is { } layer ? session.EvaluateMask(layer, session.AnimationTarget?.LocalTime ?? new(0)) : null;
             if (mask is VectorClipMask vector)
             {
                 var contours = vector.Contours.Select((contour, index) => new MaskSelectionChoice(contour.Id, (index + 1).ToString(System.Globalization.CultureInfo.CurrentCulture))).ToArray();

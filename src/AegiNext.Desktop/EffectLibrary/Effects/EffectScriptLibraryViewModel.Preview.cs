@@ -7,6 +7,7 @@ using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 using AegiNext.Rendering.Fonts;
 using CommunityToolkit.Mvvm.Input;
+using AegiNext.Core.Effects;
 
 namespace AegiNext.Desktop.EffectLibrary.Effects;
 
@@ -34,8 +35,28 @@ public sealed partial class EffectScriptLibraryViewModel
     private bool refreshingPreviewChoices;
     private SystemFontCatalog? previewFonts;
     private MediaTime? effectivePreviewDuration;
+    private EffectScriptParameterDraftSet? previewParameters;
 
     public NumericValueDraft PreviewDuration { get; } = new();
+    public EffectScriptParameterDraftSet? PreviewParameters => previewParameters;
+    public bool HasPreviewParameters => previewParameters?.Rows.Count > 0;
+
+    /// <summary>只更新预览候选，保持源码声明与模板存储不变。</summary>
+    public void CommitPreviewParameters()
+    {
+        if (previewParameters?.TryCapture(out _) == false)
+        {
+            SetPreviewError(Localization.Get("Workbench.EffectParameterInvalid"));
+            return;
+        }
+        InvalidatePreview(true);
+    }
+
+    internal bool TryCapturePreviewParameters(out ImmutableDictionary<string, EffectScriptParameterValue> values)
+    {
+        values = ImmutableDictionary<string, EffectScriptParameterValue>.Empty;
+        return previewParameters is null || previewParameters.TryCapture(out values);
+    }
     public RelayCommand PreviewPlayPauseCommand { get; private set; } = null!;
     public ImmutableArray<SubtitleStylePreset> PreviewStyles => previewStyles;
     public bool HasPreview => HasDraft && SelectedIds.Length <= 1 && TryGetPreviewDuration(out _);
@@ -231,6 +252,16 @@ public sealed partial class EffectScriptLibraryViewModel
         }
         previewDraftId = id;
         previewSource = Source;
+        try
+        {
+            previewParameters = id is null ? null : new(Source);
+        }
+        catch (Exception error) when (error is EffectScriptException or ArgumentException or InvalidOperationException)
+        {
+            previewParameters = null;
+        }
+        OnPropertyChanged(nameof(PreviewParameters));
+        OnPropertyChanged(nameof(HasPreviewParameters));
         IsUpdatingPreviewPlayback = true;
         try
         {

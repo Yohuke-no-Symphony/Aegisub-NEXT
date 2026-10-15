@@ -18,7 +18,7 @@ public sealed class EffectScriptMaskTests
     [InlineData("mask-slide", 1, 1000)]
     public void ShippedMaskExamplesCompileAtLongExactShortAndTinyDurations(string name, int numerator, int denominator)
     {
-        var script = EffectScriptParser.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Samples", name + ".aegifx")));
+        var script = EffectScriptRegressionParser.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Samples", name + ".aegifx")));
         var layer = new ProjectLayer
         {
             End = new(numerator, denominator),
@@ -35,7 +35,7 @@ public sealed class EffectScriptMaskTests
     [Fact]
     public void RectangleAndWholeMaskPropertiesCompileAgainstExistingGeometry()
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "mask-reveal" version 1
             short-clip compress
             segment reveal flex 1
@@ -75,7 +75,7 @@ public sealed class EffectScriptMaskTests
     [InlineData(1, 1000)]
     public void NodeSelectorsResolveIndependentStableTargetsAndContentClock(int numerator, int denominator)
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "mask-morph" version 1
             short-clip compress
             segment enter fixed 300ms
@@ -125,7 +125,7 @@ public sealed class EffectScriptMaskTests
         var line = declaration.Contains(' ', StringComparison.Ordinal) ? declaration : declaration + " base";
         var source = $"effect \"invalid-mask\" version 1\nshort-clip compress\nsegment all flex 1\n at 0 {line}\n at 1 mask-position base\nend";
 
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source));
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source));
 
         Assert.Equal(4, error.Line);
         Assert.True(error.Column > 0);
@@ -137,7 +137,7 @@ public sealed class EffectScriptMaskTests
     [InlineData("mask-rectangle-top-left")]
     public void MissingGeometryTargetsFailAtTheDeclaringFrame(string property)
     {
-        var script = EffectScriptParser.Parse($"effect \"missing-mask\" version 1\nshort-clip compress\nsegment all flex 1\n at 0 {property} base\n at 1 {property} base\nend");
+        var script = EffectScriptRegressionParser.Parse($"effect \"missing-mask\" version 1\nshort-clip compress\nsegment all flex 1\n at 0 {property} base\n at 1 {property} base\nend");
         var target = new ProjectLayer { Mask = new VectorClipMask { Contours = [new() { Nodes = [new()] }] } };
 
         var error = Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.Compile(script, target));

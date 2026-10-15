@@ -9,6 +9,10 @@ public static class EffectScriptCompatibility
     public static bool RequiresSubtitle(EffectScript script)
     {
         ArgumentNullException.ThrowIfNull(script);
+        if (script.Version == 3)
+        {
+            return script.Statements.Any(RequiresSubtitle);
+        }
         if (script.Scopes.Any(scope => scope.Target.Kind != EffectScriptTargetKind.CURRENT ||
             scope.Unit.Kind != EffectScriptUnitKind.GROUP || scope.State != SubtitleAnimationState.NORMAL))
         {
@@ -19,5 +23,31 @@ public static class EffectScriptCompatibility
             .SelectMany(segment => segment.Keyframes)
             .Any(frame => AnimationPropertyMetadata.IsSubtitleOnlyProperty(
                 EffectScriptPropertyMetadata.GetAnimationProperty(frame.Property)));
+    }
+
+    private static bool RequiresSubtitle(EffectScriptStatement statement)
+    {
+        if (statement.Kind == EffectScriptStatementKind.SCOPE)
+        {
+            if (statement.Expressions[0].Literal?.Text != "current")
+            {
+                return true;
+            }
+            foreach (var field in statement.Statements.Where(child => child.Kind == EffectScriptStatementKind.FIELD))
+            {
+                if (field.Name == "unit" && field.Expressions[0].Literal?.Text != "group" ||
+                    field.Name == "state" && field.Expressions[0].Literal?.Text != "normal")
+                {
+                    return true;
+                }
+            }
+        }
+        if (statement.Kind == EffectScriptStatementKind.KEYFRAME &&
+            AnimationPropertyMetadata.IsSubtitleOnlyProperty(EffectScriptPropertyMetadata.GetAnimationProperty(
+                EffectScriptParser.ParseProperty(statement.Text, statement.Line, statement.Column).Property)))
+        {
+            return true;
+        }
+        return statement.Statements.Any(RequiresSubtitle) || statement.Alternatives.Any(RequiresSubtitle);
     }
 }

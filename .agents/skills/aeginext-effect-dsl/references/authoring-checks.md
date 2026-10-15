@@ -1,105 +1,92 @@
 # Compiler checks and source map
 
-Paths below are relative to the AegiNext checkout, not to this reference file.
+Paths are relative to the AegiNext checkout. Read the maintained `docs/en/effect-dsl.md` or `docs/zh-cn/effect-dsl.md` for grammar and property tables; this reference records implementation boundaries and checks.
 
 | Responsibility | Source |
 |---|---|
-| Version dispatch, v1 grammar and diagnostics | `src/AegiNext.Core/Effects/EffectScriptParser.cs` |
-| Scope grammar, quoted strings and comments | `src/AegiNext.Core/Effects/EffectScriptV2Parser.cs`, `src/AegiNext.Core/Effects/EffectScriptV2Lexer.cs` |
-| Dimensions, budgets, segment invariants | `src/AegiNext.Core/Effects/EffectScriptValidator.cs` |
-| Grapheme-safe scope selection and grouping | `src/AegiNext.Core/Effects/EffectScriptGroupResolver.cs` |
-| Exact allocation, base resolution, endpoint merging | `src/AegiNext.Core/Effects/EffectScriptCompiler.cs`, `src/AegiNext.Core/Effects/EffectScriptCompiler.V2.cs`, `src/AegiNext.Core/Effects/EffectScriptCompiler.TimingAllocation.cs` |
-| Generated families, stable grouping signatures and replacement | `src/AegiNext.Core/Effects/EffectScriptCompiler.Ownership.cs` |
-| Partial animation composition | `src/AegiNext.Core/Effects/EffectScriptComposer.cs` |
-| Range remapping, splitting and descendant pruning | `src/AegiNext.Application/SubtitleAnimationRangeEditing.cs`, `src/AegiNext.Application/ProjectEditingOperations.SubtitleAnimationRanges.cs` |
-| Exact reverse curves and slicing | `src/AegiNext.Core/Editing/SceneEvaluator.cs`, `src/AegiNext.Core/Editing/AnimationTrackSlicer.cs` |
-| Animation ranges after cropping | `src/AegiNext.Core/Editing/LayerAnimationTiming.cs` |
-| Built-in script source | `src/AegiNext.Core/Effects/Scripts/*.aegifx` |
-| Atomic workbench application | `src/AegiNext.Application/ProjectEditor.Effects.cs` |
-| Complete frozen target result | `src/AegiNext.Application/ProjectEditingOperations.EffectScript.cs` |
-| Personal library, conflicts, import/export | `src/AegiNext.Application/Presets/EffectScriptPresetService.cs` |
-| Editor grammar projection | `src/AegiNext.Desktop/Controls/Editing/EffectScriptLanguage.cs` |
-| Editor input and completion | `src/AegiNext.Desktop/Controls/Editing/EffectScriptEditor.axaml.cs` |
+| v3-only source entry; explicit legacy entry | `src/AegiNext.Core/Effects/EffectScriptParser.cs` |
+| v3 statements, header, diagnostics | `src/AegiNext.Core/Effects/EffectScriptV3Parser.cs`, `EffectScriptStatement.cs` |
+| All-branch symbol/type checking, source budgets | `src/AegiNext.Core/Effects/EffectScriptV3Validator.cs` |
+| Typed declarations, choices, parameter binding/round-trip | `src/AegiNext.Core/Effects/EffectScriptParameter*.cs` |
+| Expressions, exact rationals, unit evaluation | `src/AegiNext.Core/Effects/EffectScriptExpressionParser.cs`, `EffectScriptExpressionEvaluator.cs`, `EffectScriptRational.cs` |
+| Grapheme-safe selection and grouping | `src/AegiNext.Core/Effects/EffectScriptGroupResolver.cs` |
+| Dynamic expansion, per-group allocation, deterministic temporary IDs | `src/AegiNext.Core/Effects/EffectScriptInstanceCompiler.cs`, `EffectScriptExpansionBudget.cs` |
+| Instance compile API and affine result | `src/AegiNext.Core/Effects/EffectScriptCompiler.Instances.cs`, `CompiledEffectScript.cs`, `CompiledEffectChannel.cs` |
+| XYZ component preservation | `src/AegiNext.Core/Effects/EffectScriptRotationTracks.cs` |
+| Persisted instance and ordered ownership | `src/AegiNext.Core/Projects/EffectInstance.cs`, `ProjectLayer.cs`, `ProjectDocument.cs` |
+| Atomic edits, timing/text lifecycle, migration | `src/AegiNext.Application/ProjectEditor.EffectInstances.cs`, `ProjectEditingOperations.EffectInstances.cs`, `EffectInstanceLifecycle.cs`, `EffectInstanceJsonMigration.cs` |
+| Immutable preparation and compilation cache | `src/AegiNext.Core/Editing/PreparedProjectScene.cs`, `EffectCompilationCache.cs` |
+| Same-frame upstream and affine sampling | `src/AegiNext.Core/Editing/SceneEvaluator.cs`, `EffectRuntimeEvaluation.cs`, `EffectValueEvaluation.cs` |
+| Per-grapheme rich-style evaluation | `src/AegiNext.Core/Editing/SubtitleAnimationEvaluation.cs`, `EffectStyleOperation.cs` |
+| Native render integration | `src/AegiNext.Rendering/Projects/ProjectSceneRenderer.SubtitleAnimation.cs` |
+| Temporary ASS projection and diagnostics | `src/AegiNext.SubtitleFormats/AssEffectInstanceProjection.cs`, `AssSubtitleFormat.cs` |
+| Editor grammar, typed drafts/inputs | `src/AegiNext.Desktop/Controls/Editing/EffectScriptLanguage.cs`, `EffectScriptLanguageContext.cs`, `EffectScriptParameterEditor.cs`, `src/AegiNext.Desktop/Editing/EffectScriptParameterDraftSet.cs` |
+| Built-ins and reusable source examples | `src/AegiNext.Core/Effects/Scripts/*.aegifx`, `docs/en/examples/effects/*.aegifx` |
 
-Identifiers/scope/segment names begin with a lowercase ASCII letter and allow lowercase ASCII letters, digits, dot, and hyphen, up to 64 characters. Scope names are unique per script and segment names per scope. Current budgets: 128 scopes, 128 total segments, 4,096 source keys, 262,144 source characters; fixed durations and cycle periods are positive and at most 24 hours; flex weights are positive and at most 1,000. Durations, progress, and weights use decimal precision of at most six places. A subtitle permits at most 256 native ranges and a layer at most 8,192 range/state tracks. Expanded keys must pass each property's entry budget before expansion; never truncate. Scalar/component limits come from `AnimationPropertyMetadata`; re-read them before proposing extremes.
+In a table cell with several filenames, unqualified filenames share the first path's directory. Do not use the old V2 compiler/ownership/composer as the implementation map for instance evaluation.
 
-## A short-clip-safe starting pattern
+## Parameters and expansion
 
-```text
-effect "personal-soft-slide" version 1
-short-clip compress
+- Use `EffectScriptParameterBinder.Bind(script, values)` to fill defaults and reject unknown names, wrong types, or strict options nonmembership. Options/defaults are constant; suggestions allow custom values. Preserve labels and the typed payload through project serialization.
+- Round-trip via `EffectScriptParameterValue.Parse`/`ToSource`. Equivalent decimal scales and duration units must normalize; repeating rational durations must remain exact. Scientific notation and signed zero need round-trip coverage for vector/color values. Invalid vector/color components must fail even in inactive branches.
+- All branches are statically checked; only the selected branch evaluates. Test inactive type errors, inactive division-by-zero, and short-circuit boolean behavior separately. Loop bounds/step are integers; check negative steps, zero step, read-only/no-shadow indices, and nesting.
+- `group.index` is the zero-based start order after filtering and `order`; `group.count` includes resolved groups whose bodies later expand empty. Empty first/middle groups must leave later stagger slots intact. Scope layout fields are fixed before group expansion.
+- Dynamic scope IDs use declaration name plus actual nested loop values, not an execution ordinal. Combine with instance ID and absolute text span for temporary range identity. Recompile the current source/text instead of remapping a persisted generated family.
 
-segment enter fixed 250ms
-    at 0 position offset(-80, 0) ease-out
-    at 0 opacity 0 ease-out
-    at 1 position base
-    at 1 opacity base
-end
+See `docs/en/examples/effects/parameterized-letters.aegifx` for typed suggestions, conditions, integer loops, exact `at point / 3`, and group-dependent keys. Compile that file itself when maintaining the example.
 
-segment hold flex 1
-    at 0 position base hold
-    at 0 opacity base hold
-    at 1 position base
-    at 1 opacity base
-end
+## Shared timing envelope
 
-segment exit fixed 250ms
-    at 0 position base ease-in
-    at 0 opacity base ease-in
-    at 1 position offset(80, 0)
-    at 1 opacity 0
-end
-```
-
-At 3 seconds the fixed parts remain 250ms each and the hold takes 2.5s. At 500ms the hold disappears. At 200ms both fixed parts compress to 100ms. The zero-length hold still has identical values at both ends. With `reject`, 200ms is intentionally invalid.
-
-Frequent mistakes: copying absolute clip times into `at`, forgetting one property's `at 1`, different shared endpoint values, a changing flex segment that collapses under compression, mistaking byte RGBA for linear RGBA, claiming `base` is an evaluated animation value, or using a built-in reserved ID for a personal import.
-
-## Grouped pulse pattern and checks
+For each resolved group `i`, let `Fi` be expanded fixed time, `Wi` total flex weight including empty rests, and `Qi = max(cyclePeriod × Wi / cycleWeight)` over its cyclic flex segments, or zero. Let `N` include empty-body groups, `T` be instance duration, and `S = max(N − 1, 0) × stagger`:
 
 ```text
-effect "personal-pair-pulse" version 2
-short-clip compress
-
-scope pairs current
-    unit chunk(2)
-    stagger 60ms
-    segment pulse fixed 150ms pingpong
-        at 0 scale base ease-in-out
-        at 1 scale factor(1.25, 1.25)
-    end
-    segment rest flex 1
-    end
-end
+E = delay + S + max_i(Fi + Qi)
+k = min(1, T / E)                 # k = 1 when E = 0
+L = T - k × (delay + S)
+Ri = L - k × Fi
+start_i = instance.Start + k × (delay + i × stagger)
 ```
 
-Each non-whitespace pair occupies one original-text range and keeps one shared center. Inline spaces count within pairs; chunking restarts at LF/CRLF; a shorter tail is retained. Generated local scale starts at `(1, 1)` even across mixed font sizes. To animate a font-size or color base, verify uniform inherited values rather than substituting the first style.
+`reject` fails if `T < E`; `compress` uses the same `k` for delay, stagger, fixed legs, and cycle periods. Divide `Ri` by that group's own flex weights. Keep rational time through allocation and cycle flooring; never pass through the decimal default observation projection. Forward repeat/cycle endpoints close symbolically; a zero-length noncyclic flex segment must hold. Pingpong reverses the original interpolation, including nonlinear POWER; a cycle period includes the return leg.
 
-With three groups, no delay, a 300ms pulse and 60ms stagger, the envelope is 420ms. A shorter Clip uniformly scales pulse and stagger. For flex cycles, the envelope must also reserve `max(period × sum(all flex weights) / cycle segment weight)`; empty stays contribute weight. Read the maintained guide's exact formula before changing allocation.
+## Dynamic composition
 
-Check these observable boundaries when they are relevant to the source:
+Each key describes coefficients, interpolated with the authored curve before combining with the upstream value at that frame:
 
-- Numeric ranges use full-subtitle one-based grapheme indices; whitespace and CRLF participate. Emoji/combining text and delimiter matches must stay boundary-safe. Test full CRLF separators and reject partial CR or LF matches within CRLF.
-- Word grouping is whitespace tokenization; Chinese without spaces is one token. Split chooses the longest literal match, trims horizontal edge whitespace, preserves source separators, and operates across hard lines. Layout wrapping is not grouping.
-- Reverse order changes starts, not text. Scope delay/stagger are nonnegative; default version-2 state is Normal independently of panel context.
-- Fixed repeat counts full repetitions; fixed duration is a leg, cycle duration a full period. Compare a pingpong POWER return at intermediate times with the reversed original curve. Reject open forward repeats/cycles, including a cyclic flex allocation that fits only one period.
-- Compile the exact source against a long Clip, its exact envelope, a shorter Clip, and a tiny positive Clip. Test complete-period floor plus remainder hold with weighted flex segments. Reject policy must leave the full batch and history unchanged.
-- Reapply chunk(2), edit generated values, then reapply chunk(3): owned stale groups/tracks disappear, manual result edits reset, other blocks remain. Text edits only remap; reapply to regroup. Scope removal/renaming leaves the retired named block until explicit deletion. Copy/split/merge must remap generated parent identities.
-- Read the complete `CompileTarget` / `ComposeTarget` result. Tracks-only APIs reject version 2 to prevent dropped ranges. Local POSITION belongs to the Normal range Offset; active/inactive remains painting-only.
-- Project-13 save/reload preserves Offset, Reverse and origin, with old-version defaults. ASS reports local translation loss; advanced projection retains native fields and unrepresentable reverse tracks.
+| Value | Multiplier A | Offset B |
+|---|---|---|
+| `base` | 1 | 0 |
+| `offset(v)` | 1 | v |
+| `factor(v)` | v | 0 |
+| absolute `v` | 0 | v |
 
-Reference examples are shared under `docs/en/examples/effects/`: `grouped-words.aegifx`, `grouped-pairs.aegifx`, `grouped-split.aegifx`, `grouped-lines.aegifx`, and `scoped-fade-pulse.aegifx`. Reuse their structure with a unique personal ID; builtin IDs remain reserved.
+Result is `A(t) × upstream(t) + B(t)`. Test base-to-absolute interpolation against nonlinear hand animation and multiple ordered instances; a finite baked key list generally cannot preserve that composition. Keep X/Y/Z component curves independent, including reversed legs and complete turns. Use half-open windows so adjacent channels do not apply a shared endpoint twice.
 
-## Scoped regression entry points
+Rich-text typography/paint bases resolve per grapheme; do not reject mixed styles or choose the first style. Local generated transforms start neutral and retain parent/sibling geometry composition. Runtime bounds/nonfinite failures need source diagnostics; absolute literals can be checked at compile time. ASS sampling is a lossy export projection, not the native runtime representation.
 
-Run serially from the checkout root; adjust configuration/RID to the established platform build. Do not install or change dependencies merely to run these commands.
+## Budgets and atomic failure
+
+- Source: 262144 characters, 128 scope declarations, 128 segment declarations, 4096 keys across all branches. Declaration IDs are lowercase ASCII letter followed by lowercase ASCII letters/digits/dot/hyphen, at most 64 characters. Scope declaration names are unique across branches.
+- Expressions: parser recursion and completed AST depth are each limited to 64. Check the AST with an explicit stack before recursive type inference/evaluation; flat left-associative arithmetic still builds a deep tree. Test 64/65-term boundaries without running a stack-overflowing old-source fixture.
+- Expansion: nesting 16, one loop 4096 iterations, one target 100000 executed statements/iterations. Source declaration counts do not count implicit group clones. Each expanded group remains bounded to 128 segments and 4096 keys.
+- Output: at most 256 resolved groups per scope and 256 manual plus temporary text ranges per target; at most 8192 range/state targets. Check each property's aggregate key-entry budget through `AnimationPropertyMetadata` before emission, including huge repeat/cycle counts. Never truncate or convert an unchecked huge count to a machine integer.
+- Fixed durations/cycle periods are positive and at most 24 hours; flex weights are positive and at most 1000. Exact rational arithmetic still has representability/complexity limits. Preserve cancellation and reject invalid/overflowed expansions atomically.
+- Validate existing subtitle/range/mask/path/node identities and property compatibility. One failure in a batch must leave the document and Undo history unchanged. Instances never take ownership of native tracks/ranges.
+
+## Regression selection
+
+Run affected suites serially from the checkout root, using the established configuration/platform. Coordinate shared build outputs with other agents. Do not install/change dependencies to run these commands; narrow filters further for a local change.
 
 ```sh
-dotnet test Tests/AegiNext.Core.Tests/AegiNext.Core.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectScript|FullyQualifiedName~ReverseAnimationCurve'
-dotnet test Tests/AegiNext.Application.Tests/AegiNext.Application.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectScript|FullyQualifiedName~EffectScope|FullyQualifiedName~GeneratedRangeLifecycle'
-dotnet test Tests/AegiNext.Desktop.Tests/AegiNext.Desktop.Tests.csproj -c Release --no-restore --filter FullyQualifiedName~EffectScriptLanguageTests
-dotnet test Tests/AegiNext.Desktop.Ui.Tests/AegiNext.Desktop.Ui.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectScriptSettingsUiTests|FullyQualifiedName~BuiltinEffectScriptUiTests|FullyQualifiedName~RangePositionEditingUiTests'
-dotnet test Tests/AegiNext.Rendering.Tests/AegiNext.Rendering.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~SubtitleRangeAnimation|FullyQualifiedName~SubtitleRangePosition'
+dotnet test Tests/AegiNext.Core.Tests/AegiNext.Core.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectScript|FullyQualifiedName~EffectInstanceEvaluation|FullyQualifiedName~ReverseAnimationCurve'
+dotnet test Tests/AegiNext.Application.Tests/AegiNext.Application.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectInstance|FullyQualifiedName~EffectScript'
+dotnet test Tests/AegiNext.Desktop.Tests/AegiNext.Desktop.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectScript|FullyQualifiedName~EffectParameter|FullyQualifiedName~EffectPresetPreview|FullyQualifiedName~TimelineEffect'
+dotnet test Tests/AegiNext.Rendering.Tests/AegiNext.Rendering.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectInstance|FullyQualifiedName~GroupedEffect|FullyQualifiedName~SubtitleRangeAnimation|FullyQualifiedName~SubtitleRangePosition'
+dotnet test Tests/AegiNext.SubtitleFormats.Tests/AegiNext.SubtitleFormats.Tests.csproj -c Release --no-restore --filter 'FullyQualifiedName~EffectInstance|FullyQualifiedName~EffectScopeAss'
 ```
 
-Add a behavior test for the exact new source when changing application code or a reusable shipped example. Existing tests exercise their own sources, not arbitrary user-provided files. Real UI validation must also check input method preedit, keyboard completion, caret placement, read-only built-ins, and invalid-source preservation; close every test window.
+Test long/exact/short/tiny positive windows, different per-group bodies, weighted cycles/remainders, emoji/combining text, CRLF and separator boundaries, mixed rich styles, actual animated upstream, effect order/disable/remove, text edits, parent-range deletion, move/trim/stretch/copy/split, v19 save/reload and old-project empty-instance migration. Preserve original native data through rendering/export. Real UI checks include drafts/completion/caret/input-method behavior and close every test window.
+
+## Explicit legacy regressions
+
+`EffectScriptParser.ParseLegacy` and the concrete compiler/composer family remain for old baked-animation tooling and regression tests. `Tests/AegiNext.Core.Tests/Effects/EffectScriptRegressionParser.cs` is a test-only fixture adapter; it does not relax production source parsing. Keep old generated-origin/family replacement tests in that explicit boundary. New UI application, preview, persistence, and playback must use v3 instances and `CompileInstance`.

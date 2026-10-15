@@ -20,6 +20,11 @@ public static class SubtitleFormatLossAnalysis
         }
         foreach (var layer in document.Layers)
         {
+            if (layer.Effects.Any(instance => instance.IsEnabled))
+            {
+                diagnostics.Add(new("Srt.EffectInstances", "SRT does not support effect instances. Enabled effects, script parameters, and animation will be discarded during export.",
+                    SubtitleId: layer.SubtitleId, LayerId: layer.SubtitleId is null ? layer.Id : null));
+            }
             if (layer.Blur > 0)
             {
                 diagnostics.Add(new("Srt.Blur", "SRT does not support whole-layer blur. Blur will be discarded during export.", SubtitleId: layer.SubtitleId,
@@ -45,6 +50,7 @@ public static class SubtitleFormatLossAnalysis
         foreach (var layer in document.Layers)
         {
             if (layer.Kind != LayerKind.SUBTITLE ||
+                layer.Effects.Any(instance => instance.IsEnabled) ||
                 layer.Tracks.Any(track => !supportsMasks || !AnimationPropertyMetadata.IsMaskProperty(track.Property)) || layer.MotionPath is not null || !supportsMasks && layer.Mask is not null ||
                 layer.Transform != new LayerTransform() || !layer.Opacity.Equals(1d) || layer.Blend != BlendMode.NORMAL)
             {

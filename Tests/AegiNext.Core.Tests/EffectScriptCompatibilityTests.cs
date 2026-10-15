@@ -30,8 +30,8 @@ public sealed class EffectScriptCompatibilityTests
     public void ScopedRequirementsMatchCompilerTextRestrictions(string target, string unit, string state,
         string property, bool requiresSubtitle)
     {
-        var script = EffectScriptParser.Parse($$"""
-            effect "compatibility" version 2
+        var source = $$"""
+            effect "compatibility" version 3
             short-clip compress
             scope target {{target}}
                 unit {{unit}}
@@ -41,16 +41,18 @@ public sealed class EffectScriptCompatibilityTests
                     at 1 {{property}} base
                 end
             end
-            """);
+            """;
+        var script = EffectScriptParser.Parse(source);
+        var instance = new EffectInstance { Source = source };
         Assert.Equal(requiresSubtitle, EffectScriptCompatibility.RequiresSubtitle(script));
         var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 100, 60) };
         if (requiresSubtitle)
         {
-            Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.CompileTarget(script, layer));
+            Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.CompileInstance(script, instance, layer, null));
         }
         else
         {
-            Assert.Single(EffectScriptCompiler.CompileTarget(script, layer).Tracks);
+            Assert.Single(EffectScriptCompiler.CompileInstance(script, instance, layer, null).Channels);
         }
     }
 }

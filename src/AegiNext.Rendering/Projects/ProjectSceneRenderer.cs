@@ -19,6 +19,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     private readonly Dictionary<Guid, ProjectImageRenderException> previewImageFailures = [];
     private ImmutableArray<ImageFrameIdentity?> previewImageFrames = [];
     private readonly SubtitleLayoutCache layouts = new();
+    private readonly EffectCompilationCache effectPlans = new();
     private readonly Dictionary<(Guid? Asset, string Family, SubtitleFontVariant? Variant, bool Bold, bool Italic), TextShaper> textShapers = [];
     private readonly Dictionary<(nint Handle, SubtitleFontVariant? Variant, int Instance, int Collection, bool Bold, bool Italic), TextShaper> actualTextShapers = [];
     private readonly Dictionary<(string Family, SubtitleFontVariant? Variant, bool Bold, bool Italic, string Grapheme), TextShaper> resolvedTextShapers = [];
@@ -355,7 +356,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     {
         if (!ReferenceEquals(prepared?.Document, document))
         {
-            prepared = new(document);
+            prepared = new(document, effectPlans);
             ClearPreview();
             ClearFrameCache();
             ClearLayouts();
@@ -409,6 +410,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
                 a.HasStrokeBlurAnimation != b.HasStrokeBlurAnimation || !a.StrokeBlur.Equals(b.StrokeBlur) ||
                 a.AnimationValues.Count != b.AnimationValues.Count ||
                 a.AnimationValues.Any(pair => !b.AnimationValues.TryGetValue(pair.Key, out var value) || value != pair.Value) ||
+                !a.EffectStyleOperations.SequenceEqual(b.EffectStyleOperations) ||
                 !a.AnimationRanges.SequenceEqual(b.AnimationRanges) ||
                 a.Fill != b.Fill || a.Stroke != b.Stroke || !a.StrokeWidth.Equals(b.StrokeWidth) || !a.Blur.Equals(b.Blur) || !EquivalentMask(a.Mask, b.Mask) ||
                 (a.Subtitle is { Karaoke.IsEmpty: false } && a.LocalTime != b.LocalTime))

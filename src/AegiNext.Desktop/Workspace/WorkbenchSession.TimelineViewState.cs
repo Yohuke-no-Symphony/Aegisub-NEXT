@@ -14,7 +14,7 @@ internal sealed partial class WorkbenchSession
     internal void SetTimelineEffectClipCollapsed(TimelineEffectClipId id, bool isCollapsed)
     {
         ArgumentNullException.ThrowIfNull(id);
-        if (closing || IsProjectBusy || !HasTimelineEffectClip(DocumentSnapshot, id))
+        if (closing || IsProjectBusy || id.InstanceId.HasValue || !HasTimelineEffectClip(DocumentSnapshot, id))
         {
             return;
         }

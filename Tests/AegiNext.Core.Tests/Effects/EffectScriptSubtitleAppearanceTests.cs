@@ -46,7 +46,7 @@ public sealed class EffectScriptSubtitleAppearanceTests
         var duration = new MediaTime(numerator, denominator);
         var layer = new ProjectLayer { SubtitleId = Guid.NewGuid(), End = duration, AnimationOffset = new(1, 4) };
         var style = new SubtitleStyle { LetterSpacing = -3, FillBlur = 4, StrokeBlur = 7 };
-        var tracks = EffectScriptCompiler.Compile(EffectScriptParser.Parse(SCRIPT), layer, style);
+        var tracks = EffectScriptCompiler.Compile(EffectScriptRegressionParser.Parse(SCRIPT), layer, style);
 
         Assert.Equal(3, tracks.Length);
         Assert.All(tracks, track =>
@@ -75,7 +75,7 @@ public sealed class EffectScriptSubtitleAppearanceTests
         Assert.True(EffectScriptPropertyMetadata.TryGetProperty(name, out var parsedProperty));
         Assert.Equal(scriptProperty, parsedProperty);
         Assert.Equal(animationProperty, EffectScriptPropertyMetadata.GetAnimationProperty(parsedProperty));
-        var script = EffectScriptParser.Parse(Source(name, "0"));
+        var script = EffectScriptRegressionParser.Parse(Source(name, "0"));
         var subtitle = new ProjectLayer { SubtitleId = Guid.NewGuid() };
         Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.Compile(script, subtitle));
         Assert.Single(EffectScriptCompiler.Compile(script, subtitle, new()));
@@ -92,7 +92,7 @@ public sealed class EffectScriptSubtitleAppearanceTests
     [InlineData("stroke-blur", "513")]
     public void ResolvedValuesOutsideNativeRangesAreRejected(string property, string value)
     {
-        var script = EffectScriptParser.Parse(Source(property, value));
+        var script = EffectScriptRegressionParser.Parse(Source(property, value));
         var error = Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.Compile(script,
             new() { SubtitleId = Guid.NewGuid() }, new()));
         Assert.Equal(4, error.Line);

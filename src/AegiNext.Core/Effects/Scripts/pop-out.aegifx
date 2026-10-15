@@ -1,10 +1,15 @@
-effect "pop-out" version 1
+effect "pop-out" version 3
 short-clip compress
 
-segment stay flex 1
-end
+var duration = 250ms label "Duration" suggest ["Fast":150ms, "Normal":250ms, "Slow":500ms]
+var scale = vec2(0.2, 0.2) label "Scale" suggest ["Small":vec2(0.2, 0.2), "Half":vec2(0.5, 0.5)]
 
-segment exit fixed 250ms
-    at 0 scale base ease-in
-    at 1 scale factor(0.2, 0.2)
+scope whole current
+    segment stay flex 1
+    end
+
+    segment exit fixed duration
+        at 0 scale base ease-in
+        at 1 scale factor(scale)
+    end
 end

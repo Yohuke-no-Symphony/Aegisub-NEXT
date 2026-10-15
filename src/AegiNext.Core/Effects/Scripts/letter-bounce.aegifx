@@ -1,13 +1,17 @@
 # Each grapheme bounces once over a 300ms complete period, then rests.
-effect "letter-bounce" version 2
+effect "letter-bounce" version 3
 short-clip compress
+
+var duration = 150ms label "One-way duration"
+var stagger = 60ms label "Stagger"
+var height = 20 label "Bounce height"
 
 scope letters current
     unit grapheme
-    stagger 60ms
-    segment bounce fixed 150ms pingpong
+    stagger stagger
+    segment bounce fixed duration pingpong
         at 0 position base ease-out
-        at 1 position offset(0, -20)
+        at 1 position offset(0, -height)
     end
     segment rest flex 1
     end

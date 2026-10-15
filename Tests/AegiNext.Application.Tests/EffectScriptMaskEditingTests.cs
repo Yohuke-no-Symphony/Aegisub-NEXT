@@ -23,7 +23,7 @@ public sealed class EffectScriptMaskEditingTests
         initial.UpdateLayer(id, value => value with { Transform = new(900, 800, 5, 7, 60) });
         var before = initial.Snapshot;
         var editor = new ProjectEditor(before);
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "native-mask-position" version 1
             short-clip compress
             segment all flex 1
@@ -71,7 +71,7 @@ public sealed class EffectScriptMaskEditingTests
             new(Guid.NewGuid(), new(0), new(2), new ScenePoint(200, 100), 2));
         var before = initial.Snapshot;
         var editor = new ProjectEditor(before);
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "ordered-target" version 1
             short-clip compress
             segment all flex 1
@@ -100,7 +100,7 @@ public sealed class EffectScriptMaskEditingTests
         initial.UpdateLayer(id, layer => layer with { Tracks = [other] });
         var before = initial.Snapshot;
         var editor = new ProjectEditor(before);
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "one-node" version 1
             short-clip compress
             segment all flex 1
@@ -115,7 +115,7 @@ public sealed class EffectScriptMaskEditingTests
         Assert.Same(other, editor.Snapshot.Layers[0].Tracks.Single(track => track.Target == other.Target));
         Assert.Equal(2, editor.Snapshot.Layers[0].Tracks.Length);
         var applied = editor.Snapshot;
-        var invalid = EffectScriptParser.Parse("""
+        var invalid = EffectScriptParser.ParseLegacy("""
             effect "missing-node" version 1
             short-clip compress
             segment all flex 1

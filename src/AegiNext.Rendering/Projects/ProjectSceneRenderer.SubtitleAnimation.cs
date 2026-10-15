@@ -14,12 +14,15 @@ public sealed partial class ProjectSceneRenderer
         var subtitle = layer.Subtitle!;
         var values = layer.AnimationValues.Where(pair => pair.Key.Property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING)
             .ToImmutableDictionary();
-        if (values.IsEmpty)
+        var effects = layer.EffectStyleOperations.Where(operation =>
+            operation.Target.Property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING).ToImmutableArray();
+        if (values.IsEmpty && effects.IsEmpty)
         {
             return subtitle;
         }
         if (typographyProjections.TryGetValue(layer.Source.Id, out var cached) && ReferenceEquals(cached.Source, subtitle) &&
-            values.Count == cached.Values.Count && values.All(pair => cached.Values.TryGetValue(pair.Key, out var previous) && previous == pair.Value))
+            values.Count == cached.Values.Count && values.All(pair => cached.Values.TryGetValue(pair.Key, out var previous) && previous == pair.Value) &&
+            effects.SequenceEqual(cached.Effects))
         {
             return cached.Subtitle;
         }
@@ -30,7 +33,8 @@ public sealed partial class ProjectSceneRenderer
             boundaries.Add(span.Utf16Start);
             boundaries.Add(span.Utf16Start + span.Utf16Length);
         }
-        foreach (var range in subtitle.AnimationRanges.Where(range => values.Keys.Any(target => target.TextRangeId == range.Id)))
+        foreach (var range in subtitle.AnimationRanges.Where(range => values.Keys.Any(target => target.TextRangeId == range.Id) ||
+                     effects.Any(operation => operation.Target.TextRangeId == range.Id)))
         {
             boundaries.Add(range.Utf16Start);
             boundaries.Add(range.Utf16Start + range.Utf16Length);
@@ -57,36 +61,13 @@ public sealed partial class ProjectSceneRenderer
         {
             typographyProjections.Clear();
         }
-        typographyProjections[layer.Source.Id] = new(subtitle, values, projected);
+        typographyProjections[layer.Source.Id] = new(subtitle, values, projected) { Effects = effects };
         return projected;
     }
 
     private static SubtitleStyle TypographyStyle(SubtitleStyle style, EvaluatedLayer layer, int offset, bool includeRanges)
     {
-        Apply(null);
-        if (includeRanges)
-        {
-            foreach (var range in layer.Subtitle!.AnimationRanges)
-            {
-                if (offset >= range.Utf16Start && offset < range.Utf16Start + range.Utf16Length)
-                {
-                    Apply(range.Id);
-                }
-            }
-        }
-        return style;
-
-        void Apply(Guid? rangeId)
-        {
-            if (layer.AnimationValues.TryGetValue(new(AnimationProperty.FONT_SIZE, TextRangeId: rangeId), out var size))
-            {
-                style = style with { FontSize = size.Scalar };
-            }
-            if (layer.AnimationValues.TryGetValue(new(AnimationProperty.LETTER_SPACING, TextRangeId: rangeId), out var spacing))
-            {
-                style = style with { LetterSpacing = spacing.Scalar };
-            }
-        }
+        return SubtitleAnimationEvaluation.ApplyTypographyAnimations(layer, style, offset, includeRanges);
     }
 
     private static Dictionary<Guid, ProjectiveMapping> RangeMatrices(EvaluatedLayer layer, SubtitleTextLayout layout)

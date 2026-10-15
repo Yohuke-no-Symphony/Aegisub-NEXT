@@ -30,7 +30,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     private Dictionary<Guid, ProjectLayer> layersById = [];
     private Dictionary<Guid, SubtitleLine> cuesById = [];
     private Dictionary<Guid, TimelineRow> rowsByLayer = [];
-    private Dictionary<(Guid LayerId, AnimationTrackTarget Target), TimelineEffectClip> effectClipsByTarget = [];
+    private Dictionary<TimelineEffectClipId, TimelineEffectClip> effectClipsByTarget = [];
     private readonly Dictionary<Guid, Dictionary<AnimationTrackTarget, AnimationTrack>> trackIndexes = [];
     private readonly Dictionary<(Guid LayerId, AnimationTrackTarget Target), (double Minimum, double Maximum)> valueRanges = [];
     private SpectrogramData? spectrum;
@@ -541,7 +541,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
             return;
         }
 
-        if (TrySelectEffectClip(point))
+        if (TrySelectEffectClip(point, e.Pointer))
         {
             e.Handled = true;
             return;
@@ -659,6 +659,11 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         snapTarget = null;
         switch (dragMode)
         {
+            case TimelineDragMode.EFFECT_MOVE:
+            case TimelineDragMode.EFFECT_TRIM_START:
+            case TimelineDragMode.EFFECT_TRIM_END:
+                UpdateEffectInstanceDrag(clipDelta, e.KeyModifiers);
+                break;
             case TimelineDragMode.TRACK_REORDER:
                 UpdateTrackReorder(point);
                 break;
@@ -732,8 +737,13 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         var batchMove = IsBatchMove && canCommit && pendingStart != originalStart
             ? new TimelineClipsMoveEventArgs(dragId, movingClips.Keys, pendingStart - originalStart) : null;
         var wasBatchMove = IsBatchMove;
+        var effectTiming = CompleteEffectInstanceDrag();
         CancelDrag();
-        if (trackReorder is not null)
+        if (effectTiming is not null)
+        {
+            EffectInstanceTimingChanged?.Invoke(this, effectTiming);
+        }
+        else if (trackReorder is not null)
         {
             TrackReorderCompleted?.Invoke(this, trackReorder);
         }
@@ -875,6 +885,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         var wasDragging = HasActiveDrag;
         snapTarget = null;
         dragMode = TimelineDragMode.NONE;
+        dragEffectClipId = null;
         timingDragDocument = null;
         ClearTrackReorder();
         movingClips.Clear();
@@ -1055,6 +1066,10 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         var tracks = TracksFor(layer);
         foreach (var animation in row.Effects.ForLayer(layer.Id))
         {
+            if (animation.Id.InstanceId.HasValue)
+            {
+                continue;
+            }
             var target = animation.Id.Target;
             if (CurveRectangle(layer.Id, target) is not { } curve || curve.Bottom < RulerHeight || curve.Top > Bounds.Height)
             {
@@ -1410,7 +1425,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         }
         var range = CachedValueRange(layer, track);
         return CreateMarkers(DisplayedLayer(layer), target, new(time, value), curve, range,
-                effectClipsByTarget[(layerId, target)].IsCollapsed)
+                effectClipsByTarget[new(layerId, target)].IsCollapsed)
             .FirstOrDefault(marker => Contains(marker.Components, component ?? 0))?.Position;
     }
 
@@ -1468,7 +1483,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
 
     private Rect? CurveRectangle(Guid layerId, AnimationTrackTarget target)
     {
-        var block = effectClipsByTarget.GetValueOrDefault((layerId, target));
+        var block = effectClipsByTarget.GetValueOrDefault(new(layerId, target));
         if (block is null || GetEffectClipRectangle(block.Id) is not { } rectangle)
         {
             return null;
@@ -1513,7 +1528,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         rowsByLayer = result.SelectMany(row => ClipsForRow(row).Select(clip => (clip.Id, Row: row)))
             .ToDictionary(value => value.Id, value => value.Row);
         effectClipsByTarget = result.SelectMany(row => row.Effects.Layers.Values.SelectMany(blocks => blocks))
-            .ToDictionary(block => (block.Id.LayerId, block.Id.Target));
+            .ToDictionary(block => block.Id);
         contentHeight = top;
     }
 
@@ -1528,7 +1543,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
             return;
         }
 
-        if (dragMode is TimelineDragMode.TRIM_START or TimelineDragMode.TRIM_END)
+        if (dragMode is TimelineDragMode.TRIM_START or TimelineDragMode.TRIM_END or TimelineDragMode.EFFECT_TRIM_START or TimelineDragMode.EFFECT_TRIM_END)
         {
             Cursor = resizeCursor;
             return;
@@ -1540,6 +1555,11 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
             return;
         }
 
+        if (FindEffectClip(point) is { Id.InstanceId: not null } effect && GetEffectClipRectangle(effect.Id) is { } effectRectangle)
+        {
+            Cursor = point.X - effectRectangle.Left < 8 || effectRectangle.Right - point.X < 8 ? resizeCursor : null;
+            return;
+        }
         var clip = row.Clips.Reverse().FirstOrDefault(clip => ClipRectangle(clip, row).Contains(point));
         var rectangle = clip is null ? default : ClipRectangle(clip, row);
         Cursor = clip is not null && (point.X - rectangle.Left < 8 || rectangle.Right - point.X < 8)

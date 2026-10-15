@@ -226,6 +226,7 @@ public static partial class ProjectEditingOperations
         {
             Id = id, SubtitleId = layer.SubtitleId is { } subtitleId ? subtitleIds[subtitleId] : null,
             Start = layer.Start + offset, End = layer.End + offset, Mask = mask,
+            Effects = CloneEffectInstances(layer.Effects, layer.SubtitleId is { } effectSubtitleId ? rangeIds[effectSubtitleId] : null),
             Tracks = layer.Tracks.Select(track => track with
             {
                 Target = track.Target with

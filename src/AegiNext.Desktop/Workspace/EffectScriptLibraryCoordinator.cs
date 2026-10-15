@@ -3,6 +3,9 @@ using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Workspace.Diagnostics;
+using System.Collections.Immutable;
+using AegiNext.Core.Editing;
+using AegiNext.Desktop.Rendering;
 
 namespace AegiNext.Desktop.Workspace;
 
@@ -14,6 +17,9 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
     private readonly HashSet<Guid> subtitleOnlyPresets = [];
     private readonly Lock operationsGate = new();
     private readonly HashSet<Task> operations = [];
+    private (ProjectDocument Document, string Source, string Parameters, string TargetIds, AnimationTrackTarget? Context)? availabilityKey;
+    private EffectPresetApplyAvailability cachedAvailability;
+    internal string? AvailabilityError { get; private set; }
     public Task Completion
     {
         get
@@ -98,7 +104,11 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
         if (Availability(preset?.Id) == EffectPresetApplyAvailability.READY &&
             choices.FirstOrDefault(choice => choice.Id == preset!.Id && choice.Source == preset.Source) is { } selected)
         {
-            return ApplyAsync(selected.Source);
+            if (!preset!.Parameters.TryCapture(out var parameters))
+            {
+                return Task.CompletedTask;
+            }
+            return ApplyAsync(selected.Source, selected.Name, parameters);
         }
         return Task.CompletedTask;
     }
@@ -115,11 +125,48 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
         {
             return EffectPresetApplyAvailability.NO_SELECTION;
         }
-        return preset.RequiresSubtitle && targets.Any(layer => layer.Kind != LayerKind.SUBTITLE || !layer.SubtitleId.HasValue)
-            ? EffectPresetApplyAvailability.REQUIRES_SUBTITLE : EffectPresetApplyAvailability.READY;
+        var card = session.ViewModel.EffectPresets.Items.FirstOrDefault(item => item.Id == presetId);
+        if (card is not null && !card.Parameters.TryCapture(out _))
+        {
+            return EffectPresetApplyAvailability.INVALID_PARAMETERS;
+        }
+        var parameters = card?.Parameters.TryCapture(out var captured) == true ? captured :
+            ImmutableDictionary<string, EffectScriptParameterValue>.Empty;
+        var document = session.Editor.Snapshot;
+        var signature = EffectScriptParameterIdentity.Create(parameters);
+        var ids = string.Join(',', targets.Select(layer => layer.Id));
+        var context = session.SceneEditing.Target.TextRangeId.HasValue ? session.SceneEditing.Target : (AnimationTrackTarget?)null;
+        if (availabilityKey is { } key && ReferenceEquals(key.Document, document) && key.Source == preset.Source &&
+            key.Parameters == signature && key.TargetIds == ids && key.Context == context)
+        {
+            return cachedAvailability;
+        }
+        availabilityKey = (document, preset.Source, signature, ids, context);
+        AvailabilityError = null;
+        try
+        {
+            var script = EffectScriptParser.Parse(preset.Source);
+            foreach (var layer in targets)
+            {
+                var range = LayerAnimationTiming.GetRange(layer);
+                var instance = new EffectInstance { Source = preset.Source, Parameters = parameters, Start = range.Minimum,
+                    End = range.Maximum, TargetContext = context };
+                var subtitle = layer.SubtitleId is { } cueId ? document.Subtitles.FirstOrDefault(line => line.Id == cueId) : null;
+                _ = EffectScriptCompiler.CompileInstance(script, instance, layer, subtitle);
+            }
+            cachedAvailability = EffectPresetApplyAvailability.READY;
+        }
+        catch (Exception error) when (error is EffectScriptException or InvalidDataException or ArgumentException or InvalidOperationException)
+        {
+            AvailabilityError = error.Message;
+            cachedAvailability = error.Message.Contains("字幕", StringComparison.Ordinal)
+                ? EffectPresetApplyAvailability.REQUIRES_SUBTITLE : EffectPresetApplyAvailability.INVALID_TARGET;
+        }
+        return cachedAvailability;
     }
 
-    internal Task ApplyAsync(string source)
+    internal Task ApplyAsync(string source, string? name = null,
+        ImmutableDictionary<string, EffectScriptParameterValue>? parameters = null)
     {
         if (session.IsProjectBusy || session.IsClosing || !session.TryCommitDrafts())
         {
@@ -135,7 +182,7 @@ internal sealed class EffectScriptLibraryCoordinator(WorkbenchSession session, I
         session.ViewModel.CancelGestures();
         session.ClearKeyframeSelection();
         return session.ApplicationContext.Tasks.Submit(new ApplyEffectScriptTask(session, source, layerIds,
-            session.Editor.Snapshot, session.TaskInputRevision, context)).Completion;
+            session.Editor.Snapshot, session.TaskInputRevision, context, name, parameters)).Completion;
     }
 
     private ProjectLayer[] SelectedTargets()

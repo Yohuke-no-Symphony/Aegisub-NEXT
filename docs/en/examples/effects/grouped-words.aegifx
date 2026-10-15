@@ -1,5 +1,5 @@
 # A word is a consecutive non-whitespace run; spaces keep their original layout.
-effect "grouped-words" version 2
+effect "grouped-words" version 3
 short-clip compress
 
 scope words current

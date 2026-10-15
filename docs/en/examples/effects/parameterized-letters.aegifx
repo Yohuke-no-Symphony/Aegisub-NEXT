@@ -1,0 +1,25 @@
+# Parameterized alternating letter rotation; complete cycles adapt to the instance.
+effect "personal-parameterized-letters" version 3
+var enabled = true label "Enabled"
+var angle = 12 label "Angle" suggest ["Subtle":6, "Normal":12, "Strong":24]
+var period = 600ms label "Cycle" suggest ["Fast":300ms, "Normal":600ms, "Slow":1s]
+var spacing = 60ms label "Stagger"
+short-clip compress
+
+if enabled
+    scope letters current
+        unit grapheme
+        stagger spacing
+        segment wobble flex 1 cycle period
+            for point in range(0, 4)
+                if point == 0 or point == 3
+                    at point / 3 rotation offset(0) ease-in-out
+                elif point == 1
+                    at point / 3 rotation offset(angle * (1 - 2 * (group.index % 2))) ease-in-out
+                else
+                    at point / 3 rotation offset(-angle * (1 - 2 * (group.index % 2))) ease-in-out
+                end
+            end
+        end
+    end
+end

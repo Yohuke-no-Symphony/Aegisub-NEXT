@@ -16,6 +16,11 @@ public static class EffectScriptValidator
     public static void Validate(EffectScript script)
     {
         ArgumentNullException.ThrowIfNull(script);
+        if (script.Version == 3)
+        {
+            EffectScriptV3Validator.Validate(script);
+            return;
+        }
         if (!IsIdentifier(script.Id) || !Enum.IsDefined(script.ShortClipPolicy) || script.Version is not (1 or 2) ||
             script.Segments.IsDefault || script.Scopes.IsDefault)
         {

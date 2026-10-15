@@ -67,7 +67,7 @@ internal sealed class ClipMaskPositionEditingCoordinator
             }
             return;
         }
-        var evaluated = SceneEvaluator.EvaluateMask(layer, session.AnimationTarget?.LocalTime ?? new(0))!;
+        var evaluated = session.EvaluateMask(layer, session.AnimationTarget?.LocalTime ?? new(0))!;
         var transform = evaluated.Transform;
         var geometry = new LayerPositionDraftGeometry(new(session.DocumentSnapshot.Width, session.DocumentSnapshot.Height),
             mask.ReferenceFrame.Origin, mask.ReferenceFrame.Size,

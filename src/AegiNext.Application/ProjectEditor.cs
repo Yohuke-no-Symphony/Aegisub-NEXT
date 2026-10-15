@@ -110,6 +110,7 @@ public sealed partial class ProjectEditor
                 {
                     return;
                 }
+                ProjectEditingOperations.ValidateEffectInstanceCompilation(next, snapshot);
 
                 undo.Add(new(label, snapshot, next));
                 if (undo.Count > historyLimit)
@@ -262,7 +263,7 @@ public sealed partial class ProjectEditor
             return document with
             {
                 Subtitles = document.Subtitles.SetItem(index, after),
-                Layers = MapLayers(document.Layers, layer => layer.SubtitleId == id ? LayerAnimationTiming.Clip(SubtitleAnimationRangeEditing.PruneTargets(layer, after) with
+                Layers = MapLayers(document.Layers, layer => layer.SubtitleId == id ? LayerAnimationTiming.Clip(ProjectEditingOperations.PruneEffectInstanceTargets(SubtitleAnimationRangeEditing.PruneTargets(layer, after), after) with
                 {
                     Start = after.Start, End = after.End, AnimationOffset = layer.AnimationOffset + after.Start - before.Start
                 }) : layer)

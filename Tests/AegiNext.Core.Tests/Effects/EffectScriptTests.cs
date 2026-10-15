@@ -32,7 +32,7 @@ public sealed class EffectScriptTests
     [Fact]
     public void FixedSegmentsAndWeightedFlexUseExactRationalBoundaries()
     {
-        var script = EffectScriptParser.Parse(WEIGHTED);
+        var script = EffectScriptRegressionParser.Parse(WEIGHTED);
         var track = Assert.Single(EffectScriptCompiler.Compile(script, new() { End = new(1) }));
 
         Assert.Equal(new MediaTime[] { new(0), new(3, 10), new(2, 5), new(7, 10), new(1) }, track.Keyframes.Select(key => key.Time));
@@ -44,7 +44,7 @@ public sealed class EffectScriptTests
     {
         var source = WEIGHTED.Replace("first flex 1", "first flex 0.1", StringComparison.Ordinal)
             .Replace("second flex 3", "second flex 0.3", StringComparison.Ordinal);
-        var script = EffectScriptParser.Parse(source);
+        var script = EffectScriptRegressionParser.Parse(source);
         var track = Assert.Single(EffectScriptCompiler.Compile(script, new() { Start = new(10), End = new(11), AnimationOffset = new(5) }));
         Assert.Equal(new MediaTime[] { new(5), new(53, 10), new(27, 5), new(57, 10), new(6) }, track.Keyframes.Select(key => key.Time));
     }
@@ -53,7 +53,7 @@ public sealed class EffectScriptTests
     public void UnknownPropertyDiagnosticPointsToTheRealIndentedToken()
     {
         var source = "effect \"diagnostic\" version 1\nshort-clip compress\nsegment all flex 1\n    at 0 unknown 0\nend";
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source));
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source));
         Assert.Equal(4, error.Line);
         Assert.Equal(10, error.Column);
     }
@@ -62,7 +62,7 @@ public sealed class EffectScriptTests
     public void TheDocumentedCustomSampleIsExecutableAtShortAndLongDurations()
     {
         var source = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Samples", "slide-pop.aegifx"));
-        var script = EffectScriptParser.Parse(source);
+        var script = EffectScriptRegressionParser.Parse(source);
         Assert.Equal("slide-pop", script.Id);
         foreach (var duration in new MediaTime[] { new(2, 5), new(5) })
         {
@@ -85,7 +85,7 @@ public sealed class EffectScriptTests
     public void EveryEmbeddedSampleCompilesAtShortNormalAndLongDurations(string id)
     {
         var template = BuiltinEffectScripts.Get(id);
-        Assert.Equal(id, EffectScriptParser.Parse(template.Source).Id);
+        Assert.Equal(id, EffectScriptRegressionParser.Parse(template.Source).Id);
         foreach (var duration in new MediaTime[] { new(1, 1000), new(2, 5), new(3, 5), new(10), new(1001, 30000) })
         {
             var layer = new ProjectLayer { Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 1, 1), Start = new(7), End = new MediaTime(7) + duration, AnimationOffset = new(3) };
@@ -115,7 +115,7 @@ public sealed class EffectScriptTests
     [Fact]
     public void AZeroLengthFlexWithChangingValuesIsRejectedInsteadOfSilentlyLosingKeys()
     {
-        var script = EffectScriptParser.Parse(WEIGHTED);
+        var script = EffectScriptRegressionParser.Parse(WEIGHTED);
         var error = Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.Compile(script, new() { End = new(1, 2) }));
         Assert.Equal(9, error.Line);
         Assert.Contains("共享端点", error.Message, StringComparison.Ordinal);
@@ -124,7 +124,7 @@ public sealed class EffectScriptTests
     [Fact]
     public void SharedBoundaryUsesTheRightSegmentsOutgoingInterpolation()
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "boundary" version 1
             short-clip compress
             segment first fixed 1s
@@ -146,7 +146,7 @@ public sealed class EffectScriptTests
     [Fact]
     public void UnmentionedTimeHoldsAtBothEndsAndBetweenDeclaredSegments()
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "hold" version 1
             short-clip compress
             segment before flex 1
@@ -177,7 +177,7 @@ public sealed class EffectScriptTests
     [Fact]
     public void VectorOffsetAndFactorReadTheOriginalNonUniformBase()
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "vector" version 1
             short-clip compress
             segment all flex 1
@@ -200,7 +200,7 @@ public sealed class EffectScriptTests
     public void FineDecimalMillisecondsDoNotQuantizeToFramesOrTimeSpanTicks()
     {
         var source = BuiltinEffectScripts.Get("fade-in").Source.Replace("300ms", "0.000001ms", StringComparison.Ordinal);
-        var track = Assert.Single(EffectScriptCompiler.Compile(EffectScriptParser.Parse(source), new() { End = new(1001, 30000) }));
+        var track = Assert.Single(EffectScriptCompiler.Compile(EffectScriptRegressionParser.Parse(source), new() { End = new(1001, 30000) }));
         Assert.Equal(new MediaTime(1, 1000000000), track.Keyframes[1].Time);
         Assert.Equal(new MediaTime(1001, 30000), track.Keyframes[^1].Time);
     }
@@ -216,7 +216,7 @@ public sealed class EffectScriptTests
     [Fact]
     public void EquivalentDecimalWeightsDoNotOverflowBecauseOfTrailingZeroScale()
     {
-        var script = BuiltinEffectScripts.Get("fade-in").Script;
+        var script = EffectScriptRegressionParser.Parse(EffectScriptRegressionParser.FADE_IN);
         script = script with
         {
             Segments = [script.Segments[0], script.Segments[1] with { FlexWeight = 1.0000000000000000000000000000m }]
@@ -253,8 +253,8 @@ public sealed class EffectScriptTests
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fr-FR");
-            var source = "\uFEFF# source\r\n" + BuiltinEffectScripts.Get("pop-in").Source.Replace("\n", "\r\n", StringComparison.Ordinal);
-            var script = EffectScriptParser.Parse(source);
+            var source = "\uFEFF# source\r\n" + EffectScriptRegressionParser.POP_IN.Replace("\n", "\r\n", StringComparison.Ordinal);
+            var script = EffectScriptRegressionParser.Parse(source);
             Assert.Equal(0.2, script.Segments[0].Keyframes[0].Value.X);
             Assert.Equal(new MediaTime(1, 4), script.Segments[0].FixedDuration);
         }
@@ -282,8 +282,8 @@ public sealed class EffectScriptTests
     [InlineData("at 0 scale", "at 0.0000001 scale")]
     public void InvalidSourceIsRejectedWithLineDiagnostics(string before, string after)
     {
-        var source = BuiltinEffectScripts.Get("pop-in").Source.Replace(before, after, StringComparison.Ordinal);
-        var error = Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(source));
+        var source = EffectScriptRegressionParser.POP_IN.Replace(before, after, StringComparison.Ordinal);
+        var error = Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(source));
         Assert.True(error.Line > 0);
         Assert.True(error.Column > 0);
     }
@@ -291,11 +291,11 @@ public sealed class EffectScriptTests
     [Fact]
     public void MissingEndOversizedSourceUnknownBuiltinsAndMissingFlexAreRejected()
     {
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse("effect \"empty\" version 1\nshort-clip compress"));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse(new('x', EffectScriptParser.MAXIMUM_SOURCE_CHARACTERS + 1)));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse("effect \"empty\" version 1\nshort-clip compress"));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse(new('x', EffectScriptParser.MAXIMUM_SOURCE_CHARACTERS + 1)));
         Assert.Throws<KeyNotFoundException>(() => BuiltinEffectScripts.Get("unknown"));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse("effect \"test\" version 1\nshort-clip compress\nsegment hold flex 1"));
-        Assert.Throws<EffectScriptException>(() => EffectScriptParser.Parse("""
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse("effect \"test\" version 1\nshort-clip compress\nsegment hold flex 1"));
+        Assert.Throws<EffectScriptException>(() => EffectScriptRegressionParser.Parse("""
             effect "fixed" version 1
             short-clip compress
             segment only fixed 1s
@@ -313,7 +313,7 @@ public sealed class EffectScriptTests
     [InlineData("path-progress", "1.1")]
     public void EvaluatedOutOfRangeValuesFailBeforeReturningTracks(string property, string value)
     {
-        var script = EffectScriptParser.Parse($"""
+        var script = EffectScriptRegressionParser.Parse($"""
             effect "range" version 1
             short-clip compress
             segment all flex 1

@@ -59,6 +59,11 @@ public static class LayerAnimationTiming
                     End = Scale(operation.End, newDuration, oldDuration)
                 }).ToImmutableArray()
             }).ToImmutableArray(),
+            Effects = mode == TimelineEditMode.CROP ? layer.Effects : layer.Effects.Select(instance => instance with
+            {
+                Start = Scale(instance.Start, newDuration, oldDuration),
+                End = Scale(instance.End, newDuration, oldDuration)
+            }).ToImmutableArray(),
             MotionPath = mode == TimelineEditMode.STRETCH && layer.MotionPath is { } path
                 ? path with { Duration = Scale(path.Duration, newDuration, oldDuration) }
                 : layer.MotionPath
@@ -69,14 +74,19 @@ public static class LayerAnimationTiming
     public static ProjectLayer Clip(ProjectLayer layer)
     {
         var (minimum, maximum) = GetRange(layer);
-        if (layer.Tracks.IsEmpty)
+        if (layer.Tracks.IsEmpty && layer.Effects.IsEmpty)
         {
             return layer;
         }
-
         var tracks = maximum < minimum ? layer.Tracks.Where(track => track.IsOrdered).ToImmutableArray() :
             layer.Tracks.Select(track => AnimationTrackSlicer.Clip(track, minimum, maximum)).ToImmutableArray();
-        return tracks.SequenceEqual(layer.Tracks) ? layer : layer with { Tracks = tracks };
+        var effects = layer.Effects.Select(instance => instance with
+            {
+                Start = instance.Start < minimum ? minimum : instance.Start,
+                End = instance.End > maximum ? maximum : instance.End
+            }).Where(instance => instance.Start < instance.End).ToImmutableArray();
+        return tracks.SequenceEqual(layer.Tracks) && effects.SequenceEqual(layer.Effects) ? layer :
+            layer with { Tracks = tracks, Effects = effects };
     }
 
     /// <summary>规范化旧工程的所有图层，保留工程与未改动层的引用。</summary>

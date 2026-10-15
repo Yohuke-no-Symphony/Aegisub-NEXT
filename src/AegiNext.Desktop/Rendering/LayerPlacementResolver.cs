@@ -13,7 +13,9 @@ internal sealed class LayerPlacementResolver : IDisposable
     private ProjectSceneRenderer? renderer;
     private string? directory;
     private ProjectDocument? cachedDocument;
-    private readonly Dictionary<Guid, (ImmutableDictionary<AnimationTrackTarget, AnimationValue> Typography, LayerPlacementResolution Result)> cache = [];
+    private readonly EffectCompilationCache effectPlans = new();
+    private readonly Dictionary<Guid, (ImmutableDictionary<AnimationTrackTarget, AnimationValue> Typography,
+        ImmutableArray<EffectStyleOperation> Effects, LayerPlacementResolution Result)> cache = [];
 
     internal LayerPlacementResolution Resolve(ProjectDocument document, string projectDirectory, ProjectLayer? layer, MediaTime? contentTime = null)
     {
@@ -47,11 +49,14 @@ internal sealed class LayerPlacementResolver : IDisposable
         }
 
         var subtitle = document.Subtitles.Single(line => line.Id == id);
-        var evaluated = contentTime.HasValue ? SceneEvaluator.EvaluateLayer(layer, subtitle, contentTime.Value) : null;
+        var evaluated = contentTime.HasValue ? SceneEvaluator.EvaluateLayer(layer, subtitle, contentTime.Value, effectPlans) : null;
         var typography = evaluated?.AnimationValues.Where(pair => pair.Key.Property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING)
             .ToImmutableDictionary() ?? ImmutableDictionary<AnimationTrackTarget, AnimationValue>.Empty;
+        var typographyEffects = evaluated?.EffectStyleOperations.Where(operation =>
+            operation.Target.Property is AnimationProperty.FONT_SIZE or AnimationProperty.LETTER_SPACING).ToImmutableArray() ?? [];
         if (cache.TryGetValue(id, out var cached) && typography.Count == cached.Typography.Count &&
-            typography.All(pair => cached.Typography.TryGetValue(pair.Key, out var previous) && previous == pair.Value))
+            typography.All(pair => cached.Typography.TryGetValue(pair.Key, out var previous) && previous == pair.Value) &&
+            typographyEffects.SequenceEqual(cached.Effects))
         {
             return cached.Result;
         }
@@ -77,7 +82,7 @@ internal sealed class LayerPlacementResolver : IDisposable
             result = new(null, null, error);
         }
 
-        cache[id] = (typography, result);
+        cache[id] = (typography, typographyEffects, result);
         return result;
     }
 

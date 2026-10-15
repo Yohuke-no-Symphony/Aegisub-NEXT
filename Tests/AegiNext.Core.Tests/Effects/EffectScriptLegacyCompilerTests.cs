@@ -8,7 +8,7 @@ public sealed class EffectScriptLegacyCompilerTests
     [Fact]
     public void TracksOnlyCompilerRejectsScopeScriptsInsteadOfDiscardingTheirRanges()
     {
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "scoped" version 2
             short-clip compress
             scope letters subtitle

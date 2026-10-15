@@ -7,25 +7,29 @@ namespace AegiNext.Desktop.Tests;
 internal static class EffectPresetPreviewTestSources
 {
     internal const string PATH = """
-        effect "sample-path" version 1
+        effect "sample-path" version 3
         short-clip compress
+        scope clip current
         segment motion flex 1
             at 0 path-progress 0 linear
             at 1 path-progress 1
         end
+        end
         """;
 
     internal const string MASK = """
-        effect "sample-mask" version 1
+        effect "sample-mask" version 3
         short-clip compress
+        scope clip current
         segment motion flex 1
             at 0 mask-position base linear
             at 1 mask-position offset(20, 0)
         end
+        end
         """;
 
     internal const string RANGE = """
-        effect "sample-range" version 2
+        effect "sample-range" version 3
         short-clip compress
         scope letters range(11, 1)
             segment pulse fixed 100ms pingpong
@@ -38,13 +42,15 @@ internal static class EffectPresetPreviewTestSources
         """;
 
     internal const string LONG = """
-        effect "long-sample" version 1
+        effect "long-sample" version 3
         short-clip reject
+        scope clip current
         segment enter fixed 5s
             at 0 opacity 0
             at 1 opacity base
         end
         segment rest flex 1
+        end
         end
         """;
 

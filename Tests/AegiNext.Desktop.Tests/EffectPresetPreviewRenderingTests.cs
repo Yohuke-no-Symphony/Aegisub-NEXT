@@ -93,11 +93,11 @@ public sealed class EffectPresetPreviewRenderingTests
         Assert.Equal(1, renderer.CompilationCount);
     }
 
-    /// <summary>超过六十四个源版本往返时，成功场景和失败诊断在工作者生命周期内均只编译一次。</summary>
+    /// <summary>大量成功和失败版本都受容量限制，最近保留的场景复用，已淘汰版本重新编译。</summary>
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public void EverySourceVersionCompilesOnlyOnceAcrossLargeCatalogRevisits(bool invalid)
+    public void LargeCatalogKeepsABoundedSceneCacheAndRecompilesEvictedVersions(bool invalid)
     {
         const int SOURCE_VERSIONS = 70;
         var options = new EffectPresetPreviewOptions();
@@ -112,7 +112,7 @@ public sealed class EffectPresetPreviewRenderingTests
 
         Assert.Equal(SOURCE_VERSIONS, renderer.CompilationCount);
         var otherCatalog = new SystemFontCatalog(SKFontManager.Default, []);
-        foreach (var request in versions)
+        foreach (var request in versions.Reverse().Take(32))
         {
             var revisited = EffectPresetPreviewTestSources.Request("revisited-" + request.PresetId,
                 revision: request.Revision + SOURCE_VERSIONS, scaling: 2, source: request.Source, catalog: otherCatalog);
@@ -120,10 +120,16 @@ public sealed class EffectPresetPreviewRenderingTests
         }
 
         Assert.Equal(SOURCE_VERSIONS, renderer.CompilationCount);
-        Assert.Equal(SOURCE_VERSIONS, renderer.CachedSceneCount);
+        Assert.Equal(32, renderer.CachedSceneCount);
+        foreach (var request in versions.Take(SOURCE_VERSIONS - 32))
+        {
+            RenderVersion(renderer, request, options.PosterTime, invalid);
+        }
+        Assert.Equal(SOURCE_VERSIONS * 2 - 32, renderer.CompilationCount);
+        Assert.Equal(32, renderer.CachedSceneCount);
         var changed = EffectPresetPreviewTestSources.Request(source: source + "\n# new source version");
         RenderVersion(renderer, changed, options.PosterTime, invalid);
-        Assert.Equal(SOURCE_VERSIONS + 1, renderer.CompilationCount);
+        Assert.Equal(SOURCE_VERSIONS * 2 - 31, renderer.CompilationCount);
     }
 
     /// <summary>同源失败不会重复编译，修订后的有效源取得独立缓存项。</summary>

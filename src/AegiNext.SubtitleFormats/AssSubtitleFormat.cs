@@ -294,6 +294,8 @@ public static class AssSubtitleFormat
         ISubtitlePlacementMeasurer? placementMeasurer = null)
     {
         ProjectValidator.Validate(document);
+        var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
+        document = AssEffectInstanceProjection.Create(document, diagnostics);
         var sourceDocument = document;
         document = CanvasProjection(document);
         var result = new StringBuilder();
@@ -304,7 +306,6 @@ public static class AssSubtitleFormat
             .AppendLine("LayoutResY: " + document.Height.ToString(CultureInfo.InvariantCulture))
             .AppendLine("YCbCr Matrix: None").AppendLine("WrapStyle: 1").AppendLine("ScaledBorderAndShadow: yes").AppendLine();
         result.AppendLine("[V4+ Styles]").AppendLine("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding");
-        var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
         var styles = AssStyleTable.Write(document.Subtitles, result, diagnostics);
         var graphicStyle = document.Layers.Any(layer => layer.Kind == LayerKind.SHAPE)
             ? AssShapeWriter.WriteStyle(styles.Values, result) : string.Empty;

@@ -1,5 +1,5 @@
 # Literal delimiters remain in the text and are excluded from the animated groups.
-effect "grouped-split" version 2
+effect "grouped-split" version 3
 short-clip compress
 
 scope phrases current

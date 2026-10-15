@@ -1,10 +1,14 @@
-effect "fade-in" version 1
+effect "fade-in" version 3
 short-clip compress
 
-segment enter fixed 300ms
-    at 0 opacity 0 ease-out
-    at 1 opacity base
-end
+var duration = 300ms label "Duration" suggest ["Fast":150ms, "Normal":300ms, "Slow":600ms]
 
-segment stay flex 1
+scope whole current
+    segment enter fixed duration
+        at 0 opacity 0 ease-out
+        at 1 opacity base
+    end
+
+    segment stay flex 1
+    end
 end

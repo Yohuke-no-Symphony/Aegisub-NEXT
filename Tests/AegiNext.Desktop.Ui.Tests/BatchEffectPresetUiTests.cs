@@ -59,11 +59,18 @@ public sealed class BatchEffectPresetUiTests
         foreach (var id in selected)
         {
             var layer = applied.Layers.Single(value => value.Id == id);
-            var track = Assert.Single(layer.Tracks);
-            Assert.Equal(AnimationProperty.OPACITY, track.Property);
-            Assert.Equal(layer.AnimationOffset, track.Keyframes[0].Time);
-            Assert.Equal(layer.End - layer.Start + layer.AnimationOffset, track.Keyframes[^1].Time);
-            Assert.Equal(layer.Opacity, track.Keyframes.Max(frame => frame.Value.Scalar));
+            var instance = Assert.Single(layer.Effects);
+            Assert.Empty(layer.Tracks);
+            Assert.Equal(layer.AnimationOffset, instance.Start);
+            Assert.Equal(layer.End - layer.Start + layer.AnimationOffset, instance.End);
+            Assert.Equal(context.ViewModel.EffectPresets.SelectedPreset!.Source, instance.Source);
+            var cue = applied.Subtitles.Single(value => value.Id == layer.SubtitleId);
+            var plan = EffectScriptCompiler.CompileInstance(EffectScriptParser.Parse(instance.Source), instance, layer, cue);
+            Assert.NotEmpty(plan.Channels);
+            Assert.All(plan.Channels, channel => Assert.Equal(AnimationProperty.OPACITY, channel.Target.Property));
+            Assert.Equal(instance.Start, plan.Channels.Min(channel => channel.Start));
+            Assert.Equal(instance.End, plan.Channels.Max(channel => channel.End));
+            Assert.Equal(1, plan.Channels.SelectMany(channel => channel.Multiplier.Keyframes).Max(frame => frame.Value.Scalar));
         }
         Assert.Same(document.Layers[2], applied.Layers[2]);
         Assert.Equal(1, changes);
@@ -93,7 +100,15 @@ public sealed class BatchEffectPresetUiTests
         UiTestActions.Click(context.Window, "ApplyPresetButton");
         await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
 
-        Assert.All(context.Session.DocumentSnapshot.Layers, layer => Assert.Contains(layer.Tracks, track => track.Property == AnimationProperty.SCALE));
+        var applied = context.Session.DocumentSnapshot;
+        Assert.All(applied.Layers, layer =>
+        {
+            Assert.Empty(layer.Tracks);
+            var instance = Assert.Single(layer.Effects);
+            var cue = applied.Subtitles.Single(value => value.Id == layer.SubtitleId);
+            var plan = EffectScriptCompiler.CompileInstance(EffectScriptParser.Parse(instance.Source), instance, layer, cue);
+            Assert.Contains(plan.Channels, channel => channel.Target.Property == AnimationProperty.SCALE);
+        });
         Assert.Equal(first.Id, context.Session.SelectedLayerId);
         Assert.Equal(new[] { first.Id, second.Id }, context.Session.SelectedSubtitleIds);
         Assert.True(context.Session.Editor.Undo());
@@ -116,11 +131,15 @@ public sealed class BatchEffectPresetUiTests
         var preset = new EffectScriptPreset(Guid.NewGuid(), "Reject short clips", source);
         await context.Session.EffectScripts.UpsertAsync(preset);
         UiTestActions.SelectEffectPreset(context.Window, preset.Id.ToString("D"));
+        Flush(context.Window);
 
-        UiTestActions.Click(context.Window, "ApplyPresetButton");
-        await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
-
-        Assert.IsType<EffectScriptException>(context.Session.LastError);
+        Assert.Equal(preset.Id.ToString("D"), context.ViewModel.EffectPresets.SelectedPreset!.Id);
+        Assert.Equal(new[] { first.Id, second.Id }.Order(), context.ViewModel.Effects.SelectedIds.Order());
+        Assert.Equal(AegiNext.Desktop.Workspace.EffectPresetApplyAvailability.INVALID_TARGET,
+            context.Session.EffectScripts.Availability(preset.Id.ToString("D")));
+        Assert.False(context.ViewModel.EffectPresets.ApplyCommand.CanExecute(null));
+        Assert.False(UiTestActions.Find<Button>(context.Window, "ApplyPresetButton").IsEffectivelyEnabled);
+        Assert.Null(context.Session.LastError);
         Assert.Same(document, context.Session.DocumentSnapshot);
         Assert.False(context.Session.Editor.CanUndo);
         Assert.False(context.Session.Editor.HasUnsavedChanges);

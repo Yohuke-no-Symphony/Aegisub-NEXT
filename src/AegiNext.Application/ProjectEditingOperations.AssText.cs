@@ -36,8 +36,9 @@ public static partial class ProjectEditingOperations
             };
         }
         var line = SubtitleAnimationRangeEditing.RemapTextChange(document.Subtitles[index], edited.Line);
-        next = SubtitleAnimationRangeEditing.PruneTargets(next, line);
-        if (line == document.Subtitles[index] && previous.Mask == next.Mask && previous.Tracks.SequenceEqual(next.Tracks))
+        next = PruneEffectInstanceTargets(SubtitleAnimationRangeEditing.PruneTargets(next, line), line);
+        if (line == document.Subtitles[index] && previous.Mask == next.Mask && previous.Tracks.SequenceEqual(next.Tracks) &&
+            previous.Effects.SequenceEqual(next.Effects))
         {
             return document;
         }

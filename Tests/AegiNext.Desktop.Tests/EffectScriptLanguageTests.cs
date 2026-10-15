@@ -5,6 +5,43 @@ namespace AegiNext.Desktop.Tests;
 
 public sealed class EffectScriptLanguageTests
 {
+    [Theory]
+    [InlineData("v", "var duration = 0.1s")]
+    [InlineData("var duration = 0.1s l", "label \"Name\"")]
+    [InlineData("var duration = 0.1s o", "options [\"Fast\": 50ms, \"Slow\": 200ms]")]
+    [InlineData("var duration = 0.1s s", "suggest [\"Fast\": 50ms, \"Slow\": 200ms]")]
+    public void ParameterKeywordCompletionUsesLowercase(string prefix, string insertion)
+    {
+        var source = "effect \"lowercase\" version 3\nshort-clip compress\n" + prefix;
+
+        Assert.Contains(EffectScriptLanguage.Complete(source, source.Length), item => item.Insertion == insertion);
+        var keyword = insertion[..insertion.IndexOf(' ', StringComparison.Ordinal)];
+        Assert.Equal(SyntaxTokenKind.KEYWORD, Assert.Single(EffectScriptLanguage.Tokenize(keyword)).Kind);
+    }
+
+    [Fact]
+    public void VersionThreeHighlightsParametersAndCompletesVariablesInsideNestedControlFlow()
+    {
+        const string SOURCE = """
+            effect "parameter-editor" version 3
+            short-clip compress
+            var amount_value = 0.5 options ["Half": 0.5, "Full": 1]
+            scope clip current
+                for i in range(0, 4)
+                    segment pulse flex 1
+                        if group.index < group.count
+                            at (i / 3) opacity amount_v
+            """;
+        var completions = EffectScriptLanguage.Complete(SOURCE, SOURCE.Length);
+        Assert.Contains(completions, item => item.Insertion == "amount_value");
+        Assert.Contains(EffectScriptLanguage.Tokenize(SOURCE), token =>
+            SOURCE.Substring(token.Start, token.Length) == "var" && token.Kind == SyntaxTokenKind.KEYWORD);
+        Assert.Contains(EffectScriptLanguage.Tokenize(SOURCE), token =>
+            SOURCE.Substring(token.Start, token.Length) == "options" && token.Kind == SyntaxTokenKind.KEYWORD);
+        var properties = SOURCE[..SOURCE.LastIndexOf("opacity", StringComparison.Ordinal)] + "op";
+        Assert.Contains(EffectScriptLanguage.Complete(properties, properties.Length), item => item.Insertion == "opacity");
+    }
+
     private static readonly string[] absolutePathValues = ["0", "1"];
     private static readonly string[] colorValues = ["base", "rgba(1, 1, 1, 1)"];
 
@@ -22,7 +59,7 @@ public sealed class EffectScriptLanguageTests
     }
 
     [Theory]
-    [InlineData("", "effect \"my-effect\" version 1")]
+    [InlineData("", "effect \"my-effect\" version 3")]
     [InlineData("effect \"test\" version 1\n", "short-clip compress")]
     [InlineData("effect \"test\" version 1\nshort-clip compress\n", "segment stay flex 1")]
     [InlineData("effect \"test\" version 1\nshort-clip compress\nsegment enter fixed 300ms\n    at 0 po", "position")]
@@ -155,7 +192,7 @@ public sealed class EffectScriptLanguageTests
     }
 
     [Theory]
-    [InlineData("", "effect \"my-effect\" version 2")]
+    [InlineData("", "effect \"my-effect\" version 3")]
     [InlineData("effect \"test\" version 2\nshort-clip compress\n", "scope letters current")]
     [InlineData("effect \"test\" version 2\nshort-clip compress\nscope letters ", "range(1,1)")]
     [InlineData("effect \"test\" version 2\nshort-clip compress\nscope letters current\n", "unit grapheme")]

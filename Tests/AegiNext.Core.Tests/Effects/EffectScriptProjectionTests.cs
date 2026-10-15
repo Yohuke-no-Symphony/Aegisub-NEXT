@@ -13,7 +13,7 @@ public sealed class EffectScriptProjectionTests
     [InlineData(5, 1)]
     public void DocumentedSpatialSampleReturnsToTheNativeBaseAtShortAndLongDurations(long numerator, long denominator)
     {
-        var script = EffectScriptParser.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Samples", "spatial-tilt.aegifx")));
+        var script = EffectScriptRegressionParser.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Samples", "spatial-tilt.aegifx")));
         var duration = new MediaTime(numerator, denominator);
         var layer = new ProjectLayer
         {
@@ -37,7 +37,7 @@ public sealed class EffectScriptProjectionTests
     [InlineData(2)]
     public void ProjectionPropertiesCompileAsOneVector3TrackWithoutWrappingAngles(int version)
     {
-        var script = EffectScriptParser.Parse(Source(version));
+        var script = EffectScriptRegressionParser.Parse(Source(version));
         var layer = new ProjectLayer
         {
             Kind = LayerKind.SHAPE,
@@ -62,7 +62,7 @@ public sealed class EffectScriptProjectionTests
             Kind = LayerKind.SHAPE, Shape = new(ShapeKind.RECTANGLE, 100, 40), End = new(4),
             Transform = new() { RotationX = 30, RotationY = -20, PerspectiveDistance = 500 }
         };
-        var result = EffectScriptCompiler.CompileTarget(EffectScriptParser.Parse(Source(2)), layer);
+        var result = EffectScriptCompiler.CompileTarget(EffectScriptRegressionParser.Parse(Source(2)), layer);
 
         AssertRotation(result.Tracks.Single(track => track.Property == AnimationProperty.ROTATION_3D),
             new(30, -20, 0), new(390, -65, 0), new(750, -110, 0));
@@ -79,7 +79,7 @@ public sealed class EffectScriptProjectionTests
         var source = Source(2).Replace("perspective-distance factor(2)",
             "perspective-distance " + distance.ToString(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
 
-        Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.CompileTarget(EffectScriptParser.Parse(source), layer));
+        Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.CompileTarget(EffectScriptRegressionParser.Parse(source), layer));
         Assert.Empty(layer.Tracks);
     }
 
@@ -89,7 +89,7 @@ public sealed class EffectScriptProjectionTests
         var line = new SubtitleLine { Text = "AB", End = new(4) };
         var rotation = new AnimationTrack(AnimationProperty.ROTATION, [new(new(0), 25d), new(new(4), 50d)]);
         var layer = new ProjectLayer { SubtitleId = line.Id, End = line.End, Tracks = [rotation] };
-        var script = EffectScriptParser.Parse(Source(2).Replace("scope whole current", "scope whole current\nunit grapheme", StringComparison.Ordinal));
+        var script = EffectScriptRegressionParser.Parse(Source(2).Replace("scope whole current", "scope whole current\nunit grapheme", StringComparison.Ordinal));
 
         var result = EffectScriptComposer.ComposeTarget(script, layer, subtitle: line);
 
@@ -119,7 +119,7 @@ public sealed class EffectScriptProjectionTests
         var line = new SubtitleLine { Text = "AB", End = new(4) };
         var layer = new ProjectLayer { SubtitleId = line.Id, End = line.End };
         var source = Source(2).Replace("scope whole current", $"scope whole current\nstate {state}", StringComparison.Ordinal);
-        var script = EffectScriptParser.Parse(source);
+        var script = EffectScriptRegressionParser.Parse(source);
 
         Assert.Throws<EffectScriptException>(() => EffectScriptCompiler.CompileTarget(script, layer, subtitle: line));
         Assert.Empty(layer.Tracks);
@@ -133,7 +133,7 @@ public sealed class EffectScriptProjectionTests
     {
         var scope = version == 2 ? "scope whole current" : string.Empty;
         var scopeEnd = version == 2 ? "end" : string.Empty;
-        var script = EffectScriptParser.Parse($$"""
+        var script = EffectScriptRegressionParser.Parse($$"""
             effect "axis-curves" version {{version}}
             short-clip compress
             {{scope}}
@@ -178,7 +178,7 @@ public sealed class EffectScriptProjectionTests
             new(new(4), AnimationValue.FromVector3(new(50, 80, 90)))
         ]);
         var layer = new ProjectLayer { End = new(4), Tracks = [original], Transform = new() { RotationX = 10 } };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "x-only" version 1
             short-clip compress
             segment turn flex 1
@@ -211,7 +211,7 @@ public sealed class EffectScriptProjectionTests
             InitialValue = AnimationValue.FromVector3(new(0, 20, 30)), Transforms = [operation]
         };
         var layer = new ProjectLayer { End = new(4), Tracks = [original] };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "x-only" version 1
             short-clip compress
             segment turn flex 1
@@ -242,7 +242,7 @@ public sealed class EffectScriptProjectionTests
             Enumerable.Range(0, count).Select(index => new Keyframe(new(index, count - 1),
                 AnimationValue.FromVector3(new(index % 13, index % 17, index % 19)))).ToImmutableArray());
         var layer = new ProjectLayer { End = new(1), Tracks = [original] };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "x-only" version 1
             short-clip compress
             segment turn flex 1

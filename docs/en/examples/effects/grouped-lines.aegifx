@@ -1,5 +1,5 @@
 # Only explicit LF and CRLF line breaks create groups; soft wrapping does not.
-effect "grouped-lines" version 2
+effect "grouped-lines" version 3
 short-clip compress
 
 scope lines current

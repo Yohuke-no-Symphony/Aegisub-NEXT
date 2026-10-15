@@ -27,4 +27,5 @@ public sealed record ProjectLayer
     public ClipMask? Mask { get; init; }
     public MotionPath? MotionPath { get; init; }
     public ImmutableArray<AnimationTrack> Tracks { get; init; } = [];
+    public ImmutableArray<EffectInstance> Effects { get; init; } = [];
 }

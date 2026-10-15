@@ -21,6 +21,7 @@ namespace AegiNext.Desktop.Controls;
 public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkbenchFocusCommandTarget
 {
     private ProjectDocument document = new();
+    private readonly EffectCompilationCache effectPlans = new();
     private readonly VideoFrameSurface sceneSurface = new();
     private ProjectSceneRenderer? renderer;
     private ScenePreviewScheduler? previewScheduler;
@@ -226,10 +227,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         }
         if (maskDraft is { } clipDraft && selected is not null)
         {
-            sceneDocument = ReplaceLayer(sceneDocument, selected with
-            {
-                Mask = clipDraft, Tracks = selected.Tracks.Where(track => !AnimationPropertyMetadata.IsMaskProperty(track.Property)).ToImmutableArray()
-            });
+            sceneDocument = ReplaceLayer(sceneDocument, PrepareMaskDraftLayer(clipDraft));
         }
         if (EditMode == CanvasEditMode.CROP && (draft ?? selected) is { Image: { } cropImage } cropLayer)
         {
@@ -677,7 +675,8 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             return layerDraft;
         }
         var local = position - selected.Start + selected.AnimationOffset;
-        var evaluated = SceneEvaluator.EvaluateLayer(selected with { MotionPath = null }, null, local).Transform;
+        var subtitle = selected.SubtitleId is { } id ? document.Subtitles.Single(line => line.Id == id) : null;
+        var evaluated = SceneEvaluator.EvaluateLayer(selected with { MotionPath = null, Effects = [] }, subtitle, local, effectPlans).Transform;
         return layerDraft with
         {
             Transform = layerDraft.Transform with

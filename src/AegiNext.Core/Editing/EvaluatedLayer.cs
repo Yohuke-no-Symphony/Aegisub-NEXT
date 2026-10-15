@@ -29,4 +29,5 @@ public sealed record EvaluatedLayer(ProjectLayer Source, MediaTime LocalTime, La
     public bool HasShadowColorAnimation { get; init; }
     public ImmutableDictionary<AnimationTrackTarget, AnimationValue> AnimationValues { get; init; } = ImmutableDictionary<AnimationTrackTarget, AnimationValue>.Empty;
     public ImmutableArray<SubtitleAnimationRange> AnimationRanges { get; init; } = [];
+    public ImmutableArray<EffectStyleOperation> EffectStyleOperations { get; init; } = [];
 }

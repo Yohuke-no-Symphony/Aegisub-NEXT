@@ -312,7 +312,7 @@
     "Settings.ValidateScript": "スクリプトを検証",
     "Settings.RestoreDraft": "保存済みの内容に戻す",
     "Settings.LocateError": "エラー箇所へ移動",
-    "Settings.ScriptHintHeader": "effect \"stable-id\" version 1",
+    "Settings.ScriptHintHeader": "effect \"stable-id\" version 3",
     "Settings.ScriptHintHeaderV2": "effect \"stable-id\" version 2 は名前付きスコープを使用します。",
     "Settings.ScriptHintScope": "scope 名前 対象で、グループと区間を独立して宣言します。",
     "Settings.ScriptHintTarget": "current：選択範囲、subtitle：字幕全体、range(開始, 数)：1 から数える書記素範囲。",

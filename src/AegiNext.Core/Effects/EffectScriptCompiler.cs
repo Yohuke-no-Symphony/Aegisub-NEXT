@@ -19,6 +19,7 @@ public static partial class EffectScriptCompiler
     internal static EffectScriptCompilation CompileWithCoverage(EffectScript script, ProjectLayer target, SubtitleStyle? subtitleStyle,
         bool preserveExistingAnimation, AnimationTrackTarget? targetContext, SubtitleLine? subtitle)
     {
+        script = LegacyProjection(script, true);
         EffectScriptValidator.Validate(script);
         ArgumentNullException.ThrowIfNull(target);
         target = EffectScriptRotationTracks.Expand(target, subtitle);

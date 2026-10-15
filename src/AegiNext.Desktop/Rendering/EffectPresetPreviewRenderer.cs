@@ -11,6 +11,7 @@ internal sealed class EffectPresetPreviewRenderer : IEffectPresetPreviewRenderer
     private readonly EffectPresetPreviewOptions options;
     private readonly int ownerThread = Environment.CurrentManagedThreadId;
     private readonly Dictionary<string, EffectPresetPreviewCompiledScene> scenes = new(StringComparer.Ordinal);
+    private readonly Queue<string> sceneOrder = new();
     private ProjectSceneRenderer? renderer;
     private SystemFontCatalog? fontCatalog;
     private byte[] background = [];
@@ -66,14 +67,19 @@ internal sealed class EffectPresetPreviewRenderer : IEffectPresetPreviewRenderer
             Exception? error = null;
             try
             {
-                scene = EffectPresetPreviewScene.Create(options, request.Source, cancellationToken);
+                scene = EffectPresetPreviewScene.Create(options, request.Source, null, cancellationToken, request.Parameters);
             }
             catch (Exception failure) when (failure is EffectScriptException or InvalidDataException or EffectPresetPreviewRequirementException)
             {
                 error = failure;
             }
             cached = new(scene, error);
+            if (scenes.Count >= 32)
+            {
+                scenes.Remove(sceneOrder.Dequeue());
+            }
             scenes.Add(request.SourceHash, cached);
+            sceneOrder.Enqueue(request.SourceHash);
             CompilationCount++;
         }
         cancellationToken.ThrowIfCancellationRequested();
@@ -104,6 +110,7 @@ internal sealed class EffectPresetPreviewRenderer : IEffectPresetPreviewRenderer
         renderer?.Dispose();
         renderer = null;
         scenes.Clear();
+        sceneOrder.Clear();
         background = [];
     }
 }

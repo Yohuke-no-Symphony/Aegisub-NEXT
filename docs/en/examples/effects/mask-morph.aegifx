@@ -1,23 +1,25 @@
-effect "mask-morph" version 1
+effect "mask-morph" version 3
 short-clip compress
 
-segment enter fixed 300ms
-    at 0 mask-node(1,1).position base power(2)
-    at 1 mask-node(1,1).position offset(40, 0)
-    at 0 mask-node(1,1).out-handle base power(2)
-    at 1 mask-node(1,1).out-handle offset(10, -20)
-end
+scope whole current
+    segment enter fixed 300ms
+        at 0 mask-node(1,1).position base power(2)
+        at 1 mask-node(1,1).position offset(40, 0)
+        at 0 mask-node(1,1).out-handle base power(2)
+        at 1 mask-node(1,1).out-handle offset(10, -20)
+    end
 
-segment stay flex 1
-    at 0 mask-node(1,1).position offset(40, 0) hold
-    at 1 mask-node(1,1).position offset(40, 0)
-    at 0 mask-node(1,1).out-handle offset(10, -20) hold
-    at 1 mask-node(1,1).out-handle offset(10, -20)
-end
+    segment stay flex 1
+        at 0 mask-node(1,1).position offset(40, 0) hold
+        at 1 mask-node(1,1).position offset(40, 0)
+        at 0 mask-node(1,1).out-handle offset(10, -20) hold
+        at 1 mask-node(1,1).out-handle offset(10, -20)
+    end
 
-segment exit fixed 300ms
-    at 0 mask-node(1,1).position offset(40, 0) power(0.5)
-    at 1 mask-node(1,1).position base
-    at 0 mask-node(1,1).out-handle offset(10, -20) power(0.5)
-    at 1 mask-node(1,1).out-handle base
+    segment exit fixed 300ms
+        at 0 mask-node(1,1).position offset(40, 0) power(0.5)
+        at 1 mask-node(1,1).position base
+        at 0 mask-node(1,1).out-handle offset(10, -20) power(0.5)
+        at 1 mask-node(1,1).out-handle base
+    end
 end

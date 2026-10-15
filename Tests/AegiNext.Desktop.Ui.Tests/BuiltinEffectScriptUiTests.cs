@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.Input;
+using SkiaSharp;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
@@ -21,6 +22,16 @@ public sealed class BuiltinEffectScriptUiTests
         await context.Session.ApplicationContext.Initialization;
         await context.Session.EffectScripts.Completion;
         var asset = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.IMAGE, "sources/test.png");
+        if (kind == LayerKind.IMAGE)
+        {
+            var path = Path.Combine(context.Session.ProjectDirectory, asset.RelativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            using var bitmap = new SKBitmap(100, 60);
+            bitmap.Erase(SKColors.White);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var png = image.Encode(SKEncodedImageFormat.Png, 100);
+            await File.WriteAllBytesAsync(path, png.ToArray(), TestContext.Current.CancellationToken);
+        }
         var layer = new ProjectLayer
         {
             Kind = kind, End = new(4),
@@ -41,7 +52,8 @@ public sealed class BuiltinEffectScriptUiTests
         await Assert.IsAssignableFrom<IAsyncRelayCommand>(context.ViewModel.EffectPresets.ApplyCommand).ExecutionTask!;
 
         Assert.Null(context.Session.LastError);
-        Assert.Equal(AnimationProperty.OPACITY, Assert.Single(context.Session.DocumentSnapshot.Layers[0].Tracks).Property);
+        Assert.Single(context.Session.DocumentSnapshot.Layers[0].Effects);
+        Assert.Empty(context.Session.DocumentSnapshot.Layers[0].Tracks);
         Assert.Equal(0, Assert.Single(SceneEvaluator.Evaluate(context.Session.DocumentSnapshot, new(0))).Opacity);
         Assert.Equal(1, Assert.Single(SceneEvaluator.Evaluate(context.Session.DocumentSnapshot, new(2))).Opacity);
         Assert.True(context.Session.Editor.Undo());
@@ -69,8 +81,7 @@ public sealed class BuiltinEffectScriptUiTests
         context.Window.GetCommand(WorkbenchCommand.VIEW_EFFECTS).Execute(null);
         var before = context.Session.DocumentSnapshot;
         var template = BuiltinEffectScripts.Get(id);
-        var expected = EffectScriptComposer.ComposeTarget(template.Script, before.Layers[0],
-            before.Subtitles[0].Style, subtitle: before.Subtitles[0]);
+
 
         UiTestActions.SelectBuiltinPreset(context.Window, id);
         UiTestActions.Click(context.Window, "ApplyPresetButton");
@@ -78,27 +89,22 @@ public sealed class BuiltinEffectScriptUiTests
 
         var actual = Assert.Single(context.Session.DocumentSnapshot.Layers);
         Assert.Equal(cueId, actual.Id);
-        var expectedTracks = expected.Tracks.AsEnumerable();
-        var actualTracks = actual.Tracks.AsEnumerable();
-        if (template.Script.Version == 2)
+        Assert.Empty(actual.Tracks);
+        Assert.Empty(context.Session.DocumentSnapshot.Subtitles[0].AnimationRanges);
+        var instance = Assert.Single(actual.Effects);
+        Assert.Equal(template.Source, instance.Source);
+        Assert.Equal(before.Layers[0].AnimationOffset, instance.Start);
+        Assert.Equal(before.Layers[0].AnimationOffset + before.Layers[0].End - before.Layers[0].Start, instance.End);
+        var compiled = EffectScriptCompiler.CompileInstance(template.Script, instance, actual, before.Subtitles[0]);
+        Assert.NotEmpty(compiled.Channels);
+        if (id.StartsWith("letter-", StringComparison.Ordinal))
         {
-            var expectedSubtitle = Assert.IsType<SubtitleLine>(expected.Subtitle);
-            var ranges = context.Session.DocumentSnapshot.Subtitles[0].AnimationRanges;
-            Assert.Equal(expectedSubtitle.AnimationRanges.Select(range => (range.Utf16Start, range.Utf16Length, range.GeneratedOrigin)),
-                ranges.Select(range => (range.Utf16Start, range.Utf16Length, range.GeneratedOrigin)));
-            Assert.All(actual.Tracks, track => Assert.Contains(ranges, range => range.Id == track.Target.TextRangeId));
-            expectedTracks = expectedTracks.OrderBy(track => expectedSubtitle.AnimationRanges.Single(range => range.Id == track.Target.TextRangeId).Utf16Start)
-                .ThenBy(track => track.Property);
-            actualTracks = actualTracks.OrderBy(track => ranges.Single(range => range.Id == track.Target.TextRangeId).Utf16Start)
-                .ThenBy(track => track.Property);
-            var restored = ProjectStore.Deserialize(ProjectStore.Serialize(context.Session.DocumentSnapshot));
-            Assert.Equal(ranges.ToArray(), restored.Subtitles[0].AnimationRanges.ToArray());
-            Assert.Equal(actual.Tracks.SelectMany(track => track.Keyframes), restored.Layers[0].Tracks.SelectMany(track => track.Keyframes));
+            Assert.Equal(4, compiled.Ranges.Length);
         }
-        Assert.Equal(expectedTracks.SelectMany(track => track.Keyframes), actualTracks.SelectMany(track => track.Keyframes));
-        Assert.Equal(expectedTracks.Select(track => track.Property), actualTracks.Select(track => track.Property));
-        Assert.All(actual.Tracks, track => Assert.DoesNotContain(
-            new TimelineEffectClipId(actual.Id, track.Target), context.Session.TimelineViewState.ExpandedAnimationClips));
+        var restored = ProjectStore.Deserialize(ProjectStore.Serialize(context.Session.DocumentSnapshot));
+        Assert.Equal(instance.Id, Assert.Single(restored.Layers[0].Effects).Id);
+        Assert.Equal(instance.Source, restored.Layers[0].Effects[0].Source);
+        Assert.Equal(instance.Parameters, restored.Layers[0].Effects[0].Parameters);
         Assert.True(context.Session.Editor.Undo());
         Assert.Same(before, context.Session.DocumentSnapshot);
     }

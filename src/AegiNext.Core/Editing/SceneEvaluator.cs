@@ -18,11 +18,11 @@ public static class SceneEvaluator
     public static ImmutableArray<EvaluatedLayer> Evaluate(PreparedProjectScene scene, MediaTime time)
     {
         ArgumentNullException.ThrowIfNull(scene);
-        return EvaluateLayers(scene.Clips.LayersInDrawingOrder, scene.Subtitles, time);
+        return EvaluateLayers(scene.Clips.LayersInDrawingOrder, scene.Subtitles, scene.Effects, time);
     }
 
     /// <summary>求关键帧插值或按源顺序叠加原生变换，所有面板、脚本、预览及压制共用此结果。</summary>
-    public static AnimationValue EvaluateTrack(AnimationTrack track, MediaTime time)
+    public static AnimationValue EvaluateTrack(AnimationTrack track, MediaTime time, bool beforeDiscontinuity = false)
     {
         ArgumentNullException.ThrowIfNull(track);
         if (track.IsOrdered)
@@ -35,7 +35,7 @@ public static class SceneEvaluator
             var result = initial;
             foreach (var operation in track.Transforms)
             {
-                var transformFraction = time < operation.Start ? 0 : time >= operation.End ? 1 :
+                var transformFraction = time < operation.Start || beforeDiscontinuity && time == operation.Start ? 0 : time >= operation.End ? 1 :
                     operation.Curve is { } curve
                         ? CurveFraction(curve.Interpolation, curve.CurveStart, curve.CurveEnd,
                             Fraction(time - operation.Start, operation.End - operation.Start), curve.Exponent, curve.Reverse)
@@ -74,7 +74,7 @@ public static class SceneEvaluator
             return frames[0].Value;
         }
 
-        if (time >= frames[^1].Time)
+        if (time > frames[^1].Time || time == frames[^1].Time && !beforeDiscontinuity)
         {
             return frames[^1].Value;
         }
@@ -84,7 +84,7 @@ public static class SceneEvaluator
         while (lower < upper)
         {
             var middle = lower + (upper - lower) / 2;
-            if (time >= frames[middle].Time)
+            if (time > frames[middle].Time || time == frames[middle].Time && !beforeDiscontinuity)
             {
                 lower = middle + 1;
             }
@@ -201,9 +201,14 @@ public static class SceneEvaluator
     }
 
     /// <summary>按片段内容时间求值独立蒙版，原生定位、固定参考框及拓扑身份保持不变。</summary>
-    public static ClipMask? EvaluateMask(ProjectLayer layer, MediaTime contentTime)
+    public static ClipMask? EvaluateMask(ProjectLayer layer, MediaTime contentTime, SubtitleLine? subtitle = null,
+        EffectCompilationCache? effectCache = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
+        if (!layer.Effects.IsEmpty)
+        {
+            return EvaluateLayer(layer, subtitle, contentTime, effectCache).Mask;
+        }
         return EvaluateMask(layer.Mask, layer.Tracks.Where(track => AnimationPropertyMetadata.IsMaskProperty(track.Property))
             .ToDictionary(track => track.Target, track => EvaluateTrack(track, contentTime)));
     }
@@ -285,10 +290,31 @@ public static class SceneEvaluator
     }
 
     /// <summary>以内容时钟求值单个已验证片段，不按可见时间过滤，可用于片段端点或不可见片段的测量。</summary>
-    public static EvaluatedLayer EvaluateLayer(ProjectLayer layer, SubtitleLine? subtitle, MediaTime contentTime)
+    public static EvaluatedLayer EvaluateLayer(ProjectLayer layer, SubtitleLine? subtitle, MediaTime contentTime,
+        EffectCompilationCache? effectCache = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
-        var values = layer.Tracks.ToDictionary(track => track.Target, track => EvaluateTrack(track, contentTime));
+        var effects = layer.Effects.IsEmpty ? null : PreparedEffectLayer.Create(layer, subtitle, effectCache ?? new());
+        return EvaluateLayer(layer, subtitle, contentTime, effects);
+    }
+
+    /// <summary>通过已准备场景求值指定片段及不连续点的精确左极限，复用实例计划。</summary>
+    public static EvaluatedLayer EvaluateLayer(PreparedProjectScene scene, Guid layerId, MediaTime contentTime,
+        bool beforeDiscontinuity = false)
+    {
+        ArgumentNullException.ThrowIfNull(scene);
+        var layer = scene.Layers[layerId];
+        var subtitle = layer.SubtitleId is { } id ? scene.Subtitles[id] : null;
+        return EvaluateLayer(layer, subtitle, contentTime, scene.Effects.GetValueOrDefault(layerId), beforeDiscontinuity);
+    }
+
+    private static EvaluatedLayer EvaluateLayer(ProjectLayer layer, SubtitleLine? subtitle, MediaTime contentTime,
+        PreparedEffectLayer? effects, bool beforeDiscontinuity = false)
+    {
+        var values = layer.Tracks.ToDictionary(track => track.Target, track => EvaluateTrack(track, contentTime, beforeDiscontinuity));
+        var styleOperations = effects is null ? [] : EffectRuntimeEvaluation.Apply(layer, effects, contentTime, values, beforeDiscontinuity);
+        subtitle = effects?.Subtitle ?? subtitle;
+        var appearance = EffectRuntimeEvaluation.WholeStyleValues(layer, subtitle, values, styleOperations);
         var rotation = GetRotation(values, null, new(layer.Transform.RotationX, layer.Transform.RotationY, layer.Transform.Rotation));
         var transform = layer.Transform with
         {
@@ -317,29 +343,30 @@ public static class SceneEvaluator
         var fill = subtitle?.Style.Fill ?? layer.Fill;
         var stroke = subtitle?.Style.Stroke ?? layer.Stroke;
         return new(layer, contentTime, transform, Get(values, AnimationProperty.OPACITY, layer.Opacity),
-            GetColor(values, AnimationProperty.FILL, fill), GetColor(values, AnimationProperty.STROKE, stroke),
-            Get(values, AnimationProperty.STROKE_WIDTH, subtitle?.Style.StrokeWidth ?? layer.StrokeWidth),
+            GetColor(appearance, AnimationProperty.FILL, fill), GetColor(appearance, AnimationProperty.STROKE, stroke),
+            Get(appearance, AnimationProperty.STROKE_WIDTH, subtitle?.Style.StrokeWidth ?? layer.StrokeWidth),
             Get(values, AnimationProperty.BLUR, layer.Blur), subtitle)
         {
             Mask = EvaluateMask(layer.Mask, values),
-            HasFillAnimation = values.ContainsKey(new(AnimationProperty.FILL)),
-            HasStrokeAnimation = values.ContainsKey(new(AnimationProperty.STROKE)),
-            HasStrokeWidthAnimation = values.ContainsKey(new(AnimationProperty.STROKE_WIDTH)),
-            LetterSpacing = Get(values, AnimationProperty.LETTER_SPACING, subtitle?.Style.LetterSpacing ?? 0),
-            FillBlur = Get(values, AnimationProperty.FILL_BLUR, subtitle?.Style.FillBlur ?? 0),
-            StrokeBlur = Get(values, AnimationProperty.STROKE_BLUR, subtitle?.Style.StrokeBlur ?? 0),
-            HasLetterSpacingAnimation = values.ContainsKey(new(AnimationProperty.LETTER_SPACING)),
-            HasFillBlurAnimation = values.ContainsKey(new(AnimationProperty.FILL_BLUR)),
-            HasStrokeBlurAnimation = values.ContainsKey(new(AnimationProperty.STROKE_BLUR)),
-            FontSize = Get(values, AnimationProperty.FONT_SIZE, subtitle?.Style.FontSize ?? 0),
-            ShadowOffset = GetVector(values, AnimationProperty.SHADOW_OFFSET, subtitle?.Style.ShadowOffset ?? new(0, 0)),
-            ShadowBlur = Get(values, AnimationProperty.SHADOW_BLUR, subtitle?.Style.ShadowBlur ?? 0),
-            ShadowColor = GetColor(values, AnimationProperty.SHADOW_COLOR, subtitle?.Style.ShadowColor ?? SceneColor.Transparent),
-            HasFontSizeAnimation = values.ContainsKey(new(AnimationProperty.FONT_SIZE)),
-            HasShadowOffsetAnimation = values.ContainsKey(new(AnimationProperty.SHADOW_OFFSET)),
-            HasShadowBlurAnimation = values.ContainsKey(new(AnimationProperty.SHADOW_BLUR)),
-            HasShadowColorAnimation = values.ContainsKey(new(AnimationProperty.SHADOW_COLOR)),
+            HasFillAnimation = appearance.ContainsKey(new(AnimationProperty.FILL)),
+            HasStrokeAnimation = appearance.ContainsKey(new(AnimationProperty.STROKE)),
+            HasStrokeWidthAnimation = appearance.ContainsKey(new(AnimationProperty.STROKE_WIDTH)),
+            LetterSpacing = Get(appearance, AnimationProperty.LETTER_SPACING, subtitle?.Style.LetterSpacing ?? 0),
+            FillBlur = Get(appearance, AnimationProperty.FILL_BLUR, subtitle?.Style.FillBlur ?? 0),
+            StrokeBlur = Get(appearance, AnimationProperty.STROKE_BLUR, subtitle?.Style.StrokeBlur ?? 0),
+            HasLetterSpacingAnimation = appearance.ContainsKey(new(AnimationProperty.LETTER_SPACING)),
+            HasFillBlurAnimation = appearance.ContainsKey(new(AnimationProperty.FILL_BLUR)),
+            HasStrokeBlurAnimation = appearance.ContainsKey(new(AnimationProperty.STROKE_BLUR)),
+            FontSize = Get(appearance, AnimationProperty.FONT_SIZE, subtitle?.Style.FontSize ?? 0),
+            ShadowOffset = GetVector(appearance, AnimationProperty.SHADOW_OFFSET, subtitle?.Style.ShadowOffset ?? new(0, 0)),
+            ShadowBlur = Get(appearance, AnimationProperty.SHADOW_BLUR, subtitle?.Style.ShadowBlur ?? 0),
+            ShadowColor = GetColor(appearance, AnimationProperty.SHADOW_COLOR, subtitle?.Style.ShadowColor ?? SceneColor.Transparent),
+            HasFontSizeAnimation = appearance.ContainsKey(new(AnimationProperty.FONT_SIZE)),
+            HasShadowOffsetAnimation = appearance.ContainsKey(new(AnimationProperty.SHADOW_OFFSET)),
+            HasShadowBlurAnimation = appearance.ContainsKey(new(AnimationProperty.SHADOW_BLUR)),
+            HasShadowColorAnimation = appearance.ContainsKey(new(AnimationProperty.SHADOW_COLOR)),
             AnimationValues = values.ToImmutableDictionary(),
+            EffectStyleOperations = styleOperations,
             AnimationRanges = subtitle is null ? [] : subtitle.AnimationRanges.Select(range => EvaluateRange(range, values)).ToImmutableArray()
         };
     }
@@ -373,7 +400,7 @@ public static class SceneEvaluator
     }
 
     private static ImmutableArray<EvaluatedLayer> EvaluateLayers(ImmutableArray<ProjectLayer> layers,
-        FrozenDictionary<Guid, SubtitleLine> subtitles, MediaTime time)
+        FrozenDictionary<Guid, SubtitleLine> subtitles, FrozenDictionary<Guid, PreparedEffectLayer> effects, MediaTime time)
     {
         var result = ImmutableArray.CreateBuilder<EvaluatedLayer>();
         foreach (var layer in layers)
@@ -385,7 +412,7 @@ public static class SceneEvaluator
 
             var subtitle = layer.SubtitleId is { } id ? subtitles[id] : null;
             var local = time - layer.Start + layer.AnimationOffset;
-            result.Add(EvaluateLayer(layer, subtitle, local));
+            result.Add(EvaluateLayer(layer, subtitle, local, effects.GetValueOrDefault(layer.Id)));
         }
 
         return result.ToImmutable();

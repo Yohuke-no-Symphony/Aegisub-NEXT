@@ -7,6 +7,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Threading;
+using AegiNext.Desktop.Layouts;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
@@ -20,6 +21,7 @@ public sealed class TimelineEffectClipDeleteUiTests
     {
         await using var context = new MainWindowTestContext();
         await context.Session.ApplicationContext.Initialization;
+        Assert.True(await context.Window.Layouts.ApplyPresetAsync(WorkspaceLayoutPresets.EFFECTS));
         var firstNode = new MaskNode { Position = new(10, 20) };
         var secondNode = new MaskNode { Position = new(30, 40) };
         var target = new AnimationTrackTarget(AnimationProperty.MASK_NODE_POSITION, firstNode.Id);

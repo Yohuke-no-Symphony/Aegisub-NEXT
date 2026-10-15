@@ -1,17 +1,19 @@
-effect "mask-slide" version 1
+effect "mask-slide" version 3
 short-clip compress
 
-segment enter fixed 300ms
-    at 0 mask-position offset(-120, 0) power(2)
-    at 1 mask-position base
-end
+scope whole current
+    segment enter fixed 300ms
+        at 0 mask-position offset(-120, 0) power(2)
+        at 1 mask-position base
+    end
 
-segment stay flex 1
-    at 0 mask-position base hold
-    at 1 mask-position base
-end
+    segment stay flex 1
+        at 0 mask-position base hold
+        at 1 mask-position base
+    end
 
-segment exit fixed 300ms
-    at 0 mask-position base power(0.5)
-    at 1 mask-position offset(120, 0)
+    segment exit fixed 300ms
+        at 0 mask-position base power(0.5)
+        at 1 mask-position offset(120, 0)
+    end
 end

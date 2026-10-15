@@ -18,7 +18,7 @@ public sealed class EffectScriptTextRangeEditingTests
         var editor = new ProjectEditor(snapshot);
         var target = new AnimationTrackTarget(AnimationProperty.SHADOW_COLOR, TextRangeId: range.Id, State: SubtitleAnimationState.INACTIVE);
         var source = Source("shadow-color", "rgba(0, 0, 0, 0.5)");
-        editor.ApplyEffectScript(id, EffectScriptParser.Parse(source), target);
+        editor.ApplyEffectScript(id, EffectScriptParser.ParseLegacy(source), target);
 
         var layer = Assert.Single(editor.Snapshot.Layers);
         Assert.Equal(2, layer.Tracks.Length);
@@ -40,7 +40,7 @@ public sealed class EffectScriptTextRangeEditingTests
         initial.UpdateSubtitle(second, line => line with { KaraokeStyleSpans = [new(0, 1, new() { ShadowBlur = 8 })] });
         var snapshot = initial.Snapshot;
         var editor = new ProjectEditor(snapshot);
-        editor.ApplyEffectScript([first, second], EffectScriptParser.Parse(Source("shadow-blur", "base")),
+        editor.ApplyEffectScript([first, second], EffectScriptParser.ParseLegacy(Source("shadow-blur", "base")),
             new(AnimationProperty.SHADOW_BLUR, State: SubtitleAnimationState.ACTIVE));
 
         Assert.Equal(4, editor.Snapshot.Layers[0].Tracks[0].Keyframes[0].Value.Scalar);
@@ -63,13 +63,13 @@ public sealed class EffectScriptTextRangeEditingTests
         var editor = new ProjectEditor(original);
         var context = new AnimationTrackTarget(AnimationProperty.FILL, TextRangeId: range.Id);
         Assert.Throws<EffectScriptException>(() => editor.ApplyEffectScript([first, second],
-            EffectScriptParser.Parse(Source("fill", "base")), context));
+            EffectScriptParser.ParseLegacy(Source("fill", "base")), context));
         Assert.Throws<EffectScriptException>(() => editor.ApplyEffectScript(first,
-            EffectScriptParser.Parse(Source("font-size", "base")), context));
+            EffectScriptParser.ParseLegacy(Source("font-size", "base")), context));
         Assert.Throws<EffectScriptException>(() => editor.ApplyEffectScript(first,
-            EffectScriptParser.Parse(Source("opacity", "1")), context));
+            EffectScriptParser.ParseLegacy(Source("opacity", "1")), context));
         Assert.Throws<EffectScriptException>(() => editor.ApplyEffectScript(second,
-            EffectScriptParser.Parse(Source("fill", "base")), context));
+            EffectScriptParser.ParseLegacy(Source("fill", "base")), context));
 
         Assert.Same(original, editor.Snapshot);
         Assert.False(editor.CanUndo);
@@ -87,7 +87,7 @@ public sealed class EffectScriptTextRangeEditingTests
         var editor = new ProjectEditor(original);
 
         var error = Assert.Throws<EffectScriptException>(() => editor.ApplyEffectScript([first, second],
-            EffectScriptParser.Parse(Source("fill", "base")), new(AnimationProperty.FILL, State: SubtitleAnimationState.ACTIVE)));
+            EffectScriptParser.ParseLegacy(Source("fill", "base")), new(AnimationProperty.FILL, State: SubtitleAnimationState.ACTIVE)));
 
         Assert.Contains("混合", error.Message);
         Assert.Same(original, editor.Snapshot);
@@ -95,7 +95,7 @@ public sealed class EffectScriptTextRangeEditingTests
     }
 
     [Fact]
-    public void AStoredVersionOneTemplateCanRetargetDifferentRangesAndInheritedSizes()
+    public void AStoredVersionThreeTemplateCanRetargetDifferentRangesAndInheritedSizes()
     {
         var editor = new ProjectEditor();
         var first = editor.AddSubtitle(new(0), new(2), "AB");
@@ -106,8 +106,17 @@ public sealed class EffectScriptTextRangeEditingTests
         editor.SetSubtitleAnimationRange(second, secondRange);
         editor.UpdateSubtitle(first, line => line with { InlineSpans = [new(0, 1, new() { FontSize = 20 })] });
         editor.UpdateSubtitle(second, line => line with { InlineSpans = [new(1, 1, new() { FontSize = 50 })] });
-        var source = Source("font-size", "factor(1.5)");
-        var bytes = EffectScriptPresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Range size", source)] });
+        const string SOURCE = """
+            effect "scoped-template" version 3
+            short-clip compress
+            scope clip current
+                segment stay flex 1
+                    at 0 font-size factor(1.5)
+                    at 1 font-size factor(1.5)
+                end
+            end
+            """;
+        var bytes = EffectScriptPresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Range size", SOURCE)] });
         var template = EffectScriptPresetService.Validate(Assert.Single(EffectScriptPresetStore.Deserialize(bytes).Presets));
         editor.ApplyEffectScript(first, template, new(AnimationProperty.FONT_SIZE, TextRangeId: firstRange.Id));
         editor.ApplyEffectScript(second, template, new(AnimationProperty.FONT_SIZE, TextRangeId: secondRange.Id));

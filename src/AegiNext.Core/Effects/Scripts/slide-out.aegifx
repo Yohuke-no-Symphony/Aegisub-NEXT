@@ -1,10 +1,15 @@
-effect "slide-out" version 1
+effect "slide-out" version 3
 short-clip compress
 
-segment stay flex 1
-end
+var duration = 250ms label "Duration" suggest ["Fast":150ms, "Normal":250ms, "Slow":500ms]
+var distance = vec2(250, 0) label "Offset"
 
-segment exit fixed 250ms
-    at 0 position base ease-in
-    at 1 position offset(250, 0)
+scope whole current
+    segment stay flex 1
+    end
+
+    segment exit fixed duration
+        at 0 position base ease-in
+        at 1 position offset(distance)
+    end
 end

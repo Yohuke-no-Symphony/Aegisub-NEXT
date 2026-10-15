@@ -35,7 +35,7 @@ public sealed class EffectScriptV2CompilerTests
     public void CycleOnlyShortClipReservesOneFullPeriodForEveryLetter()
     {
         var line = new SubtitleLine { Text = "甲乙", End = new(1, 10) };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "cycle" version 2
             short-clip compress
             scope letters current
@@ -62,7 +62,7 @@ public sealed class EffectScriptV2CompilerTests
     public void FlexCycleHoldsTheCompletedPeriodDuringRemainder()
     {
         var line = new SubtitleLine { Text = "甲", End = new(1) };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "cycles" version 2
             short-clip compress
             scope letters current
@@ -87,7 +87,7 @@ public sealed class EffectScriptV2CompilerTests
     public void PingPongPowerUsesThePreviousForwardKeysCurveInReverse()
     {
         var line = new SubtitleLine { Text = "甲", End = new(3) };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "power" version 2
             short-clip compress
             scope whole current
@@ -116,7 +116,7 @@ public sealed class EffectScriptV2CompilerTests
     public void HugeExpansionIsRejectedBeforeGeneratingKeys(string timing)
     {
         var line = new SubtitleLine { Text = "甲", End = new(1000) };
-        var script = EffectScriptParser.Parse($"""
+        var script = EffectScriptRegressionParser.Parse($"""
             effect "budget" version 2
             short-clip compress
             scope whole current
@@ -204,7 +204,7 @@ public sealed class EffectScriptV2CompilerTests
     public void OverlappingScopesWithTheSameFullTargetAreRejected()
     {
         var line = new SubtitleLine { Text = "甲", End = new(2) };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "conflict" version 2
             short-clip compress
             scope first current
@@ -264,7 +264,7 @@ public sealed class EffectScriptV2CompilerTests
     public void GroupedStyleBaseRejectsMixedValuesWhileLocalScaleRemainsNeutral()
     {
         var line = new SubtitleLine { Text = "甲乙", End = new(2), InlineSpans = [new(0, 1, new() { FontSize = 40 })] };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "mixed" version 2
             short-clip compress
             scope words current
@@ -295,7 +295,7 @@ public sealed class EffectScriptV2CompilerTests
     public void RepeatBudgetUsesTheActualPropertyDimension(string property, string value, AnimationProperty animationProperty, int repeats)
     {
         var line = new SubtitleLine { Text = "甲", End = new(1) };
-        var script = EffectScriptParser.Parse($"""
+        var script = EffectScriptRegressionParser.Parse($"""
             effect "dimension-budget" version 2
             short-clip compress
             scope whole current
@@ -381,7 +381,7 @@ public sealed class EffectScriptV2CompilerTests
     public void EmptyGroupedScopeStillRejectsAnUnsupportedRangeProperty()
     {
         var line = new SubtitleLine { Text = "", End = new(1) };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "invalid-empty-range" version 2
             short-clip compress
             scope letters current
@@ -412,7 +412,7 @@ public sealed class EffectScriptV2CompilerTests
     public void ForwardCycleRequiresClosedEndpointsEvenWhenOnlyOneCycleFits()
     {
         var line = new SubtitleLine { Text = "甲", End = new(1, 10) };
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptRegressionParser.Parse("""
             effect "unclosed-cycle" version 2
             short-clip compress
             scope whole current
@@ -433,7 +433,7 @@ public sealed class EffectScriptV2CompilerTests
     public void ForwardClosureComparesResolvedValuesAndAllowsAnOrdinarySingleFixedEntrance()
     {
         var line = new SubtitleLine { Text = "甲", End = new(1) };
-        var closed = EffectScriptParser.Parse("""
+        var closed = EffectScriptRegressionParser.Parse("""
             effect "closed-cycle" version 2
             short-clip compress
             scope whole current
@@ -448,7 +448,7 @@ public sealed class EffectScriptV2CompilerTests
         var result = EffectScriptCompiler.CompileTarget(closed, layer, subtitle: line);
 
         Assert.All(Assert.Single(result.Tracks).Keyframes, frame => Assert.Equal(25, frame.Value.Vector3.Z));
-        var entrance = EffectScriptParser.Parse("""
+        var entrance = EffectScriptRegressionParser.Parse("""
             effect "entrance" version 2
             short-clip compress
             scope whole current
@@ -464,7 +464,7 @@ public sealed class EffectScriptV2CompilerTests
         Assert.Equal(100, single.Keyframes[^1].Value.Vector3.Z);
     }
 
-    private static EffectScript Pulse(string unit, string fields = "") => EffectScriptParser.Parse($"""
+    private static EffectScript Pulse(string unit, string fields = "") => EffectScriptRegressionParser.Parse($"""
         effect "pulse" version 2
         short-clip compress
         scope letters current

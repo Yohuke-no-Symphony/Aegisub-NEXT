@@ -1,5 +1,5 @@
 # Count two graphemes per group, including spaces; restart at every hard line.
-effect "grouped-pairs" version 2
+effect "grouped-pairs" version 3
 short-clip compress
 
 scope pairs current

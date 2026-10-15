@@ -113,6 +113,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         timeline.ClipContextRequested += OnClipContextRequested;
         timeline.EffectClipContextRequested += OnEffectClipContextRequested;
         timeline.EffectClipSelected += OnEffectClipSelected;
+        timeline.EffectInstanceTimingChanged += OnEffectInstanceTimingChanged;
         timeline.TrackSoloRequested += OnTrackSoloRequested;
         timeline.TrackCollapseRequested += OnTrackCollapseRequested;
         timeline.SeekRequested += async (_, e) =>
@@ -340,6 +341,9 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     private void OnEffectClipSelected(object? sender, TimelineEffectClipSelectionEventArgs e) =>
         e.SelectionAccepted = viewModel.SelectEffectClip(e);
 
+    private async void OnEffectInstanceTimingChanged(object? sender, TimelineEffectInstanceTimingEventArgs e) =>
+        await viewModel.CommitEffectInstanceTimingAsync(e);
+
     private void OnPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         if (ReferenceEquals(animationRowCollapsePointer, e.Pointer))
@@ -478,7 +482,8 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     private void RefreshAnimationMenu()
     {
         contextKeyframeDeleteItem.IsVisible = viewModel.HasContextKeyframe;
-        animationClearItem.Header = Localization.Get("Workbench.ClearEffectClip");
+        animationClearItem.Header = Localization.Get(viewModel.IsContextEffectInstance ? "Workbench.EffectInstanceRemove" : "Workbench.ClearEffectClip");
+        effectClipCollapseItem.IsVisible = !viewModel.IsContextEffectInstance;
         effectClipCollapseItem.Header = Localization.Get("Workbench." +
             (viewModel.IsContextEffectClipCollapsed ? "ExpandEffectClip" : "CollapseEffectClip"));
     }
@@ -602,6 +607,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             timeline.ClipContextRequested -= OnClipContextRequested;
             timeline.EffectClipContextRequested -= OnEffectClipContextRequested;
             timeline.EffectClipSelected -= OnEffectClipSelected;
+            timeline.EffectInstanceTimingChanged -= OnEffectInstanceTimingChanged;
             timeline.TrackSoloRequested -= OnTrackSoloRequested;
             timeline.TrackCollapseRequested -= OnTrackCollapseRequested;
             timeline.EffectClipCollapseRequested -= OnEffectClipCollapseRequested;

@@ -47,7 +47,7 @@ public sealed class SettingsLibrarySelectionUiTests
                 ids[index] = Guid.NewGuid();
                 if (effects)
                 {
-                    var source = $"effect \"selection-{index}\" version 1\nshort-clip compress\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\n";
+                    var source = $"effect \"selection-{index}\" version 3\nshort-clip compress\nscope clip current\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\nend\n";
                     await context.RunEffectOperationAsync(() => context.EffectScriptLibrary.UpsertAsync(new(ids[index], $"Effect {index}", source)));
                 }
                 else
@@ -399,7 +399,7 @@ public sealed class SettingsLibrarySelectionUiTests
             if (effects)
             {
                 window.UpdateEffects(ids.Select((id, index) => new EffectScriptPreset(id, $"特效 Script {index}",
-                    $"effect \"selection-{index}\" version 1\nshort-clip compress\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\n")));
+                    $"effect \"selection-{index}\" version 3\nshort-clip compress\nscope clip current\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\nend\n")));
             }
             else
             {

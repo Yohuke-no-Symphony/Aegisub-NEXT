@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Text.Json;
+using AegiNext.Core.Editing;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
@@ -36,10 +37,10 @@ internal static class PackageMediaProbe
             var asset = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.MEDIA, string.Empty, ExternalPath: mediaPath);
             var cue = new SubtitleLine { Start = MediaTime.Zero, End = new(30), Text = "AegiNext 独立发布字幕验收" };
             var layer = new ProjectLayer { Kind = LayerKind.SUBTITLE, SubtitleId = cue.Id, End = cue.End };
-            layer = layer with { Tracks = EffectScriptCompiler.Compile(BuiltinEffectScripts.Get("pop-in").Script, layer, cue.Style) };
-            var colorScript = EffectScriptParser.Parse("""
-                effect "package-color" version 1
+            var colorSource = """
+                effect "package-color" version 3
                 short-clip compress
+                scope clip current
                 segment intro fixed 500ms
                   at 0 fill rgba(1, 0.02, 0.05, 0.9) linear
                   at 1 fill rgba(0.02, 0.05, 1, 0.8) linear
@@ -48,8 +49,10 @@ internal static class PackageMediaProbe
                   at 0 fill rgba(0.02, 0.05, 1, 0.8) hold
                   at 1 fill rgba(0.02, 0.05, 1, 0.8) hold
                 end
-                """);
-            layer = layer with { Tracks = layer.Tracks.AddRange(EffectScriptCompiler.Compile(colorScript, layer, cue.Style)) };
+                end
+                """;
+            layer = layer with { Effects = [new() { Name = "Pop", Source = BuiltinEffectScripts.Get("pop-in").Source,
+                End = cue.End }, new() { Name = "Color", Source = colorSource, End = cue.End }] };
             var document = new ProjectDocument
             {
                 Width = video.Video!.Width!.Value, Height = video.Video.Height!.Value,
@@ -57,12 +60,14 @@ internal static class PackageMediaProbe
                 Layers = [layer]
             };
             var roundTrip = JsonSerializer.Deserialize<ProjectDocument>(JsonSerializer.Serialize(document))!;
-            var colorFrames = roundTrip.Layers[0].Tracks.Single(track => track.Property == AnimationProperty.FILL).Keyframes;
-            if (colorFrames.Any(frame => !frame.Value.IsColor) || colorFrames[0].Value.Color != new SceneColor(1, 0.02, 0.05, 0.9))
+            var roundTripLayer = roundTrip.Layers[0];
+            if (roundTripLayer.Effects.Length != 2 || !roundTripLayer.Tracks.IsEmpty ||
+                SceneEvaluator.EvaluateLayer(roundTripLayer, roundTrip.Subtitles[0], MediaTime.Zero).Fill != new SceneColor(1, 0.02, 0.05, 0.9) ||
+                SceneEvaluator.EvaluateLayer(roundTripLayer, roundTrip.Subtitles[0], new(1)).Fill != new SceneColor(0.02, 0.05, 1, 0.8))
             {
-                throw new InvalidDataException("The package serializer did not preserve complete linear RGBA keyframes.");
+                throw new InvalidDataException("The package serializer did not preserve the vector/color effect instance snapshots.");
             }
-            checks.Add("Package serializer preserved complete linear RGBA keyframes alongside vector animation.");
+            checks.Add("Package serializer preserved independent effect instances and their complete linear RGBA evaluation.");
             checks.Add("Package FFprobe opened the supplied media path.");
             using (var navigator = new VideoFrameNavigator(token => FfmpegVideoDecoder.Open(mediaPath, video.Index, token)))
             using (var converter = new SdrVideoConverter())
@@ -189,7 +194,7 @@ internal static class PackageMediaProbe
         var alternate = document with
         {
             Subtitles = [document.Subtitles[0] with { Style = document.Subtitles[0].Style with { Fill = new(1, 0.02, 0.05, 0.9) } }],
-            Layers = [document.Layers[0] with { Tracks = document.Layers[0].Tracks.Where(track => track.Property != AnimationProperty.FILL).ToImmutableArray() }]
+            Layers = [document.Layers[0] with { Effects = document.Layers[0].Effects.Where(instance => instance.Name != "Color").ToImmutableArray() }]
         };
         var unchanged = renderer.ComposePreview(alternate, time, background.Pixels.Span,
             background.Width, background.Height, background.Width * 4);

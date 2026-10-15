@@ -234,7 +234,7 @@ public sealed class EffectLibraryTransferBoundaryTests
             Styles = new() { Presets = [new(Guid.NewGuid(), "Personal style", new() { FontSize = 62 }, font)] },
             Effects = new()
             {
-                Presets = [new(Guid.NewGuid(), "Personal effect", "effect \"transfer-user\" version 1\nshort-clip compress\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\n")]
+                Presets = [new(Guid.NewGuid(), "Personal effect", "effect \"transfer-user\" version 3\nshort-clip compress\nscope clip current\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\nend\n")]
             }
         };
     }

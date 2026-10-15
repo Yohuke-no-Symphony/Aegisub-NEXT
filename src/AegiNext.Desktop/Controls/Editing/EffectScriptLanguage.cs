@@ -7,14 +7,15 @@ namespace AegiNext.Desktop.Controls;
 
 internal static class EffectScriptLanguage
 {
-    private static readonly Regex tokens = new("#[^\\r\\n]*|\"(?:\\\\[^\\r\\n]|[^\"\\\\\\r\\n])*\"?|mask-node\\(\\s*\\d+\\s*,\\s*\\d+\\s*\\)\\.(?:position|in-handle|out-handle)|[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:ms|s)?|[a-z][a-z-]*|\\s+|.",
+    private static readonly Regex tokens = new("#[^\\r\\n]*|\"(?:\\\\[^\\r\\n]|[^\"\\\\\\r\\n])*\"?|mask-node\\(\\s*\\d+\\s*,\\s*\\d+\\s*\\)\\.(?:position|in-handle|out-handle)|[+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:ms|s)?|[A-Za-z_][A-Za-z0-9_-]*|\\s+|.",
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
-    private static readonly Regex keyPrefix = new(@"^\s*at\s+\S+\s+", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
+    private static readonly Regex keyPrefix = new(@"^\s*at\s+(?:\([^)]*\)|\S+)\s+", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     private static readonly Regex selectorWhitespace = new(@"mask-node\(\s*(\d+)\s*,\s*(\d+)\s*\)", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     private static readonly HashSet<string> keywords =
     [
         "effect", "version", "short-clip", "compress", "reject", "scope", "current", "subtitle", "unit", "group", "grapheme", "word", "line", "paragraph",
-        "delay", "stagger", "order", "forward", "reverse", "state", "normal", "active", "inactive", "segment", "fixed", "flex", "repeat", "pingpong", "cycle", "at", "end"
+        "delay", "stagger", "order", "forward", "reverse", "state", "normal", "active", "inactive", "segment", "fixed", "flex", "repeat", "pingpong", "cycle", "at", "end",
+        "var", "label", "options", "suggest", "if", "elif", "else", "for", "in", "and", "or", "not", "true", "false"
     ];
     private static readonly HashSet<string> scopeFields = ["unit", "delay", "stagger", "order", "state"];
     private static readonly string[] units = ["group", "grapheme", "chunk(2)", "word", "line", "paragraph", "split(\"、\", \",\")"];
@@ -32,7 +33,7 @@ internal static class EffectScriptLanguage
                 '"' => SyntaxTokenKind.STRING,
                 _ when keywords.Contains(value) => SyntaxTokenKind.KEYWORD,
                 _ when EffectScriptPropertyMetadata.TryGetProperty(value, out _) || value == "mask-node" => SyntaxTokenKind.PROPERTY,
-                _ when value is "base" or "offset" or "factor" or "rgba" or "range" or "chunk" or "split" => SyntaxTokenKind.FUNCTION,
+                _ when value is "base" or "offset" or "factor" or "rgba" or "vec2" or "vec3" or "range" or "chunk" or "split" => SyntaxTokenKind.FUNCTION,
                 _ when interpolation.Contains(value, StringComparer.Ordinal) || value == "power" => SyntaxTokenKind.INTERPOLATION,
                 _ when char.IsDigit(value[0]) || value[0] is '+' or '-' or '.' && value.Length > 1 => SyntaxTokenKind.NUMBER,
                 _ => SyntaxTokenKind.TEXT
@@ -97,7 +98,7 @@ internal static class EffectScriptLanguage
         }
 
         var replacementStart = caret;
-        while (replacementStart > lineStart && (char.IsLetter(source[replacementStart - 1]) || source[replacementStart - 1] == '-'))
+        while (replacementStart > lineStart && (char.IsLetterOrDigit(source[replacementStart - 1]) || source[replacementStart - 1] is '-' or '_' or '.'))
         {
             replacementStart--;
         }
@@ -111,8 +112,7 @@ internal static class EffectScriptLanguage
         {
             if (!context.HasHeader)
             {
-                candidates.Add(("effect \"my-effect\" version 1", Localization.Get("Settings.ScriptHintHeader")));
-                candidates.Add(("effect \"my-effect\" version 2", Localization.Get("Settings.ScriptHintHeaderV2")));
+                candidates.Add(("effect \"my-effect\" version 3", Localization.Get("Settings.ScriptHintHeader")));
             }
             else
             {
@@ -148,6 +148,7 @@ internal static class EffectScriptLanguage
                 }
             }
         }
+
         else if (words[0] == "short-clip")
         {
             candidates.Add(("compress", Localization.Get("Settings.ScriptHintCompress")));
@@ -205,6 +206,36 @@ internal static class EffectScriptLanguage
             candidates.AddRange(interpolation.Select(value => (value, Localization.Get("Settings.ScriptHintInterpolation"))));
         }
 
+        if (context.VersionThree && words.Length == 0)
+        {
+            candidates.Add(("if true", Localization.Get("Settings.ScriptHintIf")));
+            candidates.Add(("elif false", Localization.Get("Settings.ScriptHintIf")));
+            candidates.Add(("else", Localization.Get("Settings.ScriptHintIf")));
+            candidates.Add(("for i in range(0, 3)", Localization.Get("Settings.ScriptHintFor")));
+            if (context.Block is null)
+            {
+                candidates.Add(("var duration = 0.1s", Localization.Get("Settings.ScriptHintParameter")));
+            }
+        }
+        if (context.VersionThree && words.FirstOrDefault() == "var")
+        {
+            candidates.Add(("label \"Name\"", Localization.Get("Settings.ScriptHintParameter")));
+            candidates.Add(("options [\"Fast\": 50ms, \"Slow\": 200ms]", Localization.Get("Settings.ScriptHintOptions")));
+            candidates.Add(("suggest [\"Fast\": 50ms, \"Slow\": 200ms]", Localization.Get("Settings.ScriptHintSuggest")));
+        }
+        if (context.VersionThree && words.FirstOrDefault() is "at" or "if" or "elif" or "for" or "delay" or "stagger" or "segment")
+        {
+            candidates.AddRange(Regex.Matches(source[..lineStart], @"(?m)^\s*var\s+([A-Za-z_][A-Za-z0-9_]*)")
+                .Select(match => (match.Groups[1].Value, Localization.Get("Settings.ScriptHintParameter"))));
+            candidates.Add(("clip.duration", Localization.Get("Settings.ScriptHintContext")));
+            candidates.Add(("effect.duration", Localization.Get("Settings.ScriptHintContext")));
+            if (context.Block is not null)
+            {
+                candidates.Add(("group.index", Localization.Get("Settings.ScriptHintContext")));
+                candidates.Add(("group.count", Localization.Get("Settings.ScriptHintContext")));
+            }
+        }
+
         return candidates.Where(item => item.Text.StartsWith(partial, StringComparison.Ordinal))
             .Select(item => new EffectScriptCompletion(replacementStart, caret - replacementStart, item.Text, item.Text, item.Hint)).ToArray();
     }
@@ -236,6 +267,7 @@ internal static class EffectScriptLanguage
         var blocks = new List<string>();
         var fields = new HashSet<string>();
         var versionTwo = false;
+        var versionThree = false;
         var hasHeader = false;
         var hasShortClip = false;
         var hasSegments = false;
@@ -253,13 +285,18 @@ internal static class EffectScriptLanguage
             if (words[0] == "effect")
             {
                 hasHeader = true;
-                versionTwo = words.Length >= 3 && words[^2] == "version" && words[^1] == "2";
+                versionTwo = words.Length >= 3 && words[^2] == "version" && words[^1] is "2" or "3";
+                versionThree = words.Length >= 3 && words[^2] == "version" && words[^1] == "3";
             }
             else if (words[0] == "short-clip")
             {
                 hasShortClip = true;
             }
-            else if (versionTwo && words[0] == "scope" && blocks.Count == 0)
+            else if (words[0] is "if" or "for")
+            {
+                blocks.Add(words[0]);
+            }
+            else if (versionTwo && words[0] == "scope" && !blocks.Contains("scope") && !blocks.Contains("segment"))
             {
                 blocks.Add("scope");
                 fields.Clear();
@@ -268,7 +305,7 @@ internal static class EffectScriptLanguage
                 textRange = explicitRange;
                 state = SubtitleAnimationState.NORMAL;
             }
-            else if (words[0] == "segment" && (blocks.Count == 0 && !versionTwo || blocks.Count > 0 && blocks[^1] == "scope"))
+            else if (words[0] == "segment" && (blocks.Count == 0 && !versionTwo || blocks.Contains("scope") && !blocks.Contains("segment")))
             {
                 blocks.Add("segment");
                 hasSegments = true;
@@ -285,7 +322,7 @@ internal static class EffectScriptLanguage
                     state = SubtitleAnimationState.NORMAL;
                 }
             }
-            else if (blocks.Count > 0 && blocks[^1] == "scope" && scopeFields.Contains(words[0]))
+            else if (blocks.Contains("scope") && !blocks.Contains("segment") && scopeFields.Contains(words[0]))
             {
                 fields.Add(words[0]);
                 if (words.Length >= 2 && words[0] == "unit")
@@ -303,7 +340,7 @@ internal static class EffectScriptLanguage
                 }
             }
         }
-        return new(versionTwo, hasHeader, hasShortClip, blocks.Count == 0 ? null : blocks[^1], fields, hasSegments, textRange, state);
+        return new(versionTwo, hasHeader, hasShortClip, blocks.LastOrDefault(block => block is "scope" or "segment"), fields, hasSegments, textRange, state, versionThree);
     }
 
     private static IEnumerable<string> PropertyCandidates(EffectScriptLanguageContext context)

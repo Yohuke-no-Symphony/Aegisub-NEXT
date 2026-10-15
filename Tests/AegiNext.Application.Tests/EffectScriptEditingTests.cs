@@ -69,7 +69,7 @@ public sealed class EffectScriptEditingTests
         var editor = new ProjectEditor();
         var id = editor.AddSubtitle(new(0), new(2), "stroke");
         editor.UpdateSubtitle(id, line => line with { Style = line.Style with { StrokeWidth = 4 } });
-        var script = EffectScriptParser.Parse("""
+        var script = EffectScriptParser.ParseLegacy("""
             effect "stroke" version 1
             short-clip compress
             segment all flex 1
