@@ -46,11 +46,12 @@
               </ListBox.ItemTemplate>
             </ListBox>
             <TextBlock Text="{Binding SelectedImportSummary}" Classes="field" />
-            <WrapPanel Orientation="Horizontal">
+            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8" HorizontalAlignment="Left">
               <Button Name="CommitEffectLibraryImportButton" Command="{Binding CommitImportCommand}" Content="{Loc Key=EffectLibrary.ConfirmImport}"
-                      Classes="accent" Margin="0,0,8,0" />
-              <Button Name="ClearEffectLibraryImportPreviewButton" Command="{Binding ClearPreviewCommand}" Content="{Loc Key=EffectLibrary.ClearPreview}" />
-            </WrapPanel>
+                      Classes="accent" VerticalAlignment="Stretch" />
+              <Button Name="ClearEffectLibraryImportPreviewButton" Grid.Column="1" Command="{Binding ClearPreviewCommand}"
+                      Content="{Loc Key=Workbench.Cancel}" VerticalAlignment="Stretch" />
+            </Grid>
           </StackPanel>
         </StackPanel>
       </Border>
