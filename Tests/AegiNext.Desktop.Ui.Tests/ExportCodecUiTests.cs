@@ -120,15 +120,15 @@ public sealed class ExportCodecUiTests
         Assert.Equal("20", quality.RawText);
     }
 
-    /// <summary>保存对话框使用所选编码器的容器集合与兼容默认扩展名。</summary>
+    /// <summary>保存对话框只显示当前所选格式，切换编码器保留兼容的 MP4。</summary>
     [AvaloniaTheory]
-    [InlineData(VideoCodec.Auto, ".mp4", false, true)]
-    [InlineData(VideoCodec.H264, ".mp4", false, true)]
-    [InlineData(VideoCodec.Hevc, ".mp4", false, true)]
-    [InlineData(VideoCodec.Vp8, ".mkv", true, false)]
-    [InlineData(VideoCodec.Vp9, ".mkv", true, true)]
-    [InlineData(VideoCodec.Av1, ".mkv", true, true)]
-    public async Task OutputPickerUsesCodecCapabilities(VideoCodec codec, string extension, bool webm, bool mp4)
+    [InlineData(VideoCodec.Auto, ".mp4")]
+    [InlineData(VideoCodec.H264, ".mp4")]
+    [InlineData(VideoCodec.Hevc, ".mp4")]
+    [InlineData(VideoCodec.Vp8, ".mkv")]
+    [InlineData(VideoCodec.Vp9, ".mp4")]
+    [InlineData(VideoCodec.Av1, ".mp4")]
+    public async Task OutputPickerUsesSelectedContainer(VideoCodec codec, string extension)
     {
         await using var context = new ExportWorkspaceTestContext();
         await context.InitializeAsync();
@@ -140,10 +140,7 @@ public sealed class ExportCodecUiTests
         Assert.Equal(1, context.Dialogs.SaveRequests);
         Assert.Equal(extension, context.Dialogs.DefaultExtension);
         Assert.EndsWith(extension, context.Dialogs.SuggestedFileName);
-        Assert.Contains("*.mkv", context.Dialogs.Patterns);
-        Assert.Equal(webm, context.Dialogs.Patterns.Contains("*.webm"));
-        Assert.Equal(mp4, context.Dialogs.Patterns.Contains("*.mp4"));
-        Assert.DoesNotContain("*.mov", context.Dialogs.Patterns);
+        Assert.Equal("*" + extension, Assert.Single(context.Dialogs.Patterns));
         Assert.Empty(context.Dialogs.ErrorMessages);
     }
 }

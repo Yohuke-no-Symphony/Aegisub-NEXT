@@ -56,9 +56,19 @@ internal static class ExportOptions
         {
             throw new CliUsageException("--audio-bitrate must be between 32 and 512 kbps.");
         }
+        var extension = ResolveExtension(options, codec);
+        if (!capability.Extensions.Contains(extension))
+        {
+            throw new CliUsageException("The output container is incompatible with the selected video codec.");
+        }
+        if (extension == ".webm" && audio == AudioExportMode.Aac)
+        {
+            throw new CliUsageException("WebM does not support AAC. Select opus, copy, or none.");
+        }
         var defaults = VideoExportCapabilities.CreateDefaultSettings(codec);
         var settings = defaults with
         {
+            Container = VideoExportCapabilities.GetContainer(extension),
             EncodingMode = options.UseGpu ? VideoEncodingMode.HARDWARE : VideoEncodingMode.SOFTWARE,
             RateControlMode = mode,
             Quality = options.Quality ?? defaults.Quality,
@@ -82,15 +92,6 @@ internal static class ExportOptions
             "hardware" => VideoDecodeMode.Hardware,
             _ => throw new CliUsageException("--decode must be auto/software/hardware.")
         };
-        var extension = ResolveExtension(options, codec);
-        if (!capability.Extensions.Contains(extension))
-        {
-            throw new CliUsageException("The output container is incompatible with the selected video codec.");
-        }
-        if (extension == ".webm" && audio == AudioExportMode.Aac)
-        {
-            throw new CliUsageException("WebM does not support AAC. Select opus, copy, or none.");
-        }
         return new(settings, decode, extension);
     }
 
@@ -121,6 +122,6 @@ internal static class ExportOptions
             throw new CliUsageException("--container conflicts with the --output file extension.");
         }
         return fileExtension ?? (specified is not null ? "." + specified :
-            codec is VideoCodec.Auto or VideoCodec.H264 or VideoCodec.Hevc ? ".mp4" : ".mkv");
+            VideoExportCapabilities.GetExtension(VideoExportCapabilities.GetDefaultContainer(codec)));
     }
 }

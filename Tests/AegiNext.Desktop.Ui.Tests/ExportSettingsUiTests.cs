@@ -463,6 +463,7 @@ public sealed class ExportSettingsUiTests
         return new()
         {
             Codec = VideoCodec.Hevc,
+            Container = VideoContainerFormat.MP4,
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.CBR,
             Preset = "slower",

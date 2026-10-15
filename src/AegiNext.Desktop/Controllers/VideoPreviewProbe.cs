@@ -51,7 +51,8 @@ internal static class VideoPreviewProbe
         return new(selected.Index, start, duration is { } value && value > MediaTime.Zero ? value : null, audio?.Index,
             selected.Video.Width, selected.Video.Height, selected.Video.AverageFrameRate ?? selected.Video.FrameRate)
         {
-            PlaybackOrigin = playbackOrigin
+            PlaybackOrigin = playbackOrigin,
+            AudioCodecName = audio?.CodecName
         };
     }
 

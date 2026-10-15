@@ -57,6 +57,17 @@
               </DataTemplate>
             </ComboBox.ItemTemplate>
           </ComboBox>
+          <common:PropertyRowControl Name="ContainerRow" Header="{Loc Key=Workbench.OutputFormat}"
+                                    IsStacked="True" Padding="0" SeparatorThickness="0">
+            <ComboBox Name="ContainerCombo" ItemsSource="{Binding Containers}" HorizontalAlignment="Stretch"
+                      SelectedItem="{Binding SelectedContainerChoice, Mode=TwoWay}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="editing:VideoContainerChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </common:PropertyRowControl>
           <CheckBox Name="HardwareEncoderToggle"
                     IsEnabled="{Binding CanUseHardwareEncoder}" ToolTip.Tip="{Loc Key=Workbench.HardwareEncoderHint}"
                     IsChecked="{Binding UseHardwareEncoder, Mode=TwoWay}" Content="{Loc Key=Workbench.HardwareEncoder}" />
@@ -79,7 +90,8 @@
             <controls:NumericDraftInput Name="VideoBitrateInput" RawText="{Binding VideoBitrateText, Mode=TwoWay}"
                                         Minimum="0.1" Maximum="200" Increment="0.001" Value="{Binding VideoBitrate, Mode=TwoWay}" />
           </StackPanel>
-          <TextBlock IsVisible="{Binding SupportsWebM}" Classes="field" TextWrapping="Wrap" Text="{Loc Key=Workbench.WebMAudioHint}" />
+          <TextBlock Name="AudioCompatibilityHint" IsVisible="{Binding HasAudioCompatibilityHint}" Classes="field"
+                     TextWrapping="Wrap" Text="{Binding AudioCompatibilityHint}" />
           <TextBlock Classes="field" Text="{Loc Key=Workbench.Audio}" />
           <ComboBox Name="AudioModeCombo" ItemsSource="{Binding AudioModes}" HorizontalAlignment="Stretch"
                     SelectedIndex="{Binding AudioMode, Mode=TwoWay}" />

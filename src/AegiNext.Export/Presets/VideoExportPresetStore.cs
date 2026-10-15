@@ -115,7 +115,7 @@ public static class VideoExportPresetStore
     private static JsonElement Migrate(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("version", out var version) ||
-            version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number != 1)
+            version.ValueKind != JsonValueKind.Number || !version.TryGetInt32(out var number) || number is not (1 or 2))
         {
             return root;
         }
@@ -128,11 +128,17 @@ public static class VideoExportPresetStore
         foreach (var preset in presets.EnumerateArray())
         {
             if (preset.ValueKind != JsonValueKind.Object || !preset.TryGetProperty("settings", out var settings) ||
-                settings.ValueKind != JsonValueKind.Object || !settings.TryGetProperty("crf", out var crf) ||
+                settings.ValueKind != JsonValueKind.Object || !settings.TryGetProperty("codec", out var codec) ||
+                codec.ValueKind != JsonValueKind.String)
+            {
+                throw new JsonException("旧版压制预设参数无效。");
+            }
+
+            if (number == 1 && (!settings.TryGetProperty("crf", out var crf) ||
                 crf.ValueKind != JsonValueKind.Number || !crf.TryGetInt32(out _) || settings.TryGetProperty("quality", out _) ||
                 !LegacyChoice(settings, "codec", "Auto", "H264", "Hevc") ||
                 !LegacyChoice(settings, "audioMode", "Copy", "Aac", "None") ||
-                !LegacyChoice(settings, "rateControlMode", "CRF", "VBR", "CBR"))
+                !LegacyChoice(settings, "rateControlMode", "CRF", "VBR", "CBR")))
             {
                 throw new JsonException("旧版压制预设参数不符合 v1 合同。");
             }
@@ -143,8 +149,17 @@ public static class VideoExportPresetStore
         foreach (var preset in migrated["presets"]!.AsArray())
         {
             var settings = preset!["settings"]!.AsObject();
-            settings["quality"] = settings["crf"]!.DeepClone();
-            settings.Remove("crf");
+            if (number == 1)
+            {
+                settings["quality"] = settings["crf"]!.DeepClone();
+                settings.Remove("crf");
+            }
+
+            if (!settings.ContainsKey("container"))
+            {
+                var codec = settings["codec"]!.Deserialize<VideoCodec>(options);
+                settings["container"] = VideoExportCapabilities.GetDefaultContainer(codec).ToString();
+            }
         }
 
         return JsonSerializer.SerializeToElement(migrated);

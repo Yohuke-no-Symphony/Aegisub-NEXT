@@ -41,6 +41,117 @@ public sealed class ExportSettingsTests
         Assert.Null(model.Error);
     }
 
+    /// <summary>只修改输出格式也通知未保存状态，并以原身份持久化完整预设。</summary>
+    [Fact]
+    public async Task ChangingOnlyContainerNotifiesDirtyAndPersistsTheSelectedFormat()
+    {
+        using var directory = new TemporaryWorkbenchDirectory();
+        var path = Path.Combine(directory.Path, "export-presets.aegiexports");
+        using var library = new VideoExportPresetLibrary(path);
+        var original = new VideoExportPreset(Guid.NewGuid(), "Container only", new()
+        {
+            Container = VideoContainerFormat.MP4
+        });
+        await library.UpsertAsync(original);
+        var model = new ExportSettingsViewModel();
+        model.UpdatePresets(library.Snapshot.Presets);
+        var dirtyNotified = false;
+        model.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(model.IsDirty))
+            {
+                dirtyNotified |= model.IsDirty;
+            }
+        };
+        model.SaveDraftAsync = async preset =>
+        {
+            await library.UpsertAsync(preset);
+            model.UpdatePresets(library.Snapshot.Presets, preset.Id);
+            return true;
+        };
+
+        model.SelectedContainer = VideoContainerFormat.MKV;
+
+        Assert.True(model.IsDirty);
+        Assert.True(dirtyNotified);
+        Assert.True(await model.SavePendingAsync());
+        var saved = Assert.Single((await VideoExportPresetStore.LoadAsync(path)).Presets);
+        Assert.Equal(original with { Settings = original.Settings with { Container = VideoContainerFormat.MKV } }, saved);
+        Assert.Equal(saved.Id, model.SelectedPreset?.Id);
+        Assert.False(model.IsDirty);
+    }
+
+    /// <summary>只有格式发生变化时，切换预设仍需遵守保存、丢弃和取消。</summary>
+    [Theory]
+    [InlineData(0, true, 1)]
+    [InlineData(1, true, 0)]
+    [InlineData(2, false, 0)]
+    public async Task ContainerOnlyEditHonorsSaveDiscardAndCancel(int decision, bool expected, int expectedSaves)
+    {
+        var first = new VideoExportPreset(Guid.NewGuid(), "First", new() { Container = VideoContainerFormat.MP4 });
+        var second = new VideoExportPreset(Guid.NewGuid(), "Second", new() { Container = VideoContainerFormat.MP4 });
+        var model = new ExportSettingsViewModel();
+        model.UpdatePresets([first, second]);
+        model.SelectedContainer = VideoContainerFormat.MKV;
+        var confirmations = 0;
+        var saves = 0;
+        VideoExportPreset? committed = null;
+        model.ConfirmLeaveAsync = () =>
+        {
+            confirmations++;
+            return Task.FromResult(decision);
+        };
+        model.SaveDraftAsync = preset =>
+        {
+            saves++;
+            committed = preset;
+            model.UpdatePresets([preset, second], preset.Id);
+            return Task.FromResult(true);
+        };
+
+        Assert.Equal(expected, await model.SelectPresetsAsync(second.Id, [second.Id]));
+
+        Assert.Equal(1, confirmations);
+        Assert.Equal(expectedSaves, saves);
+        Assert.Equal(expected ? second.Id : first.Id, model.SelectedPreset?.Id);
+        Assert.Equal(expected ? VideoContainerFormat.MP4 : VideoContainerFormat.MKV, model.SelectedContainer);
+        Assert.Equal(!expected, model.IsDirty);
+        if (committed is not null)
+        {
+            Assert.Equal(first with { Settings = first.Settings with { Container = VideoContainerFormat.MKV } }, committed);
+        }
+    }
+
+    /// <summary>无来源的预设编辑器允许保存 WebM 拷贝音频，保留运行时探测的决定权。</summary>
+    [Fact]
+    public async Task WebMPresetCanSaveCopiedAudioWithoutSourceMetadata()
+    {
+        var settings = VideoExportCapabilities.CreateDefaultSettings(VideoCodec.Vp9) with
+        {
+            Container = VideoContainerFormat.MKV,
+            AudioMode = AudioExportMode.Copy
+        };
+        var original = new VideoExportPreset(Guid.NewGuid(), "WebM copy", settings);
+        var model = new ExportSettingsViewModel();
+        model.UpdatePresets([original]);
+        VideoExportPreset? committed = null;
+        model.SaveDraftAsync = preset =>
+        {
+            committed = preset;
+            model.UpdatePresets([preset], preset.Id);
+            return Task.FromResult(true);
+        };
+
+        model.SelectedContainer = VideoContainerFormat.WEBM;
+
+        Assert.True(await model.SavePendingAsync());
+        Assert.NotNull(committed);
+        Assert.Equal(original.Id, committed.Id);
+        Assert.Equal(VideoContainerFormat.WEBM, committed.Settings.Container);
+        Assert.Equal(AudioExportMode.Copy, committed.Settings.AudioMode);
+        Assert.False(model.IsDirty);
+    }
+
     /// <summary>与其他预设同名的修改在提交之前失败，保留原始编辑值。</summary>
     [Fact]
     public async Task DuplicateNameRejectsSaveWithoutCallingPersistence()
@@ -386,10 +497,7 @@ public sealed class ExportSettingsTests
         model.DiscardDraft();
         Assert.False(model.IsDirty);
         Assert.Equal(OperatingSystem.IsWindows(), model.UseHardwareEncoder);
-        Assert.Equal(settings with
-        {
-            EncodingMode = OperatingSystem.IsWindows() ? VideoEncodingMode.HARDWARE : VideoEncodingMode.SOFTWARE
-        }, model.CaptureSettings(true));
+        Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(settings), model.CaptureSettings(true));
     }
 
     private static VideoExportSettings CreateSettings()

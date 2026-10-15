@@ -93,7 +93,8 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         TimeProvider? persistenceTimeProvider = null, IProjectPersistenceStorage? persistenceStorage = null,
         Func<string, int, MediaTime, CancellationToken, Task<VideoTimingIndex>>? videoTimingProbe = null,
         Func<string, int, MediaTimelineMapping, MediaTime, string, AudioAnalysisOptions, AudioAnalysisWorkerBudget?, AudioAnalysisSession>?
-            analysisSessionFactory = null)
+            analysisSessionFactory = null,
+        Func<string, CancellationToken, Task<MediaAssetInfo>>? exportMediaProbe = null)
     {
         this.dialogs = dialogs;
         this.videoTimingProbe = videoTimingProbe ?? ProbeVideoTimingAsync;
@@ -121,7 +122,8 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         Details = new(this);
         Details.Changed += OnSubtitleDetailsChanged;
         analysis = new(this, analysisSessionFactory);
-        export = new(this, dialogs, exportService ?? new VideoWorkbenchExportService(new AegiNext.Export.VideoExporter(), new AegiNext.Export.SubtitleMuxExporter()));
+        export = new(this, dialogs, exportService ?? new VideoWorkbenchExportService(
+            new AegiNext.Export.VideoExporter(), new AegiNext.Export.SubtitleMuxExporter()), exportMediaProbe);
         exportPresets = new(this);
         styles = new(this, dialogs);
         styles.BusyChanged += OnTimingLibrariesBusyChanged;
@@ -745,6 +747,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
     internal void Tick()
     {
         InteractionDiagnostics.Record("refresh");
+        export.RefreshSourceAudio();
         RefreshAudioClockStatus();
         var snapshot = controller.Snapshot;
         RefreshPreviewDecodeSessionInfo(snapshot.DecodeSessionInfo);

@@ -18,12 +18,13 @@ public sealed record VideoExportRequest(ProjectDocument Project, string ProjectD
     public string? FfmpegPath { get; init; }
     public string? WorkerPath { get; init; }
 
-    /// <summary>提取独立于工程和运行路径的压制配置，保留兼容请求的自动码控意图。</summary>
+    /// <summary>提取压制配置，以实际输出路径后缀确定容器，保留兼容请求的自动码控意图。</summary>
     public VideoExportSettings ToSettings()
     {
         return new()
         {
             Codec = Codec,
+            Container = VideoExportCapabilities.GetContainer(Path.GetExtension(OutputPath)),
             EncodingMode = EncodingMode,
             RateControlMode = RateControlMode,
             Preset = Preset,

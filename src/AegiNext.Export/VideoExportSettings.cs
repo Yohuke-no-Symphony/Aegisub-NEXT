@@ -6,6 +6,9 @@ public sealed record VideoExportSettings
     /// <summary>输出视频编码格式。</summary>
     public VideoCodec Codec { get; init; } = VideoCodec.Auto;
 
+    /// <summary>输出容器；未指定时沿用编码器的默认格式。</summary>
+    public VideoContainerFormat Container { get; init; } = VideoContainerFormat.AUTO;
+
     /// <summary>软件或必须成功启用的硬件视频编码。</summary>
     public VideoEncodingMode EncodingMode { get; init; } = VideoEncodingMode.SOFTWARE;
 

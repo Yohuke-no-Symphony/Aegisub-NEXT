@@ -154,7 +154,7 @@ public sealed class VideoEncodingOptionsTests
 
         var changed = original.WithSettings(settings);
 
-        Assert.Equal(settings, changed.ToSettings());
+        Assert.Equal(settings with { Container = VideoContainerFormat.MP4 }, changed.ToSettings());
         Assert.Same(original.Project, changed.Project);
         Assert.Equal(original.ProjectDirectory, changed.ProjectDirectory);
         Assert.Equal(original.OutputPath, changed.OutputPath);

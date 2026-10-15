@@ -119,13 +119,14 @@ public sealed class ExportPresetApplicationContextTests
         await using var second = new WorkbenchSession(new WorkspaceDialogStub(), dispatch: DispatchImmediately,
             applicationContext: context);
         await Task.WhenAll(first.Styles.Completion, second.Styles.Completion);
-        var firstSettings = new VideoExportSettings { Quality = 15, Preset = "fast" };
-        var secondSettings = new VideoExportSettings { Quality = 31, Preset = "slow", AudioMode = AudioExportMode.None };
+        var firstSettings = new VideoExportSettings { Container = VideoContainerFormat.MP4, Quality = 15, Preset = "fast" };
+        var secondSettings = new VideoExportSettings { Container = VideoContainerFormat.MP4, Quality = 31, Preset = "slow", AudioMode = AudioExportMode.None };
         first.ViewModel.Export.ApplySettings(firstSettings);
         second.ViewModel.Export.ApplySettings(secondSettings);
         var preset = new VideoExportPreset(Guid.NewGuid(), "共享硬件配置", new()
         {
             Codec = VideoCodec.Hevc,
+            Container = VideoContainerFormat.MP4,
             EncodingMode = VideoEncodingMode.HARDWARE,
             RateControlMode = VideoRateControlMode.CBR,
             Preset = "slower",

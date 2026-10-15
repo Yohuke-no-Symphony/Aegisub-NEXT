@@ -472,7 +472,7 @@ public sealed class ExportSettingsViewModel : VideoExportSettingsViewModel
 
     private void OnParameterChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (!loading && e.PropertyName is nameof(Codec) or nameof(Speed) or nameof(UseHardwareEncoder) or
+        if (!loading && e.PropertyName is nameof(Codec) or nameof(SelectedContainer) or nameof(Speed) or nameof(UseHardwareEncoder) or
             nameof(QualityMode) or nameof(BitrateMode) or nameof(AudioMode) or nameof(QualityText) or
             nameof(VideoBitrateText) or nameof(AudioBitrateText))
         {

@@ -47,13 +47,67 @@ public static class VideoExportCapabilities
     public static VideoCodecCapabilities Get(VideoCodec codec) => codecs.SingleOrDefault(item => item.Codec == codec)
         ?? throw new ArgumentOutOfRangeException(nameof(codec));
 
-    /// <summary>将有效预设投影到当前平台的可编辑设置，取消无后端的硬件模式，保留明确码控和全部参数。</summary>
+    /// <summary>取得编码器的默认输出容器，保持既有 MP4 与 MKV 默认选择。</summary>
+    public static VideoContainerFormat GetDefaultContainer(VideoCodec codec)
+    {
+        var capability = Get(codec);
+        return capability.Codec is VideoCodec.Auto or VideoCodec.H264 or VideoCodec.Hevc
+            ? VideoContainerFormat.MP4 : VideoContainerFormat.MKV;
+    }
+
+    /// <summary>取得具体容器的小写文件扩展名；自动格式和未知枚举立即拒绝。</summary>
+    public static string GetExtension(VideoContainerFormat container)
+    {
+        return container switch
+        {
+            VideoContainerFormat.MP4 => ".mp4",
+            VideoContainerFormat.MKV => ".mkv",
+            VideoContainerFormat.WEBM => ".webm",
+            _ => throw new ArgumentOutOfRangeException(nameof(container))
+        };
+    }
+
+    /// <summary>从已支持的文件扩展名解析具体容器，忽略大小写。</summary>
+    public static VideoContainerFormat GetContainer(string extension)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(extension);
+        return extension.ToLowerInvariant() switch
+        {
+            ".mp4" => VideoContainerFormat.MP4,
+            ".mkv" => VideoContainerFormat.MKV,
+            ".webm" => VideoContainerFormat.WEBM,
+            _ => throw new ArgumentException("The output container must be MP4, MKV, or WebM.", nameof(extension))
+        };
+    }
+
+    /// <summary>取得编码器已支持的具体容器，顺序与共享扩展名合同一致。</summary>
+    public static IReadOnlyList<VideoContainerFormat> GetContainers(VideoCodec codec)
+    {
+        return Array.AsReadOnly(Get(codec).Extensions.Select(GetContainer).ToArray());
+    }
+
+    /// <summary>解析未指定格式的兼容参数，不修改原设置；未知格式立即拒绝。</summary>
+    public static VideoContainerFormat ResolveContainer(VideoExportSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        if (!Enum.IsDefined(settings.Container))
+        {
+            throw new ArgumentException("Unsupported Container.", nameof(settings));
+        }
+
+        return settings.Container == VideoContainerFormat.AUTO ? GetDefaultContainer(settings.Codec) : settings.Container;
+    }
+
+    /// <summary>将有效预设投影到当前平台，解析默认容器并取消无后端的硬件模式，保留明确码控和全部参数。</summary>
     public static VideoExportSettings ProjectPresetToCurrentPlatform(VideoExportSettings settings)
     {
         VideoExportSettingsValidator.ValidatePreset(settings);
-        if (settings.EncodingMode == VideoEncodingMode.HARDWARE && !Get(settings.Codec).SupportsHardwareOnCurrentPlatform)
+        var container = ResolveContainer(settings);
+        var encodingMode = settings.EncodingMode == VideoEncodingMode.HARDWARE && !Get(settings.Codec).SupportsHardwareOnCurrentPlatform
+            ? VideoEncodingMode.SOFTWARE : settings.EncodingMode;
+        if (container != settings.Container || encodingMode != settings.EncodingMode)
         {
-            return settings with { EncodingMode = VideoEncodingMode.SOFTWARE };
+            return settings with { Container = container, EncodingMode = encodingMode };
         }
 
         return settings;
@@ -63,6 +117,12 @@ public static class VideoExportCapabilities
     public static VideoExportSettings CreateDefaultSettings(VideoCodec codec)
     {
         var capability = Get(codec);
-        return new() { Codec = codec, Quality = capability.DefaultQuality, RateControlMode = capability.QualityMode };
+        return new()
+        {
+            Codec = codec,
+            Container = GetDefaultContainer(codec),
+            Quality = capability.DefaultQuality,
+            RateControlMode = capability.QualityMode
+        };
     }
 }

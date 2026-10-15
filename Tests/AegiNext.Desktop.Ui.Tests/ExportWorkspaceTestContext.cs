@@ -1,5 +1,6 @@
 using AegiNext.Application;
 using AegiNext.Core.Projects;
+using AegiNext.Core.Media;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controllers;
 using AegiNext.Desktop.Layouts;
@@ -26,16 +27,18 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
 {
     private readonly UiTestEnvironment environment = new();
     private readonly PreviewTestSource source = new(1, 0, 5000, 10000, 15000, 20000);
-    internal ExportWorkspaceTestContext(SubtitleLine? subtitle = null)
+    internal ExportWorkspaceTestContext(SubtitleLine? subtitle = null, VideoPreviewMedia? media = null,
+        Func<string, CancellationToken, Task<MediaAssetInfo>>? exportMediaProbe = null)
     {
         try
         {
             var assetId = Guid.NewGuid();
+            media ??= new(0, MediaTime.Zero, new(20), VideoWidth: 1, VideoHeight: 1);
             Editor = new(new ProjectDocument
             {
                 Name = "Export boundary",
                 Assets = [new(assetId, ProjectAssetKind.MEDIA, string.Empty, ExternalPath: Path.Combine(environment.DirectoryPath, "controlled.mkv"))],
-                Media = new(assetId, 0, null, MediaTime.Zero),
+                Media = new(assetId, 0, media.AudioStreamIndex, MediaTime.Zero),
                 Subtitles = subtitle is null ? [] : [subtitle],
                 Layers = subtitle is null ? [] : [new()
                 {
@@ -44,9 +47,9 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
                 }]
             });
             Session = new(Dialogs,
-                update => new VideoPreviewController((_, _) => Task.FromResult(new VideoPreviewMedia(0, MediaTime.Zero, new(20), VideoWidth: 1, VideoHeight: 1)),
+                update => new VideoPreviewController((_, _) => Task.FromResult(media),
                     (_, _) => new(_ => source), () => new UiPreviewConverter(), DispatchAsync, update), DispatchAsync,
-                Editor, new WorkbenchPreferencesStore(environment.DirectoryPath), ExportService);
+                Editor, new WorkbenchPreferencesStore(environment.DirectoryPath), ExportService, exportMediaProbe: exportMediaProbe);
             var viewModel = Session.ViewModel;
             Panels = new(StringComparer.Ordinal)
             {
@@ -91,7 +94,7 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
     {
         await Session.ApplicationContext.Initialization;
         await Session.Styles.Completion;
-        await Session.Controller.OpenAsync("controlled.mkv");
+        await Session.Controller.OpenAsync(Path.Combine(environment.DirectoryPath, "controlled.mkv"));
         Flush();
     }
 

@@ -17,6 +17,12 @@ public class VideoExportSettingsViewModel : ObservableObject
     private bool useHardwareEncoder;
     private VideoCodec selectedCodec;
     private readonly VideoCodecChoice[] codecs = VideoExportCapabilities.All.Select(value => new VideoCodecChoice(value.Codec)).ToArray();
+    private readonly VideoContainerChoice[] containerChoices =
+        [new(VideoContainerFormat.MP4), new(VideoContainerFormat.MKV), new(VideoContainerFormat.WEBM)];
+    private VideoContainerChoice[] containers = [];
+    private VideoContainerFormat selectedContainer = VideoContainerFormat.MP4;
+    private string? sourceAudioCodec;
+    private bool audioConvertedToOpus;
     private int speed = 3;
     private string[] speeds = [];
     private int qualityMode;
@@ -33,6 +39,7 @@ public class VideoExportSettingsViewModel : ObservableObject
     /// <summary>创建独立压制参数草稿并初始化当前语言选项。</summary>
     public VideoExportSettingsViewModel()
     {
+        UpdateContainers();
         RefreshLanguage();
     }
 
@@ -75,22 +82,36 @@ public class VideoExportSettingsViewModel : ObservableObject
             var resetQuality = decimal.TryParse(raw, NumberStyles.Float, CultureInfo.CurrentCulture, out var number) &&
                 IsValidNumber(number, previous.QualityMinimum, previous.QualityMaximum, 1) &&
                 (number == previous.DefaultQuality || !IsValidNumber(number, next.QualityMinimum, next.QualityMaximum, 1));
-            selectedCodec = value;
-            if (!CanUseHardwareEncoder && UseHardwareEncoder)
-            {
-                UseHardwareEncoder = false;
-            }
-
             refreshingChoices = true;
             try
             {
                 ChoicesRefreshing?.Invoke(this, EventArgs.Empty);
+                selectedCodec = value;
+                var hardwareChanged = useHardwareEncoder && !CanUseHardwareEncoder;
+                if (hardwareChanged)
+                {
+                    useHardwareEncoder = false;
+                    qualityMode = softwareQualityMode;
+                }
+                var qualityChanged = resetQuality && quality != next.DefaultQuality;
                 if (resetQuality)
                 {
-                    Quality = next.DefaultQuality;
+                    quality = next.DefaultQuality;
                     raw = next.DefaultQuality.ToString(CultureInfo.CurrentCulture);
                 }
+                UpdateContainers();
                 RefreshCodecProperties();
+                OnPropertyChanged(nameof(Containers));
+                RefreshContainerProperties();
+                if (hardwareChanged)
+                {
+                    RefreshEncodingModeProperties();
+                }
+                if (qualityChanged)
+                {
+                    OnPropertyChanged(nameof(Quality));
+                }
+                RefreshAudioProperties();
                 QualityText = raw;
             }
             finally
@@ -112,6 +133,75 @@ public class VideoExportSettingsViewModel : ObservableObject
         }
     }
 
+    public IReadOnlyList<VideoContainerChoice> Containers => containers;
+
+    public int Container
+    {
+        get => Array.FindIndex(containers, value => value.Container == selectedContainer);
+        set
+        {
+            if (!refreshingChoices && value >= 0 && value < containers.Length)
+            {
+                SelectedContainer = containers[value].Container;
+            }
+        }
+    }
+
+    public VideoContainerFormat SelectedContainer
+    {
+        get => selectedContainer;
+        set
+        {
+            if (refreshingChoices || selectedContainer == value)
+            {
+                return;
+            }
+            if (containers.All(choice => choice.Container != value))
+            {
+                throw new ArgumentException("The container is incompatible with the selected video codec.", nameof(value));
+            }
+
+            selectedContainer = value;
+            audioConvertedToOpus = false;
+            NormalizeAudioForContainer();
+            RefreshContainerProperties();
+            RefreshAudioProperties();
+        }
+    }
+
+    public VideoContainerChoice? SelectedContainerChoice
+    {
+        get => containers.Single(value => value.Container == SelectedContainer);
+        set
+        {
+            if (value is not null && containers.Contains(value))
+            {
+                SelectedContainer = value.Container;
+            }
+        }
+    }
+
+    public bool IsWebM => SelectedContainer == VideoContainerFormat.WEBM;
+    public bool HasAudioCompatibilityHint => IsWebM;
+    public string AudioCompatibilityHint => IsWebM
+        ? Localization.Get(audioConvertedToOpus ? "Workbench.WebMAudioConvertedHint" : "Workbench.WebMAudioHint")
+        : string.Empty;
+
+    internal void UpdateSourceAudioCodec(string? codec)
+    {
+        codec = string.IsNullOrWhiteSpace(codec) ? null : codec.ToLowerInvariant();
+        if (sourceAudioCodec == codec)
+        {
+            return;
+        }
+
+        sourceAudioCodec = codec;
+        if (NormalizeAudioForContainer())
+        {
+            RefreshAudioProperties();
+        }
+    }
+
     private VideoCodecCapabilities Capabilities => VideoExportCapabilities.Get(SelectedCodec);
     public decimal QualityMinimum => Capabilities.QualityMinimum;
     public decimal QualityMaximum => Capabilities.QualityMaximum;
@@ -123,14 +213,14 @@ public class VideoExportSettingsViewModel : ObservableObject
         get => useHardwareEncoder;
         set
         {
-            if (value && !CanUseHardwareEncoder || !SetProperty(ref useHardwareEncoder, value))
+            if (value && !CanUseHardwareEncoder || useHardwareEncoder == value)
             {
                 return;
             }
 
-            QualityMode = value ? 1 : softwareQualityMode;
-            OnPropertyChanged(nameof(IsSoftwareEncoding));
-            OnPropertyChanged(nameof(CanSelectQualityMode));
+            useHardwareEncoder = value;
+            qualityMode = value ? 1 : softwareQualityMode;
+            RefreshEncodingModeProperties();
         }
     }
 
@@ -230,10 +320,15 @@ public class VideoExportSettingsViewModel : ObservableObject
         get => audioMode;
         set
         {
-            if (!refreshingChoices && SetProperty(ref audioMode, value))
+            if (refreshingChoices || audioMode == value)
             {
-                OnPropertyChanged(nameof(IsEncodedAudio));
+                return;
             }
+
+            audioMode = value;
+            audioConvertedToOpus = false;
+            NormalizeAudioForContainer();
+            RefreshAudioProperties();
         }
     }
 
@@ -292,6 +387,7 @@ public class VideoExportSettingsViewModel : ObservableObject
             OnPropertyChanged(nameof(AudioMode));
             OnPropertyChanged(nameof(QualityMode));
             OnPropertyChanged(nameof(BitrateMode));
+            OnPropertyChanged(nameof(AudioCompatibilityHint));
         }
         finally
         {
@@ -309,6 +405,7 @@ public class VideoExportSettingsViewModel : ObservableObject
     internal VideoExportSettings CaptureSettings(bool forPreset = false)
     {
         RequireIndex(Codec, codecs.Length, "CodecCombo");
+        RequireIndex(Container, containers.Length, "ContainerCombo");
         RequireIndex(Speed, encodingPresets.Length, "SpeedCombo");
         RequireIndex(AudioMode, AudioModes.Length, "AudioModeCombo");
         RequireIndex(QualityMode, 2, "QualityModeCombo");
@@ -326,6 +423,7 @@ public class VideoExportSettingsViewModel : ObservableObject
         var settings = new VideoExportSettings
         {
             Codec = SelectedCodec,
+            Container = SelectedContainer,
             EncodingMode = UseHardwareEncoder ? VideoEncodingMode.HARDWARE : VideoEncodingMode.SOFTWARE,
             RateControlMode = IsQualityMode ? Capabilities.QualityMode : BitrateMode == 0 ? VideoRateControlMode.VBR : VideoRateControlMode.CBR,
             Preset = EncodingPreset,
@@ -370,13 +468,18 @@ public class VideoExportSettingsViewModel : ObservableObject
         {
             ChoicesRefreshing?.Invoke(this, EventArgs.Empty);
             selectedCodec = settings.Codec;
+            selectedContainer = settings.Container;
+            audioConvertedToOpus = false;
             speed = presetIndex;
             useHardwareEncoder = settings.EncodingMode == VideoEncodingMode.HARDWARE;
             qualityMode = settings.RateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ ? 0 : 1;
             softwareQualityMode = useHardwareEncoder ? softwareQualityMode : qualityMode;
             bitrateMode = settings.RateControlMode == VideoRateControlMode.CBR ? 1 : 0;
             audioMode = (int)settings.AudioMode;
+            UpdateContainers();
             RefreshCodecProperties();
+            OnPropertyChanged(nameof(Containers));
+            RefreshContainerProperties();
             QualityText = settings.Quality.ToString(CultureInfo.CurrentCulture);
             VideoBitrateText = (settings.VideoBitrate / 1000000m).ToString(CultureInfo.CurrentCulture);
             AudioBitrateText = (settings.AudioBitrate / 1000m).ToString(CultureInfo.CurrentCulture);
@@ -431,6 +534,59 @@ public class VideoExportSettingsViewModel : ObservableObject
     {
         QualityModes = [Localization.Get(Capabilities.QualityMode == VideoRateControlMode.CQ
             ? "Workbench.ConstrainedQuality" : "Workbench.ConstantQuality"), Localization.Get("Workbench.BitrateQuality")];
+    }
+
+    private void UpdateContainers()
+    {
+        containers = [.. VideoExportCapabilities.GetContainers(SelectedCodec)
+            .Select(format => containerChoices.Single(choice => choice.Container == format))];
+        if (containers.All(choice => choice.Container != selectedContainer))
+        {
+            selectedContainer = VideoExportCapabilities.GetDefaultContainer(SelectedCodec);
+            audioConvertedToOpus = false;
+        }
+        NormalizeAudioForContainer();
+    }
+
+    private void RefreshContainerProperties()
+    {
+        OnPropertyChanged(nameof(SelectedContainer));
+        OnPropertyChanged(nameof(SelectedContainerChoice));
+        OnPropertyChanged(nameof(Container));
+        OnPropertyChanged(nameof(IsWebM));
+        OnPropertyChanged(nameof(HasAudioCompatibilityHint));
+        OnPropertyChanged(nameof(AudioCompatibilityHint));
+    }
+
+    private bool NormalizeAudioForContainer()
+    {
+        if (!IsWebM || audioMode != (int)AudioExportMode.Aac &&
+            (audioMode != (int)AudioExportMode.Copy || sourceAudioCodec is null or "opus" or "vorbis"))
+        {
+            return false;
+        }
+
+        audioMode = (int)AudioExportMode.Opus;
+        audioConvertedToOpus = true;
+        return true;
+    }
+
+    private void RefreshAudioProperties()
+    {
+        OnPropertyChanged(nameof(AudioMode));
+        OnPropertyChanged(nameof(IsEncodedAudio));
+        OnPropertyChanged(nameof(AudioCompatibilityHint));
+    }
+
+    private void RefreshEncodingModeProperties()
+    {
+        OnPropertyChanged(nameof(UseHardwareEncoder));
+        OnPropertyChanged(nameof(IsSoftwareEncoding));
+        OnPropertyChanged(nameof(CanSelectQualityMode));
+        OnPropertyChanged(nameof(QualityMode));
+        OnPropertyChanged(nameof(IsQualityMode));
+        OnPropertyChanged(nameof(IsBitrateMode));
+        OnPropertyChanged(nameof(IsVideoBitrateActive));
     }
 
     private static void RequireIndex(int value, int count, string fieldKey)

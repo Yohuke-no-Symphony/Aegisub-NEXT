@@ -10,4 +10,5 @@ public sealed record VideoPreviewMedia(int VideoStreamIndex, MediaTime? Start, M
     int? VideoWidth = null, int? VideoHeight = null, MediaRatio? FrameRate = null)
 {
     public MediaTime? PlaybackOrigin { get; init; }
+    public string? AudioCodecName { get; init; }
 }

@@ -83,6 +83,17 @@ public static class VideoExportSettingsValidator
         }
 
         var capability = VideoExportCapabilities.Get(settings.Codec);
+        var container = VideoExportCapabilities.ResolveContainer(settings);
+        if (!capability.Extensions.Contains(VideoExportCapabilities.GetExtension(container)))
+        {
+            throw new ArgumentException("The output container is incompatible with the selected video codec.", nameof(settings));
+        }
+
+        if (container == VideoContainerFormat.WEBM && settings.AudioMode == AudioExportMode.Aac)
+        {
+            throw new ArgumentException("WebM does not support AAC. Select Opus, Copy, or no audio.", nameof(settings));
+        }
+
         if (settings.EncodingMode == VideoEncodingMode.HARDWARE &&
             (!capability.SupportsHardware || rateControlMode is VideoRateControlMode.CRF or VideoRateControlMode.CQ))
         {

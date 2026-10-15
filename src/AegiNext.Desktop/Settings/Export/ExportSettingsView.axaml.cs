@@ -23,7 +23,7 @@ public sealed partial class ExportSettingsView : UserControl
         DataContext = null;
         AvaloniaXamlLoader.Load(this);
         presetList = this.FindControl<ListBox>("ExportPresetList")!;
-        choices = [this.FindControl<ComboBox>("CodecCombo")!, this.FindControl<ComboBox>("SpeedCombo")!,
+        choices = [this.FindControl<ComboBox>("CodecCombo")!, this.FindControl<ComboBox>("ContainerCombo")!, this.FindControl<ComboBox>("SpeedCombo")!,
             this.FindControl<ComboBox>("AudioModeCombo")!, this.FindControl<ComboBox>("QualityModeCombo")!,
             this.FindControl<ComboBox>("BitrateModeCombo")!];
         DataContextChanged += (_, _) => ChangeModel();
@@ -164,7 +164,7 @@ public sealed partial class ExportSettingsView : UserControl
 
     private void OnChoicesRefreshed(object? sender, EventArgs e)
     {
-        var selection = new[] { model!.Codec, model.Speed, model.AudioMode, model.QualityMode, model.BitrateMode };
+        var selection = new[] { model!.Codec, model.Container, model.Speed, model.AudioMode, model.QualityMode, model.BitrateMode };
         for (var index = 0; index < choices.Length; index++)
         {
             choices[index].EndInit();

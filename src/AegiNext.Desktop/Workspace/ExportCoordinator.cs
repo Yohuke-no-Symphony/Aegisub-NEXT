@@ -1,6 +1,7 @@
 using System.Globalization;
 using AegiNext.Desktop.I18n;
 using AegiNext.Application.Tasks;
+using AegiNext.Core.Media;
 using AegiNext.Core.Timing;
 using AegiNext.Export;
 using AegiNext.SubtitleFormats;
@@ -8,8 +9,10 @@ using AegiNext.SubtitleFormats;
 namespace AegiNext.Desktop.Workspace;
 
 internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDialogService dialogs,
-    IWorkbenchExportService exportService) : IDisposable
+    IWorkbenchExportService exportService,
+    Func<string, CancellationToken, Task<MediaAssetInfo>>? mediaProbe = null) : IDisposable
 {
+    private readonly ExportAudioCompatibility audioCompatibility = new(session, mediaProbe);
     private AegiTaskHandle? taskHandle;
     private bool activeOperation;
     private bool disposed;
@@ -24,6 +27,10 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
     internal bool CanCancel => taskHandle?.Snapshot is { CanCancel: true, State: AegiTaskState.Queued or AegiTaskState.Running };
     public Task Completion { get; private set; } = Task.CompletedTask;
     internal void Cancel() => taskHandle?.RequestCancel();
+    internal void RefreshSourceAudio()
+    {
+        audioCompatibility.RefreshSource();
+    }
 
     internal void RefreshLanguage()
     {
@@ -56,6 +63,7 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
     {
         try
         {
+            await audioCompatibility.PrepareAsync();
             if (!session.TryCommitDrafts())
             {
                 var draftError = session.LastError ?? new InvalidDataException(session.ViewModel.Error ??
@@ -94,14 +102,18 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
             var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             IsChoosingOutput = true;
             session.ViewModel.RefreshCommands();
-            var extensions = isSubtitleMux ? SubtitleMuxCapabilities.Extensions : VideoExportCapabilities.Get(settings!.Codec).Extensions;
-            var extension = isSubtitleMux || settings!.Codec is VideoCodec.Vp8 or VideoCodec.Vp9 or VideoCodec.Av1 ? ".mkv" : ".mp4";
+            var extension = isSubtitleMux ? ".mkv" : VideoExportCapabilities.GetExtension(settings!.Container);
+            var extensions = isSubtitleMux ? SubtitleMuxCapabilities.Extensions : [extension];
             var patterns = extensions.Select(value => "*" + value).ToArray();
             var path = await dialogs.SaveFileAsync("Export", "Videos", patterns, extension,
                 $"{name}-{timestamp}{extension}", outputDirectory);
             if (path is null || session.IsClosing)
             {
                 return;
+            }
+            if (!isSubtitleMux && !Path.GetExtension(path).Equals(extension, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(Localization.Format("Workbench.ExportContainerMismatch", extension));
             }
 
             IsChoosingOutput = false;

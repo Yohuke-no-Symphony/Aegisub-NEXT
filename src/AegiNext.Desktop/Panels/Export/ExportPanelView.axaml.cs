@@ -18,7 +18,7 @@ internal sealed partial class ExportPanelView : UserControl, IWorkbenchPanelView
         this.viewModel = viewModel;
         AvaloniaXamlLoader.Load(this);
         DataContext = viewModel;
-        choices = [this.FindControl<ComboBox>("CodecCombo")!, this.FindControl<ComboBox>("SpeedCombo")!,
+        choices = [this.FindControl<ComboBox>("CodecCombo")!, this.FindControl<ComboBox>("ContainerCombo")!, this.FindControl<ComboBox>("SpeedCombo")!,
             this.FindControl<ComboBox>("AudioModeCombo")!, this.FindControl<ComboBox>("QualityModeCombo")!,
             this.FindControl<ComboBox>("BitrateModeCombo")!];
         viewModel.ChoicesRefreshing += OnChoicesRefreshing;
@@ -60,7 +60,7 @@ internal sealed partial class ExportPanelView : UserControl, IWorkbenchPanelView
 
     private void OnChoicesRefreshed(object? sender, EventArgs e)
     {
-        var selection = new[] { viewModel.Codec, viewModel.Speed, viewModel.AudioMode, viewModel.QualityMode, viewModel.BitrateMode };
+        var selection = new[] { viewModel.Codec, viewModel.Container, viewModel.Speed, viewModel.AudioMode, viewModel.QualityMode, viewModel.BitrateMode };
         for (var index = 0; index < choices.Length; index++)
         {
             choices[index].EndInit();

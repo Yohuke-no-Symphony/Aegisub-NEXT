@@ -58,7 +58,7 @@ public sealed class ExportPanelSettingsTests
 
         Assert.Equal(index, vm.Speed);
         Assert.Equal(preset, vm.EncodingPreset);
-        Assert.Equal(settings, vm.CaptureSettings(true));
+        Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(settings), vm.CaptureSettings(true));
         Assert.False(context.Editor.CanUndo);
     }
 
@@ -213,7 +213,7 @@ public sealed class ExportPanelSettingsTests
             vm.ApplySettings(settings);
 
             Assert.Equal("12,5", vm.VideoBitrateText);
-            Assert.Equal(settings, vm.CaptureSettings(true));
+            Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(settings), vm.CaptureSettings(true));
         }
         finally
         {

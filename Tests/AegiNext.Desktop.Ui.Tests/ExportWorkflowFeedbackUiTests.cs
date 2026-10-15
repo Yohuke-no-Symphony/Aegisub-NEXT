@@ -1,5 +1,6 @@
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Shortcuts;
+using AegiNext.Export;
 using Avalonia.Headless.XUnit;
 
 namespace AegiNext.Desktop.Ui.Tests;
@@ -158,7 +159,7 @@ public sealed class ExportWorkflowFeedbackUiTests
         Assert.Empty(context.Dialogs.ErrorMessages);
     }
 
-    /// <summary>用户选择其他目录和 MKV 格式时使用其确认路径。</summary>
+    /// <summary>面板选择 MKV 后保存到用户确认的目录和路径。</summary>
     [AvaloniaFact]
     public async Task ExplicitMkvOutputOverridesDefaultSuggestion()
     {
@@ -166,6 +167,7 @@ public sealed class ExportWorkflowFeedbackUiTests
         await context.InitializeAsync();
         var directory = Path.GetDirectoryName(context.OutputPath)!;
         context.Session.SetProjectLocation(Path.Combine(directory, "项目.aeginext"), directory);
+        context.Session.ViewModel.Export.SelectedContainer = VideoContainerFormat.MKV;
         var selected = Path.ChangeExtension(context.OutputPath, ".mkv");
         context.Dialogs.ResolveOutput(selected);
 

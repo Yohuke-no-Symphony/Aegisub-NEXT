@@ -801,7 +801,7 @@
     "Workbench.ConstantQuality": "固定品質（CRF）",
     "Workbench.ConstrainedQuality": "制約付き品質（CQ）",
     "Workbench.BitrateQuality": "ビットレート（Mbps）",
-    "Workbench.WebMAudioHint": "WebM は Opus または互換音声トラックのコピーに対応します。Opus、コピー、または音声なしを選択してください。AAC には MKV または MP4 が必要です。",
+    "Workbench.WebMAudioHint": "WebM では Opus または Vorbis 音声をコピーできます。互換性のない音声は自動的に Opus に変更されます。",
     "Workbench.QualityMode": "品質モード",
     "Workbench.RateControlMode": "レート制御",
     "Workbench.VariableBitrate": "VBR · 可変ビットレート",

@@ -37,7 +37,7 @@ public sealed class ExportPresetUiTests
         combo.SelectedItem = vm.Presets.Single(value => value.Id == second.Id);
         context.Flush();
 
-        Assert.Equal(second.Settings, vm.CaptureSettings(true));
+        Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(second.Settings), vm.CaptureSettings(true));
         Assert.Equal(0, view.FindControl<ComboBox>("SpeedCombo")!.SelectedIndex);
         Assert.True(view.FindControl<NumericDraftInput>("VideoBitrateInput")!.IsEffectivelyVisible);
         Assert.True(view.FindControl<NumericDraftInput>("AudioBitrateInput")!.IsEffectivelyVisible);
@@ -45,7 +45,7 @@ public sealed class ExportPresetUiTests
         Assert.Null(view.FindControl<Button>("SaveExportPresetButton"));
         combo.SelectedItem = vm.Presets.Single(value => value.Id == first.Id);
         context.Flush();
-        Assert.Equal(first.Settings, vm.CaptureSettings(true));
+        Assert.Equal(VideoExportCapabilities.ProjectPresetToCurrentPlatform(first.Settings), vm.CaptureSettings(true));
         Assert.Same(original, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
     }

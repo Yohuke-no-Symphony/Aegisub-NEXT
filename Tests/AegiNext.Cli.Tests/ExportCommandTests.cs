@@ -30,6 +30,7 @@ public sealed class ExportCommandTests
         Assert.Equal(quality, request.Quality);
         Assert.Equal(Path.Combine(directory.Path, "output"), Path.GetDirectoryName(request.OutputPath));
         Assert.Equal(extension, Path.GetExtension(request.OutputPath));
+        Assert.Equal(VideoExportCapabilities.GetContainer(extension), request.ToSettings().Container);
         Assert.Equal(directory.Path, request.ProjectDirectory);
         Assert.Equal(VideoDecodeMode.Auto, request.DecodeMode);
         Assert.Contains("test-encoder", console.Output);
@@ -124,6 +125,25 @@ public sealed class ExportCommandTests
         var exit = await CreateApplication(CreateConsole(false), false, service).RunAsync(["export", "-i", input, "-o", output]);
         Assert.Equal(0, exit);
         Assert.Equal(output, service.Request!.OutputPath);
+        Assert.Equal(VideoContainerFormat.MKV, service.Request.ToSettings().Container);
+    }
+
+    [Theory]
+    [InlineData("mp4", "vp9", "copy", VideoContainerFormat.MP4)]
+    [InlineData("mkv", "h264", "aac", VideoContainerFormat.MKV)]
+    [InlineData("webm", "vp9", "opus", VideoContainerFormat.WEBM)]
+    public async Task ExplicitContainerAndOutputDirectoryReachExportService(string container, string codec, string audio,
+        VideoContainerFormat expected)
+    {
+        using var directory = new CliTestDirectory();
+        var input = await CreateInputAsync(directory);
+        var service = new RecordingVideoExportService();
+        var exit = await CreateApplication(CreateConsole(false), false, service).RunAsync(
+            ["export", "-i", input, "-o", directory.Path, "--container", container, "--encoding", codec, "--audio", audio]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(expected, service.Request!.ToSettings().Container);
+        Assert.Equal("." + container, Path.GetExtension(service.Request.OutputPath));
     }
 
     [Fact]

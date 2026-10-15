@@ -15,12 +15,15 @@ public sealed class VideoExportPresetStoreTests
     public void LegacyV1MigratesQualityWithoutChangingIdentityOrInactiveValues()
     {
         var preset = new VideoExportPreset(Guid.NewGuid(), "Legacy", new() { Quality = 27, VideoBitrate = 12345000 });
-        var json = Utf8Encoding.UTF8.GetString(VideoExportPresetStore.Serialize(new() { Presets = [preset] }))
-            .Replace("\"version\": 2", "\"version\": 1", StringComparison.Ordinal)
-            .Replace("\"quality\": 27", "\"crf\": 27", StringComparison.Ordinal);
-        var migrated = VideoExportPresetStore.Deserialize(Utf8Encoding.UTF8.GetBytes(json));
-        Assert.Equal(2, migrated.Version);
-        Assert.Equal(preset, Assert.Single(migrated.Presets));
+        var document = JsonNode.Parse(VideoExportPresetStore.Serialize(new() { Presets = [preset] }))!.AsObject();
+        document["version"] = 1;
+        var legacySettings = document["presets"]![0]!["settings"]!.AsObject();
+        legacySettings.Remove("container");
+        legacySettings["crf"] = legacySettings["quality"]!.DeepClone();
+        legacySettings.Remove("quality");
+        var migrated = VideoExportPresetStore.Deserialize(Utf8Encoding.UTF8.GetBytes(document.ToJsonString()));
+        Assert.Equal(3, migrated.Version);
+        Assert.Equal(preset with { Settings = preset.Settings with { Container = VideoContainerFormat.MP4 } }, Assert.Single(migrated.Presets));
         var saved = Utf8Encoding.UTF8.GetString(VideoExportPresetStore.Serialize(migrated));
         Assert.Contains("\"quality\": 27", saved, StringComparison.Ordinal);
         Assert.DoesNotContain("\"crf\"", saved, StringComparison.Ordinal);
@@ -64,7 +67,7 @@ public sealed class VideoExportPresetStoreTests
         var document = JsonNode.Parse(bytes)!.AsObject();
         Assert.Equal(rootFields, document.Select(property => property.Key));
         var settings = document["presets"]![0]!["settings"]!.AsObject();
-        Assert.Equal(8, settings.Count);
+        Assert.Equal(9, settings.Count);
         Assert.Equal(rateControlMode.ToString(), settings["rateControlMode"]!.GetValue<string>());
         Assert.Equal(preset, Assert.Single(VideoExportPresetStore.Deserialize(bytes).Presets));
         var path = Path.Combine(directory.Path, "字幕.aegiexports");
@@ -77,14 +80,20 @@ public sealed class VideoExportPresetStoreTests
 
     /// <summary>版本和集合等全部字段必需，重复、未知、整数枚举及非法参数整体拒绝。</summary>
     [Theory]
-    [InlineData("\"version\": 2", "\"version\": 99")]
-    [InlineData("\"version\": 2,", "")]
-    [InlineData("\"version\": 2,", "\"version\": 2, \"version\": 2,")]
-    [InlineData("\"version\": 2,", "\"version\": 2, \"unknown\": true,")]
+    [InlineData("\"version\": 3", "\"version\": 99")]
+    [InlineData("\"version\": 3,", "")]
+    [InlineData("\"version\": 3,", "\"version\": 3, \"version\": 3,")]
+    [InlineData("\"version\": 3,", "\"version\": 3, \"unknown\": true,")]
     [InlineData("\"presets\": [", "\"items\": [")]
     [InlineData("\"name\": \"Valid\",", "")]
     [InlineData("\"settings\": {", "\"settings\": { \"unknown\": true,")]
     [InlineData("\"codec\": \"Auto\",", "")]
+    [InlineData("\"container\": \"AUTO\",", "")]
+    [InlineData("\"container\": \"AUTO\"", "\"container\": \"Unknown\"")]
+    [InlineData("\"container\": \"AUTO\"", "\"container\": 1")]
+    [InlineData("\"container\": \"AUTO\"", "\"container\": null")]
+    [InlineData("\"container\": \"AUTO\"", "\"container\": \"WEBM\"")]
+    [InlineData("\"container\": \"AUTO\",", "\"container\": \"AUTO\", \"container\": \"MP4\",")]
     [InlineData("\"quality\": 20,", "")]
     [InlineData("\"quality\": 20,", "\"quality\": 20, \"quality\": 30,")]
     [InlineData("\"quality\": 20,", "\"quality\": 52,")]
