@@ -11,6 +11,7 @@ function Invoke-AegiNextRelease
         [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
         [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release',
         [string] $Tag,
+        [switch] $Force,
         [version] $Version,
         [string] $FfmpegRoot,
         [string] $SdlRoot,
@@ -31,6 +32,8 @@ function Invoke-AegiNextRelease
 
     $rid = Get-AegiNextRuntimeIdentifier -HostInfo $hostInfo -RuntimeIdentifier $RuntimeIdentifier
     $arguments = @{} + $PSBoundParameters
+    $null = $arguments.Remove('Force')
+    if ($Force) { $arguments.AllowMissingTag = $true }
     $arguments.RuntimeIdentifier = $rid
     $arguments.Configuration = $Configuration
     $arguments.CreateInstaller = $hostInfo.Platform -eq 'Windows'

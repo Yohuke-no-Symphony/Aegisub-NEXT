@@ -17,9 +17,21 @@ pwsh -NoProfile -File ./release.ps1 -Tag rel/beta/1.2.3.1
 pwsh -NoProfile -File ./release.ps1 -Tag rel/beta/1.2.3.1 -Version 1.2.3.1 -SkipBuild
 ```
 
-`-Tag` 必须指向 HEAD；省略时自动读取 HEAD 上的合法发布标签。存在不同发布身份时必须显式选择，缺少合法标签、Git 不可用或浅克隆均不能发布。可选 `-Version` 必须为四段数字，并与所选标签的版本一致；它只校验版本，不覆盖标签。
+普通发布的 `-Tag` 必须指向 HEAD；省略时自动读取 HEAD 上的合法发布标签。存在不同发布身份时必须显式选择，缺少合法标签、Git 不可用或浅克隆均不能普通发布。可选 `-Version` 必须为四段数字，并与所选标签的版本一致；它只校验版本，不覆盖标签。
 
 `-SkipBuild` 复用匹配原生产物，仍发布桌面应用、导出 worker 和 CLI。必要时指定 `-FfmpegRoot`、`-SdlRoot` 或 `-NsisPath`；输出目录必须尚不存在，发布不会安装依赖。脚本只在本地构建和打包，提交、创建/推送标签及上传 GitHub Release 由发布者完成。
+
+## 未创建标签的测试包
+
+验证打包流程时，可以显式提供尚未创建的合法标签名称并使用 `--force`，也支持 PowerShell 写法 `-Force`：
+
+```powershell
+pwsh -NoProfile -File ./release.ps1 -Tag rel/beta/1.2.3.99 --force
+```
+
+此模式要求明确指定 `-Tag`，按当前 HEAD 打包，不创建或移动 Git 标签。如果该标签已经存在且指向其他提交，仍会拒绝。标签格式、各数字段 `0–65534` 的范围、可选 `-Version` 的四段匹配校验，以及完整 Git 历史要求均继续生效。
+
+测试包继续使用清单 schema 2，并写入 `IsTestPackage: true`；普通发布写入 `false`。清单中的 `GitSha` 和系统构建号仍来自真实 HEAD，输出仍使用 `artifacts/releases/<RID>/<timestamp>-<ID>/` 下的全新目录。
 
 ## 版本与递增
 
@@ -79,7 +91,7 @@ scoop install nsis
 Spectre 的固定版本上游许可证和包声明保存在 `scripts/publish/licenses/`；升级 `Directory.Packages.props` 中的包版本时一同更新。
 
 - `media-runtime.json` 指定包内工具。
-- `package-manifest.json` 记录产品版本、原始标签、渠道、发布序号、系统构建号、RID、Git 身份/脏状态、运行时/工具版本、依赖/许可来源、实际系统要求和文件哈希。
+- `package-manifest.json` 记录产品版本、原始标签、渠道、发布序号、系统构建号、`IsTestPackage` 标记、RID、Git 身份/脏状态、运行时/工具版本、依赖/许可来源、实际系统要求和文件哈希。
 - macOS 重写 Mach-O 依赖路径并签名，最高原生库要求决定最低系统版本；默认临时签名，公证另行处理。
 - Windows 从选定 SDK/编译器位置收集 x64 PE 依赖；额外来源使用 `-RuntimeDependencyDirectory` 和 `-LicenseDirectory`。
 

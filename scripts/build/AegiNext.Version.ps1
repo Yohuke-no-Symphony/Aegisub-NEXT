@@ -26,12 +26,15 @@ function Assert-AegiNextVersionRequest
 function Get-AegiNextBuildVersion
 {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string] $RepositoryRoot, [string] $Tag, [version] $Version, [switch] $RequireRelease)
+    param([Parameter(Mandatory)][string] $RepositoryRoot, [string] $Tag, [version] $Version, [switch] $RequireRelease,
+        [switch] $AllowMissingTag)
     Assert-AegiNextVersionRequest -Tag $Tag -Version $Version
+    if ($AllowMissingTag -and !$Tag) { throw 'Test packaging requires an explicit -Tag.' }
     $properties = @('AegiNextProductVersion', 'AegiNextBaseVersion', 'AegiNextReleaseTag', 'AegiNextReleaseChannel',
         'AegiNextReleaseSequence', 'AegiNextBuildNumber', 'AssemblyVersion', 'FileVersion', 'AegiNextVersionGitSha')
     $arguments = @('msbuild', (Join-Path $PSScriptRoot 'AegiNext.Version.proj'), '-nologo', '-m:1', '-nr:false', '-target:ResolveAegiNextVersion',
         "-p:AegiNextRepositoryRoot=$([IO.Path]::GetFullPath($RepositoryRoot))", "-p:AegiNextVersionRequireRelease=$([bool]$RequireRelease)",
+        "-p:AegiNextVersionAllowMissingTag=$([bool]$AllowMissingTag)",
         "-getProperty:$($properties -join ',')")
     if ($Tag) { $arguments += "-p:AegiNextRequestedTag=$Tag" }
     if ($null -ne $Version) { $arguments += "-p:AegiNextRequestedVersion=$Version" }

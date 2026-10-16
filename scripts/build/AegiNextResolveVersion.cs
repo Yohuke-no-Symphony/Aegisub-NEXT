@@ -18,6 +18,7 @@ public sealed class AegiNextResolveVersion : Microsoft.Build.Utilities.Task
     public string RequestedTag { get; set; } = "";
     public string RequestedVersion { get; set; } = "";
     public bool RequireRelease { get; set; }
+    public bool AllowMissingTag { get; set; }
     public string DevelopmentBaseVersion { get; set; } = "0.1.0";
     [Output]
     public string ProductVersion { get; set; } = "";
@@ -57,6 +58,11 @@ public sealed class AegiNextResolveVersion : Microsoft.Build.Utilities.Task
             Log.LogError("Invalid release tag '{0}'. Use rel/beta/x.y.z.n or rel/stable/x.y.z.n with components between 0 and 65534.", RequestedTag);
             return false;
         }
+        if (AllowMissingTag && RequestedTag.Length == 0)
+        {
+            Log.LogError("Test packaging requires an explicit -Tag (AegiNextRequestedTag).");
+            return false;
+        }
         if ((!Directory.Exists(Path.Combine(RepositoryRoot, ".git")) && !File.Exists(Path.Combine(RepositoryRoot, ".git"))) ||
             !TryGit(out var sha, "rev-parse", "HEAD") ||
             !TryGit(out var shallow, "rev-parse", "--is-shallow-repository") || shallow != "false")
@@ -80,8 +86,31 @@ public sealed class AegiNextResolveVersion : Microsoft.Build.Utilities.Task
         {
             return DevelopmentOrError("Cannot inspect release tags on HEAD.");
         }
+        var headTags = tagsText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        if (AllowMissingTag && Array.IndexOf(headTags, RequestedTag) < 0)
+        {
+            if (!TryGit(out var allTagsText, "tag", "--list"))
+            {
+                Log.LogError("Cannot inspect existing Git tags for test packaging.");
+                return false;
+            }
+            if (Array.IndexOf(allTagsText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries), RequestedTag) >= 0)
+            {
+                Log.LogError("Requested tag '{0}' already exists on a different commit. Test packaging only allows missing tags or tags on HEAD.", RequestedTag);
+                return false;
+            }
+            TryTag(RequestedTag, out var requestedChannel, out var requestedNumeric);
+            if (RequestedVersion.Length != 0 && requestedNumeric != Version.Parse(RequestedVersion))
+            {
+                Log.LogError("Requested version '{0}' does not match test tag '{1}'.", RequestedVersion, RequestedTag);
+                return false;
+            }
+            ReleaseTag = RequestedTag;
+            SetVersion(requestedNumeric, requestedChannel);
+            return true;
+        }
         var matches = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var tag in tagsText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var tag in headTags)
         {
             if (!TryTag(tag, out var channel, out var numeric))
             {

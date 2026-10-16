@@ -17,9 +17,21 @@ This builds Release and creates a macOS DMG for the host architecture or a Windo
 pwsh -NoProfile -File ./release.ps1 -Tag rel/beta/1.2.3.1 -Version 1.2.3.1 -SkipBuild
 ```
 
-`-Tag` must point to HEAD. When omitted, a valid release tag is selected from HEAD; distinct release identities require explicit selection. Publishing fails without a valid tag, usable Git, or complete history. Optional `-Version` must have four numeric components and match the selected tag; it validates the version instead of overriding the tag.
+For ordinary publishing, `-Tag` must point to HEAD. When omitted, a valid release tag is selected from HEAD; distinct release identities require explicit selection. Ordinary publishing fails without a valid tag, usable Git, or complete history. Optional `-Version` must have four numeric components and match the selected tag; it validates the version instead of overriding the tag.
 
 `-SkipBuild` reuses matching native output and still publishes the desktop app, export worker, and CLI. Use explicit `-FfmpegRoot`, `-SdlRoot`, or `-NsisPath` when needed; output must be a new directory. Publishing does not install dependencies. Scripts build and package locally; the publisher creates commits, creates/pushes tags, and uploads GitHub Releases.
+
+## Test packages without a tag
+
+To test packaging before creating a release tag, provide the intended valid tag name explicitly and use `--force`. The PowerShell spelling `-Force` is also supported:
+
+```powershell
+pwsh -NoProfile -File ./release.ps1 -Tag rel/beta/1.2.3.99 --force
+```
+
+This mode requires an explicit `-Tag` and packages the current HEAD without creating or moving Git tags. It still rejects an existing tag that points to another commit. Tag format, the `0–65534` range of each numeric component, optional four-component `-Version` matching, and complete Git history remain required.
+
+Test packages retain manifest schema 2 and record `IsTestPackage: true`; ordinary publishing records `false`. Manifest `GitSha` and the system build number still come from the actual HEAD. Output still uses a fresh directory under `artifacts/releases/<RID>/<timestamp>-<ID>/`.
 
 ## Versions and increments
 
@@ -79,7 +91,7 @@ The complete payload includes self-contained .NET, the desktop app, `AegiNext.Ex
 Spectre's pinned upstream license and package notice are stored in `scripts/publish/licenses/`; update them together when upgrading the packages in `Directory.Packages.props`.
 
 - `media-runtime.json` selects package-local tools.
-- `package-manifest.json` records product version, original tag, channel, release sequence, system build number, RID, Git identity/dirty state, runtime/tool versions, dependency/license origins, actual OS requirements, and file hashes.
+- `package-manifest.json` records product version, original tag, channel, release sequence, system build number, the `IsTestPackage` flag, RID, Git identity/dirty state, runtime/tool versions, dependency/license origins, actual OS requirements, and file hashes.
 - macOS rewrites Mach-O dependency paths and signs the bundle; the highest native-library requirement becomes the minimum OS version. Default signing is ad-hoc; notarization is separate.
 - Windows collects x64 PE dependencies from selected SDK/compiler locations. Use `-RuntimeDependencyDirectory` and `-LicenseDirectory` for explicit additional sources.
 

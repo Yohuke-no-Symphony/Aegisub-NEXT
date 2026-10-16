@@ -79,6 +79,28 @@ Describe 'Automatic platform release' {
         }
     }
 
+    It 'translates Force=<Force> into the internal test packaging option' -TestCases @(
+        @{ Force = $true }
+        @{ Force = $false }
+    ) {
+        param($Force)
+        InModuleScope AegiNext.Release -Parameters @{ Fixture = $TestDrive; Force = $Force } {
+            param($Fixture, $Force)
+            Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'Windows'; Architecture = 'X64' } }
+            Mock Invoke-AegiNextPublish { $script:forwardedReleaseArguments = @{} + $PesterBoundParameters }
+
+            Invoke-AegiNextRelease -RepositoryRoot $Fixture -Tag 'rel/beta/1.2.3.99' -Force:$Force
+
+            $script:forwardedReleaseArguments.Tag | Should -Be 'rel/beta/1.2.3.99'
+            $script:forwardedReleaseArguments.ContainsKey('Force') | Should -BeFalse
+            $script:forwardedReleaseArguments.ContainsKey('AllowMissingTag') | Should -Be $Force
+            if ($Force)
+            {
+                $script:forwardedReleaseArguments.AllowMissingTag | Should -BeTrue
+            }
+        }
+    }
+
     It 'rejects unsupported <Platform> hosts before publishing' -ForEach @(@{ Platform = 'Linux' }, @{ Platform = 'Unknown' }) {
         InModuleScope AegiNext.Release -Parameters @{ Fixture = $TestDrive; Platform = $Platform } {
             Mock Get-AegiNextHost { [pscustomobject]@{ Platform = $Platform; Architecture = 'X64' } }
@@ -120,31 +142,46 @@ Describe 'Release command line entry point' {
         @'
 function Invoke-AegiNextRelease
 {
-    param($RepositoryRoot, [string] $Tag, [version] $Version, [switch] $SkipBuild, $NsisPath, $OutputDirectory)
+    param($RepositoryRoot, [string] $Tag, [version] $Version, [switch] $Force, [switch] $SkipBuild, $NsisPath, $OutputDirectory)
     if ($NsisPath -eq 'fail') { throw 'release fixture failure' }
     $record = @{} + $PSBoundParameters
     if ($PSBoundParameters.ContainsKey('Version')) { $record.Version = $Version.ToString() }
+    if ($PSBoundParameters.ContainsKey('Force')) { $record.Force = [bool]$Force }
     $record.SkipBuild = [bool]$SkipBuild
     $record | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $RepositoryRoot 'arguments.json')
 }
 Export-ModuleMember -Function Invoke-AegiNextRelease
 '@ | Set-Content -LiteralPath (Join-Path $moduleDirectory 'AegiNext.Release.psm1') -Encoding utf8NoBOM
-        $pwsh = (Get-Process -Id $PID).Path
+        $script:releasePwsh = (Get-Process -Id $PID).Path
     }
 
     It 'runs from another directory and forwards the root, version and switches' {
-        $null = & $pwsh -NoProfile -File (Join-Path $entryRoot 'release.ps1') -Tag 'rel/beta/2.3.4.0' -Version 2.3.4.0 -SkipBuild
+        $null = & $script:releasePwsh -NoProfile -File (Join-Path $entryRoot 'release.ps1') -Tag 'rel/beta/2.3.4.0' -Version 2.3.4.0 -SkipBuild
         $LASTEXITCODE | Should -Be 0
         $arguments = Get-Content -LiteralPath (Join-Path $entryRoot 'arguments.json') -Raw | ConvertFrom-Json
         $arguments.RepositoryRoot | Should -Be $entryRoot
         $arguments.Tag | Should -Be 'rel/beta/2.3.4.0'
         $arguments.Version | Should -Be '2.3.4.0'
         $arguments.SkipBuild | Should -BeTrue
+        $arguments.PSObject.Properties.Name | Should -Not -Contain 'Force'
+    }
+
+    It 'accepts native <ForceArgument> for a test package with an explicit tag' -TestCases @(
+        @{ ForceArgument = '--force' }
+        @{ ForceArgument = '-Force' }
+    ) {
+        param($ForceArgument)
+        $output = & $script:releasePwsh -NoProfile -File (Join-Path $entryRoot 'release.ps1') $ForceArgument -Tag 'rel/beta/1.2.3.99' -SkipBuild 2>&1
+        $LASTEXITCODE | Should -Be 0 -Because ($output | Out-String)
+        $arguments = Get-Content -LiteralPath (Join-Path $entryRoot 'arguments.json') -Raw | ConvertFrom-Json
+        $arguments.Force | Should -BeTrue
+        $arguments.Tag | Should -Be 'rel/beta/1.2.3.99'
+        $arguments.SkipBuild | Should -BeTrue
     }
 
     It 'returns a nonzero exit code and reports the packaging error' {
         $PSNativeCommandUseErrorActionPreference = $false
-        $output = & $pwsh -NoProfile -File (Join-Path $entryRoot 'release.ps1') -NsisPath fail 2>&1
+        $output = & $script:releasePwsh -NoProfile -File (Join-Path $entryRoot 'release.ps1') -NsisPath fail 2>&1
         $LASTEXITCODE | Should -Be 1
         ($output | Out-String) | Should -Match 'release fixture failure'
     }

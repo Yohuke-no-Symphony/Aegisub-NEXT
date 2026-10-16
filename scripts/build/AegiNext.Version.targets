@@ -3,6 +3,7 @@
     <AegiNextRepositoryRoot Condition="'$(AegiNextRepositoryRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</AegiNextRepositoryRoot>
     <AegiNextDevelopmentBaseVersion Condition="'$(AegiNextDevelopmentBaseVersion)' == ''">0.1.0</AegiNextDevelopmentBaseVersion>
     <AegiNextVersionRequireRelease Condition="'$(AegiNextVersionRequireRelease)' == ''">false</AegiNextVersionRequireRelease>
+    <AegiNextVersionAllowMissingTag Condition="'$(AegiNextVersionAllowMissingTag)' == ''">false</AegiNextVersionAllowMissingTag>
   </PropertyGroup>
   <UsingTask TaskName="AegiNextResolveVersion" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
     <Task>
@@ -15,6 +16,7 @@
                            RequestedTag="$(AegiNextRequestedTag)"
                            RequestedVersion="$(AegiNextRequestedVersion)"
                            RequireRelease="$(AegiNextVersionRequireRelease)"
+                           AllowMissingTag="$(AegiNextVersionAllowMissingTag)"
                            DevelopmentBaseVersion="$(AegiNextDevelopmentBaseVersion)">
       <Output TaskParameter="ProductVersion" PropertyName="AegiNextProductVersion" />
       <Output TaskParameter="BaseVersion" PropertyName="AegiNextBaseVersion" />

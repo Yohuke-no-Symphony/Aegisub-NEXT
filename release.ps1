@@ -8,6 +8,7 @@ param(
     [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
     [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release',
     [string] $Tag,
+    [Alias('-force')][switch] $Force,
     [version] $Version,
     [string] $FfmpegRoot,
     [string] $SdlRoot,

@@ -6,7 +6,7 @@ BeforeAll {
     Import-Module (Join-Path $repository 'scripts/publish/AegiNext.Publish.psm1') -Force
     Import-Module (Join-Path $repository 'scripts/build/AegiNext.Build.psm1')
 
-    function New-PublishTestBuildVersion
+    function Get-PublishTestBuildVersion
     {
         param([string] $Channel = 'beta', [version] $NumericVersion = '0.1.0.0')
         $baseVersion = "$($NumericVersion.Major).$($NumericVersion.Minor).$($NumericVersion.Build)"
@@ -78,15 +78,16 @@ Describe 'Platform publishing boundaries' {
         }
     }
 
-    It 'publishes one <Channel> identity through desktop, CLI, worker and installer (<ReleaseVersion>, SkipBuild=<SkipBuild>)' -TestCases @(
-        @{ CreateInstaller = $false; ReleaseVersion = $null; NumericVersion = '0.1.0.0'; Channel = 'beta'; SkipBuild = $true }
-        @{ CreateInstaller = $true; ReleaseVersion = '2.7.3.1'; NumericVersion = '2.7.3.1'; Channel = 'stable'; SkipBuild = $true }
-        @{ CreateInstaller = $false; ReleaseVersion = '2.7.3.2'; NumericVersion = '2.7.3.2'; Channel = 'stable'; SkipBuild = $false }
+    It 'publishes one <Channel> identity through desktop, CLI, worker and installer (<ReleaseVersion>, SkipBuild=<SkipBuild>, AllowMissingTag=<AllowMissingTag>)' -TestCases @(
+        @{ CreateInstaller = $false; ReleaseVersion = $null; NumericVersion = '0.1.0.0'; Channel = 'beta'; SkipBuild = $true; AllowMissingTag = $false }
+        @{ CreateInstaller = $true; ReleaseVersion = '2.7.3.1'; NumericVersion = '2.7.3.1'; Channel = 'stable'; SkipBuild = $true; AllowMissingTag = $false }
+        @{ CreateInstaller = $false; ReleaseVersion = '2.7.3.2'; NumericVersion = '2.7.3.2'; Channel = 'stable'; SkipBuild = $false; AllowMissingTag = $false }
+        @{ CreateInstaller = $true; ReleaseVersion = '1.2.3.99'; NumericVersion = '1.2.3.99'; Channel = 'beta'; SkipBuild = $false; AllowMissingTag = $true }
     ) {
-        param($CreateInstaller, $ReleaseVersion, $NumericVersion, $Channel, $SkipBuild)
-        $snapshot = New-PublishTestBuildVersion -Channel $Channel -NumericVersion $NumericVersion
-        InModuleScope AegiNext.Publish -Parameters @{ Fixture = (Join-Path $TestDrive "windows publish $NumericVersion"); CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; Snapshot = $snapshot; SkipBuild = $SkipBuild; Repository = $repository } {
-            param($Fixture, $CreateInstaller, $ReleaseVersion, $Snapshot, $SkipBuild, $Repository)
+        param($CreateInstaller, $ReleaseVersion, $NumericVersion, $Channel, $SkipBuild, $AllowMissingTag)
+        $snapshot = Get-PublishTestBuildVersion -Channel $Channel -NumericVersion $NumericVersion
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = (Join-Path $TestDrive "windows publish $NumericVersion"); CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; Snapshot = $snapshot; SkipBuild = $SkipBuild; AllowMissingTag = $AllowMissingTag; Repository = $repository } {
+            param($Fixture, $CreateInstaller, $ReleaseVersion, $Snapshot, $SkipBuild, $AllowMissingTag, $Repository)
             $ExpectedVersion = $Snapshot.ProductVersion
             $ExpectedAssemblyVersion = $Snapshot.AssemblyVersion
             $script:publishBuildVersion = $Snapshot
@@ -128,7 +129,10 @@ Describe 'Platform publishing boundaries' {
             Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'Windows'; Architecture = 'Arm64'; ProcessArchitecture = 'Arm64' } }
             Mock Get-AegiNextEnvironment { [pscustomobject]@{ Ready = $true; NativePrefixes = @{ ffmpeg = $ffmpeg; sdl3 = $sdl; cxx = $compiler } } }
             Mock Get-AegiNextSourceIdentity { [pscustomobject]@{ GitSha = ('a' * 40); WorkingTreeDirty = $true; Status = 'Recorded' } }
-            Mock Get-AegiNextBuildVersion { $script:publishBuildVersion }
+            Mock Get-AegiNextBuildVersion {
+                $script:resolvedPublishVersionArguments = @{} + $PesterBoundParameters
+                $script:publishBuildVersion
+            }
             Mock Invoke-AegiNextBuild { 0 }
             Mock Find-AegiNextCommand { 'fixture-dotnet' }
             $script:managedPublishDirectories = [Collections.Generic.List[string]]::new()
@@ -177,12 +181,18 @@ Describe 'Platform publishing boundaries' {
                 return $installer
             }
             $versionArguments = if ($null -ne $ReleaseVersion) { @{ Version = $ReleaseVersion; Tag = $Snapshot.ReleaseTag } } else { @{} }
+            if ($AllowMissingTag) { $versionArguments.AllowMissingTag = $true }
             $assemblyVersionArgument = "-p:AssemblyVersion=$ExpectedAssemblyVersion"
             $fileVersionArgument = "-p:FileVersion=$($Snapshot.FileVersion)"
             Invoke-AegiNextPublish -RepositoryRoot $root -RuntimeIdentifier win-x64 -SkipBuild:$SkipBuild -CreateInstaller:$CreateInstaller -OutputDirectory (Join-Path $Fixture 'published command fixture') @versionArguments
             Should -Invoke Get-AegiNextBuildVersion -Times 1 -Exactly -ParameterFilter {
                 $RepositoryRoot -eq $root -and $RequireRelease -and
                 $(if ($null -ne $ReleaseVersion) { $Tag -eq $Snapshot.ReleaseTag -and $Version -eq [version]$ReleaseVersion } else { !$Tag -and $null -eq $Version })
+            }
+            $script:resolvedPublishVersionArguments.ContainsKey('AllowMissingTag') | Should -Be $AllowMissingTag
+            if ($AllowMissingTag)
+            {
+                $script:resolvedPublishVersionArguments.AllowMissingTag | Should -BeTrue
             }
             if ($SkipBuild)
             {
@@ -222,6 +232,10 @@ Describe 'Platform publishing boundaries' {
             $manifest.Channel | Should -Be $Snapshot.Channel
             $manifest.ReleaseSequence | Should -Be $Snapshot.ReleaseSequence
             $manifest.BuildNumber | Should -Be 271
+            $manifest.IsTestPackage | Should -BeOfType bool
+            $manifest.IsTestPackage | Should -Be $AllowMissingTag
+            $runtimeManifest = Get-Content -LiteralPath (Join-Path $Fixture 'published command fixture/AegiNext/media-runtime.json') -Raw | ConvertFrom-Json
+            $runtimeManifest.PSObject.Properties.Name | Should -Not -Contain 'IsTestPackage'
             $spectreRecords = @($manifest.Licenses | Where-Object { [IO.Path]::GetFullPath($_.PackageRoot) -eq $spectreLicenses })
             $spectreRecords.Count | Should -Be 2
             @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 | Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
@@ -335,7 +349,7 @@ Describe 'Offline package release identities' {
         $languages = Join-Path $package 'AegiNext/i18n'
         [IO.Directory]::CreateDirectory($languages) | Out-Null
         Copy-Item -Path (Join-Path $repository 'src/AegiNext.Desktop/I18n/Languages/*.json') -Destination $languages
-        $manifest = @{
+        $script:offlineManifest = @{
             SchemaVersion = 1; ProductVersion = '1.2.3'; RuntimeIdentifier = 'win-x64'; SelfContained = $true
             ReleaseTag = 'rel/stable/1.2.3.4'; Channel = 'stable'; ReleaseSequence = 4; BuildNumber = 271
             Files = @(foreach ($file in Get-ChildItem -LiteralPath $package -File -Recurse)
@@ -348,7 +362,7 @@ Describe 'Offline package release identities' {
     }
 
     It 'preserves a stable sequence without changing the display version or consulting Git' {
-        $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
+        $script:offlineManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
         (Test-AegiNextPublishedPackage $package).ProductVersion | Should -Be '1.2.3'
         Should -Invoke Get-AegiNextBuildVersion -ModuleName AegiNext.Publish -Times 0 -Exactly
         Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Publish -Times 0 -Exactly
@@ -364,21 +378,21 @@ Describe 'Offline package release identities' {
         @{ Field = 'BuildNumber'; Value = 271.5 }
     ) {
         param($Field, $Value)
-        $manifest[$Field] = $Value
-        $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
+        $script:offlineManifest[$Field] = $Value
+        $script:offlineManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
         { Test-AegiNextPublishedPackage $package } | Should -Throw '*release identity*'
     }
 
     It 'rejects incomplete release identity metadata' {
-        $manifest.Remove('ReleaseSequence')
-        $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
+        $script:offlineManifest.Remove('ReleaseSequence')
+        $script:offlineManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
         { Test-AegiNextPublishedPackage $package } | Should -Throw '*incomplete package release identity*'
     }
 
     It 'rejects a noncanonical release channel even when its metadata agrees' {
-        $manifest.ReleaseTag = 'rel/STABLE/1.2.3.4'
-        $manifest.Channel = 'STABLE'
-        $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
+        $script:offlineManifest.ReleaseTag = 'rel/STABLE/1.2.3.4'
+        $script:offlineManifest.Channel = 'STABLE'
+        $script:offlineManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
         { Test-AegiNextPublishedPackage $package } | Should -Throw '*Invalid or incomplete package release identity*'
     }
 
@@ -391,12 +405,12 @@ Describe 'Offline package release identities' {
         @{ Component = 'build number'; BaseVersion = '1.2.3'; Channel = 'stable'; Sequence = 4; BuildNumber = 65535 }
     ) {
         param($BaseVersion, $Channel, $Sequence, $BuildNumber)
-        $manifest.ReleaseTag = "rel/$Channel/$BaseVersion.$Sequence"
-        $manifest.Channel = $Channel
-        $manifest.ReleaseSequence = $Sequence
-        $manifest.BuildNumber = $BuildNumber
-        $manifest.ProductVersion = if ($Channel -eq 'beta') { "$BaseVersion-beta.$Sequence" } else { $BaseVersion }
-        $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
+        $script:offlineManifest.ReleaseTag = "rel/$Channel/$BaseVersion.$Sequence"
+        $script:offlineManifest.Channel = $Channel
+        $script:offlineManifest.ReleaseSequence = $Sequence
+        $script:offlineManifest.BuildNumber = $BuildNumber
+        $script:offlineManifest.ProductVersion = if ($Channel -eq 'beta') { "$BaseVersion-beta.$Sequence" } else { $BaseVersion }
+        $script:offlineManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
         { Test-AegiNextPublishedPackage $package } | Should -Throw '*release identity*'
     }
 }
@@ -541,7 +555,7 @@ Describe 'macOS app icon and disk image publishing' {
         @{ CreateDmg = $false; RelativeRepository = $true; Channel = 'stable'; NumericVersion = '0.1.0.2' }
     ) {
         param($CreateDmg, $RelativeRepository, $Channel, $NumericVersion)
-        $snapshot = New-PublishTestBuildVersion -Channel $Channel -NumericVersion $NumericVersion
+        $snapshot = Get-PublishTestBuildVersion -Channel $Channel -NumericVersion $NumericVersion
         InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; CreateDmg = $CreateDmg; RelativeRepository = $RelativeRepository; Snapshot = $snapshot; Repository = $repository } {
             param($Fixture, $CreateDmg, $RelativeRepository, $Snapshot, $Repository)
             $script:publishBuildVersion = $Snapshot

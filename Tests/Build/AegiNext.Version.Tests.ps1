@@ -29,9 +29,10 @@ BeforeAll {
 
     function Invoke-VersionQuery
     {
-        param([string] $Root, [string] $Tag, [switch] $RequireRelease)
+        param([string] $Root, [string] $Tag, [switch] $RequireRelease, [switch] $AllowMissingTag)
         $arguments = @('msbuild', $query, '-nologo', '-m:1', '-nr:false', '-target:ResolveAegiNextVersion',
             "-p:AegiNextRepositoryRoot=$Root", "-p:AegiNextRequestedTag=$Tag", "-p:AegiNextVersionRequireRelease=$([bool]$RequireRelease)",
+            "-p:AegiNextVersionAllowMissingTag=$([bool]$AllowMissingTag)",
             '-getProperty:AegiNextProductVersion,AegiNextBaseVersion,AegiNextReleaseChannel,AegiNextReleaseSequence,AegiNextBuildNumber,AegiNextReleaseTag,AssemblyVersion,FileVersion')
         $output = & $dotnet @arguments 2>&1
         return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = ($output | Out-String) }
@@ -73,6 +74,75 @@ Describe 'Git release version contract' {
         $root = New-VersionRepository (Join-Path $TestDrive 'different commit')
         Invoke-VersionGit $root @('tag', 'rel/beta/1.2.3.1', 'HEAD~1')
         (Invoke-VersionQuery $root -Tag 'rel/beta/1.2.3.1' -RequireRelease).ExitCode | Should -Not -Be 0
+    }
+
+    It 'uses the current commit for a missing <Channel> test tag without creating it' -ForEach @(
+        @{ Channel = 'beta'; Product = '1.2.3-beta.7' }
+        @{ Channel = 'stable'; Product = '1.2.3' }
+    ) {
+        $root = New-VersionRepository (Join-Path $TestDrive "missing $Channel tag")
+        $tag = "rel/$Channel/1.2.3.7"
+        { Get-AegiNextBuildVersion -RepositoryRoot $root -Tag $tag -RequireRelease } | Should -Throw
+
+        $snapshot = Get-AegiNextBuildVersion -RepositoryRoot $root -Tag $tag -Version 1.2.3.7 -RequireRelease -AllowMissingTag
+        $snapshot.ReleaseTag | Should -Be $tag
+        $snapshot.ProductVersion | Should -Be $Product
+        $snapshot.Channel | Should -Be $Channel
+        $snapshot.ReleaseSequence | Should -Be 7
+        $snapshot.BuildNumber | Should -Be 2
+        $snapshot.AssemblyVersion | Should -Be '1.2.3.0'
+        $snapshot.FileVersion | Should -Be '1.2.3.2'
+        $snapshot.GitSha | Should -Be (& $git -C $root rev-parse HEAD)
+        (Get-AegiNextBuildVersion -RepositoryRoot $root -Tag $tag -RequireRelease -AllowMissingTag | ConvertTo-Json -Compress) |
+            Should -Be ($snapshot | ConvertTo-Json -Compress)
+        @(& $git -C $root tag --list).Count | Should -Be 0
+        @(& $git -C $root status --porcelain).Count | Should -Be 0
+    }
+
+    It 'does not reuse a real tag from another commit for test packaging' {
+        $root = New-VersionRepository (Join-Path $TestDrive 'existing test tag')
+        Invoke-VersionGit $root @('tag', 'rel/beta/1.2.3.7', 'HEAD~1')
+        $originalTarget = & $git -C $root rev-parse refs/tags/rel/beta/1.2.3.7
+
+        { Get-AegiNextBuildVersion -RepositoryRoot $root -Tag 'rel/beta/1.2.3.7' -RequireRelease -AllowMissingTag } |
+            Should -Throw '*different commit*'
+
+        (& $git -C $root rev-parse refs/tags/rel/beta/1.2.3.7) | Should -Be $originalTarget
+    }
+
+    It 'preserves the normal identity when a requested test tag already points to HEAD' {
+        $root = New-VersionRepository (Join-Path $TestDrive 'existing HEAD test tag')
+        Invoke-VersionGit $root @('tag', 'rel/beta/1.2.3.7')
+        $normal = Get-AegiNextBuildVersion -RepositoryRoot $root -Tag 'rel/beta/1.2.3.7' -RequireRelease
+        $forced = Get-AegiNextBuildVersion -RepositoryRoot $root -Tag 'rel/beta/1.2.3.7' -RequireRelease -AllowMissingTag
+
+        ($forced | ConvertTo-Json -Compress) | Should -Be ($normal | ConvertTo-Json -Compress)
+        @(& $git -C $root tag --list) | Should -Be @('rel/beta/1.2.3.7')
+    }
+
+    It 'requires an explicit test tag even when HEAD has one' {
+        $root = New-VersionRepository (Join-Path $TestDrive 'implicit test tag')
+        Invoke-VersionGit $root @('tag', 'rel/beta/1.2.3.7')
+        { Get-AegiNextBuildVersion -RepositoryRoot $root -RequireRelease -AllowMissingTag } | Should -Throw '*explicit*Tag*'
+        (Invoke-VersionQuery $root -RequireRelease -AllowMissingTag).ExitCode | Should -Not -Be 0
+    }
+
+    It 'retains format and assertion validation for test packaging (<Case>)' -ForEach @(
+        @{ Case = 'malformed'; Tag = 'rel/nightly/1.2.3.7'; Version = '1.2.3.7' }
+        @{ Case = 'leading zero'; Tag = 'rel/beta/01.2.3.7'; Version = '1.2.3.7' }
+        @{ Case = 'out of range'; Tag = 'rel/beta/1.2.3.65535'; Version = '1.2.3.7' }
+        @{ Case = 'version mismatch'; Tag = 'rel/beta/1.2.3.7'; Version = '1.2.3.8' }
+        @{ Case = 'three-part assertion'; Tag = 'rel/beta/1.2.3.7'; Version = '1.2.3' }
+    ) {
+        $root = New-VersionRepository (Join-Path $TestDrive $Case)
+        { Get-AegiNextBuildVersion -RepositoryRoot $root -Tag $Tag -Version $Version -RequireRelease -AllowMissingTag } | Should -Throw
+        @(& $git -C $root tag --list).Count | Should -Be 0
+    }
+
+    It 'still requires a real Git history for a missing test tag' {
+        $root = Join-Path $TestDrive 'archive test tag'
+        [IO.Directory]::CreateDirectory($root) | Out-Null
+        (Invoke-VersionQuery $root -Tag 'rel/beta/1.2.3.7' -RequireRelease -AllowMissingTag).ExitCode | Should -Not -Be 0
     }
 
     It 'allows untagged development builds but refuses to publish them' {
@@ -132,14 +202,18 @@ Describe 'Git release version contract' {
         $output = & $git clone --quiet --depth 1 $originUri.Uri.AbsoluteUri $clone 2>&1
         $LASTEXITCODE | Should -Be 0 -Because ($output | Out-String)
         (Invoke-VersionQuery $clone -RequireRelease).ExitCode | Should -Not -Be 0
+        (Invoke-VersionQuery $clone -Tag 'rel/beta/1.2.3.7' -RequireRelease -AllowMissingTag).ExitCode | Should -Not -Be 0
         $result = Invoke-VersionQuery $clone
         $result.ExitCode | Should -Be 0 -Because $result.Output
         ($result.Output | ConvertFrom-Json).Properties.AegiNextBuildNumber | Should -Be '0'
     }
 
-    It 'writes the resolved identity before SDK assembly attributes are generated' {
-        $root = New-VersionRepository (Join-Path $TestDrive 'metadata project')
-        Invoke-VersionGit $root @('tag', 'rel/stable/1.2.3.7')
+    It 'writes the resolved identity before SDK assembly attributes are generated (missing tag: <MissingTag>)' -ForEach @(
+        @{ MissingTag = $false }
+        @{ MissingTag = $true }
+    ) {
+        $root = New-VersionRepository (Join-Path $TestDrive "metadata project missing $MissingTag")
+        if (!$MissingTag) { Invoke-VersionGit $root @('tag', 'rel/stable/1.2.3.7') }
         $project = Join-Path $root 'Metadata.csproj'
         $targets = [Security.SecurityElement]::Escape((Join-Path $repository 'scripts/build/AegiNext.Version.targets'))
         Set-Content $project @"
@@ -150,7 +224,8 @@ Describe 'Git release version contract' {
 "@
         Set-Content (Join-Path $root 'nuget.config') '<configuration><packageSources><clear /></packageSources></configuration>'
         Set-Content (Join-Path $root 'Marker.cs') 'public sealed class Marker { }'
-        $output = & $dotnet build $project --disable-build-servers -m:1 '-p:UseSharedCompilation=false' --verbosity quiet 2>&1
+        $output = & $dotnet build $project --disable-build-servers -m:1 '-p:UseSharedCompilation=false' `
+            '-p:AegiNextRequestedTag=rel/stable/1.2.3.7' "-p:AegiNextVersionAllowMissingTag=$MissingTag" --verbosity quiet 2>&1
         $LASTEXITCODE | Should -Be 0 -Because ($output | Out-String)
         $attributes = Get-Content (Join-Path $root 'obj/Debug/net10.0/Metadata.AssemblyInfo.cs') -Raw
         $attributes | Should -Match 'AssemblyInformationalVersionAttribute\("1.2.3"\)'
@@ -167,5 +242,7 @@ Describe 'Git release version contract' {
         $metadata.AegiNextReleaseSequence | Should -Be '7'
         $metadata.AegiNextReleaseChannel | Should -Be 'stable'
         $metadata.AegiNextBuildNumber | Should -Be '2'
+        $metadata.AegiNextReleaseTag | Should -Be 'rel/stable/1.2.3.7'
+        @(& $git -C $root tag --list).Count | Should -Be $(if ($MissingTag) { 0 } else { 1 })
     }
 }

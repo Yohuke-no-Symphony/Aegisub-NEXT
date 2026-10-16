@@ -281,10 +281,11 @@ function Invoke-AegiNextPublish
     param([Parameter(Mandatory)][string] $RepositoryRoot, [string] $RuntimeIdentifier,
         [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release', [string] $Tag, [version] $Version, [string] $FfmpegRoot, [string] $SdlRoot,
         [string] $OutputDirectory, [string] $LicenseDirectory, [string[]] $RuntimeDependencyDirectory = @(), [string] $SigningIdentity = '-', [switch] $SkipBuild, [switch] $CreateDmg,
-        [switch] $CreateInstaller, [string] $NsisPath,
+        [switch] $CreateInstaller, [string] $NsisPath, [switch] $AllowMissingTag,
         [ValidateRange(1, 128)][int] $Jobs = 2)
     $versionArguments = @{ RepositoryRoot = $RepositoryRoot; RequireRelease = $true }
     if ($Tag) { $versionArguments.Tag = $Tag }
+    if ($AllowMissingTag) { $versionArguments.AllowMissingTag = $true }
     if ($null -ne $Version) { $versionArguments.Version = $Version }
     $buildVersion = Get-AegiNextBuildVersion @versionArguments
     $versionText = $buildVersion.ProductVersion
@@ -420,6 +421,7 @@ function Invoke-AegiNextPublish
     {
         $manifest.Files += [pscustomobject]@{ Path = [IO.Path]::GetRelativePath($publishRoot, $file.FullName); Sha256 = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant(); Bytes = $file.Length }
     }
+    $manifest.IsTestPackage = [bool]$AllowMissingTag
     $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $publishRoot 'package-manifest.json') -Encoding utf8NoBOM
     $null = Test-AegiNextPublishedPackage -PackageDirectory $publishRoot
     Write-Information -InformationAction Continue -MessageData "Published $versionText / $rid, self-contained: $publishRoot"

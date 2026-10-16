@@ -80,7 +80,7 @@ The system build number is `git rev-list --count HEAD`: the current commit and a
 
 Use `build.ps1 -Tag` to select a release tag pointing to HEAD. Optional `-Version` must have four numeric components and match the tag. With dotnet directly, use `-p:AegiNextRequestedTag=rel/beta/1.2.3.1` and `-p:AegiNextRequestedVersion=1.2.3.1` respectively.
 
-Ordinary development builds use `0.1.0-dev` when HEAD has no valid release tag or complete Git history is unavailable. Packaging requires a full clone and a valid release tag pointing to HEAD; select a tag explicitly when HEAD has multiple distinct release identities. Environment-only checks and native-only builds do not require a release identity. See [Publishing](publishing.md#versions-and-increments) for tag creation, selection, and release sequence increments.
+Ordinary development builds use `0.1.0-dev` when HEAD has no valid release tag or complete Git history is unavailable. Ordinary release packaging requires a full clone and a valid release tag pointing to HEAD; select a tag explicitly when HEAD has multiple distinct release identities. Environment-only checks and native-only builds do not require a release identity. See [Publishing](publishing.md#versions-and-increments) for tag creation, selection, and release sequence increments.
 
 ## Run focused tests
 
