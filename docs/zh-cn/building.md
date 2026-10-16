@@ -72,6 +72,16 @@ FFmpeg SDK 按显式路径 → 项目 SDK → `FFMPEG_DIR` → 包管理器前�
 
 原生产物位于 `artifacts/native/<RID>/<Configuration>/`，托管中间文件使用 `obj/<RID>`。Workbench 默认按本机目标 RID 还原、构建和测试，确保媒体 TestHost 与原生产物一致。NuGet 版本集中在 `Directory.Packages.props`，普通还原且不维护 lock 文件。Release 构建使用 `AegiNext.Product.slnf`，Debug 使用 `AegiNext.sln`。
 
+## 构建版本
+
+托管构建统一从当前 Git 提交的发布标签解析版本，dotnet、Rider 与 PowerShell 构建使用同一规则。`rel/beta/1.2.3.1` 的产品版本为 `1.2.3-beta.1`，`rel/stable/1.2.3.1` 为 `1.2.3`；第四段是各渠道独立的发布序号，记录在 Git 标签中，正式版的序号也保留在程序集元数据中。
+
+系统构建号为 `git rev-list --count HEAD`，即当前提交及其完整祖先的数量。同一提交在不同平台构建或重试时编号一致，构建不会写回版本文件或递增计数器。前三段与发布序号范围为 `0–65534`，系统构建号不得超过 `65534`。程序集版本固定为 `x.y.z.0`，文件版本使用 `x.y.z.<系统构建号>`。
+
+`build.ps1` 可用 `-Tag` 选择指向 HEAD 的发布标签；可选 `-Version` 必须为四段数字并与标签一致。直接使用 dotnet 时，对应参数为 `-p:AegiNextRequestedTag=rel/beta/1.2.3.1` 和 `-p:AegiNextRequestedVersion=1.2.3.1`。
+
+HEAD 没有合法发布标签，或没有可用的完整 Git 历史时，普通开发构建使用 `0.1.0-dev`。正式打包要求完整克隆和指向 HEAD 的合法发布标签；多个不同发布身份同时指向 HEAD 时，需要显式选择标签。纯环境检查与纯原生构建不依赖发布身份。创建标签、选择标签与发布序号的递增方式见[发布](publishing.md#版本与递增)。
+
 ## 定向测试
 
 ```powershell

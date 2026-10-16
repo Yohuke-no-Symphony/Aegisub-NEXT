@@ -30,7 +30,9 @@ param(
     [string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop'),
     [ValidateRange(1, 128)]
     [int] $Jobs = 2,
-    [string] $ReportPath
+    [string] $ReportPath,
+    [string] $Tag,
+    [version] $Version
 )
 
 if ($PSVersionTable.PSVersion -lt [version]'7.2')

@@ -561,6 +561,12 @@ Describe 'Build orchestration fails closed and rechecks installed dependencies' 
             [pscustomobject]@{ HostInfo = $HostInfo; Target = $Target; Ready = $true; Checks = @(); NativePrefixes = @{} }
         }
         Mock Install-AegiNextDependency -ModuleName AegiNext.Build { }
+        Mock Get-AegiNextBuildVersion -ModuleName AegiNext.Build {
+            [pscustomobject]@{
+                ReleaseTag = ''; NumericVersion = '0.1.0.0'; BaseVersion = '0.1.0'; Channel = 'dev'; ReleaseSequence = 0
+                BuildNumber = 2; ProductVersion = '0.1.0-dev'; AssemblyVersion = '0.1.0.0'; FileVersion = '0.1.0.2'; GitSha = 'fixture'
+            }
+        }
         Mock Get-AegiNextBuildPlan -ModuleName AegiNext.Build {
             @(
                 [pscustomobject]@{ Label = 'first'; FilePath = 'first'; Arguments = @('argument with spaces'); WorkingDirectory = $RepositoryRoot; Environment = @{ AEGINEXT_TEST_MARKER = 'first' } }
@@ -578,6 +584,12 @@ Describe 'Build orchestration fails closed and rechecks installed dependencies' 
 
         Should -Invoke Install-AegiNextDependency -ModuleName AegiNext.Build -Times 0 -Exactly
         Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Build -Times 0 -Exactly
+    }
+
+    It 'rejects an incomplete version assertion before inspecting or installing dependencies' {
+        { Invoke-AegiNextBuild -RepositoryRoot $repository -Version 1.2.3 -InstallDependencies } | Should -Throw '*four numeric*'
+        Should -Invoke Get-AegiNextEnvironment -ModuleName AegiNext.Build -Times 0 -Exactly
+        Should -Invoke Install-AegiNextDependency -ModuleName AegiNext.Build -Times 0 -Exactly
     }
 
     It 'returns zero for ready diagnostics without generating or executing a plan' {
@@ -695,6 +707,39 @@ Describe 'Build orchestration fails closed and rechecks installed dependencies' 
             $Target -eq 'Managed' -and !$RunTests
         }
         Should -Invoke Install-AegiNextDependency -ModuleName AegiNext.Build -Times 0 -Exactly
+    }
+
+    It 'resolves one snapshot and forwards the same complete identity to the plan' {
+        Invoke-AegiNextBuild -RepositoryRoot $repository -Tag 'rel/stable/1.2.3.1' -Version 1.2.3.1 | Should -Be 0
+        Should -Invoke Get-AegiNextBuildVersion -ModuleName AegiNext.Build -Times 1 -Exactly -ParameterFilter {
+            $Tag -eq 'rel/stable/1.2.3.1' -and $Version -eq [version]'1.2.3.1'
+        }
+        Should -Invoke Get-AegiNextBuildPlan -ModuleName AegiNext.Build -Times 1 -Exactly -ParameterFilter {
+            $BuildVersion.ProductVersion -eq '0.1.0-dev' -and $BuildVersion.BuildNumber -eq 2
+        }
+    }
+}
+
+Describe 'Version snapshots survive every managed plan command' {
+    It 'passes the same version through <Configuration> restore, build and selected tests' -ForEach @(
+        @{ Configuration = 'Debug' }
+        @{ Configuration = 'Release' }
+    ) {
+        $snapshot = [pscustomobject]@{
+            ReleaseTag = 'rel/beta/1.2.3.7'; NumericVersion = '1.2.3.7'; BaseVersion = '1.2.3'; Channel = 'beta'; ReleaseSequence = 7
+            BuildNumber = 271; ProductVersion = '1.2.3-beta.7'; AssemblyVersion = '1.2.3.0'; FileVersion = '1.2.3.271'; GitSha = 'fixture'
+        }
+        $root = Join-Path $TestDrive 'nonexistent versioned plan'
+        $plan = @(Get-AegiNextBuildPlan -RepositoryRoot $root -Target Managed -Configuration $Configuration `
+            -HostInfo (New-BuildTestHost 'Windows' 'X64') -RunTests -TestProjects Cli -BuildVersion $snapshot)
+        foreach ($step in $plan)
+        {
+            $step.Arguments | Should -Contain '-p:Version=1.2.3-beta.7'
+            $step.Arguments | Should -Contain '-p:FileVersion=1.2.3.271'
+            $step.Arguments | Should -Contain '-p:AegiNextReleaseSequence=7'
+            $step.Arguments | Should -Contain '-p:AegiNextVersionResolved=true'
+        }
+        Test-Path -LiteralPath $root | Should -BeFalse
     }
 }
 

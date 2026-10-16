@@ -1,0 +1,42 @@
+<Project>
+  <PropertyGroup>
+    <AegiNextRepositoryRoot Condition="'$(AegiNextRepositoryRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</AegiNextRepositoryRoot>
+    <AegiNextDevelopmentBaseVersion Condition="'$(AegiNextDevelopmentBaseVersion)' == ''">0.1.0</AegiNextDevelopmentBaseVersion>
+    <AegiNextVersionRequireRelease Condition="'$(AegiNextVersionRequireRelease)' == ''">false</AegiNextVersionRequireRelease>
+  </PropertyGroup>
+  <UsingTask TaskName="AegiNextResolveVersion" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <Task>
+      <Code Type="Class" Language="cs" Source="$(MSBuildThisFileDirectory)AegiNextResolveVersion.cs" />
+    </Task>
+  </UsingTask>
+  <Target Name="ResolveAegiNextVersion" BeforeTargets="GetAssemblyVersion;_GenerateRestoreProjectSpec" Condition="'$(DesignTimeBuild)' != 'true'">
+    <AegiNextResolveVersion Condition="'$(AegiNextVersionResolved)' != 'true'"
+                           RepositoryRoot="$(AegiNextRepositoryRoot)"
+                           RequestedTag="$(AegiNextRequestedTag)"
+                           RequestedVersion="$(AegiNextRequestedVersion)"
+                           RequireRelease="$(AegiNextVersionRequireRelease)"
+                           DevelopmentBaseVersion="$(AegiNextDevelopmentBaseVersion)">
+      <Output TaskParameter="ProductVersion" PropertyName="AegiNextProductVersion" />
+      <Output TaskParameter="BaseVersion" PropertyName="AegiNextBaseVersion" />
+      <Output TaskParameter="ReleaseTag" PropertyName="AegiNextReleaseTag" />
+      <Output TaskParameter="ReleaseChannel" PropertyName="AegiNextReleaseChannel" />
+      <Output TaskParameter="ReleaseSequence" PropertyName="AegiNextReleaseSequence" />
+      <Output TaskParameter="BuildNumber" PropertyName="AegiNextBuildNumber" />
+      <Output TaskParameter="AssemblyVersion" PropertyName="AssemblyVersion" />
+      <Output TaskParameter="FileVersion" PropertyName="FileVersion" />
+      <Output TaskParameter="GitSha" PropertyName="AegiNextVersionGitSha" />
+    </AegiNextResolveVersion>
+    <PropertyGroup>
+      <Version>$(AegiNextProductVersion)</Version>
+      <InformationalVersion>$(AegiNextProductVersion)</InformationalVersion>
+      <AegiNextVersionResolved>true</AegiNextVersionResolved>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyMetadata Include="AegiNextReleaseTag" Value="$(AegiNextReleaseTag)" />
+      <AssemblyMetadata Include="AegiNextReleaseChannel" Value="$(AegiNextReleaseChannel)" />
+      <AssemblyMetadata Include="AegiNextReleaseSequence" Value="$(AegiNextReleaseSequence)" />
+      <AssemblyMetadata Include="AegiNextBuildNumber" Value="$(AegiNextBuildNumber)" />
+      <AssemblyMetadata Include="AegiNextBaseVersion" Value="$(AegiNextBaseVersion)" />
+    </ItemGroup>
+  </Target>
+</Project>

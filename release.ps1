@@ -7,6 +7,7 @@ Builds and publishes a Windows NSIS installer or macOS DMG into a fresh artifact
 param(
     [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
     [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release',
+    [string] $Tag,
     [version] $Version,
     [string] $FfmpegRoot,
     [string] $SdlRoot,

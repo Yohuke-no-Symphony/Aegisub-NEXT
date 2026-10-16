@@ -6,6 +6,44 @@ namespace AegiNext.Desktop.Tests.Updates;
 public sealed class UpdateCheckServiceTests
 {
     [Theory]
+    [InlineData("rel/beta/1.2.3.65534", "rel/stable/1.2.3.0", (int)UpdateCheckStatus.UPDATE_AVAILABLE)]
+    [InlineData("rel/stable/1.2.3.7", "rel/stable/1.2.3.7", (int)UpdateCheckStatus.UP_TO_DATE)]
+    [InlineData("rel/stable/1.2.3.7", "rel/stable/1.2.3.8", (int)UpdateCheckStatus.UPDATE_AVAILABLE)]
+    [InlineData("rel/stable/1.2.3.7", "rel/stable/1.2.3.6", (int)UpdateCheckStatus.UP_TO_DATE)]
+    public async Task ServicePropagatesCompleteIdentityInsteadOfComparingDisplay(string localTag, string remoteTag, int expected)
+    {
+        Assert.True(ReleaseIdentity.TryParse(localTag, out var local));
+        Assert.True(ReleaseIdentity.TryParse(remoteTag, out var remote));
+        await using var tasks = new AegiTaskService();
+        var release = new UpdateRelease(remote.Version, remoteTag, remote.DisplayVersion, string.Empty,
+            new("https://github.com/Yohuke-no-Symphony/Aegisub-NEXT/releases/tag/" + remoteTag), remote);
+        var source = new UpdateReleaseSourceStub((_, _) => Task.FromResult<UpdateRelease?>(release));
+        await using var service = new UpdateCheckService(tasks, source, local.DisplayVersion, local);
+
+        var result = await service.CheckAsync(UpdateCheckTrigger.MANUAL, UpdateChannel.INCLUDE_PRERELEASE);
+
+        Assert.Equal((UpdateCheckStatus)expected, result.Status);
+        Assert.Equal(local.DisplayVersion, result.CurrentVersion);
+        Assert.Equal(remote, result.Release!.Identity);
+    }
+
+    [Theory]
+    [InlineData("0.8.0-beta.1", "0.8.0.2", (int)UpdateCheckStatus.UPDATE_AVAILABLE)]
+    [InlineData("0.8.0-beta.2", "0.8.0.1", (int)UpdateCheckStatus.UP_TO_DATE)]
+    [InlineData("0.1.0-dev", "0.8.0.0", (int)UpdateCheckStatus.UPDATE_AVAILABLE)]
+    public async Task ProductVersionSuffixesRemainComparable(string localVersion, string remoteVersion, int expected)
+    {
+        await using var tasks = new AegiTaskService();
+        var source = new UpdateReleaseSourceStub((_, _) => Task.FromResult<UpdateRelease?>(UpdateTestData.Release(remoteVersion)));
+        await using var service = new UpdateCheckService(tasks, source, localVersion);
+
+        var result = await service.CheckAsync(UpdateCheckTrigger.MANUAL, UpdateChannel.INCLUDE_PRERELEASE);
+
+        Assert.Equal((UpdateCheckStatus)expected, result.Status);
+        Assert.Equal(localVersion, result.CurrentVersion);
+    }
+
+    [Theory]
     [InlineData("0.7.0", (int)UpdateCheckStatus.UPDATE_AVAILABLE)]
     [InlineData("0.8.0", (int)UpdateCheckStatus.UP_TO_DATE)]
     [InlineData("0.9.0", (int)UpdateCheckStatus.UP_TO_DATE)]

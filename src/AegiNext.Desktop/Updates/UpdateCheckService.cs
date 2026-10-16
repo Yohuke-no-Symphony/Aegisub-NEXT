@@ -8,12 +8,14 @@ internal sealed class UpdateCheckService : IAsyncDisposable
     private readonly AegiTaskService tasks;
     private readonly IUpdateReleaseSource source;
     private readonly string currentVersion;
+    private readonly ReleaseIdentity? currentIdentity;
     private readonly HashSet<UpdateCheckRequest> notifying = [];
     private UpdateCheckRequest? pending;
     private Task? disposeTask;
     private bool closing;
 
-    internal UpdateCheckService(AegiTaskService tasks, IUpdateReleaseSource source, string currentVersion)
+    internal UpdateCheckService(AegiTaskService tasks, IUpdateReleaseSource source, string currentVersion,
+        ReleaseIdentity? currentIdentity = null)
     {
         ArgumentNullException.ThrowIfNull(tasks);
         ArgumentNullException.ThrowIfNull(source);
@@ -21,6 +23,7 @@ internal sealed class UpdateCheckService : IAsyncDisposable
         this.tasks = tasks;
         this.source = source;
         this.currentVersion = currentVersion;
+        this.currentIdentity = currentIdentity;
     }
 
     internal event EventHandler<UpdateCheckCompletedEventArgs>? Completed;
@@ -48,7 +51,7 @@ internal sealed class UpdateCheckService : IAsyncDisposable
         }
         try
         {
-            var handle = tasks.Submit(new CheckUpdatesTask(source, channel, currentVersion));
+            var handle = tasks.Submit(new CheckUpdatesTask(source, channel, currentVersion, currentIdentity));
             bool cancel;
             lock (gate)
             {

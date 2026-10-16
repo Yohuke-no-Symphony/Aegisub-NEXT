@@ -59,17 +59,17 @@ internal sealed class GitHubReleaseSource : IUpdateReleaseSource
         {
             return null;
         }
-        if (!ReleaseVersion.TryParse(release.TagName, out var version))
+        if (!ReleaseIdentity.TryParse(release.TagName, out var identity) || identity.Channel == ReleaseChannel.DEVELOPMENT)
         {
             throw new InvalidDataException("The GitHub release tag does not contain a supported numeric version.");
         }
-        return CreateRelease(release, version);
+        return CreateRelease(release, identity);
     }
 
     private async Task<UpdateRelease?> GetIncludingPrereleaseAsync(CancellationToken cancellationToken)
     {
         GitHubReleaseResponse? selected = null;
-        Version? selectedVersion = null;
+        ReleaseIdentity? selectedIdentity = null;
         var hasPublishedRelease = false;
         var visited = new HashSet<Uri>();
         Uri? page = releasesUri;
@@ -94,19 +94,19 @@ internal sealed class GitHubReleaseSource : IUpdateReleaseSource
                     continue;
                 }
                 hasPublishedRelease = true;
-                if (ReleaseVersion.TryParse(release.TagName, out var version) &&
-                    (selectedVersion is null || version > selectedVersion ||
-                     version == selectedVersion && selected!.Prerelease && !release.Prerelease))
+                if (ReleaseIdentity.TryParse(release.TagName, out var identity) && identity.Channel != ReleaseChannel.DEVELOPMENT &&
+                    (selectedIdentity is null || identity.CompareTo(selectedIdentity) > 0 ||
+                     identity == selectedIdentity && selected!.Prerelease && !release.Prerelease))
                 {
                     selected = release;
-                    selectedVersion = version;
+                    selectedIdentity = identity;
                 }
             }
             page = GetNextPage(response);
         }
         if (selected is not null)
         {
-            return CreateRelease(selected, selectedVersion!);
+            return CreateRelease(selected, selectedIdentity!);
         }
         if (hasPublishedRelease)
         {
@@ -158,7 +158,7 @@ internal sealed class GitHubReleaseSource : IUpdateReleaseSource
         return null;
     }
 
-    private static UpdateRelease CreateRelease(GitHubReleaseResponse release, Version version)
+    private static UpdateRelease CreateRelease(GitHubReleaseResponse release, ReleaseIdentity identity)
     {
         if (!Uri.TryCreate(release.HtmlUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps ||
             uri.Host != "github.com" || !uri.IsDefaultPort || uri.UserInfo.Length != 0 ||
@@ -166,7 +166,7 @@ internal sealed class GitHubReleaseSource : IUpdateReleaseSource
         {
             throw new InvalidDataException("GitHub returned an invalid release page address.");
         }
-        return new(version, release.TagName!, string.IsNullOrWhiteSpace(release.Name) ? release.TagName! : release.Name,
-            release.Body ?? string.Empty, uri);
+        return new(identity.Version, release.TagName!, string.IsNullOrWhiteSpace(release.Name) ? release.TagName! : release.Name,
+            release.Body ?? string.Empty, uri, identity);
     }
 }

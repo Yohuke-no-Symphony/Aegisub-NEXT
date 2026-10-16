@@ -10,6 +10,7 @@ function Invoke-AegiNextRelease
         [Parameter(Mandatory)][string] $RepositoryRoot,
         [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
         [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release',
+        [string] $Tag,
         [version] $Version,
         [string] $FfmpegRoot,
         [string] $SdlRoot,
@@ -37,7 +38,7 @@ function Invoke-AegiNextRelease
     if (!$OutputDirectory)
     {
         $releaseId = [DateTime]::UtcNow.ToString("yyyyMMdd-HHmmssfff'Z'", [Globalization.CultureInfo]::InvariantCulture) + '-' + [guid]::NewGuid().ToString('N').Substring(0, 8)
-        $arguments.OutputDirectory = [IO.Path]::GetFullPath((Join-Path $RepositoryRoot "artifacts/releases/$rid/$Configuration/$releaseId"))
+        $arguments.OutputDirectory = [IO.Path]::GetFullPath((Join-Path $RepositoryRoot "artifacts/releases/$rid/$releaseId"))
     }
 
     Invoke-AegiNextPublish @arguments

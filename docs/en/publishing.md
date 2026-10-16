@@ -4,27 +4,63 @@
 
 ## Create a release
 
-Run on the target operating system:
+Start from a full Git clone, complete the release changes, and create a commit before tagging it. Run on the target operating system:
 
 ```powershell
-pwsh -NoProfile -File ./release.ps1
+git tag rel/beta/1.2.3.1
+pwsh -NoProfile -File ./release.ps1 -Tag rel/beta/1.2.3.1
 ```
 
-This builds Release and creates a macOS DMG for the host architecture or a Windows x64 NSIS installer. Output goes to a fresh `artifacts/releases/<RID>/<Configuration>/<timestamp>-<ID>/` directory and is printed on success. Windows ARM64 hosts target x64.
+This builds Release and creates a macOS DMG for the host architecture or a Windows x64 NSIS installer. Output goes to a fresh `artifacts/releases/<RID>/<timestamp>-<ID>/` directory and is printed on success. Windows ARM64 hosts target x64.
 
 ```powershell
-pwsh -NoProfile -File ./release.ps1 -Version 1.2.3 -SkipBuild
+pwsh -NoProfile -File ./release.ps1 -Tag rel/beta/1.2.3.1 -Version 1.2.3.1 -SkipBuild
 ```
 
-Version defaults to `Directory.Build.props`. `-SkipBuild` reuses matching native output and still publishes the desktop app, export worker, and CLI. Use explicit `-FfmpegRoot`, `-SdlRoot`, or `-NsisPath` when needed; output must be a new directory. Publishing does not install dependencies.
+`-Tag` must point to HEAD. When omitted, a valid release tag is selected from HEAD; distinct release identities require explicit selection. Publishing fails without a valid tag, usable Git, or complete history. Optional `-Version` must have four numeric components and match the selected tag; it validates the version instead of overriding the tag.
+
+`-SkipBuild` reuses matching native output and still publishes the desktop app, export worker, and CLI. Use explicit `-FfmpegRoot`, `-SdlRoot`, or `-NsisPath` when needed; output must be a new directory. Publishing does not install dependencies. Scripts build and package locally; the publisher creates commits, creates/pushes tags, and uploads GitHub Releases.
+
+## Versions and increments
+
+Git tags record release identity. The app and CLI display the product version; platform metadata uses a separate numeric build number:
+
+| Git tag | App / CLI display | Channel release sequence |
+|---|---|---|
+| `rel/beta/1.2.3.1` | `1.2.3-beta.1` | beta sequence 1 |
+| `rel/stable/1.2.3.1` | `1.2.3` | stable sequence 1 |
+
+The fourth component does not use a `1000` threshold. The first three components and release sequence range from `0` to `65534`; historical sequence `0` remains valid. Increment the fourth component for the next release of the same base version and channel. Inspect existing sequences with:
+
+```powershell
+git tag --list 'rel/beta/1.2.3.*' --sort=-v:refname
+```
+
+For example, create a new commit on the same mainline before tagging the next beta as `rel/beta/1.2.3.2`. Use `rel/stable/1.2.3.1` for the stable release and `.2` for its next release. Every new release uses a new commit. Cross-platform builds and failed-build retries of the same commit keep the original tag.
+
+The system build number is `git rev-list --count HEAD`, including HEAD and all its ancestors, with a maximum of `65534`. Complete commit history records this number; no counter file is needed. Builds do not create commits or write numbers back. New descendant commits on the same mainline increase the number; the same commit keeps the same number on every platform.
+
+| Metadata | Value |
+|---|---|
+| `InformationalVersion`, product display version | `1.2.3-beta.1` or `1.2.3` |
+| `AssemblyVersion` | `1.2.3.0` |
+| Windows `FileVersion`, numeric installer version | `1.2.3.<system build number>` |
+| macOS `CFBundleShortVersionString` | `1.2.3` |
+| macOS `CFBundleVersion` | System build number |
+
+Stable sequences remain in assembly metadata and the package manifest even though they are not displayed. The desktop app, worker, and CLI share one version snapshot across restore, build, and publish.
+
+Update comparison orders the first three components, then the channel (stable is newer than every beta of the same base version), then the sequence within that channel. The GitHub Release `prerelease` flag still controls channel candidates. Set it for beta uploads and clear it for stable uploads.
+
+Existing beta tags use sequence `0`. Use `.1` for the first beta of the same base version after migration so the old numeric updater can discover it. Old clients cannot recognize the `beta.1 → stable.1` channel promotion; after installing a release with the new updater, subsequent comparisons follow the channel rules above.
 
 ## Create a portable package
 
 ```powershell
 # macOS:
-pwsh -NoProfile -File ./publish.ps1 -RuntimeIdentifier osx-arm64 -Configuration Release -OutputDirectory ./artifacts/releases/mac-local
+pwsh -NoProfile -File ./publish.ps1 -Tag rel/beta/1.2.3.1 -RuntimeIdentifier osx-arm64 -Configuration Release -OutputDirectory ./artifacts/releases/mac-local
 # Windows:
-pwsh -NoProfile -File ./publish.ps1 -RuntimeIdentifier win-x64 -Configuration Release -FfmpegRoot C:/SDK/ffmpeg-shared -SdlRoot C:/SDK/SDL3 -OutputDirectory ./artifacts/releases/windows-local
+pwsh -NoProfile -File ./publish.ps1 -Tag rel/beta/1.2.3.1 -RuntimeIdentifier win-x64 -Configuration Release -FfmpegRoot C:/SDK/ffmpeg-shared -SdlRoot C:/SDK/SDL3 -OutputDirectory ./artifacts/releases/windows-local
 ```
 
 Add `-CreateDmg` on macOS or `-CreateInstaller` on Windows. NSIS requires 3.11+; `-NsisPath` requires installer creation. Packaging runs on the corresponding OS.
@@ -43,7 +79,7 @@ The complete payload includes self-contained .NET, the desktop app, `AegiNext.Ex
 Spectre's pinned upstream license and package notice are stored in `scripts/publish/licenses/`; update them together when upgrading the packages in `Directory.Packages.props`.
 
 - `media-runtime.json` selects package-local tools.
-- `package-manifest.json` records version, RID, Git identity/dirty state, runtime/tool versions, dependency/license origins, actual OS requirements, and file hashes.
+- `package-manifest.json` records product version, original tag, channel, release sequence, system build number, RID, Git identity/dirty state, runtime/tool versions, dependency/license origins, actual OS requirements, and file hashes.
 - macOS rewrites Mach-O dependency paths and signs the bundle; the highest native-library requirement becomes the minimum OS version. Default signing is ad-hoc; notarization is separate.
 - Windows collects x64 PE dependencies from selected SDK/compiler locations. Use `-RuntimeDependencyDirectory` and `-LicenseDirectory` for explicit additional sources.
 
@@ -67,7 +103,7 @@ pwsh -NoProfile -File ./scripts/assets/export-app-icons.ps1 -SourcePng ./src/Aeg
 pwsh -NoProfile -File ./scripts/publish/verify-package.ps1 -PackageDirectory ./artifacts/releases/mac-local
 ```
 
-Verification checks complete file hashes and language-pack structure/encoding. New packages use manifest schema 2, additionally requiring desktop, worker, and CLI entry points with a self-contained .NET 10 runtime; schema 1 retains its existing verification contract. Publishing directly runs the packaged CLI help, version, and an SRT-to-ASS conversion on the host. Move the entire package; macOS copies/archives must retain extended attributes for signing. Use Finder or `ditto`, then verify the moved bundle's signature.
+Verification checks complete file hashes and language-pack structure/encoding. New packages continue to use manifest schema 2, requiring desktop, worker, and CLI entry points with a self-contained .NET 10 runtime, and check that release identity matches the product display version. Historical schema 1/2 packages with three- or four-component numeric versions retain offline verification support. Publishing directly runs the packaged CLI help, version, and an SRT-to-ASS conversion on the host. Move the entire package; macOS copies/archives must retain extended attributes for signing. Use Finder or `ditto`, then verify the moved bundle's signature.
 
 On each target OS, check startup, media opening, audible playback, subtitle editing, actual export/cancel, and relocated operation without developer tools on PATH. Use the packaged worker and tools for export checks, covering at least these distinct capabilities:
 

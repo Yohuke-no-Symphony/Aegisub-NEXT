@@ -52,7 +52,7 @@ Describe 'Automatic platform release' {
             {
                 [IO.Path]::IsPathFullyQualified($output) | Should -BeTrue
                 [IO.Path]::GetRelativePath($root, $output).Replace('\', '/') |
-                    Should -Match '^artifacts/releases/osx-arm64/Release/\d{8}-\d{9}Z-[a-f0-9]{8}$'
+                    Should -Match '^artifacts/releases/osx-arm64/\d{8}-\d{9}Z-[a-f0-9]{8}$'
                 Test-Path -LiteralPath $output | Should -BeFalse
             }
         }
@@ -65,12 +65,12 @@ Describe 'Automatic platform release' {
             $output = Join-Path $Fixture 'custom package'
 
             Invoke-AegiNextRelease -RepositoryRoot $Fixture -RuntimeIdentifier win-x64 -Configuration Debug `
-                -Version 1.2.3 -OutputDirectory $output -FfmpegRoot 'sdk/ffmpeg' -SdlRoot 'sdk/sdl' `
+                -Tag 'rel/stable/1.2.3.1' -Version 1.2.3.1 -OutputDirectory $output -FfmpegRoot 'sdk/ffmpeg' -SdlRoot 'sdk/sdl' `
                 -LicenseDirectory 'notices' -RuntimeDependencyDirectory @('runtime/one', 'runtime/two') `
                 -SigningIdentity 'test identity' -SkipBuild -NsisPath 'tools/makensis.exe' -Jobs 4
 
             Should -Invoke Invoke-AegiNextPublish -Times 1 -Exactly -ParameterFilter {
-                $Configuration -eq 'Debug' -and $Version -eq [version]'1.2.3' -and
+                $Configuration -eq 'Debug' -and $Tag -eq 'rel/stable/1.2.3.1' -and $Version -eq [version]'1.2.3.1' -and
                 $OutputDirectory -eq $output -and $FfmpegRoot -eq 'sdk/ffmpeg' -and $SdlRoot -eq 'sdk/sdl' -and
                 $LicenseDirectory -eq 'notices' -and $RuntimeDependencyDirectory.Count -eq 2 -and
                 $RuntimeDependencyDirectory[0] -eq 'runtime/one' -and $RuntimeDependencyDirectory[1] -eq 'runtime/two' -and
@@ -120,7 +120,7 @@ Describe 'Release command line entry point' {
         @'
 function Invoke-AegiNextRelease
 {
-    param($RepositoryRoot, [version] $Version, [switch] $SkipBuild, $NsisPath, $OutputDirectory)
+    param($RepositoryRoot, [string] $Tag, [version] $Version, [switch] $SkipBuild, $NsisPath, $OutputDirectory)
     if ($NsisPath -eq 'fail') { throw 'release fixture failure' }
     $record = @{} + $PSBoundParameters
     if ($PSBoundParameters.ContainsKey('Version')) { $record.Version = $Version.ToString() }
@@ -133,11 +133,12 @@ Export-ModuleMember -Function Invoke-AegiNextRelease
     }
 
     It 'runs from another directory and forwards the root, version and switches' {
-        $null = & $pwsh -NoProfile -File (Join-Path $entryRoot 'release.ps1') -Version 2.3.4 -SkipBuild
+        $null = & $pwsh -NoProfile -File (Join-Path $entryRoot 'release.ps1') -Tag 'rel/beta/2.3.4.0' -Version 2.3.4.0 -SkipBuild
         $LASTEXITCODE | Should -Be 0
         $arguments = Get-Content -LiteralPath (Join-Path $entryRoot 'arguments.json') -Raw | ConvertFrom-Json
         $arguments.RepositoryRoot | Should -Be $entryRoot
-        $arguments.Version | Should -Be '2.3.4'
+        $arguments.Tag | Should -Be 'rel/beta/2.3.4.0'
+        $arguments.Version | Should -Be '2.3.4.0'
         $arguments.SkipBuild | Should -BeTrue
     }
 

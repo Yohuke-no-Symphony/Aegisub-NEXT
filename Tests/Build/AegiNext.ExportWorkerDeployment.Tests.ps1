@@ -198,7 +198,23 @@ Describe 'Adjacent companion deployment' {
         $root = Join-Path $TestDrive 'RID deployment'
         $mainProject = New-CompanionFixture $root
         $rid = [Runtime.InteropServices.RuntimeInformation]::RuntimeIdentifier
-        $arguments = @('-c', 'Release', '-r', $rid, '--self-contained', 'true', '-p:Version=2.7.3', '-p:InformationalVersion=2.7.3', '-p:AssemblyVersion=2.7.3.0', '-p:FileVersion=2.7.3.0', '-p:IncludeSourceRevisionInInformationalVersion=false')
+        $snapshot = [pscustomobject]@{
+            ReleaseTag = 'rel/beta/2.7.3.4'; NumericVersion = '2.7.3.4'; BaseVersion = '2.7.3'; Channel = 'beta'; ReleaseSequence = 4
+            BuildNumber = 271; ProductVersion = '2.7.3-beta.4'; AssemblyVersion = '2.7.3.0'; FileVersion = '2.7.3.271'; GitSha = 'fixture'
+        }
+        $versionArguments = & (Get-Module AegiNext.Publish) {
+            param($BuildVersion)
+            Get-AegiNextVersionArgument -BuildVersion $BuildVersion
+        } $snapshot
+        foreach ($project in Get-ChildItem -LiteralPath $root -Filter '*.csproj' -File -Recurse)
+        {
+            $document = [xml](Get-Content -LiteralPath $project.FullName -Raw)
+            $import = $document.CreateElement('Import')
+            $import.SetAttribute('Project', (Join-Path $repository 'scripts/build/AegiNext.Version.targets'))
+            $null = $document.Project.AppendChild($import)
+            $document.Save($project.FullName)
+        }
+        $arguments = @('-c', 'Release', '-r', $rid, '--self-contained', 'true', '--disable-build-servers', '-m:1', '-p:UseSharedCompilation=false', '-p:IncludeSourceRevisionInInformationalVersion=false') + $versionArguments
         $output = & $dotnet build $mainProject @arguments --verbosity minimal 2>&1
         $LASTEXITCODE | Should -Be 0 -Because ($output | Out-String)
         $mainOutput = Join-Path $root "main/bin/Release/net10.0/$rid"
@@ -212,7 +228,14 @@ Describe 'Adjacent companion deployment' {
         InModuleScope AegiNext.Publish -Parameters @{ Payload = $payload; RuntimeIdentifier = $rid } {
             param($Payload, $RuntimeIdentifier)
             @(Get-AegiNextPublishedRuntimeFramework $Payload).Application | Should -Be @('aegi-next', 'aegn-exporter', 'aegnc')
-            Test-AegiNextPublishedCli -Payload $Payload -RuntimeIdentifier $RuntimeIdentifier -ProductVersion '2.7.3'
+            Test-AegiNextPublishedCli -Payload $Payload -RuntimeIdentifier $RuntimeIdentifier -ProductVersion '2.7.3-beta.4'
+        }
+        foreach ($entry in @('main', 'worker', 'cli'))
+        {
+            $attributes = Get-Content (Join-Path $root "$entry/obj/Release/net10.0/$rid/$entry.AssemblyInfo.cs") -Raw
+            $attributes | Should -Match 'AssemblyInformationalVersionAttribute\("2.7.3-beta.4"\)'
+            $attributes | Should -Match 'AssemblyFileVersionAttribute\("2.7.3.271"\)'
+            $attributes | Should -Match 'AssemblyMetadata\("AegiNextReleaseSequence", "4"\)'
         }
     }
 

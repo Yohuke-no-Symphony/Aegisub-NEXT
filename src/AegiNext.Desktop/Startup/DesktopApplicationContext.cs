@@ -48,7 +48,8 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         preferences = initialPreferences ?? new();
         Tasks = new();
         Tasks.MaximumConcurrentTasks = preferences.MaximumConcurrentTasks;
-        Updates = new(Tasks, updateReleaseSource ?? new GitHubReleaseSource(updateHttpClient), ApplicationVersion.Current);
+        Updates = new(Tasks, updateReleaseSource ?? new GitHubReleaseSource(updateHttpClient),
+            ApplicationVersion.Current, ApplicationVersion.CurrentIdentity);
         fonts = fontSelectionService ?? new(Tasks);
         fontNamePreviews = new(Path.Combine(PreferencesStore.DirectoryPath, "caches", "fonts", "v1"),
             new SystemFontNamePreviewRenderer(() => fonts.Catalog));

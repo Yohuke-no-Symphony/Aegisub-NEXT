@@ -183,10 +183,11 @@ function ConvertTo-AegiNextProductVersion
 {
     param([Parameter(Mandatory)][string] $Value)
     $parsed = $null
-    if (![version]::TryParse($Value, [ref]$parsed) -or $parsed.Build -lt 0 -or $parsed.Revision -ge 0 -or
+    if ($Value -notmatch '\A[0-9]+\.[0-9]+\.[0-9]+(?:\.[0-9]+|-beta\.(?:0|[1-9][0-9]*))?\z' -or
+        ![version]::TryParse(($Value -replace '-beta\.', '.'), [ref]$parsed) -or $parsed.Build -lt 0 -or
         @($parsed.Major, $parsed.Minor, $parsed.Build | Where-Object { $_ -gt 65535 }).Count -gt 0)
     {
-        throw "Invalid product version '$Value'. Use three numeric components between 0 and 65535."
+        throw "Invalid product version '$Value'. Use three or four numeric components, or x.y.z-beta.n."
     }
     return $parsed
 }
@@ -198,7 +199,31 @@ function Test-AegiNextPublishedPackage
     $manifestPath = Join-Path $root 'package-manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
     if ($manifest.SchemaVersion -notin @(1, 2) -or !$manifest.SelfContained) { throw 'Unsupported or incomplete package manifest.' }
-    $null = ConvertTo-AegiNextProductVersion -Value $manifest.ProductVersion
+    $packageVersion = ConvertTo-AegiNextProductVersion -Value $manifest.ProductVersion
+    $identityFields = @('ReleaseTag', 'Channel', 'ReleaseSequence', 'BuildNumber')
+    $presentIdentityFields = @($identityFields | Where-Object { $manifest.PSObject.Properties.Name -contains $_ })
+    if ($presentIdentityFields.Count)
+    {
+        if ($presentIdentityFields.Count -ne $identityFields.Count -or
+            $manifest.ReleaseTag -cnotmatch '\Arel/(?<channel>beta|stable)/(?<base>(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))\.(?<sequence>0|[1-9][0-9]*)\z')
+        {
+            throw 'Invalid or incomplete package release identity.'
+        }
+        $releaseChannel = $Matches.channel
+        $releaseBase = $Matches.base
+        $releaseSequence = $Matches.sequence
+        $sequence = 0
+        $buildNumber = 0
+        $expectedProductVersion = if ($releaseChannel -eq 'beta') { "$releaseBase-beta.$releaseSequence" } else { $releaseBase }
+        if ($manifest.Channel -cne $releaseChannel -or $manifest.ProductVersion -cne $expectedProductVersion -or
+            @($packageVersion.Major, $packageVersion.Minor, $packageVersion.Build | Where-Object { $_ -gt 65534 }).Count -gt 0 -or
+            ![int]::TryParse([string]$manifest.ReleaseSequence, [ref]$sequence) -or $sequence -lt 0 -or $sequence -gt 65534 -or
+            [string]$sequence -cne $releaseSequence -or
+            ![int]::TryParse([string]$manifest.BuildNumber, [ref]$buildNumber) -or $buildNumber -lt 1 -or $buildNumber -gt 65534)
+        {
+            throw 'Package release identity does not match its product version or build number.'
+        }
+    }
     $prefix = $root.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
     $comparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
     $expected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -254,11 +279,15 @@ function Invoke-AegiNextPublish
 {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string] $RepositoryRoot, [string] $RuntimeIdentifier,
-        [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release', [version] $Version, [string] $FfmpegRoot, [string] $SdlRoot,
+        [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release', [string] $Tag, [version] $Version, [string] $FfmpegRoot, [string] $SdlRoot,
         [string] $OutputDirectory, [string] $LicenseDirectory, [string[]] $RuntimeDependencyDirectory = @(), [string] $SigningIdentity = '-', [switch] $SkipBuild, [switch] $CreateDmg,
         [switch] $CreateInstaller, [string] $NsisPath,
         [ValidateRange(1, 128)][int] $Jobs = 2)
-    $productVersion = if ($null -ne $Version) { ConvertTo-AegiNextProductVersion -Value $Version.ToString() } else { $null }
+    $versionArguments = @{ RepositoryRoot = $RepositoryRoot; RequireRelease = $true }
+    if ($Tag) { $versionArguments.Tag = $Tag }
+    if ($null -ne $Version) { $versionArguments.Version = $Version }
+    $buildVersion = Get-AegiNextBuildVersion @versionArguments
+    $versionText = $buildVersion.ProductVersion
     $hostInfo = Get-AegiNextHost
     $rid = Get-AegiNextRuntimeIdentifier -HostInfo $hostInfo -RuntimeIdentifier $RuntimeIdentifier
     if ($rid -notin @('osx-arm64', 'osx-x64', 'win-x64')) { throw "Unsupported publish RID $rid." }
@@ -266,19 +295,12 @@ function Invoke-AegiNextPublish
     if ($CreateInstaller -and $hostInfo.Platform -ne 'Windows') { throw 'CreateInstaller is only supported on Windows.' }
     if ($NsisPath -and !$CreateInstaller) { throw 'NsisPath requires -CreateInstaller.' }
     $nsisCompiler = if ($CreateInstaller) { Get-AegiNextNsisCompiler -RepositoryRoot $RepositoryRoot -NsisPath $NsisPath } else { $null }
-    if ($null -eq $productVersion)
-    {
-        $Version = [version]([xml](Get-Content -LiteralPath (Join-Path $RepositoryRoot 'Directory.Build.props') -Raw)).Project.PropertyGroup.Version
-        $productVersion = ConvertTo-AegiNextProductVersion -Value $Version.ToString()
-    }
-    $versionText = $productVersion.ToString()
-    $assemblyVersion = "$($productVersion.Major).$($productVersion.Minor).$($productVersion.Build).$([Math]::Max(0, $productVersion.Revision))"
     $report = Get-AegiNextEnvironment -RepositoryRoot $RepositoryRoot -HostInfo $hostInfo -Target Workbench -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot
     if (!$report.Ready) { throw "Publish environment is not ready: $($report.Checks | Where-Object Status -in @('Missing','Invalid','Unsupported') | ConvertTo-Json -Compress)" }
     $compilerRuntime = if ($hostInfo.Platform -eq 'Windows') { Get-AegiNextWindowsCompilerRuntime $report.NativePrefixes['cxx'] } else { $null }
     if (!$SkipBuild)
     {
-        if ((Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Workbench -Configuration $Configuration -RuntimeIdentifier $rid -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -Jobs $Jobs) -ne 0) { throw 'Workbench build failed.' }
+        if ((Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Workbench -Configuration $Configuration -RuntimeIdentifier $rid -BuildVersion $buildVersion -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -Jobs $Jobs) -ne 0) { throw 'Workbench build failed.' }
         if ($hostInfo.Platform -eq 'MacOS' -and (Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Native -Configuration $Configuration -Jobs $Jobs) -ne 0) { throw 'macOS HDR module build failed.' }
     }
     $publishRoot = Join-Path $RepositoryRoot "artifacts/publish/$rid/$Configuration"
@@ -290,7 +312,7 @@ function Invoke-AegiNextPublish
     [IO.Directory]::CreateDirectory($payload) | Out-Null
     $dotnet = Find-AegiNextCommand 'dotnet'
     $common = @('-c', $Configuration, '-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid", '--self-contained', 'true', '-p:PublishSingleFile=false', '-p:PublishTrimmed=false', '-p:UseAppHost=true', '-p:AegiNextPublishCompanionsSeparately=true')
-    $common += @("-p:Version=$versionText", "-p:InformationalVersion=$versionText", "-p:AssemblyVersion=$assemblyVersion", "-p:FileVersion=$assemblyVersion")
+    $common += @(Get-AegiNextVersionArgument -BuildVersion $buildVersion)
     $managedStaging = [IO.Directory]::CreateTempSubdirectory('aeginext-managed-publish-').FullName
     try
     {
@@ -329,7 +351,7 @@ function Invoke-AegiNextPublish
     }
     $toolSuffix = if ($hostInfo.Platform -eq 'Windows') { '.exe' } else { '' }
     $sourceIdentity = Get-AegiNextSourceIdentity $RepositoryRoot
-    $manifest = [ordered]@{ SchemaVersion = 2; EntryPoints = @('aegi-next', 'aegn-exporter', 'aegnc'); ProductVersion = $versionText; RuntimeIdentifier = $rid; SelfContained = $true; BuildTimeUtc = [DateTime]::UtcNow.ToString('O'); GitSha = $sourceIdentity.GitSha; WorkingTreeDirty = $sourceIdentity.WorkingTreeDirty; GitMetadataStatus = $sourceIdentity.Status; Tools = @("tools/ffmpeg$toolSuffix", "tools/ffprobe$toolSuffix"); ToolVersions = @(); RuntimeFrameworks = @(Get-AegiNextPublishedRuntimeFramework $payload); CompilerRuntime = $compilerRuntime; OperatingSystemPolicy = (Get-AegiNextRuntimeOperatingSystemPolicy $hostInfo); Dependencies = @(); MinimumOSVersion = $null; Licenses = @(); Files = @() }
+    $manifest = [ordered]@{ SchemaVersion = 2; EntryPoints = @('aegi-next', 'aegn-exporter', 'aegnc'); ProductVersion = $versionText; ReleaseTag = $buildVersion.ReleaseTag; Channel = $buildVersion.Channel; ReleaseSequence = $buildVersion.ReleaseSequence; BuildNumber = $buildVersion.BuildNumber; RuntimeIdentifier = $rid; SelfContained = $true; BuildTimeUtc = [DateTime]::UtcNow.ToString('O'); GitSha = $buildVersion.GitSha; WorkingTreeDirty = $sourceIdentity.WorkingTreeDirty; GitMetadataStatus = $sourceIdentity.Status; Tools = @("tools/ffmpeg$toolSuffix", "tools/ffprobe$toolSuffix"); ToolVersions = @(); RuntimeFrameworks = @(Get-AegiNextPublishedRuntimeFramework $payload); CompilerRuntime = $compilerRuntime; OperatingSystemPolicy = (Get-AegiNextRuntimeOperatingSystemPolicy $hostInfo); Dependencies = @(); MinimumOSVersion = $null; Licenses = @(); Files = @() }
     $spectreLicenseRoot = Join-Path $RepositoryRoot 'scripts/publish/licenses/spectre-console-0.57.2'
     $licenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot, $payload, $LicenseDirectory) + $RuntimeDependencyDirectory + @(Get-AegiNextNugetLicenseRoot $RepositoryRoot $rid)
     $requiredLicenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot)
@@ -343,7 +365,7 @@ function Invoke-AegiNextPublish
         $licenseRoots += $closure.PackageRoots
         $requiredLicenseRoots += $closure.PackageRoots
         $contents = Split-Path $payload
-        Set-AegiNextMacAppBundle -RepositoryRoot $RepositoryRoot -ContentsDirectory $contents -ProductVersion $versionText -MinimumOSVersion $closure.MinimumOSVersion
+        Set-AegiNextMacAppBundle -RepositoryRoot $RepositoryRoot -ContentsDirectory $contents -BaseVersion $buildVersion.BaseVersion -BuildNumber $buildVersion.BuildNumber -MinimumOSVersion $closure.MinimumOSVersion
     }
     else
     {
@@ -391,7 +413,7 @@ function Invoke-AegiNextPublish
     {
         $null = Test-AegiNextPublishedLocalization -PayloadDirectory $payload
         Write-Information -InformationAction Continue -MessageData '[publish] Creating the NSIS installer (compressing the complete application payload)...'
-        $null = New-AegiNextWindowsInstaller -RepositoryRoot $RepositoryRoot -PayloadDirectory $payload -PublishDirectory $publishRoot -ProductVersion $versionText -RuntimeIdentifier $rid -NsisCompiler $nsisCompiler.Path
+        $null = New-AegiNextWindowsInstaller -RepositoryRoot $RepositoryRoot -PayloadDirectory $payload -PublishDirectory $publishRoot -ProductVersion $versionText -FileVersion $buildVersion.FileVersion -RuntimeIdentifier $rid -NsisCompiler $nsisCompiler.Path
     }
     Write-Information -InformationAction Continue -MessageData '[publish] Writing and verifying the SHA-256 package manifest...'
     foreach ($file in Get-ChildItem -LiteralPath $publishRoot -File -Recurse)

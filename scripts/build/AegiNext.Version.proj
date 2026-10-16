@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <AegiNextRepositoryRoot Condition="'$(AegiNextRepositoryRoot)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../..'))</AegiNextRepositoryRoot>
+  </PropertyGroup>
+  <Import Project="$(AegiNextRepositoryRoot)/Directory.Build.props" Condition="Exists('$(AegiNextRepositoryRoot)/Directory.Build.props')" />
+  <Import Project="AegiNext.Version.targets" />
+</Project>

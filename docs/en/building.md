@@ -72,6 +72,16 @@ FFmpeg SDK resolution: explicit root → project SDK → `FFMPEG_DIR` → packag
 
 Native output is `artifacts/native/<RID>/<Configuration>/`; intermediate managed files use `obj/<RID>`. Workbench restores, builds, and tests for the host target RID by default, keeping the media TestHost consistent with native output. NuGet versions live in `Directory.Packages.props`, with ordinary restore and no package lock files. Release builds use `AegiNext.Product.slnf`; Debug uses `AegiNext.sln`.
 
+## Build versions
+
+Managed builds derive their version from release tags on the current Git commit. dotnet, Rider, and PowerShell builds share the same rules. `rel/beta/1.2.3.1` produces product version `1.2.3-beta.1`; `rel/stable/1.2.3.1` produces `1.2.3`. The fourth component is an independent release sequence within each channel, recorded in the Git tag. Stable sequences are also retained in assembly metadata.
+
+The system build number is `git rev-list --count HEAD`: the current commit and all its ancestors. Building the same commit on another platform or retrying it keeps the same number; builds do not write version files or increment a counter. The first three components and release sequence range from `0` to `65534`; the system build number must not exceed `65534`. Assembly version is fixed at `x.y.z.0`, while file version uses `x.y.z.<system build number>`.
+
+Use `build.ps1 -Tag` to select a release tag pointing to HEAD. Optional `-Version` must have four numeric components and match the tag. With dotnet directly, use `-p:AegiNextRequestedTag=rel/beta/1.2.3.1` and `-p:AegiNextRequestedVersion=1.2.3.1` respectively.
+
+Ordinary development builds use `0.1.0-dev` when HEAD has no valid release tag or complete Git history is unavailable. Packaging requires a full clone and a valid release tag pointing to HEAD; select a tag explicitly when HEAD has multiple distinct release identities. Environment-only checks and native-only builds do not require a release identity. See [Publishing](publishing.md#versions-and-increments) for tag creation, selection, and release sequence increments.
+
 ## Run focused tests
 
 ```powershell

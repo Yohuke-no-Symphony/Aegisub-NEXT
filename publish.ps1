@@ -4,6 +4,7 @@ param(
     [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
     [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release',
     [version] $Version,
+    [string] $Tag,
     [string] $FfmpegRoot,
     [string] $SdlRoot,
     [string] $OutputDirectory,

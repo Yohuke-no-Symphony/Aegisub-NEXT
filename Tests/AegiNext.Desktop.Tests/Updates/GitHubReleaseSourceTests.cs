@@ -76,6 +76,21 @@ public sealed class GitHubReleaseSourceTests
         Assert.Equal("Stable", release!.Name);
     }
 
+    [Theory]
+    [InlineData("rel/beta/1.2.3.65534", "rel/stable/1.2.3.0", "rel/stable/1.2.3.0")]
+    [InlineData("rel/stable/1.2.3.1", "rel/stable/1.2.3.2", "rel/stable/1.2.3.2")]
+    [InlineData("rel/stable/1.2.3.2", "rel/beta/1.2.4.0", "rel/beta/1.2.4.0")]
+    public async Task ReleaseIdentityDeterminesCandidateOrder(string first, string second, string expected)
+    {
+        using var handler = new UpdateHttpMessageHandler((_, _) => Task.FromResult(UpdateTestData.Response(
+            "[" + UpdateTestData.Json(first) + "," + UpdateTestData.Json(second) + "]")));
+        using var client = new HttpClient(handler);
+
+        var release = await new GitHubReleaseSource(client).GetLatestAsync(UpdateChannel.INCLUDE_PRERELEASE, CancellationToken.None);
+
+        Assert.Equal(expected, release!.TagName);
+    }
+
     [Fact]
     public async Task MissingLatestAndEmptyListAreReportedAsNoRelease()
     {

@@ -43,7 +43,8 @@ function New-AegiNextWindowsInstaller
 {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Low')]
     param([Parameter(Mandatory)][string] $RepositoryRoot, [Parameter(Mandatory)][string] $PayloadDirectory,
-        [Parameter(Mandatory)][string] $PublishDirectory, [Parameter(Mandatory)][version] $ProductVersion,
+        [Parameter(Mandatory)][string] $PublishDirectory, [Parameter(Mandatory)][string] $ProductVersion,
+        [Parameter(Mandatory)][version] $FileVersion,
         [Parameter(Mandatory)][ValidateSet('win-x64')][string] $RuntimeIdentifier, [Parameter(Mandatory)][string] $NsisCompiler)
     $payload = (Resolve-Path -LiteralPath $PayloadDirectory).ProviderPath
     $publish = (Resolve-Path -LiteralPath $PublishDirectory).ProviderPath
@@ -71,9 +72,9 @@ function New-AegiNextWindowsInstaller
         if (!$paths.Add($relative)) { throw "Duplicate Windows installer path: $relative" }
         if ($relative -in @('Uninstall.exe', 'install-state.ini')) { throw "Reserved installer path in payload: $relative" }
     }
-    $revision = [math]::Max(0, $ProductVersion.Revision)
-    $fileVersion = "$($ProductVersion.Major).$($ProductVersion.Minor).$([math]::Max(0, $ProductVersion.Build)).$revision"
-    if (@($fileVersion.Split('.') | Where-Object { [int]$_ -gt 65535 }).Count) { throw "Invalid Windows product version: $ProductVersion" }
+    $null = ConvertTo-AegiNextProductVersion -Value $ProductVersion
+    $fileVersionText = $FileVersion.ToString()
+    if ($FileVersion.Revision -lt 0 -or @($fileVersionText.Split('.') | Where-Object { [int]$_ -gt 65534 }).Count) { throw "Invalid Windows file version: $FileVersion" }
     $installer = Join-Path $publish "AegiNext-$ProductVersion-$RuntimeIdentifier-setup.exe"
     if (Test-Path -LiteralPath $installer) { throw "Installer destination already exists: $installer" }
     if (!$PSCmdlet.ShouldProcess($installer, 'Compile Windows NSIS installer')) { return }
@@ -120,8 +121,8 @@ function New-AegiNextWindowsInstaller
         $lines.Add('!macroend')
         [IO.File]::WriteAllLines($include, $lines, [Text.UTF8Encoding]::new($false))
         $definitions = [ordered]@{
-            AEGINEXT_PRODUCT_VERSION = $ProductVersion.ToString()
-            AEGINEXT_FILE_VERSION = $fileVersion
+            AEGINEXT_PRODUCT_VERSION = $ProductVersion
+            AEGINEXT_FILE_VERSION = $fileVersionText
             AEGINEXT_OUTPUT_FILE = Join-Path $staging ([IO.Path]::GetFileName($installer))
             AEGINEXT_ICON_FILE = (Resolve-Path -LiteralPath $icon).ProviderPath
             AEGINEXT_PAYLOAD_INCLUDE = $include

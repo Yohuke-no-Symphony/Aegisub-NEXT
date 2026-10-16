@@ -7,6 +7,9 @@ BeforeAll {
 }
 
 Describe 'Windows installer publishing boundaries' {
+    BeforeEach {
+        Mock Get-AegiNextBuildVersion -ModuleName AegiNext.Publish { [pscustomobject]@{ ProductVersion = '0.1.0' } }
+    }
     It 'rejects installer creation on macOS before inspecting the build environment' {
         InModuleScope AegiNext.Publish {
             Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'MacOS'; Architecture = 'Arm64' } }
@@ -101,6 +104,32 @@ Describe 'NSIS compiler discovery' {
 }
 
 Describe 'NSIS package compilation' {
+    It 'rejects an out-of-range Windows file version <FileVersion> before invoking the compiler' -TestCases @(
+        @{ FileVersion = '65535.1.0.271' }
+        @{ FileVersion = '0.65535.0.271' }
+        @{ FileVersion = '0.1.65535.271' }
+        @{ FileVersion = '0.1.0.65535' }
+    ) {
+        param($FileVersion)
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; Repository = $repository; FileVersion = $FileVersion } {
+            param($Fixture, $Repository, $FileVersion)
+            $payload = Join-Path $Fixture "invalid version payload $FileVersion"
+            [IO.Directory]::CreateDirectory($payload) | Out-Null
+            foreach ($name in @('aegi-next.exe', 'aegn-exporter.exe', 'aegnc.exe'))
+            {
+                Set-Content -LiteralPath (Join-Path $payload $name) -Value 'fixture'
+            }
+            $installerArguments = @{
+                RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $Fixture
+                ProductVersion = '0.1.0'; FileVersion = $FileVersion; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture'
+            }
+            Mock Invoke-AegiNextPublishCommand { throw 'Compiler must not be invoked.' }
+            { New-AegiNextWindowsInstaller @installerArguments -WhatIf } |
+                Should -Throw '*Invalid Windows file version*'
+            Should -Invoke Invoke-AegiNextPublishCommand -Times 0 -Exactly
+        }
+    }
+
     It 'requires the CLI executable before invoking the installer compiler' {
         InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; Repository = $repository } {
             param($Fixture, $Repository)
@@ -111,7 +140,7 @@ Describe 'NSIS package compilation' {
                 Set-Content -LiteralPath (Join-Path $payload $name) -Value 'fixture'
             }
             Mock Invoke-AegiNextPublishCommand { throw 'Compiler must not be invoked.' }
-            $arguments = @{ RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $Fixture; ProductVersion = '0.1.0'; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture' }
+            $arguments = @{ RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $Fixture; ProductVersion = '0.1.0'; FileVersion = '0.1.0.271'; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture' }
             { New-AegiNextWindowsInstaller @arguments } |
                 Should -Throw '*aegnc.exe*'
             Should -Invoke Invoke-AegiNextPublishCommand -Times 0 -Exactly
@@ -146,20 +175,21 @@ Describe 'NSIS package compilation' {
                 $configPath = ($Arguments | Where-Object { $_.StartsWith('/DAEGINEXT_CONFIG_FILE=') }).Substring('/DAEGINEXT_CONFIG_FILE='.Length)
                 $script:installerStaging = Split-Path $configPath
                 $config = Get-Content -LiteralPath $configPath -Raw
-                $config | Should -Match 'AEGINEXT_FILE_VERSION "0.1.0.0"'
+                $config | Should -Match 'AEGINEXT_PRODUCT_VERSION "0.1.0-beta.0"'
+                $config | Should -Match 'AEGINEXT_FILE_VERSION "0.1.0.271"'
                 $includePath = Join-Path $script:installerStaging 'payload.nsh'
                 $script:installerIncludes = Get-Content -LiteralPath $includePath -Raw
                 if ($Outcome -eq 'CompilerFailure') { throw 'Fixture compiler failure.' }
                 if ($Outcome -ne 'MissingOutput')
                 {
-                    $outputPath = Join-Path $script:installerStaging 'AegiNext-0.1.0-win-x64-setup.exe'
+                    $outputPath = Join-Path $script:installerStaging 'AegiNext-0.1.0-beta.0-win-x64-setup.exe'
                     [IO.File]::WriteAllBytes($outputPath, $(if ($Outcome -eq 'EmptyOutput') { [byte[]]@() } else { [Text.Encoding]::UTF8.GetBytes('installer fixture') }))
                 }
                 return 'compiled fixture'
             }
-            $arguments = @{ RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $publish; ProductVersion = '0.1.0'; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture-makensis' }
+            $arguments = @{ RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $publish; ProductVersion = '0.1.0-beta.0'; FileVersion = '0.1.0.271'; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture-makensis' }
             $invoke = { New-AegiNextWindowsInstaller @arguments }
-            $installer = Join-Path $publish 'AegiNext-0.1.0-win-x64-setup.exe'
+            $installer = Join-Path $publish 'AegiNext-0.1.0-beta.0-win-x64-setup.exe'
             if ($Outcome -eq 'Success')
             {
                 & $invoke | Should -Be $installer
@@ -188,7 +218,7 @@ Describe 'NSIS package compilation' {
             {
                 Set-Content -LiteralPath (Join-Path $payload $name) -Value 'fixture'
             }
-            $arguments = @{ RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $Fixture; ProductVersion = '0.1.0'; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture' }
+            $arguments = @{ RepositoryRoot = $Repository; PayloadDirectory = $payload; PublishDirectory = $Fixture; ProductVersion = '0.1.0'; FileVersion = '0.1.0.271'; RuntimeIdentifier = 'win-x64'; NsisCompiler = 'fixture' }
             { New-AegiNextWindowsInstaller @arguments } | Should -Throw '*Reserved installer path*'
         }
     }

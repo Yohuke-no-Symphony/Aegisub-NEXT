@@ -44,7 +44,7 @@ Describe 'Native optional desktop shortcut lifecycle' -Tag InstallerIntegration 
             param($Root, $Payload, $Output)
             $compiler = Get-AegiNextNsisCompiler -RepositoryRoot $Root
             New-AegiNextWindowsInstaller -RepositoryRoot $Root -PayloadDirectory $Payload -PublishDirectory $Output `
-                -ProductVersion 0.1.0 -RuntimeIdentifier win-x64 -NsisCompiler $compiler.Path
+                -ProductVersion 0.1.0 -FileVersion 0.1.0.271 -RuntimeIdentifier win-x64 -NsisCompiler $compiler.Path
         } $fixtureRepository $fixturePayload $fixtureOutput
 
         function Invoke-InstallerFixture

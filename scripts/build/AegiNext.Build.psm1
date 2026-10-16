@@ -7,6 +7,7 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'AegiNext.Decoder.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.Audio.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.Export.ps1')
+. (Join-Path $PSScriptRoot 'AegiNext.Version.ps1')
 
 function Get-AegiNextHost
 {
@@ -528,7 +529,8 @@ function Get-AegiNextBuildPlan
         [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop'),
         [ValidateRange(1, 128)][int] $Jobs = 2,
         [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
-        [hashtable] $NativePrefixes = @{}
+        [hashtable] $NativePrefixes = @{},
+        [object] $BuildVersion
     )
     $rid = Get-AegiNextRuntimeIdentifier -HostInfo $HostInfo -RuntimeIdentifier $RuntimeIdentifier
     $problem = Get-AegiNextTargetProblem $HostInfo.Platform $Target -RunTests:$RunTests -TestProjects $TestProjects
@@ -589,6 +591,7 @@ function Get-AegiNextBuildPlan
 
     if ($Target -in @('Managed', 'All', 'Workbench'))
     {
+        $versionArguments = if ($null -ne $BuildVersion) { @(Get-AegiNextVersionArgument -BuildVersion $BuildVersion) } else { @() }
         if ($RunTests -and $TestProjects.Count -eq 0)
         {
             throw '-RunTests requires at least one managed test project.'
@@ -603,11 +606,11 @@ function Get-AegiNextBuildPlan
         }
         $plan.Add([pscustomobject]@{
             Label = 'Restore managed'; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = @{}
-            Arguments = [string[]](@('restore', $solution, '--disable-build-servers') + $restoreRuntimeArguments)
+            Arguments = [string[]](@('restore', $solution, '--disable-build-servers') + $restoreRuntimeArguments + $versionArguments)
         })
         $plan.Add([pscustomobject]@{
             Label = 'Build managed'; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = @{}
-            Arguments = [string[]](@('build', $solution, '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @("-p:AegiNextRuntimeIdentifier=$rid") } else { @() }))
+            Arguments = [string[]](@('build', $solution, '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @("-p:AegiNextRuntimeIdentifier=$rid") } else { @() }) + $versionArguments)
         })
         if ($RunTests)
         {
@@ -618,7 +621,7 @@ function Get-AegiNextBuildPlan
                 {
                     $plan.Add([pscustomobject]@{
                         Label = "Restore test $project"; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = @{}
-                        Arguments = [string[]](@('restore', $testProject, '--disable-build-servers') + $restoreRuntimeArguments)
+                        Arguments = [string[]](@('restore', $testProject, '--disable-build-servers') + $restoreRuntimeArguments + $versionArguments)
                     })
                 }
                 $testEnvironment = @{}
@@ -629,7 +632,7 @@ function Get-AegiNextBuildPlan
                 $plan.Add([pscustomobject]@{
                     Label = "Test $project"; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = $testEnvironment
                     Arguments = [string[]](@('test', $testProject,
-                        '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @('-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid") } else { @() }))
+                        '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @('-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid") } else { @() }) + $versionArguments)
                 })
             }
         }
@@ -653,12 +656,20 @@ function Invoke-AegiNextBuild
         [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop'),
         [ValidateRange(1, 128)][int] $Jobs = 2,
         [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
-        [string] $ReportPath
+        [string] $ReportPath,
+        [string] $Tag,
+        [version] $Version,
+        [object] $BuildVersion
     )
     if ($CheckEnvironment -and $InstallDependencies)
     {
         throw '-CheckEnvironment is read-only and cannot be combined with -InstallDependencies.'
     }
+    if (($Tag -or $null -ne $Version -or $null -ne $BuildVersion) -and $Target -notin @('Managed', 'All', 'Workbench'))
+    {
+        throw '-Tag, -Version and BuildVersion apply only to managed build targets.'
+    }
+    Assert-AegiNextVersionRequest -Tag $Tag -Version $Version
 
     if ($FfmpegRoot -and $Target -notin @('Decoder', 'Audio', 'Export', 'Workbench'))
     {
@@ -700,11 +711,17 @@ function Invoke-AegiNextBuild
         return 0
     }
 
+    if ($Target -in @('Managed', 'All', 'Workbench') -and $null -eq $BuildVersion)
+    {
+        $BuildVersion = Get-AegiNextBuildVersion -RepositoryRoot $RepositoryRoot -Tag $Tag -Version $Version
+    }
+
     $planArguments = @{ RepositoryRoot = $RepositoryRoot; Target = $Target; Configuration = $Configuration; HostInfo = $hostInfo; RunTests = $RunTests; TestProjects = $TestProjects; Jobs = $Jobs; NativePrefixes = $report.NativePrefixes }
     if ($RuntimeIdentifier)
     {
         $planArguments.RuntimeIdentifier = $RuntimeIdentifier
     }
+    if ($null -ne $BuildVersion) { $planArguments.BuildVersion = $BuildVersion }
     $plan = @(Get-AegiNextBuildPlan @planArguments)
     foreach ($step in $plan)
     {
@@ -727,4 +744,4 @@ function Invoke-AegiNextBuild
 }
 
 Export-ModuleMember -Function Get-AegiNextHost, Get-AegiNextRuntimeIdentifier, Find-AegiNextCommand, Invoke-AegiNextCommand, Test-AegiNextSdkVersion,
-    Get-AegiNextEnvironment, Install-AegiNextDependency, Get-AegiNextBuildPlan, Invoke-AegiNextBuild
+    Get-AegiNextEnvironment, Install-AegiNextDependency, Get-AegiNextBuildPlan, Invoke-AegiNextBuild, Get-AegiNextBuildVersion, Get-AegiNextVersionArgument
