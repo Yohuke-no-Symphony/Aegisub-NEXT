@@ -56,7 +56,7 @@ public sealed class SubtitleScalingWorkspaceTests
         Assert.Equal(expected, changed.Style.Scaling);
         Assert.Equal(document.Subtitles[0].Style.FontSize, changed.Style.FontSize);
         Assert.Equal(document.Subtitles[0].Style.Position, changed.Style.Position);
-        Assert.Equal(document.Subtitles[0].InlineSpans, changed.InlineSpans);
+        Assert.Empty(changed.InlineSpans);
         Assert.Equal(document.Layers[0].Tracks, context.Session.SelectedLayer!.Tracks);
         Assert.True(context.Editor.Undo());
         Assert.Same(document, context.Editor.Snapshot);

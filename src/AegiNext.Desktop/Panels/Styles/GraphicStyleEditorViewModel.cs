@@ -14,6 +14,67 @@ internal abstract class GraphicStyleEditorViewModel : StyleEditorViewModel
     public LayerPositionDraft Position { get; } = new();
     internal abstract ScenePoint PositionSize(ProjectLayer layer);
 
+    /// <inheritdoc />
+    public override void Accept()
+    {
+        Position.ClearEdits();
+        base.Accept();
+    }
+    internal override Action CaptureDraftIntent()
+    {
+        var restoreFields = base.CaptureDraftIntent();
+        var restorePosition = Position.CaptureEditState();
+        return () =>
+        {
+            restorePosition();
+            restoreFields();
+        };
+    }
+
+    protected void ObserveGraphicNumber(NumericValueDraft draft, string field)
+    {
+        draft.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(NumericValueDraft.RawText))
+            {
+                MarkGraphicFieldChanged(field);
+            }
+        };
+    }
+
+    protected void MarkGraphicFieldChanged(string field)
+    {
+        RecordDraftField(field);
+        MarkDraftChanged();
+    }
+
+    protected Action CaptureGraphicNumbers(params (string Field, NumericValueDraft Draft)[] fields)
+    {
+        var captured = fields.Select(field => (field.Field, field.Draft, Text: field.Draft.RawText,
+            WasRecorded: DraftFields.Contains(field.Field))).ToArray();
+        return () =>
+        {
+            Session.RestoreGraphicStyleField(() =>
+            {
+                foreach (var field in captured)
+                {
+                    field.Draft.RawText = field.Text;
+                }
+            });
+            foreach (var field in captured)
+            {
+                if (field.WasRecorded)
+                {
+                    RecordDraftField(field.Field);
+                }
+                else
+                {
+                    ForgetDraftField(field.Field);
+                }
+            }
+        };
+    }
+
     protected sealed override void LoadCore(ProjectDocument document, ProjectLayer layer)
     {
         LoadGraphicCore(document, layer);

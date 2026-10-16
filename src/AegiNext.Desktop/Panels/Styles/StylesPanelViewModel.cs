@@ -7,11 +7,13 @@ namespace AegiNext.Desktop.Panels.Styles;
 
 internal sealed class StylesPanelViewModel : ObservableObject
 {
+    private readonly WorkbenchSession session;
     private StyleEditorViewModel? activeEditor;
     private string selectionLabel = string.Empty;
 
     internal StylesPanelViewModel(WorkbenchSession session)
     {
+        this.session = session;
         Subtitle = new(session);
         Image = new(session);
         Shape = new(session);
@@ -45,14 +47,15 @@ internal sealed class StylesPanelViewModel : ObservableObject
 
     internal void Load(ProjectDocument document, ProjectLayer? layer, int selectionCount)
     {
-        Subtitle.HasCue = layer?.Kind == LayerKind.SUBTITLE;
-        ActiveEditor = layer?.Kind switch
+        var canEdit = layer is not null && session.HasStyleSelection(layer.Kind);
+        Subtitle.HasCue = canEdit && layer?.Kind == LayerKind.SUBTITLE;
+        ActiveEditor = canEdit ? layer?.Kind switch
         {
             LayerKind.SUBTITLE => Subtitle,
             LayerKind.IMAGE => Image,
             LayerKind.SHAPE => Shape,
             _ => null
-        };
+        } : null;
         RefreshSelectionLabel(layer, selectionCount);
         Image.RefreshContext();
         Shape.RefreshContext();
@@ -64,8 +67,9 @@ internal sealed class StylesPanelViewModel : ObservableObject
 
     internal void RefreshSelectionLabel(ProjectLayer? layer, int selectionCount)
     {
-        SelectionLabel = layer is null ? Localization.Get("Workbench.NoSelection") : selectionCount > 1
-            ? Localization.Format("Workbench.StylePrimarySelection", layer.Name) : string.Empty;
+        SelectionLabel = layer is null ? Localization.Get("Workbench.NoSelection") :
+            !session.HasStyleSelection(layer.Kind) ? Localization.Get("Workbench.StyleMixedSelection") :
+            selectionCount > 1 ? Localization.Format("Workbench.StyleSelection", selectionCount) : string.Empty;
     }
 
     internal ProjectDocument Prepare(ProjectDocument document, bool preview) => ActiveEditor?.Prepare(document, preview) ?? document;

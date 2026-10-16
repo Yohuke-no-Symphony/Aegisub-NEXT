@@ -12,6 +12,8 @@ internal sealed partial class WorkbenchSession
         }
         var value = fieldKey switch
         {
+            "FontSizeInput" => cue.Style.FontSize,
+            "StrokeWidthInput" => InspectorValue(SelectedLayer, AnimationProperty.STROKE_WIDTH, cue.Style.StrokeWidth),
             "ReferenceWidthInput" => cue.Style.Scaling.ReferenceWidth,
             "ReferenceHeightInput" => cue.Style.Scaling.ReferenceHeight,
             "MatchWidthOrHeightInput" => cue.Style.Scaling.MatchWidthOrHeight,
@@ -35,7 +37,17 @@ internal sealed partial class WorkbenchSession
         using var updateLease = BeginWorkbenchUpdate();
         try
         {
-            if (fieldKey is "ReferenceWidthInput" or "ReferenceHeightInput" or "MatchWidthOrHeightInput")
+            if (fieldKey == "FontSizeInput")
+            {
+                vm.FontSize = (decimal)number;
+                vm.FontSizeText = number.ToString(InterfaceCulture);
+            }
+            else if (fieldKey == "StrokeWidthInput")
+            {
+                vm.StrokeWidth = (decimal)number;
+                vm.StrokeWidthText = number.ToString(InterfaceCulture);
+            }
+            else if (fieldKey is "ReferenceWidthInput" or "ReferenceHeightInput" or "MatchWidthOrHeightInput")
             {
                 vm.Scaling.LoadField(fieldKey, number, InterfaceCulture);
             }
@@ -43,6 +55,18 @@ internal sealed partial class WorkbenchSession
             {
                 vm.LoadStyleNumber(fieldKey, number, InterfaceCulture);
             }
+            var draftField = fieldKey switch
+            {
+                "ReferenceWidthInput" => "Scaling.ReferenceWidth",
+                "ReferenceHeightInput" => "Scaling.ReferenceHeight",
+                "MatchWidthOrHeightInput" => "Scaling.MatchWidthOrHeight",
+                "MarginLeftInput" => "Margins.Left",
+                "MarginRightInput" => "Margins.Right",
+                "MarginVerticalInput" => "Margins.Vertical",
+                _ => fieldKey[..^"Input".Length]
+            };
+            vm.ForgetDraftField(draftField);
+            vm.ForgetDraftField(draftField + "Text");
             draftRevision++;
             if (ViewModel.InvalidPanelId == "styles" && ViewModel.InvalidFieldKey == fieldKey)
             {

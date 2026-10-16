@@ -1,4 +1,5 @@
 using AegiNext.Core.Presets;
+using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.I18n;
 
@@ -28,7 +29,7 @@ internal sealed partial class WorkbenchSession
     }
     internal Task ApplySelectedStyleAsync()
     {
-        return ViewModel.Styles.Subtitle.SelectedPreset is { } selected
+        return HasStyleSelection(LayerKind.SUBTITLE) && ViewModel.Styles.Subtitle.SelectedPreset is { } selected
             ? styles.ApplyAsync(styleLibrary.Snapshot.Presets.Single(value => value.Id == selected.Id))
             : Task.CompletedTask;
     }

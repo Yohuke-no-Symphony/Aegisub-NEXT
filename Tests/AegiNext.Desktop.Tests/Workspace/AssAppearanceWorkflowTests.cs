@@ -73,7 +73,8 @@ public sealed class AssAppearanceWorkflowTests
         Assert.Same(imported, context.Editor.Snapshot);
         Assert.True(context.Session.TryCommitDrafts(false));
         Assert.Equal(-2, context.Session.SelectedCue!.Style.LetterSpacing);
-        Assert.Equal(3.5, StyleAt(context.Session.SelectedCue, 0).LetterSpacing);
+        Assert.Empty(context.Session.SelectedCue.InlineSpans);
+        Assert.Equal(-2, StyleAt(context.Session.SelectedCue, 0).LetterSpacing);
         Assert.True(context.Editor.Undo());
         Assert.Same(imported, context.Editor.Snapshot);
         styles.CommitWrapMode((int)SubtitleWrapMode.GRAPHEME);

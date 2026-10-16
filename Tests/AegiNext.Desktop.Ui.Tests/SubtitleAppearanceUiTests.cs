@@ -26,6 +26,7 @@ public sealed class SubtitleAppearanceUiTests
     {
         await using var context = new MainWindowTestContext();
         var id = Prepare(context);
+        context.Session.Editor.ApplySubtitleInlineStyle(id, 0, 2, new() { Bold = true });
         if (animated)
         {
             context.Session.Editor.SetKeyframe(context.Session.SelectedLayer!.Id, property, new(new(0), 2));
@@ -44,9 +45,11 @@ public sealed class SubtitleAppearanceUiTests
             Type(host, input, "6");
             Assert.Same(original, context.Session.DocumentSnapshot);
             Assert.Equal(6, Value(context.Session.PreviewDocument, id, property, animated));
+            Assert.Empty(context.Session.PreviewDocument.Subtitles[0].InlineSpans);
             UiTestActions.Press(host, Key.Enter);
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(6, Value(context.Session.DocumentSnapshot, id, property, animated));
+            Assert.Empty(context.Session.SelectedCue!.InlineSpans);
             if (animated)
             {
                 Assert.Equal(original.Subtitles[0].Style, context.Session.SelectedCue!.Style);
@@ -70,6 +73,115 @@ public sealed class SubtitleAppearanceUiTests
             host.Close();
             view.Dispose();
         }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PendingDetailsAndStyleEditsProduceTheSamePlainTextPreviewAndCommit(bool textDraft, bool detailsFirst)
+    {
+        await using var context = new MainWindowTestContext();
+        var id = Prepare(context);
+        context.Session.Editor.ApplySubtitleInlineStyle(id, 0, 2, new() { Bold = true });
+        var original = context.Session.DocumentSnapshot;
+        context.Session.Editor.Reset(original);
+        var styles = context.ViewModel.Styles.Subtitle;
+        if (!detailsFirst)
+        {
+            styles.FontSizeText = "80";
+            Dispatcher.UIThread.RunJobs();
+        }
+        var details = context.Session.Details;
+        if (textDraft)
+        {
+            details.EditText(2, 1, "X");
+        }
+        else
+        {
+            Assert.True(details.SetStyleSelection(0, 2));
+            details.StyleDraft.FontSizeText = "88";
+        }
+        if (detailsFirst)
+        {
+            styles.FontSizeText = "80";
+        }
+        Dispatcher.UIThread.RunJobs();
+
+        var preview = context.Session.PreviewDocument.Subtitles[0];
+
+        Assert.Equal(textDraft ? "字幕XABC 中文" : original.Subtitles[0].Text, preview.Text);
+        Assert.Equal(80, preview.Style.FontSize);
+        Assert.Empty(preview.InlineSpans);
+        Assert.Same(original, context.Session.DocumentSnapshot);
+        Assert.False(context.Session.Editor.CanUndo);
+        Assert.True(context.Session.TryCommitDrafts(false));
+        Assert.Equal(preview, context.Session.SelectedCue);
+        Assert.True(context.Session.Editor.Undo());
+        Assert.Same(original, context.Session.DocumentSnapshot);
+        Assert.False(context.Session.Editor.CanUndo);
+    }
+
+    [AvaloniaFact]
+    public async Task InvalidStyleDraftRetainsTheLastValidPreviewUntilCorrected()
+    {
+        await using var context = new MainWindowTestContext();
+        var id = Prepare(context);
+        context.Session.Editor.ApplySubtitleInlineStyle(id, 0, 2, new() { Bold = true });
+        var original = context.Session.DocumentSnapshot;
+        var styles = context.ViewModel.Styles.Subtitle;
+        styles.FontSizeText = "80";
+        Dispatcher.UIThread.RunJobs();
+        var validPreview = context.Session.PreviewDocument.Subtitles[0];
+        Assert.Empty(validPreview.InlineSpans);
+
+        styles.FontSizeText = "invalid";
+        context.Session.Details.EditText(2, 1, "X");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal(validPreview, context.Session.PreviewDocument.Subtitles[0]);
+        Assert.False(context.Session.TryCommitDrafts(false));
+        Assert.Same(original, context.Session.DocumentSnapshot);
+        styles.FontSizeText = "84";
+        Dispatcher.UIThread.RunJobs();
+        var correctedPreview = context.Session.PreviewDocument.Subtitles[0];
+        Assert.Equal("字幕XABC 中文", correctedPreview.Text);
+        Assert.Equal(84, correctedPreview.Style.FontSize);
+        Assert.Empty(correctedPreview.InlineSpans);
+        Assert.True(context.Session.TryCommitDrafts(false));
+        Assert.Equal(correctedPreview, context.Session.SelectedCue);
+        Assert.True(context.Session.Editor.Undo());
+        Assert.Same(original, context.Session.DocumentSnapshot);
+    }
+
+    [AvaloniaFact]
+    public async Task RestoringTheLastInspectorFieldKeepsLaterDetailsPreviewsLive()
+    {
+        await using var context = new MainWindowTestContext();
+        Prepare(context);
+        var original = context.Session.DocumentSnapshot;
+        context.ViewModel.Effects.OpacityText = "0.5";
+        Dispatcher.UIThread.RunJobs();
+        context.Session.RestoreEffectDraftField("OpacityInput");
+        Dispatcher.UIThread.RunJobs();
+
+        context.Session.Details.EditText(2, 1, "X");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Equal("字幕XABC 中文", context.Session.PreviewDocument.Subtitles[0].Text);
+        Assert.True(context.Session.Details.SetStyleSelection(0, 2));
+        context.Session.Details.StyleDraft.FontSizeText = "88";
+        Dispatcher.UIThread.RunJobs();
+        var preview = context.Session.PreviewDocument.Subtitles[0];
+        Assert.Equal(88, Assert.Single(preview.InlineSpans).Style.FontSize);
+        Assert.Same(original, context.Session.DocumentSnapshot);
+        Assert.True(context.Session.TryCommitDrafts(false));
+        Assert.Equal(preview.Text, context.Session.SelectedCue!.Text);
+        Assert.Equal(preview.Style, context.Session.SelectedCue.Style);
+        Assert.Equal(preview.InlineSpans.ToArray(), context.Session.SelectedCue.InlineSpans.ToArray());
+        Assert.True(context.Session.Editor.Undo());
+        Assert.Same(original, context.Session.DocumentSnapshot);
     }
 
     [AvaloniaTheory]

@@ -50,6 +50,18 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
     {
         this.session = session;
         Scaling.Changed += (_, _) => NotifyDraftChanged();
+        Scaling.ReferenceWidth.PropertyChanged += (_, e) => RecordNumberField(e.PropertyName, "Scaling.ReferenceWidth");
+        Scaling.ReferenceHeight.PropertyChanged += (_, e) => RecordNumberField(e.PropertyName, "Scaling.ReferenceHeight");
+        Scaling.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SubtitleScalingDraft.MatchWidthOrHeight))
+            {
+                RecordDraftField("Scaling.MatchWidthOrHeight");
+            }
+        };
+        Margins.Left.PropertyChanged += (_, e) => RecordNumberField(e.PropertyName, "Margins.Left");
+        Margins.Right.PropertyChanged += (_, e) => RecordNumberField(e.PropertyName, "Margins.Right");
+        Margins.Vertical.PropertyChanged += (_, e) => RecordNumberField(e.PropertyName, "Margins.Vertical");
         FillDraft.Changed += (_, _) => OnPropertyChanged(nameof(FillDraft));
         StrokeDraft.Changed += (_, _) => OnPropertyChanged(nameof(StrokeDraft));
         ShadowDraft.Changed += (_, _) => OnPropertyChanged(nameof(ShadowDraft));
@@ -77,7 +89,37 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
     protected override void LoadCore(ProjectDocument document, ProjectLayer layer) => session.LoadSubtitleStyleDraft(this, document, layer);
     protected override ProjectDocument PrepareCore(ProjectDocument document, ProjectLayer layer, bool preview) => session.PrepareSubtitleStyleDraft(document, layer, preview);
     public override bool RestoreField(string fieldKey) => session.RestoreStyleNumericDraftField(fieldKey);
-    internal void NotifyDraftChanged() => MarkDraftChanged();
+    public override void Accept()
+    {
+        Position.ClearEdits();
+        base.Accept();
+    }
+    internal override Action CaptureDraftIntent()
+    {
+        var restoreFields = base.CaptureDraftIntent();
+        var restorePosition = Position.CaptureEditState();
+        return () =>
+        {
+            restorePosition();
+            restoreFields();
+        };
+    }
+    internal void NotifyDraftChanged(string? field = null)
+    {
+        if (field is not null && (!synchronizingFont || field == nameof(FontSelectionCommitted)))
+        {
+            RecordDraftField(field);
+        }
+        MarkDraftChanged();
+    }
+
+    private void RecordNumberField(string? property, string field)
+    {
+        if (property == nameof(NumericValueDraft.RawText))
+        {
+            RecordDraftField(field);
+        }
+    }
 
     public string FontFamily
     {
@@ -145,8 +187,7 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
         OnPropertyChanged(nameof(StrokeWidthEditingHint));
     }
 
-    private bool CanEditAppearanceProperty(AnimationProperty property) => session.SelectedLayer?.Tracks.Any(track =>
-        track.Property == property && !track.Transforms.IsEmpty) != true;
+    private bool CanEditAppearanceProperty(AnimationProperty property) => session.CanEditStyleProperty(property);
 
     public decimal? ShadowX
     {
@@ -533,7 +574,9 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
         }
         if (TryReadFontStyle(out var style))
         {
+            RecordDraftField(nameof(Bold));
             SetFormatting(Fonts.ToggleBold(style, value), style);
+            NotifyDraftChanged();
         }
         session.TryCommitDrafts();
     }
@@ -546,7 +589,9 @@ internal sealed class SubtitleStyleViewModel : StyleEditorViewModel
         }
         if (TryReadFontStyle(out var style))
         {
+            RecordDraftField(nameof(Italic));
             SetFormatting(Fonts.ToggleItalic(style, value), style);
+            NotifyDraftChanged();
         }
         session.TryCommitDrafts();
     }

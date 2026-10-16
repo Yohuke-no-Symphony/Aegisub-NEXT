@@ -35,6 +35,7 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     private bool isSeeking;
     private bool isSnapEnabled = true;
     private bool isStepEnabled;
+    private bool isAutoSeekEnabled;
     private bool isSpectrumVisible = true;
     private bool isWaveformVisible = true;
     private AnimationTrackTarget effectTarget = new(AnimationProperty.OPACITY);
@@ -429,6 +430,12 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     {
         get => isSnapEnabled;
         set => SetProperty(ref isSnapEnabled, value);
+    }
+
+    public bool IsAutoSeekEnabled
+    {
+        get => isAutoSeekEnabled;
+        set => SetProperty(ref isAutoSeekEnabled, value);
     }
 
     public bool IsStepEnabled

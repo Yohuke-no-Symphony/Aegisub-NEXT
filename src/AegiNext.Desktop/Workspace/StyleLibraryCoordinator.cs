@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using AegiNext.Application.Presets;
 using AegiNext.Application.Tasks;
 using AegiNext.Core.Projects;
@@ -98,7 +99,7 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
         var id = selectedId ?? vm.SelectedPreset?.Id;
         vm.Presets = session.StyleLibrary.Snapshot.Presets.Select(value => new StylePresetListItem(value.Id, value.Name)).ToArray();
         vm.SelectedPreset = vm.Presets.FirstOrDefault(value => value.Id == id) ?? vm.Presets.FirstOrDefault();
-        vm.CanApplyPreset = session.HasSelectedCue && vm.Presets.Length > 0;
+        vm.CanApplyPreset = session.HasStyleSelection(LayerKind.SUBTITLE) && !session.IsProjectBusy && vm.Presets.Length > 0;
         session.NotifyStyleLibraryChanged();
     }
 
@@ -129,18 +130,23 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
 
     internal async Task ApplyAsync(SubtitleStylePreset preset)
     {
-        if (session.IsProjectBusy || !session.TryCommitDrafts() || session.SelectedCue is not { } cue)
+        if (session.IsClosing || session.IsProjectBusy || !session.HasStyleSelection(LayerKind.SUBTITLE) || !session.TryCommitDrafts())
+        {
+            return;
+        }
+        var cueIds = session.StyleSubtitleIds();
+        if (cueIds.IsEmpty)
         {
             return;
         }
         await session.ApplicationContext.Tasks.Submit(new ApplySubtitleStyleTask(session, this, preset,
-            cue.Id, session.Editor.Snapshot, session.TaskInputRevision, session.ProjectDirectory)).Completion;
+            cueIds, session.Editor.Snapshot, session.TaskInputRevision, session.ProjectDirectory)).Completion;
     }
 
-    internal async Task ApplyCoreAsync(SubtitleStylePreset preset, Guid cueId, ProjectDocument captured,
+    internal async Task ApplyCoreAsync(SubtitleStylePreset preset, ImmutableArray<Guid> cueIds, ProjectDocument captured,
         long inputRevision, string directory, AegiTaskExecutionContext context)
     {
-        var prepared = await SubtitleStylePresetService.ApplyAsync(preset, captured, directory, [cueId], context.CancellationToken);
+        var prepared = await SubtitleStylePresetService.ApplyAsync(preset, captured, directory, cueIds, context.CancellationToken);
         using var editingLease = context.AcquireEditLease();
         context.EnterCommit(() => IsTargetCurrent(captured, inputRevision, directory));
         session.Editor.Apply("Apply subtitle style preset", _ => prepared);

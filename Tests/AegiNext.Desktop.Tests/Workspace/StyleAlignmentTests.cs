@@ -27,10 +27,14 @@ public sealed class StyleAlignmentTests
         context.Session.ViewModel.Styles.Subtitle.CommitAlignment((int)alignment);
 
         var changed = context.Editor.Snapshot.Subtitles[0];
-        Assert.Equal(original.Subtitles[0] with { Style = original.Subtitles[0].Style with
+        Assert.Equal(original.Subtitles[0] with
         {
-            Alignment = alignment, TextAlign = null
-        } }, changed);
+            Style = original.Subtitles[0].Style with
+            {
+                Alignment = alignment, TextAlign = null
+            },
+            InlineSpans = []
+        }, changed);
         Assert.Equal(original.Layers, context.Editor.Snapshot.Layers);
         Assert.True(context.Editor.Undo());
         Assert.Same(original, context.Editor.Snapshot);
@@ -74,7 +78,7 @@ public sealed class StyleAlignmentTests
 
         var changed = context.Editor.Snapshot.Subtitles[0];
         Assert.Equal("AZCD\nEF", changed.Text);
-        Assert.Equal(88, changed.InlineSpans[0].Style.FontSize);
+        Assert.Empty(changed.InlineSpans);
         Assert.Equal(76, changed.Style.FontSize);
         Assert.Equal(TextAlignment.TOP_RIGHT, changed.Style.Alignment);
         Assert.Null(changed.Style.TextAlign);

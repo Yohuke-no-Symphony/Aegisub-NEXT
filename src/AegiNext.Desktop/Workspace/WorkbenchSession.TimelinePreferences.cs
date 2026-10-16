@@ -18,6 +18,7 @@ internal sealed partial class WorkbenchSession
     {
         ViewModel.Timeline.IsSnapEnabled = preferences.TimelineSnapEnabled;
         ViewModel.Timeline.IsStepEnabled = preferences.TimelineStepEnabled;
+        ViewModel.Timeline.IsAutoSeekEnabled = preferences.TimelineAutoSeekEnabled;
         ViewModel.Timeline.IsSpectrumVisible = preferences.TimelineSpectrumVisible;
         ViewModel.Timeline.IsWaveformVisible = preferences.TimelineWaveformVisible;
         ViewModel.Timeline.IsClassicTimingEnabled = preferences.TimelineClassicTimingEnabled;
@@ -41,6 +42,9 @@ internal sealed partial class WorkbenchSession
                 break;
             case nameof(ViewModel.Timeline.IsStepEnabled):
                 UpdatePreferences(current => current with { TimelineStepEnabled = ViewModel.Timeline.IsStepEnabled });
+                break;
+            case nameof(ViewModel.Timeline.IsAutoSeekEnabled):
+                UpdatePreferences(current => current with { TimelineAutoSeekEnabled = ViewModel.Timeline.IsAutoSeekEnabled });
                 break;
             case nameof(ViewModel.Timeline.IsSpectrumVisible):
                 UpdatePreferences(current => current with { TimelineSpectrumVisible = ViewModel.Timeline.IsSpectrumVisible });

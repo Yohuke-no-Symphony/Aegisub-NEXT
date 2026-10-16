@@ -35,6 +35,7 @@ public sealed record WorkbenchPreferences
     public bool TimelineClassicTimingEnabled { get; init; }
     public bool TimelineSnapEnabled { get; init; } = true;
     public bool TimelineStepEnabled { get; init; }
+    public bool TimelineAutoSeekEnabled { get; init; }
     public bool TimelineSpectrumVisible { get; init; } = true;
     public bool TimelineWaveformVisible { get; init; } = true;
     public bool MaskSnapEnabled { get; init; } = true;
@@ -114,6 +115,7 @@ public sealed record WorkbenchPreferences
                SubtitleAuditionMilliseconds == other.SubtitleAuditionMilliseconds && MaximumConcurrentTasks == other.MaximumConcurrentTasks && TimelineClassicTimingEnabled == other.TimelineClassicTimingEnabled &&
                AutoCheckUpdates == other.AutoCheckUpdates && UpdateChannel == other.UpdateChannel &&
                TimelineSnapEnabled == other.TimelineSnapEnabled && TimelineStepEnabled == other.TimelineStepEnabled &&
+               TimelineAutoSeekEnabled == other.TimelineAutoSeekEnabled &&
                TimelineSpectrumVisible == other.TimelineSpectrumVisible && TimelineWaveformVisible == other.TimelineWaveformVisible &&
                MaskSnapEnabled == other.MaskSnapEnabled &&
                SubtitleListHideTimes == other.SubtitleListHideTimes && SubtitleListHideDuration == other.SubtitleListHideDuration &&
@@ -145,6 +147,7 @@ public sealed record WorkbenchPreferences
         hash.Add(TimelineClassicTimingEnabled);
         hash.Add(TimelineSnapEnabled);
         hash.Add(TimelineStepEnabled);
+        hash.Add(TimelineAutoSeekEnabled);
         hash.Add(TimelineSpectrumVisible);
         hash.Add(TimelineWaveformVisible);
         hash.Add(MaskSnapEnabled);

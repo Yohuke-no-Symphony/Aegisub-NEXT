@@ -85,6 +85,10 @@ internal sealed partial class WorkbenchSession
         {
             Transform = vm.Position.PrepareTransform(layer.Transform)
         });
+        if (prepared != document)
+        {
+            prepared = WorkspaceDraftOperations.UpdateSubtitle(prepared, id, cue => cue with { InlineSpans = [] });
+        }
         return prepared;
     }
 
@@ -95,7 +99,7 @@ internal sealed partial class WorkbenchSession
         if (stylesDirty)
         {
             ViewModel.InvalidPanelId = "styles";
-            prepared = ViewModel.Styles.Prepare(prepared, preview);
+            prepared = PrepareStyleSelectionDrafts(prepared, preview);
         }
 
         if (effectsDirty && selected is not null)

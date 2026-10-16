@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json.Nodes;
 using AegiNext.Desktop.Settings;
 
 namespace AegiNext.Desktop.Tests;
@@ -19,6 +21,7 @@ public sealed class TimelinePreferencesTests
         Assert.Equal(1, preferences.Version);
         Assert.True(preferences.TimelineSnapEnabled);
         Assert.False(preferences.TimelineStepEnabled);
+        Assert.False(preferences.TimelineAutoSeekEnabled);
         Assert.True(preferences.TimelineSpectrumVisible);
         Assert.True(preferences.TimelineWaveformVisible);
         Assert.Equal("zh-CN", preferences.Language);
@@ -43,6 +46,22 @@ public sealed class TimelinePreferencesTests
     [InlineData(13)]
     [InlineData(14)]
     [InlineData(15)]
+    [InlineData(16)]
+    [InlineData(17)]
+    [InlineData(18)]
+    [InlineData(19)]
+    [InlineData(20)]
+    [InlineData(21)]
+    [InlineData(22)]
+    [InlineData(23)]
+    [InlineData(24)]
+    [InlineData(25)]
+    [InlineData(26)]
+    [InlineData(27)]
+    [InlineData(28)]
+    [InlineData(29)]
+    [InlineData(30)]
+    [InlineData(31)]
     public async Task EveryTimelineCombinationRoundTripsWithUnrelatedSettings(int combination)
     {
         using var directory = new TemporaryWorkbenchDirectory();
@@ -53,6 +72,7 @@ public sealed class TimelinePreferencesTests
             TimelineStepEnabled = (combination & 2) != 0,
             TimelineSpectrumVisible = (combination & 4) != 0,
             TimelineWaveformVisible = (combination & 8) != 0,
+            TimelineAutoSeekEnabled = (combination & 16) != 0,
             Language = "zh-CN",
             Volume = 0.375f,
             PreviewQuality = PreviewQuality.HIGH
@@ -66,6 +86,7 @@ public sealed class TimelinePreferencesTests
         Assert.Equal(expected, restored);
         Assert.Equal(expected.TimelineSnapEnabled, restored.TimelineSnapEnabled);
         Assert.Equal(expected.TimelineStepEnabled, restored.TimelineStepEnabled);
+        Assert.Equal(expected.TimelineAutoSeekEnabled, restored.TimelineAutoSeekEnabled);
         Assert.Equal(expected.TimelineSpectrumVisible, restored.TimelineSpectrumVisible);
         Assert.Equal(expected.TimelineWaveformVisible, restored.TimelineWaveformVisible);
         Assert.Equal(1, restored.Version);
@@ -82,6 +103,7 @@ public sealed class TimelinePreferencesTests
         {
             original with { TimelineSnapEnabled = false },
             original with { TimelineStepEnabled = true },
+            original with { TimelineAutoSeekEnabled = true },
             original with { TimelineSpectrumVisible = false },
             original with { TimelineWaveformVisible = false }
         };
@@ -94,5 +116,17 @@ public sealed class TimelinePreferencesTests
             Assert.Equal(changed, copy);
             Assert.Equal(changed.GetHashCode(), copy.GetHashCode());
         }
+    }
+
+    [Fact]
+    public void SettingsTransferDefaultsAutoSeekForAnOlderCompletePreferencesDocument()
+    {
+        var json = JsonNode.Parse(WorkbenchPreferencesStore.Serialize(new()))!.AsObject();
+        Assert.True(json.Remove(nameof(WorkbenchPreferences.TimelineAutoSeekEnabled)));
+
+        var restored = WorkbenchPreferencesStore.Deserialize(Encoding.UTF8.GetBytes(json.ToJsonString()));
+
+        Assert.False(restored.TimelineAutoSeekEnabled);
+        Assert.True(restored.TimelineSnapEnabled);
     }
 }

@@ -53,7 +53,8 @@ internal static class SettingsTransferJson
                 foreach (var property in info.Properties)
                 {
                     var optionalPreference = info.Type == typeof(WorkbenchPreferences) &&
-                        property.Name is nameof(WorkbenchPreferences.AutoCheckUpdates) or nameof(WorkbenchPreferences.UpdateChannel) or nameof(WorkbenchPreferences.AssetBrowser) ||
+                        property.Name is nameof(WorkbenchPreferences.AutoCheckUpdates) or nameof(WorkbenchPreferences.UpdateChannel) or
+                            nameof(WorkbenchPreferences.AssetBrowser) or nameof(WorkbenchPreferences.TimelineAutoSeekEnabled) ||
                         info.Type == typeof(ProjectPreferences) && property.Name == nameof(ProjectPreferences.CopyImportedAssetsToSources);
                     property.IsRequired = property.Get is not null && property.Set is not null && !optionalPreference;
                 }

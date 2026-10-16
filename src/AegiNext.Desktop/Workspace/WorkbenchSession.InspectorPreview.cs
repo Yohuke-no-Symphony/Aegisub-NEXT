@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Collections.Immutable;
 using AegiNext.Core.Projects;
 using Avalonia.Threading;
 
@@ -9,6 +10,7 @@ internal sealed partial class WorkbenchSession
     private ProjectDocument? inspectorPreview;
     private ProjectDocument? inspectorPreviewSource;
     private Guid? inspectorPreviewLayerId;
+    private ImmutableArray<Guid> inspectorPreviewLayerIds = [];
     private bool inspectorPreviewQueued;
     private int inspectorPreviewRevision;
 
@@ -16,9 +18,10 @@ internal sealed partial class WorkbenchSession
     {
         get
         {
-            var document = inspectorPreview is { } preview && ReferenceEquals(inspectorPreviewSource, DocumentSnapshot) &&
-                inspectorPreviewLayerId == SelectedLayerId ? preview : DocumentSnapshot;
-            document = Details?.OverlayPreview(document) ?? document;
+            var source = DocumentSnapshot;
+            var document = inspectorPreview is { } preview && ReferenceEquals(inspectorPreviewSource, source) &&
+                inspectorPreviewLayerId == SelectedLayerId && inspectorPreviewLayerIds.SequenceEqual(TimelineClipIds())
+                    ? preview : Details?.OverlayPreview(source) ?? source;
             document = MaskEditing?.Overlay(document) ?? document;
             return OverlayTimingPreview(PropertyEditing.Overlay(ViewModel.Effects.OverlayOperationDraft(document)));
         }
@@ -41,6 +44,7 @@ internal sealed partial class WorkbenchSession
         var revision = inspectorPreviewRevision;
         var source = DocumentSnapshot;
         var layerId = SelectedLayerId;
+        var layerIds = TimelineClipIds();
         var target = SceneEditing.DraftTarget;
         Dispatcher.UIThread.Post(() =>
         {
@@ -50,7 +54,7 @@ internal sealed partial class WorkbenchSession
             }
             inspectorPreviewQueued = false;
             if (closing || IsProjectBusy || IsUpdating || layerId != SelectedLayerId || target != SceneEditing.DraftTarget ||
-                !ReferenceEquals(source, DocumentSnapshot))
+                !ReferenceEquals(source, DocumentSnapshot) || !layerIds.SequenceEqual(TimelineClipIds()))
             {
                 return;
             }
@@ -59,11 +63,12 @@ internal sealed partial class WorkbenchSession
             var invalidField = ViewModel.InvalidFieldKey;
             try
             {
-                var candidate = PrepareInspectorDrafts(source, true);
+                var candidate = PrepareInspectorDrafts(Details.OverlayPreview(source), true);
                 ProjectValidator.Validate(candidate);
                 inspectorPreview = candidate;
                 inspectorPreviewSource = source;
                 inspectorPreviewLayerId = layerId;
+                inspectorPreviewLayerIds = layerIds;
                 RefreshPositionPreview(candidate);
                 RefreshEditingPreview();
             }
@@ -86,6 +91,7 @@ internal sealed partial class WorkbenchSession
         inspectorPreview = null;
         inspectorPreviewSource = null;
         inspectorPreviewLayerId = null;
+        inspectorPreviewLayerIds = [];
     }
 
     private void RefreshPositionPreview(ProjectDocument document)
@@ -102,7 +108,7 @@ internal sealed partial class WorkbenchSession
         var subtitle = document.Subtitles.Single(line => line.Id == id);
         var placement = ResolvePlacement(document, layer);
         using var updateLease = BeginWorkbenchUpdate();
-        if (ViewModel.Styles.Subtitle.Position.IsExplicit)
+        if (ViewModel.Styles.Subtitle.Position.IsExplicit || ViewModel.Styles.Subtitle.Position.HasEdits)
         {
             ViewModel.Styles.Subtitle.Position.UpdateGeometry(PreparePositionGeometry(placement.Geometry, layer));
             return;

@@ -11,6 +11,7 @@ namespace AegiNext.Desktop.Panels.Styles;
 internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
 {
     private static readonly ShapeKind[] PARAMETER_KINDS = [ShapeKind.RECTANGLE, ShapeKind.ELLIPSE, ShapeKind.LINE, ShapeKind.ARROW];
+    private static readonly string[] CORNER_FIELDS = [nameof(CornerTopLeft), nameof(CornerTopRight), nameof(CornerBottomRight), nameof(CornerBottomLeft)];
     private int shapeType;
     private bool isPath;
     private bool cornersLinked = true;
@@ -19,22 +20,21 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
     private ShapeCornerRadii? loadedCorners;
     private NumericValueDraft? linkedCornerSource;
     private string[]? linkedCornerOriginals;
+    private HashSet<string>? linkedCornerFields;
 
     internal ShapeStyleViewModel(WorkbenchSession session) : base(session)
     {
-        Width.PropertyChanged += (_, _) => MarkDraftChanged();
-        Height.PropertyChanged += (_, _) => MarkDraftChanged();
-        StrokeWidth.PropertyChanged += (_, _) => MarkDraftChanged();
-        foreach (var draft in new[] { ArrowHead, ArrowShaft })
-        {
-            draft.PropertyChanged += (_, _) => MarkDraftChanged();
-        }
+        ObserveGraphicNumber(Width, nameof(Width));
+        ObserveGraphicNumber(Height, nameof(Height));
+        ObserveGraphicNumber(StrokeWidth, nameof(StrokeWidth));
+        ObserveGraphicNumber(ArrowHead, nameof(ArrowHead));
+        ObserveGraphicNumber(ArrowShaft, nameof(ArrowShaft));
         foreach (var draft in CornerDrafts)
         {
             draft.PropertyChanged += OnCornerChanged;
         }
-        FillDraft.Changed += (_, _) => MarkDraftChanged();
-        StrokeDraft.Changed += (_, _) => MarkDraftChanged();
+        FillDraft.Changed += (_, _) => MarkGraphicFieldChanged(nameof(FillDraft));
+        StrokeDraft.Changed += (_, _) => MarkGraphicFieldChanged(nameof(StrokeDraft));
         ConvertToPathCommand = new AsyncRelayCommand(() => IsActive ? Session.Graphics.ConvertSelectedShapeToPathAsync() : Task.CompletedTask);
         EditPathCommand = new RelayCommand(() =>
         {
@@ -78,7 +78,7 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
         {
             if (value >= 0 && value < PARAMETER_KINDS.Length && SetProperty(ref shapeType, value))
             {
-                MarkDraftChanged();
+                MarkGraphicFieldChanged(nameof(ShapeType));
                 RefreshContext();
             }
         }
@@ -91,7 +91,7 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
     internal ShapeKind SelectedKind => isPath ? ShapeKind.PATH : PARAMETER_KINDS[ShapeType];
     public ColorDraft FillDraft { get; } = new();
     public ColorDraft StrokeDraft { get; } = new(SceneColor.Black);
-    public bool CanEditStrokeWidth => Session.SelectedLayer?.Tracks.Any(track => track.Property == AnimationProperty.STROKE_WIDTH && !track.Transforms.IsEmpty) != true;
+    public bool CanEditStrokeWidth => Session.CanEditStyleProperty(AnimationProperty.STROKE_WIDTH);
     private NumericValueDraft[] CornerDrafts => [CornerTopLeft, CornerTopRight, CornerBottomRight, CornerBottomLeft];
 
     internal override ScenePoint PositionSize(ProjectLayer layer) => new(
@@ -128,20 +128,29 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
 
     internal override Action? CaptureNumericGesture(string? fieldKey)
     {
-        if (!CornersLinked || !IsCornerField(fieldKey))
+        if (CornersLinked && IsCornerField(fieldKey))
         {
-            return null;
-        }
-        var originals = CornerDrafts.Select(draft => draft.RawText).ToArray();
-        return () => Session.RestoreGraphicStyleField(() =>
-        {
-            ResetLinkedCornerEdit();
-            var drafts = CornerDrafts;
-            for (var index = 0; index < drafts.Length; index++)
+            var restore = CaptureGraphicNumbers(CORNER_FIELDS.Zip(CornerDrafts, (field, draft) => (field, draft)).ToArray());
+            return () =>
             {
-                drafts[index].RawText = originals[index];
-            }
-        });
+                ResetLinkedCornerEdit();
+                restore();
+            };
+        }
+        var cornerIndex = CornerFieldIndex(fieldKey);
+        if (cornerIndex >= 0)
+        {
+            return CaptureGraphicNumbers((CORNER_FIELDS[cornerIndex], CornerDrafts[cornerIndex]));
+        }
+        return fieldKey switch
+        {
+            "LayerWidthInput" => CaptureGraphicNumbers((nameof(Width), Width)),
+            "LayerHeightInput" => CaptureGraphicNumbers((nameof(Height), Height)),
+            "StrokeWidthInput" => CaptureGraphicNumbers((nameof(StrokeWidth), StrokeWidth)),
+            "ShapeArrowHeadInput" => CaptureGraphicNumbers((nameof(ArrowHead), ArrowHead)),
+            "ShapeArrowShaftInput" => CaptureGraphicNumbers((nameof(ArrowShaft), ArrowShaft)),
+            _ => null
+        };
     }
 
     protected override bool RestoreGraphicField(string fieldKey)
@@ -164,6 +173,10 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
                         if (index != cornerIndex)
                         {
                             drafts[index].RawText = originals[index];
+                            if (linkedCornerFields?.Contains(CORNER_FIELDS[index]) != true)
+                            {
+                                ForgetDraftField(CORNER_FIELDS[index]);
+                            }
                         }
                     }
                     ResetLinkedCornerEdit();
@@ -181,6 +194,15 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
                 case "ShapeArrowHeadInput": ArrowHead.Load(shape.ArrowHeadRatio * 100); break;
                 case "ShapeArrowShaftInput": ArrowShaft.Load(shape.ArrowShaftRatio * 100); break;
             }
+        });
+        ForgetDraftField(fieldKey switch
+        {
+            "LayerWidthInput" => nameof(Width),
+            "LayerHeightInput" => nameof(Height),
+            "StrokeWidthInput" => nameof(StrokeWidth),
+            "ShapeArrowHeadInput" => nameof(ArrowHead),
+            "ShapeArrowShaftInput" => nameof(ArrowShaft),
+            _ => CORNER_FIELDS[CornerFieldIndex(fieldKey)]
         });
         return true;
     }
@@ -225,6 +247,7 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
     {
         linkedCornerSource = null;
         linkedCornerOriginals = null;
+        linkedCornerFields = null;
     }
 
     private void OnCornerChanged(object? sender, PropertyChangedEventArgs args)
@@ -240,15 +263,18 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
             {
                 linkedCornerSource = changed;
                 linkedCornerOriginals = CornerDrafts.Select(draft => draft.RawText).ToArray();
+                linkedCornerFields = CORNER_FIELDS.Where(DraftFields.Contains).ToHashSet();
             }
             synchronizingCorners = true;
             try
             {
-                foreach (var draft in CornerDrafts)
+                var drafts = CornerDrafts;
+                for (var index = 0; index < drafts.Length; index++)
                 {
-                    if (!ReferenceEquals(draft, changed) && draft.Parse() is >= 0 and <= 1000000)
+                    if (!ReferenceEquals(drafts[index], changed) && drafts[index].Parse() is >= 0 and <= 1000000)
                     {
-                        draft.RawText = changed.RawText;
+                        drafts[index].RawText = changed.RawText;
+                        RecordDraftField(CORNER_FIELDS[index]);
                     }
                 }
             }
@@ -257,6 +283,7 @@ internal sealed class ShapeStyleViewModel : GraphicStyleEditorViewModel
                 synchronizingCorners = false;
             }
         }
+        RecordDraftField(CORNER_FIELDS[Array.IndexOf(CornerDrafts, changed)]);
         MarkDraftChanged();
     }
 }

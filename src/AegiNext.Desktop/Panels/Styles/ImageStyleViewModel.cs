@@ -16,20 +16,19 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
     private bool aspectRatioLocked = true;
     private bool resizing;
     private double aspectRatio = 1;
+    private string? resizeDriver;
 
     internal ImageStyleViewModel(WorkbenchSession session) : base(session)
     {
         Width.PropertyChanged += OnWidthChanged;
         Height.PropertyChanged += OnHeightChanged;
-        foreach (var draft in new[] { CropX, CropY, CropWidth, CropHeight, PlaybackOffset, PlaybackSpeed })
+        foreach (var (field, draft) in new (string, NumericValueDraft)[]
+                 {
+                     (nameof(CropX), CropX), (nameof(CropY), CropY), (nameof(CropWidth), CropWidth),
+                     (nameof(CropHeight), CropHeight), (nameof(PlaybackOffset), PlaybackOffset), (nameof(PlaybackSpeed), PlaybackSpeed)
+                 })
         {
-            draft.PropertyChanged += (_, args) =>
-            {
-                if (args.PropertyName == nameof(NumericValueDraft.RawText))
-                {
-                    MarkDraftChanged();
-                }
-            };
+            ObserveGraphicNumber(draft, field);
         }
         ReplaceImageCommand = new AsyncRelayCommand(() => IsActive ? Session.RunCommandAsync(Session.Assets.ReplaceSelectedAsync) : Task.CompletedTask);
         EditCropCommand = new RelayCommand(() =>
@@ -52,6 +51,7 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
     public NumericValueDraft CropHeight { get; } = new();
     public NumericValueDraft PlaybackOffset { get; } = new();
     public NumericValueDraft PlaybackSpeed { get; } = new();
+    internal string? ResizeDriver => resizeDriver;
     public ICommand ReplaceImageCommand { get; }
     public ICommand EditCropCommand { get; }
     public ICommand ResetCropCommand { get; }
@@ -64,9 +64,16 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
         get => aspectRatioLocked;
         set
         {
-            if (SetProperty(ref aspectRatioLocked, value) && value && Width.Parse() is > 0 && Height.Parse() is > 0)
+            if (SetProperty(ref aspectRatioLocked, value))
             {
-                aspectRatio = (double)(Width.Parse()!.Value / Height.Parse()!.Value);
+                if (value && Width.Parse() is > 0 && Height.Parse() is > 0)
+                {
+                    aspectRatio = (double)(Width.Parse()!.Value / Height.Parse()!.Value);
+                }
+                if (!value)
+                {
+                    resizeDriver = null;
+                }
             }
         }
     }
@@ -77,7 +84,7 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
         {
             if (SetProperty(ref animationEnabled, value))
             {
-                MarkDraftChanged();
+                MarkGraphicFieldChanged(nameof(AnimationEnabled));
             }
         }
     }
@@ -88,7 +95,7 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
         {
             if (Enum.IsDefined((ImagePlaybackMode)value) && SetProperty(ref playbackMode, value))
             {
-                MarkDraftChanged();
+                MarkGraphicFieldChanged(nameof(PlaybackMode));
             }
         }
     }
@@ -99,7 +106,7 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
         {
             if (Enum.IsDefined((ImageFit)value) && SetProperty(ref fit, value))
             {
-                MarkDraftChanged();
+                MarkGraphicFieldChanged(nameof(Fit));
             }
         }
     }
@@ -110,6 +117,7 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
 
     protected override void LoadGraphicCore(ProjectDocument document, ProjectLayer layer)
     {
+        resizeDriver = null;
         var image = layer.Image!;
         Width.Load(image.Width);
         Height.Load(image.Height);
@@ -142,19 +150,49 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
 
     internal void RefreshContext() => OnPropertyChanged(nameof(CanMatchSubtitleTiming));
 
+    /// <inheritdoc />
+    public override void Accept()
+    {
+        resizeDriver = null;
+        base.Accept();
+    }
+
+    internal override Action CaptureDraftIntent()
+    {
+        var restore = base.CaptureDraftIntent();
+        var driver = resizeDriver;
+        return () =>
+        {
+            restore();
+            resizeDriver = driver;
+        };
+    }
+
     internal override Action? CaptureNumericGesture(string? fieldKey)
     {
-        if (!AspectRatioLocked || fieldKey is not ("LayerWidthInput" or "LayerHeightInput"))
+        var driver = resizeDriver;
+        var restore = AspectRatioLocked && fieldKey is ("LayerWidthInput" or "LayerHeightInput")
+            ? CaptureGraphicNumbers((nameof(Width), Width), (nameof(Height), Height)) : fieldKey switch
+        {
+            "LayerWidthInput" => CaptureGraphicNumbers((nameof(Width), Width)),
+            "LayerHeightInput" => CaptureGraphicNumbers((nameof(Height), Height)),
+            "ImageCropXInput" => CaptureGraphicNumbers((nameof(CropX), CropX)),
+            "ImageCropYInput" => CaptureGraphicNumbers((nameof(CropY), CropY)),
+            "ImageCropWidthInput" => CaptureGraphicNumbers((nameof(CropWidth), CropWidth)),
+            "ImageCropHeightInput" => CaptureGraphicNumbers((nameof(CropHeight), CropHeight)),
+            "ImagePlaybackOffsetInput" => CaptureGraphicNumbers((nameof(PlaybackOffset), PlaybackOffset)),
+            "ImagePlaybackSpeedInput" => CaptureGraphicNumbers((nameof(PlaybackSpeed), PlaybackSpeed)),
+            _ => null
+        };
+        if (restore is null)
         {
             return null;
         }
-        var width = Width.RawText;
-        var height = Height.RawText;
-        return () => Session.RestoreGraphicStyleField(() =>
+        return () =>
         {
-            Width.RawText = width;
-            Height.RawText = height;
-        });
+            restore();
+            resizeDriver = driver;
+        };
     }
 
     protected override bool RestoreGraphicField(string fieldKey)
@@ -179,6 +217,22 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
                 case "ImagePlaybackSpeedInput": PlaybackSpeed.Load(image.Playback?.Speed ?? 1); break;
             }
         });
+        ForgetDraftField(fieldKey switch
+        {
+            "LayerWidthInput" => nameof(Width),
+            "LayerHeightInput" => nameof(Height),
+            "ImageCropXInput" => nameof(CropX),
+            "ImageCropYInput" => nameof(CropY),
+            "ImageCropWidthInput" => nameof(CropWidth),
+            "ImageCropHeightInput" => nameof(CropHeight),
+            "ImagePlaybackOffsetInput" => nameof(PlaybackOffset),
+            "ImagePlaybackSpeedInput" => nameof(PlaybackSpeed),
+            _ => throw new ArgumentOutOfRangeException(nameof(fieldKey))
+        });
+        if (fieldKey is "LayerWidthInput" or "LayerHeightInput")
+        {
+            resizeDriver = null;
+        }
         return true;
     }
 
@@ -191,6 +245,8 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
         {
             return;
         }
+        RecordDraftField(ReferenceEquals(changed, Width) ? nameof(Width) : nameof(Height));
+        resizeDriver = null;
         if (AspectRatioLocked && changed.Parse() is > 0 && paired.Parse() is > 0 &&
             (double)changed.Parse()!.Value * multiplier is >= 0.001 and <= 1e6)
         {
@@ -198,6 +254,8 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
             try
             {
                 paired.Load((double)changed.Parse()!.Value * multiplier);
+                RecordDraftField(ReferenceEquals(paired, Width) ? nameof(Width) : nameof(Height));
+                resizeDriver = ReferenceEquals(changed, Width) ? nameof(Width) : nameof(Height);
             }
             finally
             {
@@ -217,6 +275,11 @@ internal sealed class ImageStyleViewModel : GraphicStyleEditorViewModel
         CropY.Load(0);
         CropWidth.Load(100);
         CropHeight.Load(100);
+        foreach (var field in new[] { nameof(CropX), nameof(CropY), nameof(CropWidth), nameof(CropHeight) })
+        {
+            RecordDraftField(field);
+        }
+        MarkDraftChanged();
         CommitDrafts();
     }
 }

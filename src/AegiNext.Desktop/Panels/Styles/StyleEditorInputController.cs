@@ -16,6 +16,7 @@ internal sealed class StyleEditorInputController : IDisposable
     private readonly WorkbenchSession session;
     private NumericDragEditSnapshot? drag;
     private Action? restoreLinkedFields;
+    private Action? restoreDraftIntent;
     private int revision;
     private bool disposed;
 
@@ -82,18 +83,27 @@ internal sealed class StyleEditorInputController : IDisposable
     {
         ++revision;
         drag = new(session);
+        restoreDraftIntent = editor.CaptureDraftIntent();
         restoreLinkedFields = editor.CaptureNumericGesture(e.Input.Name);
     }
 
     private void OnDragCompleted(object? sender, NumericDragEventArgs e)
     {
         var snapshot = drag;
+        var restoreIntent = restoreDraftIntent;
+        var restoreLinked = restoreLinkedFields;
         drag = null;
+        restoreDraftIntent = null;
         restoreLinkedFields = null;
         ++revision;
         if (e.Changed && snapshot?.Matches(session) == true && editor.IsActive)
         {
             editor.CommitDrafts();
+        }
+        else if (snapshot?.Matches(session) == true && editor.IsActive && restoreIntent is not null)
+        {
+            restoreLinked?.Invoke();
+            session.RestoreStyleDraftIntent(restoreIntent);
         }
     }
 
@@ -102,8 +112,13 @@ internal sealed class StyleEditorInputController : IDisposable
         if (drag?.Matches(session) == true && editor.IsActive)
         {
             restoreLinkedFields?.Invoke();
+            if (restoreDraftIntent is { } restoreIntent)
+            {
+                session.RestoreStyleDraftIntent(restoreIntent);
+            }
         }
         restoreLinkedFields = null;
+        restoreDraftIntent = null;
         drag = null;
         ++revision;
     }

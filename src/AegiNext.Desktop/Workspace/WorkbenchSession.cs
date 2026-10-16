@@ -662,6 +662,14 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
     {
         if (!closing && !IsUpdating)
         {
+            if (stylesDirty || effectsDirty)
+            {
+                QueueInspectorPreview(true);
+            }
+            else
+            {
+                ClearInspectorPreview();
+            }
             RefreshEditingPreview();
         }
     }

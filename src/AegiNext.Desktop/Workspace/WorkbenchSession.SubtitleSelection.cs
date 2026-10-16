@@ -46,6 +46,7 @@ internal sealed partial class WorkbenchSession
         ViewModel.Effects.EditMode = CanvasEditMode.POSITION;
         RefreshDocument();
         CenterSubtitleSelection();
+        SeekSelectedClipOnSelection();
         return true;
     }
 

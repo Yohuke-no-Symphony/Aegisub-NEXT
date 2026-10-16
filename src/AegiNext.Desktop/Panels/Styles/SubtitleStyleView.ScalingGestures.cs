@@ -11,6 +11,7 @@ namespace AegiNext.Desktop.Panels.Styles;
 internal sealed partial class SubtitleStyleView
 {
     private NumericDragEditSnapshot? scalingGestureSnapshot;
+    private Action? restoreScalingDraftIntent;
     private IPointer? scalingGesturePointer;
     private double scalingGestureOrigin;
     private Key? scalingGestureKey;
@@ -101,6 +102,7 @@ internal sealed partial class SubtitleStyleView
         ++focusCommitRevision;
         suppressFocusCommit = true;
         scalingGestureSnapshot = new(session);
+        restoreScalingDraftIntent = viewModel.CaptureDraftIntent();
         scalingGestureOrigin = viewModel.Scaling.MatchWidthOrHeight;
         scalingGesturePointer = pointer;
     }
@@ -116,7 +118,9 @@ internal sealed partial class SubtitleStyleView
         }
         var pointer = scalingGesturePointer;
         var original = scalingGestureOrigin;
+        var restoreIntent = restoreScalingDraftIntent;
         scalingGestureSnapshot = null;
+        restoreScalingDraftIntent = null;
         scalingGesturePointer = null;
         scalingGestureKey = null;
         ++focusCommitRevision;
@@ -126,7 +130,11 @@ internal sealed partial class SubtitleStyleView
         {
             if (matches)
             {
-                viewModel.Scaling.MatchWidthOrHeight = original;
+                session.RestoreStyleDraftIntent(() =>
+                {
+                    viewModel.Scaling.MatchWidthOrHeight = original;
+                    restoreIntent?.Invoke();
+                });
             }
             ReleaseScalingPointer(pointer);
             return;
@@ -134,6 +142,10 @@ internal sealed partial class SubtitleStyleView
         if (matches && !original.Equals(viewModel.Scaling.MatchWidthOrHeight))
         {
             viewModel.CommitDrafts();
+        }
+        else if (matches && restoreIntent is not null)
+        {
+            session.RestoreStyleDraftIntent(restoreIntent);
         }
     }
 

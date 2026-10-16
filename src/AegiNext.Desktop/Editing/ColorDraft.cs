@@ -18,6 +18,7 @@ public sealed class ColorDraft : ObservableObject
     private readonly HashSet<string> dirtyFields = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (string Text, double Value)> loadedNumbers = new(StringComparer.Ordinal);
     private bool loading;
+    private bool entireColorDraft;
     private bool alphaEnabled = true;
     private string? invalidFieldKey;
     private int revision;
@@ -202,6 +203,7 @@ public sealed class ColorDraft : ObservableObject
             source = color;
             value = color;
             dirtyFields.Clear();
+            entireColorDraft = false;
             originalHex = ColorHexCodec.Format(color, IsAlphaEnabled);
             HexText = originalHex;
             originalRgba = ColorRgbaCodec.Format(color);
@@ -268,6 +270,29 @@ public sealed class ColorDraft : ObservableObject
         return true;
     }
 
+    internal SceneColor ApplyEditsTo(SceneColor target)
+    {
+        if (!IsDirty)
+        {
+            return target;
+        }
+        if (!TryCommit(out var candidate))
+        {
+            throw new InvalidDataException(Error);
+        }
+        if (entireColorDraft || dirtyFields.Contains("Hex") || dirtyFields.Contains("Rgba"))
+        {
+            return IsAlphaEnabled ? candidate : candidate with { Alpha = target.Alpha };
+        }
+        return target with
+        {
+            Red = dirtyFields.Contains("Red") ? candidate.Red : target.Red,
+            Green = dirtyFields.Contains("Green") ? candidate.Green : target.Green,
+            Blue = dirtyFields.Contains("Blue") ? candidate.Blue : target.Blue,
+            Alpha = IsAlphaEnabled && dirtyFields.Contains("Alpha") ? candidate.Alpha : target.Alpha
+        };
+    }
+
     /// <summary>由用户完成 HEX、选择器或 RGBA 操作时发布一次已验证线性色。</summary>
     public bool TryCommit()
     {
@@ -298,6 +323,7 @@ public sealed class ColorDraft : ObservableObject
 
         loading = true;
         value = next;
+        entireColorDraft = true;
         LoadNumbers(next);
         HexText = ColorHexCodec.Format(next, IsAlphaEnabled);
         RgbaText = ColorRgbaCodec.Format(next);

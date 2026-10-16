@@ -7,14 +7,36 @@ namespace AegiNext.Desktop.Panels.Styles;
 internal abstract class StyleEditorViewModel(WorkbenchSession session) : ObservableObject, IStyleEditor
 {
     private bool loading;
+    private readonly HashSet<string> draftFields = [];
 
     protected WorkbenchSession Session { get; } = session;
     protected bool IsLoading => loading;
     public abstract LayerKind Kind { get; }
     public Guid? LayerId { get; private set; }
     public bool HasDrafts { get; internal set; }
+    internal IReadOnlySet<string> DraftFields => draftFields;
+    internal void RecordDraftField(string field)
+    {
+        if (!loading && !Session.IsUpdating && IsActive)
+        {
+            draftFields.Add(field);
+        }
+    }
+    internal void ForgetDraftField(string field) => draftFields.Remove(field);
+    internal virtual Action CaptureDraftIntent()
+    {
+        var fields = draftFields.ToArray();
+        var hadDrafts = HasDrafts;
+        return () =>
+        {
+            draftFields.Clear();
+            draftFields.UnionWith(fields);
+            HasDrafts = hadDrafts;
+        };
+    }
     internal event EventHandler? DraftChanged;
-    internal bool IsActive => ReferenceEquals(Session.ViewModel.Styles.ActiveEditor, this) && LayerId == Session.SelectedLayerId;
+    internal bool IsActive => ReferenceEquals(Session.ViewModel.Styles.ActiveEditor, this) && LayerId == Session.SelectedLayerId &&
+        Session.HasStyleSelection(Kind);
 
     public void Load(ProjectDocument document, ProjectLayer layer)
     {
@@ -32,6 +54,7 @@ internal abstract class StyleEditorViewModel(WorkbenchSession session) : Observa
         {
             LayerId = layer.Id;
             HasDrafts = false;
+            draftFields.Clear();
             LoadCore(document, layer);
         }
         finally
@@ -50,7 +73,11 @@ internal abstract class StyleEditorViewModel(WorkbenchSession session) : Observa
         return PrepareCore(document, layer, preview);
     }
 
-    public void Accept() => HasDrafts = false;
+    public virtual void Accept()
+    {
+        HasDrafts = false;
+        draftFields.Clear();
+    }
     public abstract bool RestoreField(string fieldKey);
     internal virtual Action? CaptureNumericGesture(string? fieldKey) => null;
     protected abstract void LoadCore(ProjectDocument document, ProjectLayer layer);

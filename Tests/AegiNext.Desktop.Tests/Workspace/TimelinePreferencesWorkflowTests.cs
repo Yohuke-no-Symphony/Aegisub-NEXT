@@ -22,6 +22,7 @@ public sealed class TimelinePreferencesWorkflowTests
         {
             TimelineSnapEnabled = false,
             TimelineStepEnabled = true,
+            TimelineAutoSeekEnabled = true,
             TimelineSpectrumVisible = false,
             TimelineWaveformVisible = false
         } : new();
@@ -73,6 +74,8 @@ public sealed class TimelinePreferencesWorkflowTests
         AssertOptions(application.Preferences, second.ViewModel.Timeline);
         first.ViewModel.Timeline.IsStepEnabled = true;
         AssertOptions(application.Preferences, second.ViewModel.Timeline);
+        first.ViewModel.Timeline.IsAutoSeekEnabled = true;
+        AssertOptions(application.Preferences, second.ViewModel.Timeline);
         first.ViewModel.Timeline.IsSpectrumVisible = false;
         AssertOptions(application.Preferences, second.ViewModel.Timeline);
         first.ViewModel.Timeline.IsWaveformVisible = false;
@@ -83,9 +86,10 @@ public sealed class TimelinePreferencesWorkflowTests
         var expected = application.Preferences;
         Assert.False(expected.TimelineSnapEnabled);
         Assert.True(expected.TimelineStepEnabled);
+        Assert.True(expected.TimelineAutoSeekEnabled);
         Assert.False(expected.TimelineSpectrumVisible);
         Assert.False(expected.TimelineWaveformVisible);
-        Assert.Equal(5, notifications);
+        Assert.Equal(6, notifications);
         AssertOptions(expected, first.ViewModel.Timeline);
         AssertOptions(expected, second.ViewModel.Timeline);
         Assert.Same(firstDocument, first.DocumentSnapshot);
@@ -115,6 +119,7 @@ public sealed class TimelinePreferencesWorkflowTests
         {
             TimelineSnapEnabled = false,
             TimelineStepEnabled = true,
+            TimelineAutoSeekEnabled = true,
             TimelineSpectrumVisible = false,
             TimelineWaveformVisible = false
         });
@@ -143,6 +148,7 @@ public sealed class TimelinePreferencesWorkflowTests
 
             session.ViewModel.Timeline.IsSnapEnabled = false;
             session.ViewModel.Timeline.IsStepEnabled = true;
+            session.ViewModel.Timeline.IsAutoSeekEnabled = true;
             session.ViewModel.Timeline.IsSpectrumVisible = false;
             session.ViewModel.Timeline.IsWaveformVisible = false;
             await application.Completion;
@@ -161,6 +167,7 @@ public sealed class TimelinePreferencesWorkflowTests
     {
         Assert.Equal(expected.TimelineSnapEnabled, timeline.IsSnapEnabled);
         Assert.Equal(expected.TimelineStepEnabled, timeline.IsStepEnabled);
+        Assert.Equal(expected.TimelineAutoSeekEnabled, timeline.IsAutoSeekEnabled);
         Assert.Equal(expected.TimelineSpectrumVisible, timeline.IsSpectrumVisible);
         Assert.Equal(expected.TimelineWaveformVisible, timeline.IsWaveformVisible);
     }

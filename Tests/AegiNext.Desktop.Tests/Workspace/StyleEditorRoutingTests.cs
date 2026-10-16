@@ -85,26 +85,70 @@ public sealed class StyleEditorRoutingTests
         Assert.False(session.HasProjectDrafts);
     }
 
-    [Fact]
-    public async Task MixedSelectionEditsOnlyThePrimaryShapeAndKeepsOtherClips()
+    [Theory]
+    [InlineData(LayerKind.SUBTITLE)]
+    [InlineData(LayerKind.IMAGE)]
+    [InlineData(LayerKind.SHAPE)]
+    public async Task MixedSelectionDisablesEveryStyleEditorAndPreservesAllClips(LayerKind kind)
     {
         var document = Document();
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         var session = context.Session;
-        var shape = document.Layers.Single(layer => layer.Kind == LayerKind.SHAPE);
-        session.SelectLayer(shape.Id, document.Layers.Select(layer => layer.Id).ToArray());
-        var model = Assert.IsType<ShapeStyleViewModel>(session.ViewModel.Styles.ActiveEditor);
+        var primary = document.Layers.Single(layer => layer.Kind == kind);
+        session.SelectLayer(primary.Id, [primary.Id]);
+        var model = Assert.IsAssignableFrom<StyleEditorViewModel>(session.ViewModel.Styles.ActiveEditor);
+        session.SelectLayer(primary.Id, document.Layers.Select(layer => layer.Id).ToArray());
+
+        Assert.Null(session.ViewModel.Styles.ActiveEditor);
+        Assert.False(session.ViewModel.Styles.Subtitle.HasCue);
+        Assert.False(model.IsActive);
+        Assert.Empty(session.StyleLayerIds(kind));
         Assert.False(string.IsNullOrWhiteSpace(session.ViewModel.Styles.SelectionLabel));
-        model.Width.RawText = "333";
-        model.FillDraft.SetValue(new(0.25, 0.5, 0.75, 1));
+        session.ViewModel.Styles.Subtitle.FontSizeText = "invalid";
+        session.ViewModel.Styles.Image.Width.RawText = "invalid";
+        session.ViewModel.Styles.Shape.Width.RawText = "invalid";
+        session.ViewModel.Styles.Subtitle.CommitBold(true);
 
+        Assert.False(session.HasProjectDrafts);
+        Assert.Same(document, model.Prepare(document, false));
         Assert.True(session.TryCommitDrafts(false));
+        Assert.Same(document, context.Editor.Snapshot);
+        Assert.False(context.Editor.CanUndo);
+    }
 
-        Assert.Equal(333, session.SelectedLayer!.Shape!.Width);
-        Assert.Equal(new SceneColor(0.25, 0.5, 0.75, 1), session.SelectedLayer.Fill);
-        Assert.Equal(document.Layers.Where(layer => layer.Id != shape.Id), context.Editor.Snapshot.Layers.Where(layer => layer.Id != shape.Id));
-        Assert.Equal(document.Subtitles, context.Editor.Snapshot.Subtitles);
+    [Theory]
+    [InlineData(LayerKind.SUBTITLE)]
+    [InlineData(LayerKind.IMAGE)]
+    [InlineData(LayerKind.SHAPE)]
+    public async Task SameTypeSelectionIncludesThePrimaryAndKeepsItsEditorActive(LayerKind kind)
+    {
+        var source = Document();
+        var primary = source.Layers.Single(layer => layer.Kind == kind);
+        var subtitle = source.Subtitles[0] with { Id = Guid.NewGuid(), Start = new(5), End = new(9) };
+        var second = primary with
+        {
+            Id = Guid.NewGuid(), Start = new(5), End = new(9),
+            SubtitleId = kind == LayerKind.SUBTITLE ? subtitle.Id : null
+        };
+        var document = source with
+        {
+            Subtitles = kind == LayerKind.SUBTITLE ? source.Subtitles.Add(subtitle) : source.Subtitles,
+            Layers = source.Layers.Add(second)
+        };
+        await using var context = new WorkspaceSessionTestContext(document);
+        await context.InitializeAsync();
+        var session = context.Session;
+
+        session.SelectLayer(primary.Id, [second.Id]);
+
+        var model = Assert.IsAssignableFrom<StyleEditorViewModel>(session.ViewModel.Styles.ActiveEditor);
+        Assert.Equal(kind, model.Kind);
+        Assert.True(model.IsActive);
+        Assert.Equal(new[] { primary.Id, second.Id }, session.StyleLayerIds(kind));
+        Assert.True(session.HasStyleSelection(kind));
+        Assert.False(session.HasProjectDrafts);
+        Assert.False(context.Editor.CanUndo);
     }
 
     private static ProjectDocument Document()

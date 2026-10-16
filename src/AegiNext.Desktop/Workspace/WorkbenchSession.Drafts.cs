@@ -326,7 +326,7 @@ internal sealed partial class WorkbenchSession
 
         if (!IsUpdating && ViewModel.Styles.Subtitle.IsActive && e.PropertyName is { } name && styleDraftProperties.Contains(name))
         {
-            ViewModel.Styles.Subtitle.NotifyDraftChanged();
+            ViewModel.Styles.Subtitle.NotifyDraftChanged(name);
         }
     }
 
@@ -432,7 +432,7 @@ internal sealed partial class WorkbenchSession
             var selectedIds = ViewModel.Effects.SelectedIds.Where(id => layers.Any(layer => layer.Id == id)).ToArray();
             if (SelectedLayerId is { } primary && !selectedIds.Contains(primary))
             {
-                selectedIds = [primary];
+                selectedIds = [.. selectedIds, primary];
             }
             ViewModel.Effects.SelectedIds = selectedIds;
             ViewModel.Timeline.SelectedLayerIds = selectedIds;
@@ -441,7 +441,7 @@ internal sealed partial class WorkbenchSession
             ViewModel.Effects.RefreshPropertyGrid();
             MaskEditing.Refresh(!preserveDrafts);
             RefreshInspector();
-            ViewModel.Styles.Subtitle.CanApplyPreset = SelectedCue is not null && !IsProjectBusy && !closing && ViewModel.Styles.Subtitle.SelectedPreset is not null;
+            ViewModel.Styles.Subtitle.CanApplyPreset = HasStyleSelection(LayerKind.SUBTITLE) && !IsProjectBusy && !closing && ViewModel.Styles.Subtitle.SelectedPreset is not null;
             Tick();
             SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
@@ -557,6 +557,7 @@ internal sealed partial class WorkbenchSession
         var revealed = RevealSubtitleColorTagTargets([id]);
         SynchronizeCueSelection(id);
         RefreshDocument();
+        SeekSelectedClipOnSelection();
         if (revealed)
         {
             SubtitleScrollRequested?.Invoke(this, EventArgs.Empty);
@@ -582,7 +583,8 @@ internal sealed partial class WorkbenchSession
             return;
         }
 
-        if ((id != SelectedLayerId || ViewModel.Effects.HasInstanceDrafts) && !TryCommitDrafts())
+        if ((id != SelectedLayerId || !ViewModel.Effects.SelectedIds.ToHashSet().SetEquals(selectedIds) ||
+             ViewModel.Effects.HasInstanceDrafts) && !TryCommitDrafts())
         {
             RefreshDocument();
             return;
@@ -608,6 +610,7 @@ internal sealed partial class WorkbenchSession
 
         SynchronizeSubtitleSelectionFromLayers();
         RefreshDocument();
+        SeekSelectedClipOnSelection();
         if (revealed)
         {
             SubtitleScrollRequested?.Invoke(this, EventArgs.Empty);

@@ -15,16 +15,24 @@ public class LayerPositionDraft : ObservableObject
     private ScenePoint loadedPivot;
     private ScenePoint compensatedPivot;
     private SceneVector3 loadedProjectionTranslation;
+    private readonly List<LayerPositionDraftEdit> edits = [];
+    private readonly HashSet<string> editedFields = new(StringComparer.Ordinal);
 
     /// <summary>创建独立的六项数值草稿，并统一发布位置变化。</summary>
     public LayerPositionDraft()
     {
-        foreach (var field in new[] { AnchorX, AnchorY, PivotX, PivotY, OffsetX, OffsetY })
+        foreach (var field in new (string Key, NumericValueDraft Draft)[]
+                 {
+                     ("AnchorXInput", AnchorX), ("AnchorYInput", AnchorY),
+                     ("PivotXInput", PivotX), ("PivotYInput", PivotY),
+                     ("OffsetXInput", OffsetX), ("OffsetYInput", OffsetY)
+                 })
         {
-            field.PropertyChanged += (_, args) =>
+            field.Draft.PropertyChanged += (_, args) =>
             {
                 if (!loading && args.PropertyName == nameof(NumericValueDraft.RawText))
                 {
+                    RecordFieldEdit(field.Key, field.Draft.RawText);
                     CompensateAffinePivot();
                     RaiseChanged();
                 }
@@ -41,6 +49,8 @@ public class LayerPositionDraft : ObservableObject
     public NumericValueDraft PivotY { get; } = new();
     public NumericValueDraft OffsetX { get; } = new();
     public NumericValueDraft OffsetY { get; } = new();
+    public bool HasEdits => IsExplicit && editedFields.Count > 0 ||
+        edits.Any(edit => edit is LayerPositionPresetEdit or LayerPositionModeEdit);
     /// <summary>允许编辑的归一化轴心下界；普通图层使用零，蒙版可保留框外轴心。</summary>
     public decimal PivotMinimum { get; init; }
     /// <summary>允许编辑的归一化轴心上界；普通图层使用一。</summary>
@@ -86,6 +96,17 @@ public class LayerPositionDraft : ObservableObject
         {
             if (SetProperty(ref isExplicit, value))
             {
+                if (!loading)
+                {
+                    if (edits.LastOrDefault() is LayerPositionModeEdit)
+                    {
+                        edits[^1] = new LayerPositionModeEdit(value);
+                    }
+                    else
+                    {
+                        edits.Add(new LayerPositionModeEdit(value));
+                    }
+                }
                 RaiseChanged();
             }
         }
@@ -127,7 +148,103 @@ public class LayerPositionDraft : ObservableObject
         {
             loading = false;
         }
+        ClearEdits();
         NotifySelection();
+    }
+
+    /// <summary>在已载入自身位置和几何的目标草稿上重放用户操作，由目标独立计算保位补偿。</summary>
+    public void ApplyEditsTo(LayerPositionDraft target)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        if (ReferenceEquals(this, target))
+        {
+            throw new ArgumentException("位置编辑必须应用到另一个草稿。", nameof(target));
+        }
+        if (Validate() is { } sourceField)
+        {
+            throw new InvalidDataException(sourceField);
+        }
+        if (!HasEdits)
+        {
+            return;
+        }
+        if (!IsExplicit)
+        {
+            target.IsExplicit = false;
+            return;
+        }
+
+        target.IsExplicit = true;
+        foreach (var edit in edits)
+        {
+            edit.ApplyTo(target);
+        }
+        if (target.Validate() is { } targetField)
+        {
+            throw new InvalidDataException(targetField);
+        }
+    }
+
+    /// <summary>清除待重放的用户操作；宿主接受或取消整份草稿时调用，不改变当前输入。</summary>
+    public void ClearEdits()
+    {
+        if (edits.Count == 0 && editedFields.Count == 0)
+        {
+            return;
+        }
+        edits.Clear();
+        editedFields.Clear();
+        OnPropertyChanged(nameof(HasEdits));
+    }
+
+    /// <summary>捕获当前目标的原始输入及操作意图，取消手势时完整恢复并只发布一次位置变化。</summary>
+    public Action CaptureEditState()
+    {
+        var fields = new[] { AnchorX, AnchorY, PivotX, PivotY, OffsetX, OffsetY };
+        var numbers = fields.Select(field => (field.RawText, field.Value)).ToArray();
+        var position = source;
+        var explicitPosition = isExplicit;
+        var customizable = canCustomize;
+        var originalGeometry = geometry;
+        var originalLoadedPivot = loadedPivot;
+        var originalCompensatedPivot = compensatedPivot;
+        var originalProjectionTranslation = loadedProjectionTranslation;
+        var originalEdits = edits.ToArray();
+        var originalEditedFields = editedFields.ToArray();
+        return () =>
+        {
+            loading = true;
+            try
+            {
+                source = position;
+                loadedPivot = originalLoadedPivot;
+                compensatedPivot = originalCompensatedPivot;
+                loadedProjectionTranslation = originalProjectionTranslation;
+                CanCustomize = customizable;
+                IsExplicit = explicitPosition;
+                for (var index = 0; index < fields.Length; index++)
+                {
+                    var field = fields[index];
+                    var number = numbers[index];
+                    if (number.Value is null && field.RawText.Length > 0)
+                    {
+                        field.RawText = string.Empty;
+                    }
+                    field.Value = number.Value;
+                    field.RawText = number.RawText;
+                }
+                edits.Clear();
+                edits.AddRange(originalEdits);
+                editedFields.Clear();
+                editedFields.UnionWith(originalEditedFields);
+                UpdateGeometry(originalGeometry);
+            }
+            finally
+            {
+                loading = false;
+            }
+            RaiseChanged();
+        };
     }
 
     /// <summary>更新内容几何而保留数值草稿和未完成输入。</summary>
@@ -185,6 +302,8 @@ public class LayerPositionDraft : ObservableObject
             loading = false;
         }
         CompensateAffinePivot();
+        edits.Add(new LayerPositionPresetEdit(anchor, setPivot, resetOffset));
+        editedFields.Clear();
         RaiseChanged();
         return true;
     }
@@ -247,8 +366,46 @@ public class LayerPositionDraft : ObservableObject
             loading = false;
         }
         CompensateAffinePivot();
+        editedFields.Remove(fieldKey);
+        if (editedFields.Count > 0 || edits.Any(edit => edit is LayerPositionPresetEdit or LayerPositionModeEdit))
+        {
+            edits.Add(new LayerPositionFieldEdit(fieldKey, null));
+        }
+        else
+        {
+            edits.Clear();
+        }
         RaiseChanged();
         return true;
+    }
+
+    internal void ApplyFieldText(string fieldKey, string rawText)
+    {
+        var field = fieldKey switch
+        {
+            "AnchorXInput" => AnchorX,
+            "AnchorYInput" => AnchorY,
+            "PivotXInput" => PivotX,
+            "PivotYInput" => PivotY,
+            "OffsetXInput" => OffsetX,
+            "OffsetYInput" => OffsetY,
+            _ => throw new ArgumentException("未知的位置字段。", nameof(fieldKey))
+        };
+        field.RawText = rawText;
+    }
+
+    private void RecordFieldEdit(string fieldKey, string rawText)
+    {
+        editedFields.Add(fieldKey);
+        var edit = new LayerPositionFieldEdit(fieldKey, rawText);
+        if (edits.LastOrDefault() is LayerPositionFieldEdit { RawText: not null } previous && previous.FieldKey == fieldKey)
+        {
+            edits[^1] = edit;
+        }
+        else
+        {
+            edits.Add(edit);
+        }
     }
 
     /// <summary>创建验证后的持久化位置；未编辑的双精度值保持原值。</summary>
@@ -328,6 +485,7 @@ public class LayerPositionDraft : ObservableObject
     {
         if (!loading)
         {
+            OnPropertyChanged(nameof(HasEdits));
             NotifySelection();
             Changed?.Invoke(this, EventArgs.Empty);
         }

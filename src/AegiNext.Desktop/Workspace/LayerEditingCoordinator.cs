@@ -135,11 +135,12 @@ internal sealed class LayerEditingCoordinator(WorkbenchSession session, IWorkben
 
     internal void ResetAutomaticPosition()
     {
-        if (session.SelectedCue is { } cue)
+        var ids = session.StyleSubtitleIds();
+        if (!ids.IsEmpty)
         {
             session.ViewModel.CancelGestures();
             ClearKeyframeSelection();
-            session.Editor.ResetSubtitlePosition(cue.Id);
+            session.Editor.ResetSubtitlePositions(ids);
             session.ViewModel.Effects.EditMode = CanvasEditMode.POSITION;
         }
     }

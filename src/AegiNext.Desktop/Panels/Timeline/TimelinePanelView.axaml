@@ -4,61 +4,76 @@
              xmlns:controls="using:AegiNext.Desktop.Controls"
              xmlns:vm="using:AegiNext.Desktop.Panels.Timeline" x:DataType="vm:TimelinePanelViewModel"
              x:Class="AegiNext.Desktop.Panels.Timeline.TimelinePanelView" Classes="business-surface">
+  <UserControl.Styles>
+    <Style Selector="Border.timeline-toolbar controlsCommon|ToolbarToggleButton, Border.timeline-toolbar Button.icon-button">
+      <Setter Property="Width" Value="24" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="MinWidth" Value="24" />
+      <Setter Property="MinHeight" Value="24" />
+      <Setter Property="Padding" Value="0" />
+    </Style>
+  </UserControl.Styles>
   <Border Background="{DynamicResource PreviewSurface}" BorderThickness="0"
           CornerRadius="{DynamicResource WorkbenchPanelCornerRadius}" ClipToBounds="True">
-    <Grid RowDefinitions="28,*" ColumnDefinitions="37,*">
-      <Border Grid.RowSpan="2" BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,1,0">
+    <Grid RowDefinitions="28,*" ColumnDefinitions="29,*">
+      <Border Classes="timeline-toolbar" Grid.RowSpan="2" BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,1,0">
         <Grid RowDefinitions="*,Auto">
         <ScrollViewer Name="TimelineToolbarScroller" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
-        <StackPanel Spacing="4" Margin="2,4">
+        <StackPanel Spacing="2" Margin="2,4">
           <controlsCommon:ToolbarToggleButton Name="TimelineSnapButton" ToolTip.Tip="{Loc Key=Workbench.TimelineSnapHint}"
                         AutomationProperties.Name="{Loc Key=Workbench.TimelineSnap}"
                         IsChecked="{Binding IsSnapEnabled, Mode=TwoWay}">
-            <materialIcons:MaterialIcon Name="TimelineSnapIcon" Width="18" Height="18" />
+            <materialIcons:MaterialIcon Name="TimelineSnapIcon" Width="16" Height="16" />
           </controlsCommon:ToolbarToggleButton>
           <controlsCommon:ToolbarToggleButton Name="TimelineSpectrumButton" ToolTip.Tip="{Loc Key=Workbench.TimelineSpectrum}"
                         AutomationProperties.Name="{Loc Key=Workbench.TimelineSpectrum}"
                         IsChecked="{Binding IsSpectrumVisible, Mode=TwoWay}">
-            <materialIcons:MaterialIcon Name="TimelineSpectrumIcon" Width="18" Height="18" />
+            <materialIcons:MaterialIcon Name="TimelineSpectrumIcon" Width="16" Height="16" />
           </controlsCommon:ToolbarToggleButton>
           <controlsCommon:ToolbarToggleButton Name="TimelineWaveformButton" ToolTip.Tip="{Loc Key=Workbench.TimelineWaveform}"
                         AutomationProperties.Name="{Loc Key=Workbench.TimelineWaveform}"
                         IsChecked="{Binding IsWaveformVisible, Mode=TwoWay}">
-            <materialIcons:MaterialIcon Name="TimelineWaveformIcon" Width="18" Height="18" />
+            <materialIcons:MaterialIcon Name="TimelineWaveformIcon" Width="16" Height="16" />
           </controlsCommon:ToolbarToggleButton>
           <controlsCommon:ToolbarToggleButton Name="TimelineStepButton" ToolTip.Tip="{Loc Key=Workbench.TimelineStepHint}"
                         AutomationProperties.Name="{Loc Key=Workbench.TimelineStep}"
                         IsChecked="{Binding IsStepEnabled, Mode=TwoWay}">
             <Path Data="M 1,15 L 5,15 L 5,11 L 9,11 L 9,7 L 13,7 L 13,3 L 17,3 M 5,2 L 5,5 M 9,2 L 9,5 M 13,2 L 13,5"
-                  Width="18" Height="18" Stretch="Uniform" Stroke="{Binding $parent[ToggleButton].Foreground}"
+                  Width="16" Height="16" Stretch="Uniform" Stroke="{Binding $parent[ToggleButton].Foreground}"
                   StrokeThickness="1.7" />
+          </controlsCommon:ToolbarToggleButton>
+          <controlsCommon:ToolbarToggleButton Name="TimelineAutoSeekButton"
+                        ToolTip.Tip="{Loc Key=Workbench.TimelineAutoSeekHint}"
+                        AutomationProperties.Name="{Loc Key=Workbench.TimelineAutoSeek}"
+                        IsChecked="{Binding IsAutoSeekEnabled, Mode=TwoWay}">
+            <materialIcons:MaterialIcon Kind="SkipNext" Width="16" Height="16" />
           </controlsCommon:ToolbarToggleButton>
           <Button Name="TimelineExpandAllTracksButton" Classes="icon-button" Focusable="False"
                   Command="{Binding ExpandAllTracksCommand}"
                   ToolTip.Tip="{Loc Key=Workbench.TimelineExpandAllTracks}"
                   AutomationProperties.Name="{Loc Key=Workbench.TimelineExpandAllTracks}">
-            <materialIcons:MaterialIcon Kind="UnfoldMoreHorizontal" Width="18" Height="18" />
+            <materialIcons:MaterialIcon Kind="UnfoldMoreHorizontal" Width="16" Height="16" />
           </Button>
           <Button Name="TimelineCollapseAllTracksButton" Classes="icon-button" Focusable="False"
                   Command="{Binding CollapseAllTracksCommand}"
                   ToolTip.Tip="{Loc Key=Workbench.TimelineCollapseAllTracks}"
                   AutomationProperties.Name="{Loc Key=Workbench.TimelineCollapseAllTracks}">
-            <materialIcons:MaterialIcon Kind="UnfoldLessHorizontal" Width="18" Height="18" />
+            <materialIcons:MaterialIcon Kind="UnfoldLessHorizontal" Width="16" Height="16" />
           </Button>
         </StackPanel>
         </ScrollViewer>
-        <StackPanel Grid.Row="1" Margin="2,4" Spacing="4">
+        <StackPanel Grid.Row="1" Margin="2,4" Spacing="2">
         <controlsCommon:ToolbarToggleButton Name="TimelineClassicTimingButton"
                         ToolTip.Tip="{Loc Key=Workbench.TimelineClassicTimingHint}"
                         AutomationProperties.Name="{Loc Key=Workbench.TimelineClassicTiming}"
                         IsChecked="{Binding IsClassicTimingEnabled, Mode=TwoWay}">
-          <materialIcons:MaterialIcon Kind="Mouse" Width="18" Height="18" />
+          <materialIcons:MaterialIcon Kind="Mouse" Width="16" Height="16" />
         </controlsCommon:ToolbarToggleButton>
         <Button Name="TimelineTimingPostProcessorButton" Classes="icon-button"
                 Command="{Binding ApplyTimingPostProcessorCommand}"
                 ToolTip.Tip="{Loc Key=Workbench.TimelineTimingPostProcessor}"
                 AutomationProperties.Name="{Loc Key=Workbench.TimelineTimingPostProcessor}">
-          <materialIcons:MaterialIcon Kind="ClockCheckOutline" Width="18" Height="18" />
+          <materialIcons:MaterialIcon Kind="ClockCheckOutline" Width="16" Height="16" />
         </Button>
         </StackPanel>
         </Grid>
