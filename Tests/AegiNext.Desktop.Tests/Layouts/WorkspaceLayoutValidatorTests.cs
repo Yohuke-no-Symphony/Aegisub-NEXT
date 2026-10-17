@@ -7,9 +7,9 @@ public sealed class WorkspaceLayoutValidatorTests
     private static readonly string[] reorderedPanelIds = ["styles", "preview"];
 
     [Fact]
-    public void FourBuiltInLayoutsAreReadOnlyAndAccountForEveryPanel()
+    public void FiveBuiltInLayoutsAreReadOnlyAndAccountForEveryPanel()
     {
-        Assert.Equal(4, WorkspaceLayoutPresets.BuiltIn.Count);
+        Assert.Equal(5, WorkspaceLayoutPresets.BuiltIn.Count);
         Assert.All(WorkspaceLayoutPresets.BuiltIn, preset =>
         {
             Assert.True(preset.IsReadOnly);

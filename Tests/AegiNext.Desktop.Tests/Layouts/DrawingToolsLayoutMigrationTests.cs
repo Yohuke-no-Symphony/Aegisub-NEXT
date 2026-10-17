@@ -64,9 +64,10 @@ public sealed class DrawingToolsLayoutMigrationTests
             Children = node.Children.Where(child => child.PanelId is null || !excludedIds.Contains(child.PanelId))
                 .Select(RemoveLaterPanels).ToArray()
         };
-        foreach (var preset in WorkspaceLayoutPresets.BuiltIn)
+        foreach (var presetId in new[] { "standard", "timing", "effects", "encode" })
         {
-            var previous = VersionFive(preset.Id);
+            var preset = WorkspaceLayoutPresets.BuiltIn.Single(candidate => candidate.Id == presetId);
+            var previous = VersionFive(presetId);
             previous = previous with
             {
                 Version = version,

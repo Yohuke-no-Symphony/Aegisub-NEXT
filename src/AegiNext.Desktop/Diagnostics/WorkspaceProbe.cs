@@ -115,7 +115,8 @@ internal sealed class WorkspaceProbe
             await SettleAsync();
             var panelInstances = MainWindow.Panels.ToDictionary(pair => pair.Key, pair => pair.Value);
             var controller = MainWindow.Session.Controller;
-            foreach (var id in new[] { WorkspaceLayoutPresets.TIMING, WorkspaceLayoutPresets.EFFECTS, WorkspaceLayoutPresets.ENCODE, WorkspaceLayoutPresets.STANDARD })
+            foreach (var id in new[] { WorkspaceLayoutPresets.TIMING, WorkspaceLayoutPresets.EFFECTS,
+                         WorkspaceLayoutPresets.ENCODE, WorkspaceLayoutPresets.AEGISUB_CLASSIC, WorkspaceLayoutPresets.STANDARD })
             {
                 Verify(await MainWindow.Layouts.ApplyPresetAsync(id), $"Applied preset: {id}");
                 await SettleAsync();

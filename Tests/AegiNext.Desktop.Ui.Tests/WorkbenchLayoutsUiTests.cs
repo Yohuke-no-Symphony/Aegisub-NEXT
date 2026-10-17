@@ -133,14 +133,29 @@ public sealed class WorkbenchLayoutsUiTests
             AssertAttached(panels[WorkbenchPanelIds.TIMELINE], owner);
             AssertAttached(panels[WorkbenchPanelIds.SUBTITLES], owner);
             AssertAttached(panels[WorkbenchPanelIds.STYLES], owner);
-            Assert.True(await controller.ApplyPresetAsync(WorkspaceLayoutPresets.TIMING));
-            Flush(owner);
-            Assert.True(await controller.ApplyPresetAsync(WorkspaceLayoutPresets.EFFECTS));
-            Flush(owner);
+            foreach (var preset in WorkspaceLayoutPresets.BuiltIn.Where(preset => preset.Id != WorkspaceLayoutPresets.STANDARD))
+            {
+                Assert.True(await controller.ApplyPresetAsync(preset.Id));
+                Flush(owner);
+                foreach (var id in WorkbenchPanelIds.All)
+                {
+                    Assert.Same(panels[id], controller.PanelAdapters[id].View);
+                    Assert.Same(adapters[id], controller.PanelAdapters[id]);
+                    Assert.Equal(!preset.Layout.HiddenPanelIds.Contains(id), controller.IsVisible(id));
+                    if (preset.Id == WorkspaceLayoutPresets.AEGISUB_CLASSIC && controller.IsVisible(id))
+                    {
+                        AssertAttached(panels[id], owner);
+                    }
+                }
+                if (preset.Id == WorkspaceLayoutPresets.AEGISUB_CLASSIC)
+                {
+                    Assert.False(controller.IsModified);
+                }
+            }
             Assert.True(await controller.RestoreDefaultAsync());
             Flush(owner);
 
-            Assert.Equal(3, commits);
+            Assert.Equal(WorkspaceLayoutPresets.BuiltIn.Count, commits);
             foreach (var id in WorkbenchPanelIds.All)
             {
                 Assert.Same(panels[id], controller.PanelAdapters[id].View);
@@ -235,7 +250,7 @@ public sealed class WorkbenchLayoutsUiTests
         Assert.Null(await controller.SaveAsAsync("renamed"));
         Assert.False(await controller.DeleteAsync(WorkspaceLayoutPresets.STANDARD));
         Assert.True(await controller.DeleteAsync(id));
-        Assert.Equal(4, controller.Presets.Count);
+        Assert.Equal(WorkspaceLayoutPresets.BuiltIn.Count, controller.Presets.Count);
         Assert.Equal(WorkspaceLayoutPresets.STANDARD, controller.CurrentPresetId);
         owner.Close();
     }
@@ -294,9 +309,16 @@ public sealed class WorkbenchLayoutsUiTests
         AegiNext.Desktop.I18n.Localization.SetLanguage("zh-CN");
 
         Assert.Equal("标准", WorkbenchLayoutController.GetPresetName(controller.Presets[0]));
+        var classic = controller.Presets.Single(preset => preset.Id == WorkspaceLayoutPresets.AEGISUB_CLASSIC);
+        Assert.Equal("经典 Aegisub", WorkbenchLayoutController.GetPresetName(classic));
         Assert.Equal("Personal 原文", WorkbenchLayoutController.GetPresetName(controller.Presets.Single(preset => preset.Id == id)));
         Assert.Equal("尚未提交的名字", manager.Name);
         Assert.Equal("视频预览", controller.PanelAdapters[WorkbenchPanelIds.PREVIEW].Title);
+        AegiNext.Desktop.I18n.Localization.SetLanguage("ja-JP");
+        Assert.Equal("クラシック Aegisub", WorkbenchLayoutController.GetPresetName(classic));
+        AegiNext.Desktop.I18n.Localization.SetLanguage("en-US");
+        Assert.Equal("Classic Aegisub", WorkbenchLayoutController.GetPresetName(classic));
+        Assert.Equal("尚未提交的名字", manager.Name);
         owner.Close();
     }
 

@@ -569,6 +569,7 @@
     "Preview.Shortcuts": "空格 播放 / 暂停 · ← → 5 秒",
     "Layout.Layout": "布局",
     "Layout.standard": "标准",
+    "Layout.aegisub-classic": "经典 Aegisub",
     "Layout.timing": "打轴",
     "Layout.effects": "特效",
     "Layout.encode": "压制",

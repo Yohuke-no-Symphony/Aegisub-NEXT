@@ -3,6 +3,7 @@ namespace AegiNext.Desktop.Layouts;
 internal static class WorkspaceLayoutPresets
 {
     public const string STANDARD = "standard";
+    public const string AEGISUB_CLASSIC = "aegisub-classic";
     public const string TIMING = "timing";
     public const string EFFECTS = "effects";
     public const string ENCODE = "encode";
@@ -25,6 +26,20 @@ internal static class WorkspaceLayoutPresets
     public static IReadOnlyList<WorkspaceLayoutPreset> BuiltIn { get; } =
     [
         new(STANDARD, STANDARD, true, Standard),
+        new(AEGISUB_CLASSIC, AEGISUB_CLASSIC, true, new()
+        {
+            Main = Split("vertical", 1,
+                Split("horizontal", 0.72,
+                    Tabs(0.42, WorkbenchPanelIds.PREVIEW),
+                    Split("vertical", 0.58,
+                        Tabs(0.42, WorkbenchPanelIds.TIMELINE),
+                        Tabs(0.58, WorkbenchPanelIds.SUBTITLE_DETAILS))),
+                Tabs(0.28, WorkbenchPanelIds.SUBTITLES)),
+            HiddenPanelIds = [WorkbenchPanelIds.STYLES, WorkbenchPanelIds.EFFECTS, WorkbenchPanelIds.EXPORT,
+                WorkbenchPanelIds.LOG, WorkbenchPanelIds.MASKS, WorkbenchPanelIds.ASSETS,
+                WorkbenchPanelIds.DRAWING_TOOLS, WorkbenchPanelIds.EFFECT_PRESETS],
+            FocusedPanelId = WorkbenchPanelIds.SUBTITLE_DETAILS
+        }),
         new(TIMING, TIMING, true, new()
         {
             Main = Split("vertical", 1,

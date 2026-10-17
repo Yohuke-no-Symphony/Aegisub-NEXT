@@ -11,7 +11,7 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class NativeMenuLifecycleUiTests
 {
-    private static readonly string[] builtinLayoutIds = ["standard", "timing", "effects", "encode"];
+    private static readonly string[] builtinLayoutIds = ["standard", "aegisub-classic", "timing", "effects", "encode"];
 
     [AvaloniaFact]
     public async Task LanguageRefreshReplacesOnlyBranchesWhileOtherUpdatesPreserveEntireMenuTree()
@@ -117,7 +117,7 @@ public sealed class NativeMenuLifecycleUiTests
         var branch = Assert.IsType<NativeMenu>(layouts.Menu);
         var choices = branch.Items.OfType<NativeMenuItem>()
             .Where(item => item.ToggleType == MenuItemToggleType.Radio).ToArray();
-        Assert.Equal(4, choices.Length);
+        Assert.Equal(builtinLayoutIds.Length, choices.Length);
         Assert.Equal(builtinLayoutIds
             .Select(id => Localization.Get("Layout." + id)), choices.Select(item => item.Header));
         Assert.Single(choices, item => item.IsChecked);
