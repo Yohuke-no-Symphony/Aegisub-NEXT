@@ -80,12 +80,7 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
     internal string GetGestureLabel(WorkbenchCommand command)
     {
         var text = preferences.ShortcutBindings.Single(value => value.Command == command).Gesture;
-        if (text.Length == 0)
-        {
-            return string.Empty;
-        }
-
-        return text.Replace("CmdOrCtrl", OperatingSystem.IsMacOS() ? "⌘" : "Ctrl", StringComparison.Ordinal);
+        return ShortcutGestureFormatter.Format(text);
     }
 
     internal void Update(WorkbenchPreferences value)

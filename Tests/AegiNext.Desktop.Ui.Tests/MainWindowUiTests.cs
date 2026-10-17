@@ -1,3 +1,4 @@
+using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Controls;
 using AegiNext.Core.Timing;
 using AegiNext.Core.Editing;
@@ -44,10 +45,10 @@ public sealed class MainWindowUiTests
         var settings = Assert.Single(window.OwnedWindows.OfType<SettingsWindow>());
         settings.SelectPage(SettingsPage.SHORTCUTS);
         UiTestActions.Click(settings, "RecordShortcutButton");
-        var input = UiTestActions.Find<TextBox>(settings, "GestureInput");
+        var input = UiTestActions.Find<ShortcutGestureDisplay>(settings, "GestureInput");
         Assert.True(input.Focus());
         UiTestActions.Press(settings, Key.F8);
-        Assert.Equal("F8", input.Text);
+        Assert.Equal("F8", input.Gesture);
         Assert.False(settings.IsShortcutCaptureActive);
         Assert.Empty(UiTestActions.Find<ListBox>(window, "SubtitleList").Items);
         Assert.NotNull(settings.ViewModel.Shortcuts.Error);

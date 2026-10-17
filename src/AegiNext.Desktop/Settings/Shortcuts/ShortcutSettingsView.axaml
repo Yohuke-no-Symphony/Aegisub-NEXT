@@ -4,6 +4,21 @@
              x:Class="AegiNext.Desktop.Settings.Shortcuts.ShortcutSettingsView" Classes="business-surface"
              x:DataType="vm:ShortcutSettingsViewModel">
 
+  <UserControl.Styles>
+    <Style Selector="controlsCommon|ShortcutGestureDisplay.shortcut-input">
+      <Setter Property="Focusable" Value="True" />
+      <Setter Property="MinHeight" Value="{StaticResource WorkbenchControlHeight}" />
+      <Setter Property="Padding" Value="8,3" />
+      <Setter Property="Background" Value="{DynamicResource SettingsSurface}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource SettingsBorder}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="controlsCommon|ShortcutGestureDisplay.shortcut-input:focus">
+      <Setter Property="BorderBrush" Value="{DynamicResource WorkbenchDockActiveForeground}" />
+    </Style>
+  </UserControl.Styles>
+
   <Grid Name="ShortcutsPage" IsVisible="{Binding $parent[UserControl].IsVisible}" RowDefinitions="Auto,*,Auto"
         RowSpacing="12">
     <Grid ColumnDefinitions="*,180" ColumnSpacing="12" Margin="12,0">
@@ -29,16 +44,16 @@
             <Grid IsVisible="{Binding IsCommand}" ColumnDefinitions="*,180" ColumnSpacing="12">
               <TextBlock Text="{Binding Row.DisplayName, FallbackValue='', TargetNullValue=''}"
                          VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-              <TextBlock Grid.Column="1" Text="{Binding Row.Gesture, FallbackValue='', TargetNullValue=''}" VerticalAlignment="Center"
-                         TextTrimming="CharacterEllipsis" />
+              <controlsCommon:ShortcutGestureDisplay Grid.Column="1"
+                  Gesture="{Binding Row.Gesture, FallbackValue='', TargetNullValue=''}" VerticalAlignment="Center" />
             </Grid>
           </Panel>
         </DataTemplate>
       </ListBox.ItemTemplate>
     </ListBox>
     <Grid Name="ShortcutActions" Grid.Row="2" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
-      <TextBox Name="GestureInput" Text="{Binding Gesture, Mode=OneWay}" IsReadOnly="True" IsEnabled="{Binding HasSelection}"
-               PlaceholderText="CmdOrCtrl+K" />
+      <controlsCommon:ShortcutGestureDisplay Name="GestureInput" Classes="shortcut-input"
+          Gesture="{Binding Gesture}" IsEnabled="{Binding HasSelection}" />
       <Button Grid.Column="1" Name="RecordShortcutButton" Command="{Binding ToggleRecordingCommand}"
               Click="FocusGesture">
         <controlsCommon:IconText Text="{Binding RecordLabel}" IconKey="Keyframe" />

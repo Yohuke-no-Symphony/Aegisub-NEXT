@@ -7,6 +7,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AegiNext.Desktop.Ui.Tests;
 
@@ -23,6 +24,7 @@ public sealed class TimingChordUiTests
         await context.OpenMediaAsync();
         var window = context.Window;
         window.GetCommand(WorkbenchCommand.ADD_SUBTITLE).Execute(null);
+        await WaitForCommandAsync(context, WorkbenchCommand.ADD_SUBTITLE);
         context.Session.Editor.SetSubtitleTiming(Assert.Single(window.DocumentSnapshot.Subtitles).Id,
             new(10), new(12), TimelineEditMode.CROP);
         var original = Assert.Single(window.DocumentSnapshot.Subtitles);
@@ -44,9 +46,11 @@ public sealed class TimingChordUiTests
         {
             Assert.False(window.GetCommand(WorkbenchCommand.TIMING_EXIT).CanExecute(null));
             UiTestActions.Press(window, Key.F8, modifiers);
+            await WaitForCommandAsync(context, WorkbenchCommand.TIMING_ENTER);
             Assert.Equal(2, window.DocumentSnapshot.Subtitles.Length);
             Assert.True(window.GetCommand(WorkbenchCommand.TIMING_EXIT).CanExecute(null));
             UiTestActions.Press(window, Key.F8, modifiers);
+            await WaitForCommandAsync(context, WorkbenchCommand.TIMING_ENTER);
             Assert.Equal(2, window.DocumentSnapshot.Subtitles.Length);
         }
         finally
@@ -62,6 +66,7 @@ public sealed class TimingChordUiTests
         {
             Assert.True(window.GetCommand(WorkbenchCommand.TIMING_EXIT).CanExecute(null));
             UiTestActions.Press(window, Key.F9, modifiers);
+            await WaitForCommandAsync(context, WorkbenchCommand.TIMING_EXIT);
         }
         finally
         {
@@ -75,12 +80,19 @@ public sealed class TimingChordUiTests
         Assert.Equal(2, window.DocumentSnapshot.Subtitles.Length);
     }
 
+    private static Task WaitForCommandAsync(MainWindowTestContext context, WorkbenchCommand command)
+    {
+        var task = Assert.IsType<AsyncRelayCommand>(context.Window.GetCommand(command)).ExecutionTask;
+        Assert.NotNull(task);
+        return task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+    }
+
     private static void SetGesture(SettingsWindow settings, WorkbenchCommand command, string gesture)
     {
         UiTestActions.SelectShortcut(settings, command);
         var parsed = KeyGesture.Parse(gesture);
         UiTestActions.Click(settings, "RecordShortcutButton");
-        UiTestActions.Find<TextBox>(settings, "GestureInput").Focus();
+        UiTestActions.Find<Control>(settings, "GestureInput").Focus();
         UiTestActions.Press(settings, parsed.Key, parsed.KeyModifiers switch
         {
             KeyModifiers.Control => RawInputModifiers.Control,

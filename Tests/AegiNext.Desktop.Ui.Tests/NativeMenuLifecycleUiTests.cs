@@ -128,7 +128,7 @@ public sealed class NativeMenuLifecycleUiTests
         settings.SelectPage(SettingsPage.SHORTCUTS);
         UiTestActions.SelectShortcut(settings, WorkbenchCommand.TIMING_ENTER);
         UiTestActions.Click(settings, "RecordShortcutButton");
-        UiTestActions.Find<TextBox>(settings, "GestureInput").Focus();
+        UiTestActions.Find<Control>(settings, "GestureInput").Focus();
         UiTestActions.Press(settings, KeyGesture.Parse(gesture).Key);
     }
 

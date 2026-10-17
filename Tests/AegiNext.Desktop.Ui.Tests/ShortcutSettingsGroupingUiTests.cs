@@ -1,3 +1,4 @@
+using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
@@ -64,7 +65,9 @@ public sealed class ShortcutSettingsGroupingUiTests
             var rowContainer = Assert.IsType<ListBoxItem>(list.ContainerFromIndex(rowIndex));
             var cells = rowContainer.GetVisualDescendants().OfType<TextBlock>().Where(text => text.IsEffectivelyVisible).ToArray();
             Assert.Equal(2, cells.Length);
-            Assert.True(cells[0].Bounds.Right <= cells[1].Bounds.Left);
+            var action = cells[0].TranslatePoint(default, rowContainer)!.Value;
+            var key = cells[1].TranslatePoint(default, rowContainer)!.Value;
+            Assert.True(action.X + cells[0].Bounds.Width <= key.X);
         }
         finally
         {
@@ -102,7 +105,7 @@ public sealed class ShortcutSettingsGroupingUiTests
             Dispatcher.UIThread.RunJobs();
             Assert.Equal(WorkbenchCommand.AUDITION_SUBTITLE, model.SelectedRow!.Command);
             Assert.Same(model.SelectedItem, list.SelectedItem);
-            Assert.Equal("Control+", UiTestActions.Find<TextBox>(window, "GestureInput").Text);
+            Assert.Equal("Control+", UiTestActions.Find<ShortcutGestureDisplay>(window, "GestureInput").Gesture);
             Assert.Empty(saves);
             Assert.Equal("播放与试听", model.Items.Where(item => !item.IsCommand).ElementAt(3).SectionTitle);
             model.Gesture = "CmdOrCtrl+S";

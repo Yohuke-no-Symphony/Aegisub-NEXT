@@ -1,5 +1,7 @@
 using System.ComponentModel;
+using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Shortcuts;
+using AegiNext.Desktop.Windowing;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -8,9 +10,10 @@ using Avalonia.Markup.Xaml;
 namespace AegiNext.Desktop.Settings.Shortcuts;
 
 /// <summary>按键录入的局部适配，不持有工程或全局输入路由。</summary>
-public sealed partial class ShortcutSettingsView : UserControl
+public sealed partial class ShortcutSettingsView : UserControl, IWorkbenchLocalKeyboardTarget
 {
     private readonly HashSet<Key> capturedKeys = [];
+    private readonly ShortcutGestureDisplay gestureInput;
     private ShortcutSettingsViewModel? model;
     private Window? window;
 
@@ -19,11 +22,17 @@ public sealed partial class ShortcutSettingsView : UserControl
     {
         DataContext = null;
         AvaloniaXamlLoader.Load(this);
+        gestureInput = this.FindControl<ShortcutGestureDisplay>("GestureInput")!;
         DataContextChanged += (_, _) => ChangeModel();
         AddHandler(KeyDownEvent, RecordShortcut, RoutingStrategies.Tunnel);
-        this.FindControl<TextBox>("GestureInput")!.AddHandler(TextInputEvent, RejectTextInput, RoutingStrategies.Tunnel);
+        gestureInput.AddHandler(TextInputEvent, RejectTextInput, RoutingStrategies.Tunnel);
         AttachedToVisualTree += (_, _) => AttachWindow();
         DetachedFromVisualTree += (_, _) => DetachWindow();
+    }
+
+    bool IWorkbenchLocalKeyboardTarget.OwnsLocalKey(Key key, KeyModifiers modifiers, IInputElement focusedElement)
+    {
+        return ReferenceEquals(focusedElement, gestureInput);
     }
 
     private void ChangeModel()
@@ -46,7 +55,7 @@ public sealed partial class ShortcutSettingsView : UserControl
     {
         if (e.PropertyName == nameof(ShortcutSettingsViewModel.IsRecording) && model?.IsRecording == true)
         {
-            this.FindControl<TextBox>("GestureInput")!.Focus();
+            gestureInput.Focus();
         }
     }
 
@@ -54,7 +63,7 @@ public sealed partial class ShortcutSettingsView : UserControl
     {
         if (model?.IsRecording == true)
         {
-            this.FindControl<TextBox>("GestureInput")!.Focus();
+            gestureInput.Focus();
         }
     }
 

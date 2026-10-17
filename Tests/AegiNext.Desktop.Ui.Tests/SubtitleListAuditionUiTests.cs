@@ -269,7 +269,7 @@ public sealed class SubtitleListAuditionUiTests
         {
             settings.SelectPage(SettingsPage.SHORTCUTS);
             UiTestActions.Click(settings, "RecordShortcutButton");
-            Assert.True(UiTestActions.Find<TextBox>(settings, "GestureInput").Focus());
+            Assert.True(UiTestActions.Find<Control>(settings, "GestureInput").Focus());
             Press(settings, Key.R);
 
             Assert.Equal("R", settings.ViewModel.Shortcuts.Gesture);

@@ -67,11 +67,11 @@ public sealed class SettingsWindowUiTests
             Assert.Equal("#C54885", Assert.Single(colorUpdates).AccentColor);
 
             window.SelectPage(SettingsPage.SHORTCUTS);
-            var input = UiTestActions.Find<TextBox>(window, "GestureInput");
+            var input = UiTestActions.Find<ShortcutGestureDisplay>(window, "GestureInput");
             Assert.NotNull(window.ViewModel.Shortcuts.SelectedRow);
             Assert.Same(window.ViewModel.Shortcuts.SelectedItem,
                 UiTestActions.Find<ListBox>(window, "ShortcutList").SelectedItem);
-            Assert.True(input.IsReadOnly);
+            Assert.True(input.Focusable);
             window.ViewModel.Shortcuts.Gesture = "Control+";
             Assert.Equal("Control+", window.ViewModel.Shortcuts.Gesture);
             Assert.NotNull(window.ViewModel.Shortcuts.Error);
@@ -79,7 +79,7 @@ public sealed class SettingsWindowUiTests
             UiTestActions.SelectLanguage(window, "zh-CN");
             Assert.Equal(2, updates.Count);
             window.SelectPage(SettingsPage.SHORTCUTS);
-            Assert.Equal("Control+", input.Text);
+            Assert.Equal("Control+", input.Gesture);
             Assert.NotNull(window.ViewModel.Shortcuts.Error);
             Assert.True(UiTestActions.Find<Grid>(window, "ShortcutsPage").IsVisible);
             Assert.Null(window.FindControl<Grid>("StylesPage"));
@@ -93,7 +93,7 @@ public sealed class SettingsWindowUiTests
     }
 
     [AvaloniaFact]
-    public void CapturedKeyAndConflictValidationUseActualTextBoxEvents()
+    public void CapturedKeyAndConflictValidationUseActualRecorderEvents()
     {
         using var environment = new UiTestEnvironment();
         var window = new SettingsWindow(new());
@@ -103,7 +103,7 @@ public sealed class SettingsWindowUiTests
             window.SelectPage(SettingsPage.SHORTCUTS);
             var saved = new List<SettingsShortcutsChangedEventArgs>();
             window.ShortcutsChanged += (_, change) => saved.Add(change);
-            var input = UiTestActions.Find<TextBox>(window, "GestureInput");
+            var input = UiTestActions.Find<ShortcutGestureDisplay>(window, "GestureInput");
             Assert.NotNull(window.ViewModel.Shortcuts.SelectedRow);
             UiTestActions.Click(window, "RecordShortcutButton");
             Assert.True(input.Focus());
@@ -115,7 +115,7 @@ public sealed class SettingsWindowUiTests
             Assert.True(window.IsShortcutCaptureActive);
             Assert.True(input.Focus());
             UiTestActions.Press(window, Key.F6);
-            Assert.Equal("F6", input.Text);
+            Assert.Equal("F6", input.Gesture);
             Assert.False(window.IsShortcutCaptureActive);
             var bindings = Assert.Single(saved).Bindings;
             Assert.Equal(Enum.GetValues<WorkbenchCommand>().Length, bindings.Length);

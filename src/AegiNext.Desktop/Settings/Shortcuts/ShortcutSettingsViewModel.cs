@@ -206,7 +206,7 @@ public sealed class ShortcutSettingsViewModel : ObservableObject
             var otherCommand = conflict.FirstCommand == SelectedRow?.Command
                 ? conflict.SecondCommand
                 : conflict.FirstCommand;
-            Error = Localization.Format("Settings.ShortcutConflictValidation", conflict.Gesture,
+            Error = Localization.Format("Settings.ShortcutConflictValidation", ShortcutGestureFormatter.Format(conflict.Gesture),
                 Localization.Get("Settings." + otherCommand.ToString()));
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidDataException or FormatException)

@@ -211,6 +211,24 @@
   <Style Selector="Window.business-surface, UserControl.business-surface">
     <Setter Property="FontFamily" Value="{StaticResource WorkbenchBodyFontFamily}"/>
   </Style>
+  <Style Selector="common|ShortcutGestureDisplay Border.shortcut-key">
+    <Setter Property="Background" Value="{DynamicResource PreviewSurface}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource PreviewBorder}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="MinWidth" Value="22"/>
+    <Setter Property="Padding" Value="5,0"/>
+    <Setter Property="Margin" Value="0,0,4,0"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="common|ShortcutGestureDisplay Border.shortcut-key > TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource WorkbenchBodyFontFamily}"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Foreground" Value="{DynamicResource PreviewMuted}"/>
+    <Setter Property="LineHeight" Value="{StaticResource WorkbenchInputLineHeight}"/>
+    <Setter Property="TextAlignment" Value="Center"/>
+    <Setter Property="VerticalAlignment" Value="Center"/>
+  </Style>
   <Style Selector=".business-surface TextBox:not(.code-input):not(.multiline-input)">
     <Setter Property="FontFamily" Value="{StaticResource WorkbenchBodyFontFamily}"/>
     <Setter Property="LineHeight" Value="{StaticResource WorkbenchInputLineHeight}"/>

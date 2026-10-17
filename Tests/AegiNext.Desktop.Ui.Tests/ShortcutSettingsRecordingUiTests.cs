@@ -1,3 +1,4 @@
+using AegiNext.Desktop.Controls.Common;
 using System.Globalization;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings;
@@ -25,22 +26,20 @@ public sealed class ShortcutSettingsRecordingUiTests
         {
             window.Show();
             window.SelectPage(SettingsPage.SHORTCUTS);
-            var input = UiTestActions.Find<TextBox>(window, "GestureInput");
+            var input = UiTestActions.Find<ShortcutGestureDisplay>(window, "GestureInput");
             var command = window.ViewModel.Shortcuts.SelectedRow!.Command;
-            var original = input.Text;
-            Assert.True(input.IsReadOnly);
+            var original = input.Gesture;
+            Assert.True(input.Focusable);
             input.Focus();
-            input.SelectAll();
             window.KeyTextInput("Control+K\n");
-            Assert.Equal(original, input.Text);
+            Assert.Equal(original, input.Gesture);
             Assert.Equal(original, window.ViewModel.Shortcuts.Gesture);
             var clipboard = Assert.IsAssignableFrom<IClipboard>(window.Clipboard);
             await clipboard.SetTextAsync("CmdOrCtrl+S\n");
-            input.SelectAll();
             UiTestActions.Press(window, Key.V,
                 OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(original, input.Text);
+            Assert.Equal(original, input.Gesture);
             Assert.Equal(original, window.ViewModel.Shortcuts.Gesture);
 
             UiTestActions.Click(window, "RecordShortcutButton");
@@ -54,17 +53,17 @@ public sealed class ShortcutSettingsRecordingUiTests
             window.KeyRelease(Key.K, inputModifiers, PhysicalKey.None, null);
             window.KeyTextInput("\n");
             var expected = ShortcutConfiguration.FormatGesture(Key.K, keyModifiers);
-            Assert.Equal(expected, input.Text);
+            Assert.Equal(expected, input.Gesture);
             Assert.Equal(expected, window.ViewModel.Shortcuts.Gesture);
             Assert.False(window.IsShortcutCaptureActive);
             Assert.Null(window.ViewModel.Shortcuts.Error);
 
             UiTestActions.SelectShortcut(window, WorkbenchCommand.SAVE_PROJECT);
-            Assert.Equal("CmdOrCtrl+S", input.Text);
+            Assert.Equal("CmdOrCtrl+S", input.Gesture);
             Localization.SetLanguage("zh-CN");
             UiTestActions.SelectShortcut(window, command);
             Dispatcher.UIThread.RunJobs();
-            Assert.Equal(expected, input.Text);
+            Assert.Equal(expected, input.Gesture);
             Assert.Null(window.ViewModel.Shortcuts.Error);
         }
         finally
@@ -82,13 +81,13 @@ public sealed class ShortcutSettingsRecordingUiTests
         {
             window.Show();
             window.SelectPage(SettingsPage.SHORTCUTS);
-            var input = UiTestActions.Find<TextBox>(window, "GestureInput");
+            var input = UiTestActions.Find<ShortcutGestureDisplay>(window, "GestureInput");
             var modifiers = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
             UiTestActions.Click(window, "RecordShortcutButton");
             input.Focus();
             UiTestActions.Press(window, Key.N, modifiers);
             window.KeyTextInput("n");
-            Assert.Equal("CmdOrCtrl+N", input.Text);
+            Assert.Equal("CmdOrCtrl+N", input.Gesture);
             Assert.Null(window.ViewModel.Shortcuts.Error);
 
             UiTestActions.Click(window, "RecordShortcutButton");
@@ -99,7 +98,7 @@ public sealed class ShortcutSettingsRecordingUiTests
             window.ShortcutsChanged += (_, value) => saves.Add(value);
             Assert.Empty(saves);
             UiTestActions.Click(window, "ClearShortcutButton");
-            Assert.Equal(string.Empty, input.Text);
+            Assert.Equal(string.Empty, input.Gesture);
             Assert.Null(window.ViewModel.Shortcuts.Error);
             Assert.Equal(string.Empty, Assert.Single(saves).Bindings.Single(row => row.Command == WorkbenchCommand.NEW_PROJECT).Gesture);
 
@@ -108,7 +107,7 @@ public sealed class ShortcutSettingsRecordingUiTests
             UiTestActions.Press(window, Key.Escape);
             window.KeyTextInput("escape");
             Assert.False(window.IsShortcutCaptureActive);
-            Assert.Equal(string.Empty, input.Text);
+            Assert.Equal(string.Empty, input.Gesture);
         }
         finally
         {
@@ -127,7 +126,7 @@ public sealed class ShortcutSettingsRecordingUiTests
         settings.SelectPage(SettingsPage.SHORTCUTS);
         UiTestActions.SelectShortcut(settings, WorkbenchCommand.ADD_SUBTITLE);
         UiTestActions.Click(settings, "RecordShortcutButton");
-        var input = UiTestActions.Find<TextBox>(settings, "GestureInput");
+        var input = UiTestActions.Find<ShortcutGestureDisplay>(settings, "GestureInput");
         input.Focus();
         var modifiers = OperatingSystem.IsMacOS() ? RawInputModifiers.Meta : RawInputModifiers.Control;
         settings.KeyPress(Key.K, modifiers, PhysicalKey.None, null);
@@ -135,7 +134,7 @@ public sealed class ShortcutSettingsRecordingUiTests
         settings.KeyPress(Key.K, modifiers, PhysicalKey.None, null);
         settings.KeyRelease(Key.K, modifiers, PhysicalKey.None, null);
         Assert.Empty(context.Session.DocumentSnapshot.Subtitles);
-        Assert.Equal("CmdOrCtrl+K", input.Text);
+        Assert.Equal("CmdOrCtrl+K", input.Gesture);
         Assert.Equal("CmdOrCtrl+K", context.Session.Preferences.ShortcutBindings.Single(row => row.Command == WorkbenchCommand.ADD_SUBTITLE).Gesture);
         await context.Session.ApplicationContext.Completion;
         var persisted = context.Session.ApplicationContext.PreferencesStore.Load();
@@ -152,7 +151,7 @@ public sealed class ShortcutSettingsRecordingUiTests
         var reopened = Assert.Single(main.OwnedWindows.OfType<SettingsWindow>());
         reopened.SelectPage(SettingsPage.SHORTCUTS);
         UiTestActions.SelectShortcut(reopened, WorkbenchCommand.ADD_SUBTITLE);
-        Assert.Equal("CmdOrCtrl+K", UiTestActions.Find<TextBox>(reopened, "GestureInput").Text);
+        Assert.Equal("CmdOrCtrl+K", UiTestActions.Find<ShortcutGestureDisplay>(reopened, "GestureInput").Gesture);
         reopened.Close();
     }
 }

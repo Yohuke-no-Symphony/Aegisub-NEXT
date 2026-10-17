@@ -14,6 +14,7 @@ public sealed class ShortcutRouterTests
         Assert.True(router.TryResolve(Key.S, primary, true, out var save));
         Assert.Equal(WorkbenchCommand.SAVE_PROJECT, save);
         Assert.False(router.TryResolve(Key.S, other, false, out _));
+        Assert.False(router.TryResolve(Key.S, primary | other, false, out _));
         Assert.False(router.TryResolve(Key.S, primary | KeyModifiers.Alt, false, out _));
         Assert.True(router.TryResolve(Key.S, primary | KeyModifiers.Shift, false, out var saveAs));
         Assert.Equal(WorkbenchCommand.SAVE_PROJECT_AS, saveAs);

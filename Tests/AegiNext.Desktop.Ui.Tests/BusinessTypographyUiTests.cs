@@ -1,5 +1,6 @@
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
+using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Layouts;
 using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Shortcuts;
@@ -165,7 +166,13 @@ public sealed class BusinessTypographyUiTests
             var accent = UiTestActions.Find<ColorDraftInput>(window, "AccentPicker");
             AssertInput(accent.FindControl<TextBox>("ColorInput")!);
             window.SelectPage(SettingsPage.SHORTCUTS);
-            AssertInput(UiTestActions.Find<TextBox>(window, "GestureInput"));
+            var gesture = UiTestActions.Find<ShortcutGestureDisplay>(window, "GestureInput");
+            Assert.Equal(VerticalAlignment.Center, gesture.VerticalContentAlignment);
+            foreach (var label in gesture.GetVisualDescendants().OfType<TextBlock>())
+            {
+                Assert.Contains("PingFang SC", label.FontFamily.Name, StringComparison.Ordinal);
+                Assert.Equal(20, label.LineHeight);
+            }
             library.Show();
             library.UpdateStyles([new(Guid.NewGuid(), "Typography 中文 123", new())]);
             library.SelectPage(EffectLibraryPage.STYLES);
