@@ -23,90 +23,95 @@
   </UserControl.Styles>
   <Border Background="{DynamicResource PreviewSurface}" BorderBrush="{DynamicResource PreviewBorder}"
           BorderThickness="0" CornerRadius="{DynamicResource WorkbenchPanelCornerRadius}" ClipToBounds="True">
-    <Grid RowDefinitions="Auto,*">
-      <WrapPanel Name="SubtitleToolbar" Margin="12,8,12,4">
-        <ComboBox Name="SubtitleTrackCombo" Width="160" Margin="0,0,8,4" ItemsSource="{Binding Tracks}"
-                  SelectedItem="{Binding SelectedTrack, Mode=OneWay}">
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="projects:ProjectTrack">
-              <TextBlock Text="{Binding Name}" />
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
-        </ComboBox>
-        <ComboBox Name="SubtitleColorTagFilterCombo" Classes="icon-selector" Margin="0,0,8,4"
-                  Classes.filtered="{Binding IsColorTagFilterActive}"
-                  ItemsSource="{Binding ColorTagFilters}" SelectedItem="{Binding SelectedColorTagFilter, Mode=OneWay}"
-                  ToolTip.Tip="{Binding ColorTagFilterHint}" AutomationProperties.Name="{Binding ColorTagFilterHint}">
-          <ComboBox.Resources>
-            <x:Double x:Key="ComboBoxThemeMinWidth">0</x:Double>
-          </ComboBox.Resources>
-          <ComboBox.SelectionBoxItemTemplate>
-            <DataTemplate x:DataType="editing:SubtitleColorTagFilterChoice">
-              <Grid Name="SubtitleFilterIcon" Width="16" Height="16">
-                <icons:MaterialIcon Kind="FilterVariant" Width="16" Height="16" />
-                <Border Width="7" Height="7" CornerRadius="4" HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                        BorderBrush="{DynamicResource PreviewSurface}" BorderThickness="1"
-                        IsVisible="{Binding HasColor}"
-                        Background="{Binding ColorHex, Converter={StaticResource ColorTagSwatchConverter}}" />
-              </Grid>
-            </DataTemplate>
-          </ComboBox.SelectionBoxItemTemplate>
-          <ComboBox.ItemContainerTheme>
-            <ControlTheme TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
-              <Setter Property="MinHeight" Value="{DynamicResource WorkbenchControlHeight}" />
-              <Setter Property="Padding" Value="8,4" />
-            </ControlTheme>
-          </ComboBox.ItemContainerTheme>
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="editing:SubtitleColorTagFilterChoice">
-              <Grid ColumnDefinitions="Auto,*">
-                <Border Width="10" Height="10" CornerRadius="5" Margin="0,0,6,0" VerticalAlignment="Center"
-                        IsVisible="{Binding HasColor}"
-                        Background="{Binding ColorHex, Converter={StaticResource ColorTagSwatchConverter}}" />
-                <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
-              </Grid>
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
-        </ComboBox>
-        <StackPanel Name="SubtitleEditingActions" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
-          <Button Name="AddCueButton" Classes="icon-button" Command="{Binding AddCueCommand}"
-                  ToolTip.Tip="{Loc Key=Workbench.Add}" AutomationProperties.Name="{Loc Key=Workbench.Add}">
-            <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
-          </Button>
-          <Button Name="DeleteCueButton" Classes="icon-button" Command="{Binding DeleteCueCommand}"
-                  ToolTip.Tip="{Loc Key=Workbench.Delete}" AutomationProperties.Name="{Loc Key=Workbench.Delete}">
-            <icons:MaterialIcon Kind="Delete" Width="16" Height="16" />
-          </Button>
-          <Button Name="SplitCueButton" Classes="icon-button" Command="{Binding SplitCueCommand}"
-                  ToolTip.Tip="{Loc Key=Workbench.Split}" AutomationProperties.Name="{Loc Key=Workbench.Split}">
-            <icons:MaterialIcon Kind="CallSplit" Width="16" Height="16" />
-          </Button>
-          <Button Name="MergeCueButton" Classes="icon-button" Command="{Binding MergeCueCommand}"
-                  ToolTip.Tip="{Loc Key=Workbench.Merge}" AutomationProperties.Name="{Loc Key=Workbench.Merge}">
-            <icons:MaterialIcon Kind="CallMerge" Width="16" Height="16" />
-          </Button>
-          <Button Name="SubtitleDetailsButton" Classes="icon-button" Command="{Binding DetailsCommand}"
-                  ToolTip.Tip="{Loc Key=Workbench.SubtitleDetails}" AutomationProperties.Name="{Loc Key=Workbench.SubtitleDetails}">
-            <icons:MaterialIcon Kind="TextBoxEditOutline" Width="16" Height="16" />
-          </Button>
-        </StackPanel>
-        <StackPanel Name="SubtitleDisplayOptions" Orientation="Horizontal" Spacing="8" Margin="8,0,0,4">
-          <Border Name="SubtitleDisplayOptionsSeparator" Width="1" Height="20" VerticalAlignment="Center"
-                  Background="{DynamicResource PreviewBorder}" />
-          <common:ToolbarToggleButton Name="ShowSubtitleTimesToggle" IsChecked="{Binding !HideTimes, Mode=TwoWay}"
-                                      ToolTip.Tip="{Loc Key=Workbench.ShowSubtitleTimes}"
-                                      AutomationProperties.Name="{Loc Key=Workbench.ShowSubtitleTimes}">
-            <icons:MaterialIcon Kind="ClockStart" Width="16" Height="16" />
-          </common:ToolbarToggleButton>
-          <common:ToolbarToggleButton Name="ShowSubtitleDurationToggle" IsChecked="{Binding !HideDuration, Mode=TwoWay}"
-                                      ToolTip.Tip="{Loc Key=Workbench.ShowSubtitleDuration}"
-                                      AutomationProperties.Name="{Loc Key=Workbench.ShowSubtitleDuration}">
-            <icons:MaterialIcon Kind="TimerOutline" Width="16" Height="16" />
-          </common:ToolbarToggleButton>
-        </StackPanel>
-      </WrapPanel>
-      <Grid Grid.Row="1" RowDefinitions="Auto,*" Margin="12,0">
-        <Grid ColumnDefinitions="44,*" Margin="0,0,0,4" ColumnSpacing="8">
+    <common:OverflowScrollViewer Name="SubtitlesPanelScrollViewer">
+      <common:OverflowGrid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="*" MinHeight="{DynamicResource WorkbenchMinimumListViewportHeight}" />
+        </Grid.RowDefinitions>
+        <WrapPanel Name="SubtitleToolbar" Margin="12,8,12,4">
+          <ComboBox Name="SubtitleTrackCombo" Width="160" Margin="0,0,8,4" ItemsSource="{Binding Tracks}"
+                    SelectedItem="{Binding SelectedTrack, Mode=OneWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="projects:ProjectTrack">
+                <TextBlock Text="{Binding Name}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <ComboBox Name="SubtitleColorTagFilterCombo" Classes="icon-selector" Margin="0,0,8,4"
+                    Classes.filtered="{Binding IsColorTagFilterActive}"
+                    ItemsSource="{Binding ColorTagFilters}" SelectedItem="{Binding SelectedColorTagFilter, Mode=OneWay}"
+                    ToolTip.Tip="{Binding ColorTagFilterHint}" AutomationProperties.Name="{Binding ColorTagFilterHint}">
+            <ComboBox.Resources>
+              <x:Double x:Key="ComboBoxThemeMinWidth">0</x:Double>
+            </ComboBox.Resources>
+            <ComboBox.SelectionBoxItemTemplate>
+              <DataTemplate x:DataType="editing:SubtitleColorTagFilterChoice">
+                <Grid Name="SubtitleFilterIcon" Width="16" Height="16">
+                  <icons:MaterialIcon Kind="FilterVariant" Width="16" Height="16" />
+                  <Border Width="7" Height="7" CornerRadius="4" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                          BorderBrush="{DynamicResource PreviewSurface}" BorderThickness="1"
+                          IsVisible="{Binding HasColor}"
+                          Background="{Binding ColorHex, Converter={StaticResource ColorTagSwatchConverter}}" />
+                </Grid>
+              </DataTemplate>
+            </ComboBox.SelectionBoxItemTemplate>
+            <ComboBox.ItemContainerTheme>
+              <ControlTheme TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                <Setter Property="MinHeight" Value="{DynamicResource WorkbenchControlHeight}" />
+                <Setter Property="Padding" Value="8,4" />
+              </ControlTheme>
+            </ComboBox.ItemContainerTheme>
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="editing:SubtitleColorTagFilterChoice">
+                <Grid ColumnDefinitions="Auto,*">
+                  <Border Width="10" Height="10" CornerRadius="5" Margin="0,0,6,0" VerticalAlignment="Center"
+                          IsVisible="{Binding HasColor}"
+                          Background="{Binding ColorHex, Converter={StaticResource ColorTagSwatchConverter}}" />
+                  <TextBlock Grid.Column="1" Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                </Grid>
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+          <StackPanel Name="SubtitleEditingActions" Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+            <Button Name="AddCueButton" Classes="icon-button" Command="{Binding AddCueCommand}"
+                    ToolTip.Tip="{Loc Key=Workbench.Add}" AutomationProperties.Name="{Loc Key=Workbench.Add}">
+              <icons:MaterialIcon Kind="Plus" Width="16" Height="16" />
+            </Button>
+            <Button Name="DeleteCueButton" Classes="icon-button" Command="{Binding DeleteCueCommand}"
+                    ToolTip.Tip="{Loc Key=Workbench.Delete}" AutomationProperties.Name="{Loc Key=Workbench.Delete}">
+              <icons:MaterialIcon Kind="Delete" Width="16" Height="16" />
+            </Button>
+            <Button Name="SplitCueButton" Classes="icon-button" Command="{Binding SplitCueCommand}"
+                    ToolTip.Tip="{Loc Key=Workbench.Split}" AutomationProperties.Name="{Loc Key=Workbench.Split}">
+              <icons:MaterialIcon Kind="CallSplit" Width="16" Height="16" />
+            </Button>
+            <Button Name="MergeCueButton" Classes="icon-button" Command="{Binding MergeCueCommand}"
+                    ToolTip.Tip="{Loc Key=Workbench.Merge}" AutomationProperties.Name="{Loc Key=Workbench.Merge}">
+              <icons:MaterialIcon Kind="CallMerge" Width="16" Height="16" />
+            </Button>
+            <Button Name="SubtitleDetailsButton" Classes="icon-button" Command="{Binding DetailsCommand}"
+                    ToolTip.Tip="{Loc Key=Workbench.SubtitleDetails}" AutomationProperties.Name="{Loc Key=Workbench.SubtitleDetails}">
+              <icons:MaterialIcon Kind="TextBoxEditOutline" Width="16" Height="16" />
+            </Button>
+          </StackPanel>
+          <StackPanel Name="SubtitleDisplayOptions" Orientation="Horizontal" Spacing="8" Margin="8,0,0,4">
+            <Border Name="SubtitleDisplayOptionsSeparator" Width="1" Height="20" VerticalAlignment="Center"
+                    Background="{DynamicResource PreviewBorder}" />
+            <common:ToolbarToggleButton Name="ShowSubtitleTimesToggle" IsChecked="{Binding !HideTimes, Mode=TwoWay}"
+                                        ToolTip.Tip="{Loc Key=Workbench.ShowSubtitleTimes}"
+                                        AutomationProperties.Name="{Loc Key=Workbench.ShowSubtitleTimes}">
+              <icons:MaterialIcon Kind="ClockStart" Width="16" Height="16" />
+            </common:ToolbarToggleButton>
+            <common:ToolbarToggleButton Name="ShowSubtitleDurationToggle" IsChecked="{Binding !HideDuration, Mode=TwoWay}"
+                                        ToolTip.Tip="{Loc Key=Workbench.ShowSubtitleDuration}"
+                                        AutomationProperties.Name="{Loc Key=Workbench.ShowSubtitleDuration}">
+              <icons:MaterialIcon Kind="TimerOutline" Width="16" Height="16" />
+            </common:ToolbarToggleButton>
+          </StackPanel>
+        </WrapPanel>
+        <Grid Grid.Row="1" ColumnDefinitions="44,*" Margin="12,0,12,4" ColumnSpacing="8">
           <TextBlock Name="SubtitleNumberHeader" Text="{Loc Key=Workbench.SubtitleNumber}" Classes="field"
                      HorizontalAlignment="Center" />
           <Grid Grid.Column="1" Name="SubtitleFieldsHeader" ColumnDefinitions="Auto,Auto,Auto,Auto,*">
@@ -120,7 +125,7 @@
             <TextBlock Grid.Column="4" Classes="field" Text="{Loc Key=Workbench.Text}" />
           </Grid>
         </Grid>
-        <ListBox Name="SubtitleList" Grid.Row="1" SelectionMode="Multiple" Background="Transparent"
+        <ListBox Name="SubtitleList" Grid.Row="2" SelectionMode="Multiple" Background="Transparent" Margin="12,0"
                  Padding="0" BorderThickness="0"
                  ItemsSource="{Binding VisibleRows, Mode=OneWay}">
           <ListBox.ItemTemplate>
@@ -145,8 +150,8 @@
             </DataTemplate>
           </ListBox.ItemTemplate>
         </ListBox>
-      </Grid>
-    </Grid>
+      </common:OverflowGrid>
+    </common:OverflowScrollViewer>
   </Border>
 
 </UserControl>

@@ -3,10 +3,12 @@
              xmlns:converters="using:Avalonia.Data.Converters"
              x:Class="AegiNext.Desktop.Panels.Styles.StylesPanelView" x:DataType="styles:StylesPanelViewModel"
              Classes="business-surface">
-  <Grid RowDefinitions="Auto,*">
-    <TextBlock Name="StyleSelectionLabel" Margin="8,4" Classes="field" TextWrapping="Wrap"
-               Text="{Binding SelectionLabel}"
-               IsVisible="{Binding SelectionLabel, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
-    <ContentControl Grid.Row="1" Name="StyleEditorHost" />
-  </Grid>
+  <ScrollViewer Name="StylesPanelScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+    <StackPanel>
+      <TextBlock Name="StyleSelectionLabel" Margin="8,4" Classes="field" TextWrapping="Wrap"
+                 Text="{Binding SelectionLabel}"
+                 IsVisible="{Binding SelectionLabel, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
+      <ContentControl Name="StyleEditorHost" />
+    </StackPanel>
+  </ScrollViewer>
 </UserControl>

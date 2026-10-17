@@ -25,6 +25,7 @@ public sealed class SubtitleListLayoutUiTests
     public async Task DisplayTogglesCollapseColumnsIndependentlyAndPreserveTheDocument(bool dark)
     {
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var document = CreateDocument(40);
         context.Session.Editor.Reset(document);
         using var view = new SubtitlesPanelView(context.ViewModel.Subtitles, context.Session);

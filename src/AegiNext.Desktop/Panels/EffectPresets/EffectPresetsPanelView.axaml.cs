@@ -5,6 +5,7 @@ using AegiNext.Desktop.Windowing;
 using AegiNext.Desktop.Workspace;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Layout;
@@ -288,8 +289,36 @@ internal sealed partial class EffectPresetsPanelView : UserControl, IWorkbenchPa
         {
             return false;
         }
-        return scroller is null || card.TranslatePoint(default, scroller) is { } point &&
-            new Rect(point, card.Bounds.Size).Intersects(new Rect(scroller.Bounds.Size));
+        if (card.TranslatePoint(default, this) is not { } point)
+        {
+            return false;
+        }
+        var visible = new Rect(point, card.Bounds.Size).Intersect(new Rect(Bounds.Size));
+        if (visible.Width <= 0 || visible.Height <= 0)
+        {
+            return false;
+        }
+        foreach (var ancestor in card.GetVisualAncestors())
+        {
+            if (ReferenceEquals(ancestor, this))
+            {
+                break;
+            }
+            if (ancestor is not Control clip || !clip.ClipToBounds && clip is not ScrollContentPresenter)
+            {
+                continue;
+            }
+            if (clip.TranslatePoint(default, this) is not { } origin)
+            {
+                return false;
+            }
+            visible = visible.Intersect(new Rect(origin, clip.Bounds.Size));
+            if (visible.Width <= 0 || visible.Height <= 0)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void RefreshActive()

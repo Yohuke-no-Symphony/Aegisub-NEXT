@@ -17,7 +17,12 @@
           CornerRadius="{DynamicResource WorkbenchPanelCornerRadius}" ClipToBounds="True">
     <Grid RowDefinitions="28,*" ColumnDefinitions="29,*">
       <Border Classes="timeline-toolbar" Grid.RowSpan="2" BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="0,0,1,0">
-        <Grid RowDefinitions="*,Auto">
+        <controlsCommon:OverflowScrollViewer Name="TimelineToolbarOverflowScroller" VerticalScrollBarVisibility="Hidden">
+        <controlsCommon:OverflowGrid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="*" MinHeight="{StaticResource WorkbenchControlHeight}" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <ScrollViewer Name="TimelineToolbarScroller" Grid.Row="0" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
         <StackPanel Spacing="2" Margin="2,4">
           <controlsCommon:ToolbarToggleButton Name="TimelineSnapButton" ToolTip.Tip="{Loc Key=Workbench.TimelineSnapHint}"
@@ -76,15 +81,21 @@
           <materialIcons:MaterialIcon Kind="ClockCheckOutline" Width="16" Height="16" />
         </Button>
         </StackPanel>
-        </Grid>
+        </controlsCommon:OverflowGrid>
+        </controlsCommon:OverflowScrollViewer>
       </Border>
       <controls:TimelineOverviewControl Name="TimelineMinimap" Grid.Column="1" Margin="4,2" />
       <controls:SubtitleTimelineControl Name="Timeline" Grid.Row="1" Grid.Column="1" />
-      <Border Name="TrackRenameEditor" Grid.Row="1" Grid.Column="1" Margin="8" Padding="12" Width="260"
+      <Grid Name="TrackRenameViewport" Grid.Row="1" Grid.Column="1" Margin="8" IsVisible="{Binding IsRenamingTrack}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MaxWidth="260" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <Border Name="TrackRenameEditor"
               HorizontalAlignment="Left" VerticalAlignment="Top" Background="{DynamicResource PreviewSurface}"
-              BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="1" CornerRadius="8"
-              IsVisible="{Binding IsRenamingTrack}">
-        <StackPanel Spacing="8">
+              BorderBrush="{DynamicResource PreviewBorder}" BorderThickness="1" CornerRadius="8">
+        <ScrollViewer Name="TrackRenameScrollViewer" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="8" Margin="12">
           <TextBlock FontWeight="SemiBold" Text="{Loc Key=Workbench.RenameTrack}" />
           <TextBox Name="TimelineTrackNameInput" Text="{Binding TrackNameDraft, Mode=TwoWay}" MaxLength="128" />
           <StackPanel Orientation="Horizontal" Spacing="8">
@@ -96,7 +107,9 @@
             </Button>
           </StackPanel>
         </StackPanel>
+        </ScrollViewer>
       </Border>
+      </Grid>
     </Grid>
   </Border>
 

@@ -61,6 +61,7 @@ public sealed class SubtitleDetailsInputExitUiTests
     {
         Assert.True(Enum.TryParse<WorkbenchCommand>("END_TEXT_INPUT", out var exit));
         await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
         var host = await OpenAsync(context);
         var input = UiTestActions.Find<NumericDraftInput>(host, "SelectionFontSizeInput");
         context.Session.UpdatePreferences(context.Session.Preferences with

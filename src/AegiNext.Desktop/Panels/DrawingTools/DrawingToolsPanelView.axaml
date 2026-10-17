@@ -11,7 +11,7 @@
       <Setter Property="Background" Value="{DynamicResource PreviewBorder}" />
     </Style>
   </UserControl.Styles>
-  <ScrollViewer Name="DrawingToolsScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+  <ScrollViewer Name="DrawingToolsScrollViewer" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
                 VerticalAlignment="Top">
     <StackPanel Margin="4" Orientation="Horizontal">
       <common:ToolbarToggleButton Name="SelectGraphicButton" Margin="2" ToolTip.Tip="{Loc Key=Preview.SelectGraphic}" AutomationProperties.Name="{Loc Key=Preview.SelectGraphic}" />

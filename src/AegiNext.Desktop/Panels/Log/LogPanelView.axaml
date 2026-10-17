@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:AegiNext.Desktop.Panels.Log"
              xmlns:diagnostics="using:AegiNext.Desktop.Workspace.Diagnostics"
+             xmlns:common="using:AegiNext.Desktop.Controls.Common"
              xmlns:converters="using:Avalonia.Data.Converters"
               x:Class="AegiNext.Desktop.Panels.Log.LogPanelView" x:DataType="vm:LogPanelViewModel"
               Classes="business-surface">
@@ -61,46 +62,52 @@
       <Setter Property="Data" Value="M 0,2 L 8,2 L 4,6 Z" />
     </Style>
   </UserControl.Styles>
-  <Grid RowDefinitions="Auto,*" Margin="4" RowSpacing="6">
-    <Grid ColumnDefinitions="140,*,Auto,Auto,Auto" ColumnSpacing="6">
-      <ComboBox Name="LogLevelFilter" ItemsSource="{Binding Levels}" SelectedIndex="{Binding FilterIndex, Mode=TwoWay}" />
-      <TextBox Name="LogSearch" Grid.Column="1" Text="{Binding FilterText, Mode=TwoWay}"
-               PlaceholderText="{Loc Key=Log.Search}" />
-      <Button Name="CopyLogSelected" Grid.Column="2" Content="{Loc Key=Log.CopySelected}"
-              IsEnabled="{Binding HasSelection}" Click="CopySelected" />
-      <Button Name="CopyLogVisible" Grid.Column="3" Content="{Loc Key=Log.CopyVisible}" Click="CopyVisible" />
-      <Button Name="ClearLog" Grid.Column="4" Content="{Loc Key=Log.Clear}" Command="{Binding ClearCommand}" />
-    </Grid>
-    <Grid Grid.Row="1">
-      <ListBox Name="LogEntries" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}"
-               Background="{DynamicResource PreviewBackground}" BorderThickness="0">
-        <ListBox.ItemTemplate>
-          <DataTemplate x:DataType="diagnostics:WorkbenchLogEntry">
-            <StackPanel>
-              <TextBlock Classes="log-summary" Text="{Binding Summary}"
-                         IsVisible="{Binding Details, Converter={x:Static converters:StringConverters.IsNullOrEmpty}}" />
-              <Expander Theme="{StaticResource LogEntryExpanderTheme}"
-                        IsVisible="{Binding Details, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}">
-                <Expander.Header>
-                  <TextBlock Classes="log-summary">
-                    <TextBlock.Inlines>
-                      <Run Text="{Binding Summary}" />
-                      <InlineUIContainer BaselineAlignment="Center">
-                        <Path Classes="log-details-triangle" Width="8" Height="8" Margin="8,0,0,0"
-                              Stretch="None" Fill="{Binding $parent[TextBlock].Foreground}" />
-                      </InlineUIContainer>
-                    </TextBlock.Inlines>
-                  </TextBlock>
-                </Expander.Header>
-                <SelectableTextBlock Text="{Binding Details}" TextWrapping="Wrap" FontFamily="monospace"
-                                     LineHeight="{StaticResource WorkbenchInputLineHeight}" Margin="0,4,0,0" />
-              </Expander>
-            </StackPanel>
-          </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
-      <TextBlock Text="{Loc Key=Log.Empty}" IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center"
-                 VerticalAlignment="Center" />
-    </Grid>
-  </Grid>
+  <common:OverflowScrollViewer Name="LogPanelScrollViewer" Margin="4">
+    <common:OverflowGrid RowSpacing="6">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" MinHeight="{DynamicResource WorkbenchMinimumListViewportHeight}" />
+      </Grid.RowDefinitions>
+      <Grid ColumnDefinitions="140,*,Auto,Auto,Auto" ColumnSpacing="6">
+        <ComboBox Name="LogLevelFilter" ItemsSource="{Binding Levels}" SelectedIndex="{Binding FilterIndex, Mode=TwoWay}" />
+        <TextBox Name="LogSearch" Grid.Column="1" Text="{Binding FilterText, Mode=TwoWay}"
+                 PlaceholderText="{Loc Key=Log.Search}" />
+        <Button Name="CopyLogSelected" Grid.Column="2" Content="{Loc Key=Log.CopySelected}"
+                IsEnabled="{Binding HasSelection}" Click="CopySelected" />
+        <Button Name="CopyLogVisible" Grid.Column="3" Content="{Loc Key=Log.CopyVisible}" Click="CopyVisible" />
+        <Button Name="ClearLog" Grid.Column="4" Content="{Loc Key=Log.Clear}" Command="{Binding ClearCommand}" />
+      </Grid>
+      <Grid Grid.Row="1">
+        <ListBox Name="LogEntries" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry, Mode=TwoWay}"
+                 Background="{DynamicResource PreviewBackground}" BorderThickness="0">
+          <ListBox.ItemTemplate>
+            <DataTemplate x:DataType="diagnostics:WorkbenchLogEntry">
+              <StackPanel>
+                <TextBlock Classes="log-summary" Text="{Binding Summary}"
+                           IsVisible="{Binding Details, Converter={x:Static converters:StringConverters.IsNullOrEmpty}}" />
+                <Expander Theme="{StaticResource LogEntryExpanderTheme}"
+                          IsVisible="{Binding Details, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}">
+                  <Expander.Header>
+                    <TextBlock Classes="log-summary">
+                      <TextBlock.Inlines>
+                        <Run Text="{Binding Summary}" />
+                        <InlineUIContainer BaselineAlignment="Center">
+                          <Path Classes="log-details-triangle" Width="8" Height="8" Margin="8,0,0,0"
+                                Stretch="None" Fill="{Binding $parent[TextBlock].Foreground}" />
+                        </InlineUIContainer>
+                      </TextBlock.Inlines>
+                    </TextBlock>
+                  </Expander.Header>
+                  <SelectableTextBlock Text="{Binding Details}" TextWrapping="Wrap" FontFamily="monospace"
+                                       LineHeight="{StaticResource WorkbenchInputLineHeight}" Margin="0,4,0,0" />
+                </Expander>
+              </StackPanel>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Text="{Loc Key=Log.Empty}" IsVisible="{Binding IsEmpty}" HorizontalAlignment="Center"
+                   VerticalAlignment="Center" />
+      </Grid>
+    </common:OverflowGrid>
+  </common:OverflowScrollViewer>
 </UserControl>

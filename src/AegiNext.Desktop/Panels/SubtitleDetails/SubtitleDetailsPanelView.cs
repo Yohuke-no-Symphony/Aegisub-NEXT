@@ -86,7 +86,6 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
     {
         this.session = session;
         coordinator = session.Details;
-        MinHeight = 220;
         Focusable = true;
         Classes.Add("business-surface");
         rich.TextEditRequested += OnTextEdit;
