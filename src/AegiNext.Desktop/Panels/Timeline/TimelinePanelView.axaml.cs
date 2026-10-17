@@ -86,6 +86,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         autoTrackStyleItem = new()
         {
             Name = "AutoApplySubtitleTrackStyleMenuItem", ToggleType = MenuItemToggleType.CheckBox,
+            Icon = WorkbenchIcon.Create("TrackStyleAutoApply"),
             Command = viewModel.ToggleTrackAutoStyleCommand
         };
         autoTrackStyleItem.Bind(MenuItem.HeaderProperty, Localization.Observe("Workbench.TrackStyleAutoApply").ToBinding());
@@ -468,16 +469,21 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     private void RefreshAnimationMenu()
     {
         contextKeyframeDeleteItem.IsVisible = viewModel.HasContextKeyframe;
-        animationClearItem.Header = Localization.Get(viewModel.IsContextEffectInstance ? "Workbench.EffectInstanceRemove" : "Workbench.ClearEffectClip");
+        var clearKey = viewModel.IsContextEffectInstance ? "EffectInstanceRemove" : "ClearEffectClip";
+        animationClearItem.Header = Localization.Get("Workbench." + clearKey);
+        animationClearItem.Icon = WorkbenchIcon.Create(clearKey);
         effectClipCollapseItem.IsVisible = !viewModel.IsContextEffectInstance;
-        effectClipCollapseItem.Header = Localization.Get("Workbench." +
-            (viewModel.IsContextEffectClipCollapsed ? "ExpandEffectClip" : "CollapseEffectClip"));
+        var collapseKey = viewModel.IsContextEffectClipCollapsed ? "ExpandEffectClip" : "CollapseEffectClip";
+        effectClipCollapseItem.Header = Localization.Get("Workbench." + collapseKey);
+        effectClipCollapseItem.Icon = WorkbenchIcon.Create(collapseKey);
     }
     private void RefreshTrackMenu()
     {
         collapseTrackItem.IsEnabled = viewModel.SelectedTrackId.HasValue;
-        collapseTrackItem.Header = Localization.Get("Workbench." + (viewModel.SelectedTrackId is { } id && timeline.IsTrackCollapsed(id)
-            ? "ExpandTrack" : "CollapseTrack"));
+        var collapseKey = viewModel.SelectedTrackId is { } id && timeline.IsTrackCollapsed(id)
+            ? "ExpandTrack" : "CollapseTrack";
+        collapseTrackItem.Header = Localization.Get("Workbench." + collapseKey);
+        collapseTrackItem.Icon = WorkbenchIcon.Create(collapseKey);
         RefreshStylePresets();
     }
     private void RefreshStylePresets()
@@ -498,6 +504,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             trackStyleItem.Items.Add(new MenuItem
             {
                 Header = preset.Name,
+                Icon = WorkbenchIcon.Create("ApplyStyle"),
                 ToggleType = MenuItemToggleType.CheckBox,
                 IsChecked = currentTrack.StylePresetId == preset.Id,
                 Command = viewModel.ApplyTrackStyleCommand,
@@ -528,7 +535,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     }
     private static MenuItem CreateMenuItem(string name, string key, ICommand? command = null)
     {
-        var item = new MenuItem { Name = name, Command = command };
+        var item = new MenuItem { Name = name, Command = command, Icon = WorkbenchIcon.Create(key) };
         item.Bind(MenuItem.HeaderProperty, Localization.Observe("Workbench." + key).ToBinding());
         return item;
     }

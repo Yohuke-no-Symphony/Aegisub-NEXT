@@ -16,7 +16,7 @@ internal sealed class SubtitleColorTagMenu : IDisposable
 
     internal SubtitleColorTagMenu(string name)
     {
-        Item = new() { Name = name };
+        Item = new() { Name = name, Icon = WorkbenchIcon.Create("ColorTag") };
         titleBinding = Item.Bind(MenuItem.HeaderProperty, Localization.Observe("Workbench.ColorTag.Label").ToBinding());
     }
 
@@ -30,6 +30,7 @@ internal sealed class SubtitleColorTagMenu : IDisposable
         Item.IsEnabled = canExecute();
         var clear = CreateLocalizedItem("Workbench.ColorTag.Clear", new AsyncRelayCommand(() => applyProject(null), canExecute));
         clear.Name = "ClearSubtitleColorTagMenuItem";
+        clear.Icon = WorkbenchIcon.Create("ClearColorTag");
         clear.ToggleType = MenuItemToggleType.CheckBox;
         clear.IsChecked = uniform && currentTagId is null;
         Item.Items.Add(clear);
@@ -82,6 +83,7 @@ internal sealed class SubtitleColorTagMenu : IDisposable
         Item.Items.Add(new Separator());
         var manager = CreateLocalizedItem("Workbench.ColorTag.Manage", new AsyncRelayCommand(manage));
         manager.Name = "ManageSubtitleColorTagsMenuItem";
+        manager.Icon = WorkbenchIcon.Create("ManageColorTags");
         Item.Items.Add(manager);
     }
 
