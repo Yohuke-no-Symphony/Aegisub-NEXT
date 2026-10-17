@@ -21,6 +21,7 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
             [new("EffectLibrary", [WorkbenchCommand.OPEN_STYLE_LIBRARY, WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY,
                 WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER], LocalizationKey: "Workbench.MenuEffectLibrary", IconKey: "EffectLibrary")]),
         new("View", [WorkbenchCommand.VIEW_PREVIEW, WorkbenchCommand.VIEW_TIMELINE, WorkbenchCommand.VIEW_SUBTITLES,
+            WorkbenchCommand.OPEN_SUBTITLE_DETAILS,
             WorkbenchCommand.VIEW_ASSETS, WorkbenchCommand.VIEW_DRAWING_TOOLS, WorkbenchCommand.VIEW_STYLES, WorkbenchCommand.VIEW_EFFECTS,
             WorkbenchCommand.VIEW_EFFECT_PRESETS, WorkbenchCommand.VIEW_MASKS, WorkbenchCommand.VIEW_EXPORT, WorkbenchCommand.VIEW_LOG]),
         new("Layouts", [WorkbenchCommand.LAYOUT_SAVE, WorkbenchCommand.LAYOUT_SAVE_AS,
@@ -28,7 +29,7 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
         new("Playback", [WorkbenchCommand.PLAY_PAUSE, WorkbenchCommand.SEEK_BACKWARD, WorkbenchCommand.SEEK_FORWARD]),
         new("Subtitles", [WorkbenchCommand.TIMING_ENTER, WorkbenchCommand.TIMING_EXIT, null,
             WorkbenchCommand.ADD_SUBTITLE, WorkbenchCommand.DELETE_SUBTITLE, WorkbenchCommand.SPLIT_SUBTITLE,
-            WorkbenchCommand.MERGE_SUBTITLE, null, WorkbenchCommand.OPEN_SUBTITLE_DETAILS]),
+            WorkbenchCommand.MERGE_SUBTITLE]),
         new("Help", [WorkbenchCommand.CHECK_UPDATES, WorkbenchCommand.OPEN_ABOUT])
     ];
 
