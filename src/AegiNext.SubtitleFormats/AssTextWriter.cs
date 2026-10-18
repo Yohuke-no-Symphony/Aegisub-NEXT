@@ -10,7 +10,7 @@ internal static class AssTextWriter
 {
     internal static AssBodyWriteResult Write(SubtitleLine line, MediaTime origin, bool projection = false,
         AssEventConversionContext? conversion = null, MediaTime? eventOrigin = null,
-        AssTextAnimationExport? textAnimation = null, bool canvasUnits = false)
+        AssTextAnimationExport? textAnimation = null, bool canvasUnits = false, AssExportStyle? exportStyle = null)
     {
         AssTextParser.ValidateLine(line, canvasUnits);
         var result = new StringBuilder();
@@ -114,7 +114,14 @@ internal static class AssTextWriter
                     textAnimation?.SharedVisualProperties(offset, clip is not null) ?? ImmutableHashSet<AnimationProperty>.Empty;
                 CheckTagBoundary(result);
                 var outputStyle = conversion?.ConvertStyle(style) ?? style;
-                result.Append("{\\r").Append(StyleTags(outputStyle, projection, line.Id, diagnostics)).Append(conversion?.GeometryTags).Append('}');
+                var delta = !projection && exportStyle is not null ? new AssStyleDeltaWriter(exportStyle) : null;
+                if (delta is not null)
+                {
+                    ValidateFontFamily(outputStyle);
+                }
+                var staticTags = delta?.StyleTags(outputStyle, BlurValue(outputStyle, projection, line.Id, diagnostics),
+                    clip is null, clip is null) ?? StyleTags(outputStyle, projection, line.Id, diagnostics);
+                AppendTags(result, (delta is null || index > 0 ? "\\r" : string.Empty) + staticTags + conversion?.GeometryTags);
                 AddStyleDiagnostics(outputStyle, line.Id, diagnostics, projection);
                 previous = style;
                 if (clip is not null)
@@ -125,11 +132,15 @@ internal static class AssTextWriter
                     active = conversion?.ConvertStyle(active) ?? active;
                     AddStyleDiagnostics(inactive, line.Id, diagnostics, projection);
                     AddStyleDiagnostics(active, line.Id, diagnostics, projection);
-                    result.Append("{\\2c").Append(AssFormatValues.Color(inactive.Fill, false)).Append("\\2a").Append(AssFormatValues.Alpha(inactive.Fill));
-                    result.Append("\\1c").Append(AssFormatValues.Color(active.Fill, false)).Append("\\1a").Append(AssFormatValues.Alpha(active.Fill));
+                    var visualTags = new StringBuilder();
+                    visualTags.Append(delta?.ColorTags("2", inactive.Fill) ??
+                        "\\2c" + AssFormatValues.Color(inactive.Fill, false) + "\\2a" + AssFormatValues.Alpha(inactive.Fill));
+                    visualTags.Append(delta?.ColorTags("1", active.Fill) ??
+                        "\\1c" + AssFormatValues.Color(active.Fill, false) + "\\1a" + AssFormatValues.Alpha(active.Fill));
                     if (clip.HighlightKind == KaraokeHighlightKind.SWEEP)
                     {
-                        result.Append(VisualTags(inactive, projection, line.Id, diagnostics));
+                        visualTags.Append(delta?.VisualTags(inactive, BlurValue(inactive, projection, line.Id, diagnostics)) ??
+                            VisualTags(inactive, projection, line.Id, diagnostics));
                         if (VisualsDiffer(inactive, active))
                         {
                             diagnostics.Add(new("Ass.KaraokeVisual", "ASS per-word sweeps cannot fully preserve independent stroke and shadow before and after activation. The inactive appearance was used.", SubtitleId: line.Id));
@@ -137,7 +148,8 @@ internal static class AssTextWriter
                     }
                     else if (clipStartCount == 0)
                     {
-                        result.Append(VisualTags(active, projection, line.Id, diagnostics));
+                        visualTags.Append(delta?.VisualTags(active, BlurValue(active, projection, line.Id, diagnostics)) ??
+                            VisualTags(active, projection, line.Id, diagnostics));
                         var representedInactive = clip.HighlightKind == KaraokeHighlightKind.OUTLINE_STEP ? active with { StrokeWidth = 0 } : active;
                         if (VisualsDiffer(inactive, representedInactive))
                         {
@@ -146,19 +158,21 @@ internal static class AssTextWriter
                     }
                     else
                     {
-                        result.Append(VisualTags(inactive, projection, line.Id, diagnostics));
+                        visualTags.Append(delta?.VisualTags(inactive, BlurValue(inactive, projection, line.Id, diagnostics)) ??
+                            VisualTags(inactive, projection, line.Id, diagnostics));
                         var changes = ChangedVisualTags(inactive, active, projection, line.Id, diagnostics, sharedVisual);
                         if (changes.Length > 0)
                         {
                             var startMs = checked(clipStartCount * 10).ToString(CultureInfo.InvariantCulture);
-                            result.Append("\\t(").Append(startMs).Append(',').Append(startMs).Append(',').Append(changes).Append(')');
+                            visualTags.Append("\\t(").Append(startMs).Append(',').Append(startMs).Append(',').Append(changes).Append(')');
                         }
                     }
-                    result.Append('}');
+                    AppendTags(result, visualTags.ToString());
                 }
                 else
                 {
-                    result.Append("{\\2c").Append(AssFormatValues.Color(style.Fill, false)).Append("\\2a").Append(AssFormatValues.Alpha(style.Fill)).Append('}');
+                    AppendTags(result, delta?.ColorTags("2", outputStyle.Fill) ??
+                        "\\2c" + AssFormatValues.Color(style.Fill, false) + "\\2a" + AssFormatValues.Alpha(style.Fill));
                 }
                 var animationTags = conversion?.AnimationTags(style, eventOrigin ?? origin, sharedVisual);
                 animationTags += conversion?.TextAnimationTags(offset, style, clip is not null, eventOrigin ?? origin, nativeInactive);
@@ -205,10 +219,7 @@ internal static class AssTextWriter
     private static string StyleTags(SubtitleStyle style, bool projection, Guid id,
         ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
-        if (style.FontFamily.IndexOfAny(['\\', '{', '}', '\r', '\n']) >= 0)
-        {
-            throw new InvalidDataException("ASS font names contain tag control characters.");
-        }
+        ValidateFontFamily(style);
         var weight = !projection && !style.FontAssetId.HasValue && style.FontVariant is { Weight: >= 100 and <= 1000 } variant
             ? variant.Weight : style.Bold ? 1 : 0;
         var italic = style.Italic || !projection && !style.FontAssetId.HasValue && style.FontVariant is { Italic: true };
@@ -328,6 +339,22 @@ internal static class AssTextWriter
         if (source.Length > 0 && source[^1] == '\\')
         {
             throw new InvalidDataException("An ASS literal backslash is adjacent to a style or karaoke tag and cannot be exported losslessly.");
+        }
+    }
+
+    private static void ValidateFontFamily(SubtitleStyle style)
+    {
+        if (style.FontFamily.IndexOfAny(['\\', '{', '}', '\r', '\n']) >= 0)
+        {
+            throw new InvalidDataException("ASS font names contain tag control characters.");
+        }
+    }
+
+    private static void AppendTags(StringBuilder output, string tags)
+    {
+        if (tags.Length > 0)
+        {
+            output.Append('{').Append(tags).Append('}');
         }
     }
 

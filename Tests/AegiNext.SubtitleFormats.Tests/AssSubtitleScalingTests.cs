@@ -143,8 +143,9 @@ public sealed class AssSubtitleScalingTests
         var measurer = new RecordingSubtitlePlacementMeasurer(new(new(1920, 2100), default, default, new(100, 100)));
         var written = AssSubtitleFormat.Write(document, placementMeasurer: measurer);
 
-        Assert.Contains("\\fs8192", written.Text, StringComparison.Ordinal);
-        Assert.Contains("\\bord8192", written.Text, StringComparison.Ordinal);
+        var style = Assert.Single(written.Text.Split('\n'), row => row.StartsWith("Style: ", StringComparison.Ordinal)).Split(',');
+        Assert.Equal("8192", style[2]);
+        Assert.Equal("8192", style[16]);
         if (requireMeasurement)
         {
             var measuredDocument = Assert.IsType<ProjectDocument>(measurer.Document);

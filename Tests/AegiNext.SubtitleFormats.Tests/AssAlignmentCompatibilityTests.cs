@@ -1,3 +1,4 @@
+using System.Globalization;
 using AegiNext.Core.Projects;
 using AegiNext.SubtitleFormats;
 using AegiNext.Testing.SubtitleFormats;
@@ -36,7 +37,9 @@ public sealed class AssAlignmentCompatibilityTests
         Assert.Null(imported.Style.TextAlign);
         var document = SubtitleFormatTestDocument.Create(imported) with { Width = 640, Height = 360 };
         var written = AssSubtitleFormat.Write(document);
-        Assert.Contains("\\an" + value, written.Text, StringComparison.Ordinal);
+        var style = Assert.Single(written.Text.Split('\n'), row => row.StartsWith("Style: ", StringComparison.Ordinal));
+        Assert.Equal(value, int.Parse(style.Split(',')[18], CultureInfo.InvariantCulture));
+        Assert.DoesNotContain("\\an", written.Text, StringComparison.Ordinal);
         var roundTripped = Assert.Single(AssSubtitleFormat.Parse(written.Text, document.Width, document.Height).Lines);
         Assert.Equal(imported.Style.Alignment, roundTripped.Style.Alignment);
         Assert.Null(imported.Style.Position);
@@ -56,7 +59,7 @@ public sealed class AssAlignmentCompatibilityTests
     [InlineData(9, 4, TextAlignment.MIDDLE_LEFT)]
     [InlineData(10, 5, TextAlignment.MIDDLE_CENTER)]
     [InlineData(11, 6, TextAlignment.MIDDLE_RIGHT)]
-    public void LegacyAlignmentMatchesModernPlacementAndExportsModernTags(int legacy, int modern, TextAlignment alignment)
+    public void LegacyAlignmentMatchesModernPlacementAndExportsModernStyleAlignment(int legacy, int modern, TextAlignment alignment)
     {
         var legacyResult = AssSubtitleFormat.Parse(File("{\\a" + legacy + "}"));
         var imported = Assert.Single(legacyResult.Lines);
@@ -65,7 +68,10 @@ public sealed class AssAlignmentCompatibilityTests
         Assert.Equal(reference.Style, imported.Style);
         Assert.DoesNotContain(legacyResult.Diagnostics, diagnostic => diagnostic.Code == "Ass.UnsupportedTag");
         var written = AssSubtitleFormat.Write(SubtitleFormatTestDocument.Create(imported));
-        Assert.Contains("\\an" + modern, written.Text, StringComparison.Ordinal);
+        var style = Assert.Single(written.Text.Split('\n'), row => row.StartsWith("Style: ", StringComparison.Ordinal));
+        Assert.Equal(modern, int.Parse(style.Split(',')[18], CultureInfo.InvariantCulture));
+        Assert.DoesNotContain("\\an", written.Text, StringComparison.Ordinal);
+        Assert.Equal(alignment, Assert.Single(AssSubtitleFormat.Parse(written.Text).Lines).Style.Alignment);
     }
 
     [Theory]

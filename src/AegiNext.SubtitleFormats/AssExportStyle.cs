@@ -17,9 +17,9 @@ internal sealed record AssExportStyle(string Name, string Fields, ImmutableDicti
         var primary = AssFormatValues.Color(style.Fill);
         var outline = AssFormatValues.Color(style.Stroke);
         var shadowColor = AssFormatValues.Color(style.ShadowColor);
-        var spacing = AssFormatValues.Number(style.LetterSpacing);
+        var spacing = AssFormatValues.Number(Math.Max(style.LetterSpacing, 0));
         var outlineWidth = AssFormatValues.Number(style.StrokeWidth);
-        var shadowOffset = AssFormatValues.Number(style.ShadowOffset.Y);
+        var shadowOffset = AssFormatValues.Number(Math.Max(style.ShadowOffset.Y, 0));
         var alignment = AssFormatValues.Alignment(style.Alignment).ToString(CultureInfo.InvariantCulture);
         var marginLeft = AssFormatValues.Number(style.Margins.Left);
         var marginRight = AssFormatValues.Number(style.Margins.Right);

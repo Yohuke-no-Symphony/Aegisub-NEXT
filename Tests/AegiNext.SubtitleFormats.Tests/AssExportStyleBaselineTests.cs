@@ -97,8 +97,8 @@ public sealed class AssExportStyleBaselineTests
         Assert.Equal("0", baseline["frz"]);
         Assert.Equal("0", baseline["frx"]);
         Assert.Equal("0", baseline["fry"]);
-        Assert.Equal("-2", exported.Fields.Split(',')[12]);
-        Assert.Equal("-2", exported.Fields.Split(',')[16]);
+        Assert.Equal("0", exported.Fields.Split(',')[12]);
+        Assert.Equal("0", exported.Fields.Split(',')[16]);
         Assert.Equal(new ScenePoint(8, -2), style.ShadowOffset);
         Assert.Equal(600, style.FontVariant!.Value.Weight);
     }

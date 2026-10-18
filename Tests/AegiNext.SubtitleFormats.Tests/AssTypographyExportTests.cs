@@ -8,7 +8,7 @@ namespace AegiNext.SubtitleFormats.Tests;
 public sealed class AssTypographyExportTests
 {
     [Fact]
-    public void SpacingIsWrittenIntoStyleTableAndEveryInlineResetWithoutMutatingTheProject()
+    public void SpacingUsesTheStyleTableAndOnlyWritesActualInlineDifferences()
     {
         var line = Line() with
         {
@@ -18,10 +18,12 @@ public sealed class AssTypographyExportTests
         var written = AssSubtitleFormat.Write(Document(line));
         var fields = Assert.Single(written.Text.Split('\n'), row => row.StartsWith("Style: ", StringComparison.Ordinal)).Split(',');
         Assert.Equal("2.5", fields[13]);
-        Assert.Contains("\\fsp2.5", Body(written.Text), StringComparison.Ordinal);
+        Assert.DoesNotContain("\\fsp2.5", Body(written.Text), StringComparison.Ordinal);
         Assert.Contains("\\fsp-1.25", Body(written.Text), StringComparison.Ordinal);
-        Assert.All(Regex.Matches(Body(written.Text), @"\{\\r[^}]*\}"), match =>
-            Assert.Contains("\\fsp", match.Value, StringComparison.Ordinal));
+        var imported = Assert.Single(AssSubtitleFormat.Parse(written.Text, 640, 360).Lines);
+        Assert.Equal(2.5, imported.Style.LetterSpacing);
+        Assert.Equal(-1.25, Assert.Single(imported.InlineSpans, span => span.Utf16Start <= 1 &&
+            1 < span.Utf16Start + span.Utf16Length).Style.ApplyTo(imported.Style).LetterSpacing);
         Assert.DoesNotContain(written.Diagnostics, diagnostic => diagnostic.Code is "Ass.NativeTypography" or "Ass.NumberPrecision");
         Assert.Equal(2.5, line.Style.LetterSpacing);
     }
@@ -34,7 +36,17 @@ public sealed class AssTypographyExportTests
     {
         var line = Line() with { Style = Line().Style with { WrapMode = mode } };
         var written = AssSubtitleFormat.Write(Document(line));
-        Assert.Contains("\\q" + assMode, Body(written.Text), StringComparison.Ordinal);
+        Assert.Contains("WrapStyle: 1", written.Text, StringComparison.Ordinal);
+        if (assMode == 2)
+        {
+            Assert.Contains("\\q2", Body(written.Text), StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.DoesNotContain("\\q", Body(written.Text), StringComparison.Ordinal);
+        }
+        var imported = Assert.Single(AssSubtitleFormat.Parse(written.Text, 640, 360).Lines);
+        Assert.Equal(assMode == 2 ? SubtitleWrapMode.NO_WRAP : SubtitleWrapMode.NATURAL, imported.Style.WrapMode);
         Assert.Equal(loss, written.Diagnostics.Any(diagnostic => diagnostic.Code == "Ass.WrapMode"));
         Assert.DoesNotContain("\\q", AssTextProjection.Create(line).Source, StringComparison.Ordinal);
     }
@@ -90,7 +102,11 @@ public sealed class AssTypographyExportTests
             Style = Line().Style with { StrokeWidth = 0, StrokeBlur = 4, ShadowColor = SceneColor.Black, ShadowBlur = 7 }
         };
         var written = AssSubtitleFormat.Write(Document(line));
-        Assert.Equal(0, Assert.Single(BlurValues(Body(written.Text))));
+        Assert.DoesNotContain("\\blur", Body(written.Text), StringComparison.Ordinal);
+        var imported = Effective(Assert.Single(AssSubtitleFormat.Parse(written.Text, 640, 360).Lines));
+        Assert.Equal(0, imported.FillBlur);
+        Assert.Equal(0, imported.StrokeBlur);
+        Assert.Equal(0, imported.ShadowBlur);
         Assert.Contains(written.Diagnostics, diagnostic => diagnostic.Code == "Ass.StrokeBlur");
         Assert.Contains(written.Diagnostics, diagnostic => diagnostic.Code == "Ass.ShadowBlur");
     }
@@ -101,7 +117,8 @@ public sealed class AssTypographyExportTests
         var line = Line() with { Style = Line().Style with { LetterSpacing = 3, FillBlur = 2 * AssBlurConversion.SigmaPerUnit } };
         var layer = Layer(line) with { Transform = new() { Scale = new(2, 2) } };
         var written = AssSubtitleFormat.Write(Document(line, layer));
-        Assert.Contains("\\fsp3", Body(written.Text), StringComparison.Ordinal);
+        var fields = Assert.Single(written.Text.Split('\n'), row => row.StartsWith("Style: ", StringComparison.Ordinal)).Split(',');
+        Assert.Equal("3", fields[13]);
         Assert.Equal(4, Assert.Single(BlurValues(Body(written.Text))));
         var imported = AssSubtitleFormat.Parse(written.Text, 640, 360);
         var style = Effective(Assert.Single(imported.Lines));

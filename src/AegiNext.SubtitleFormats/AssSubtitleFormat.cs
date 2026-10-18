@@ -364,7 +364,7 @@ public static class AssSubtitleFormat
                 }
                 var sampleLine = line with { Start = sample.Start, End = sample.End };
                 var body = AssTextWriter.Write(sampleLine, sample.ContentTime, conversion: conversion,
-                    eventOrigin: conversion.EventOrigin(sample, timeOffset), canvasUnits: true);
+                    eventOrigin: conversion.EventOrigin(sample, timeOffset), canvasUnits: true, exportStyle: styles[line.Id]);
                 foreach (var diagnostic in body.Diagnostics)
                 {
                     if (reportedDiagnostics.Add((diagnostic.SubtitleId, diagnostic.Code)))
@@ -372,7 +372,7 @@ public static class AssSubtitleFormat
                         diagnostics.Add(diagnostic);
                     }
                 }
-                var placement = conversion.PlacementTags(sample, timeOffset);
+                var placement = conversion.PlacementTags(sample, timeOffset, styles[line.Id]);
                 var opacity = conversion.OpacityTags(sample, timeOffset);
                 var maskTags = sample.Tags.Length == 0 ? string.Empty : "{" + sample.Tags + "}";
                 result.AppendLine(string.Create(CultureInfo.InvariantCulture,

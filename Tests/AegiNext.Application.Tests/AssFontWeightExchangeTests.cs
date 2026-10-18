@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text.RegularExpressions;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.SubtitleFormats;
@@ -251,16 +249,18 @@ public sealed class AssFontWeightExchangeTests
             Karaoke = [new(0, 3, MediaTime.Zero, new(1), SceneColor.White), new(3, 1, new(1), new(2), SceneColor.White)]
         };
         var written = AssSubtitleFormat.Write(SubtitleFormatTestDocument.Create(line));
-        var body = written.Text.Split('\n').Single(value => value.StartsWith("Dialogue:", StringComparison.Ordinal)).Split(',', 10)[9];
-        var resetWeights = Regex.Matches(body, @"\{\\r[^}]*\\b(\d+)\\i")
-            .Select(match => int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture)).ToArray();
-        Assert.Equal(expectedResetWeights, resetWeights);
         var resolver = new RecordingAssFontWeightResolver(("Example", semiBold), ("Example", black));
         var parsed = AssSubtitleFormat.Parse(written.Text, fontWeightResolver: resolver);
         var imported = Assert.Single(parsed.Lines);
         Assert.Equal(line.Text, imported.Text);
         Assert.Equal(new[] { semiBold, black, semiBold, semiBold }, Enumerable.Range(0, 4)
             .Select(offset => StyleAt(imported, offset).FontVariant!.Value).ToArray());
+        Assert.Equal(expectedResetWeights, Enumerable.Range(0, 4).Select(offset => StyleAt(imported, offset).FontVariant!.Value.Weight));
+        Assert.All(Enumerable.Range(0, 4), offset =>
+        {
+            Assert.Equal(StyleAt(line, offset).Bold, StyleAt(imported, offset).Bold);
+            Assert.Equal(StyleAt(line, offset).Italic, StyleAt(imported, offset).Italic);
+        });
         Assert.Equal(line.Karaoke.Select(group => (group.Utf16Start, group.Utf16Length, group.Start, group.End)),
             imported.Karaoke.Select(group => (group.Utf16Start, group.Utf16Length, group.Start, group.End)));
         Assert.DoesNotContain(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.FontWeight");

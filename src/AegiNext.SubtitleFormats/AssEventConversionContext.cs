@@ -468,13 +468,15 @@ internal sealed class AssEventConversionContext
         };
     }
 
-    internal string PlacementTags(AssMaskSample sample, MediaTime timeOffset)
+    internal string PlacementTags(AssMaskSample sample, MediaTime timeOffset, AssExportStyle exportStyle)
     {
-        var alignment = "{\\an" + AssFormatValues.Alignment(line.Style.Alignment).ToString(CultureInfo.InvariantCulture);
+        var encodedAlignment = AssFormatValues.Alignment(line.Style.Alignment).ToString(CultureInfo.InvariantCulture);
+        var alignment = exportStyle.Baseline["an"] == encodedAlignment ? string.Empty : "\\an" + encodedAlignment;
         if (!hasPlacement)
         {
-            return alignment + "}";
+            return alignment.Length == 0 ? string.Empty : "{" + alignment + "}";
         }
+        alignment = "{" + alignment;
         if (rotationOrigin is not null)
         {
             alignment += "\\org(" + Point(rotationOrigin.Origin) + ")";

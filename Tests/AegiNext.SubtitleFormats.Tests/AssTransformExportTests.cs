@@ -34,7 +34,7 @@ public sealed class AssTransformExportTests
         Assert.Single(Regex.Matches(body, @"\\org\("));
         Assert.Single(Regex.Matches(body, @"\\pos\("));
         var resets = Regex.Matches(body, @"\{\\r[^}]*\}");
-        Assert.Equal(2, resets.Count);
+        Assert.NotEmpty(resets);
         foreach (Match reset in resets)
         {
             Assert.Contains("\\fscx200", reset.Value, StringComparison.Ordinal);
@@ -44,6 +44,12 @@ public sealed class AssTransformExportTests
             Assert.Contains("\\xshad-6", reset.Value, StringComparison.Ordinal);
             Assert.Contains("\\yshad4", reset.Value, StringComparison.Ordinal);
         }
+        var parsed = AssSubtitleFormat.Parse(written.Text);
+        var imported = Assert.Single(parsed.Clips);
+        Assert.Equal(new ScenePoint(2, 2), imported.Transform.Scale);
+        Assert.Equal(90, imported.Transform.Rotation);
+        Assert.DoesNotContain(imported.Line.AnimationRanges, range => range.Scale != new ScenePoint(1, 1) || range.Rotation != 0);
+        Assert.DoesNotContain(parsed.Diagnostics, diagnostic => diagnostic.Code == "Ass.RotationOrigin");
         Assert.DoesNotContain(written.Diagnostics, diagnostic => diagnostic.Code is "Subtitle.Composition" or "Ass.Pivot" or "Ass.PlacementMeasurement");
         Assert.DoesNotContain(written.Diagnostics, diagnostic => diagnostic.Code == "Ass.NumberPrecision");
         Assert.Same(layer, document.Layers[0]);

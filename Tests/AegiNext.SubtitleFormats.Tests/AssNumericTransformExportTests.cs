@@ -10,18 +10,28 @@ namespace AegiNext.SubtitleFormats.Tests;
 public sealed class AssNumericTransformExportTests
 {
     [Fact]
-    public void InlineResetRepeatsTheAnimationAfterAllStaticStyleTags()
+    public void InlineStyleChangesKeepTheWholeLineAnimationAndItsPhase()
     {
         var line = Line() with { InlineSpans = [new(1, 1, new() { LetterSpacing = 88, Bold = true })] };
         var track = new AnimationTrack(AnimationProperty.LETTER_SPACING, [new(new(0), 0), new(new(1), 10)]);
         var written = AssSubtitleFormat.Write(Document(line, track));
-        var segments = Body(written.Text).Split("{\\r", StringSplitOptions.None).Skip(1).ToArray();
-        Assert.Equal(2, segments.Length);
-        Assert.All(segments, segment =>
+        var imported = Assert.Single(AssSubtitleFormat.Parse(written.Text, 640, 360).Clips);
+        var importedLayer = Layer(imported.Line) with
         {
-            Assert.Contains("\\fsp0\\t(0,1000,1,\\fsp10)", segment, StringComparison.Ordinal);
-            Assert.True(segment.IndexOf("\\blur0", StringComparison.Ordinal) < segment.IndexOf("\\t(", StringComparison.Ordinal));
-        });
+            Transform = imported.Transform, Tracks = imported.Tracks, AnimationOffset = imported.ContentOffset
+        };
+        foreach (var time in new[] { MediaTime.Zero, new(1, 4), new(1, 2), new(999, 1000), new(1), new(1999, 1000) })
+        {
+            var evaluated = SceneEvaluator.EvaluateLayer(importedLayer, imported.Line, imported.ContentOffset + time);
+            foreach (var offset in Enumerable.Range(0, imported.Line.Text.Length))
+            {
+                var style = imported.Line.InlineSpans.FirstOrDefault(span => span.Utf16Start <= offset &&
+                    offset < span.Utf16Start + span.Utf16Length)?.Style.ApplyTo(imported.Line.Style) ?? imported.Line.Style;
+                var animated = SubtitleAnimationEvaluation.ApplyTypographyAnimations(evaluated, style, offset);
+                Assert.Equal(SceneEvaluator.EvaluateScalarTrack(track, time), animated.LetterSpacing, 8);
+                Assert.Equal(offset == 1, style.Bold);
+            }
+        }
         Assert.DoesNotContain(written.Diagnostics, diagnostic => diagnostic.Code == "Subtitle.Composition");
         Assert.Equal(88, line.InlineSpans[0].Style.LetterSpacing);
     }
