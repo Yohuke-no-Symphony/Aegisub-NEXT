@@ -10,6 +10,7 @@ See the [ASS tag audit](ass-tag-audit.md) for native relationships, conversion i
 
 | Content | Native mapping and limits |
 |---|---|
+| Named styles | Export shares named Style definitions referenced by Dialogue events; base properties inherit from the table, with only necessary local differences and effects in the text. Complete source-style tables and override provenance do not survive; see below |
 | Text, fonts, and emphasis | Family, size, spacing, bold, italic, underline, strikeout, and inline overrides; embedded fonts, named variants, and custom line height cannot be fully stored in ASS |
 | Color and alpha | Fill, stroke, shadow, and karaoke fill before and after activation; ASS uses 8-bit sRGB, so native linear colors, HDR, and independent channels can incur quantization or range loss |
 | Layout and placement | Nine-way alignment, three margins, static position, nonnegative 2D scale, and Z rotation; font metrics and the order of scaling and wrapping differ |
@@ -20,6 +21,18 @@ See the [ASS tag audit](ass-tag-audit.md) for native relationships, conversion i
 | Static shapes | Isolated, explicitly placed simple closed ASS drawings import into native paths; independent contours without holes split into shape layers. Static native shapes export as drawing coordinates, with lossy stroke approximation. Mixed flow, automatic drawing placement, clipping, shadow/blur, and animation are outside this import scope |
 
 Parameter correspondence does not mean pixel equivalence. Each renderer retains its own shaping, rasterization, shadow contours, blur, and fade composition. Differing shadow conditions produce `Ass.ShadowComposition`; blur has corresponding appearance and channel-coupling diagnostics.
+
+## Named styles and text differences
+
+Export writes named definitions in `[V4+ Styles]`, referenced by each Dialogue event's Style field. Subtitles with the same name and the same ASS output fields other than margins share a definition. Different native names remain separate even when their fields match. A conflicting definition with the same name receives a unique suffix. Commas, surrounding whitespace, and conflicting names produce `Ass.StyleName` diagnostics without renaming the native project style.
+
+Properties provided by the table, including font family, size, Boolean emphasis, base colors, border, and alignment, are inherited instead of fully expanded into every text body. Without local overrides or additional effects, the body can contain only text. Local differences use the necessary tags. Later style, karaoke, or animation-range boundaries still use `\r` to restore the current Dialogue style, then reapply local differences, geometry, and required animation while retaining the event clock. Editing an exported Style property affects text that inherits it; explicit local overrides in the output remain independent.
+
+Comparisons use actual ASS encodings rather than native floating-point values: numbers use at most nine decimal places, with RGB and alpha compared separately at their 8-bit output precision. Local values that quantize to the baseline are exported as inheritance without preserving explicit-override identity. Actual precision, font-identity, and appearance-semantic losses still produce diagnostics. `\blur`, necessary `\q`, precise weight, independent or signed shadow axes, placement, geometry, karaoke, animation, and masks remain in text as needed. When negative spacing or shadow cannot be inherited from the corresponding style scalar, the table uses zero and the necessary `\fsp` or `\xshad/\yshad` preserves the value in text.
+
+Shared styles handle left, right, and vertical margins independently. If every subtitle in a group has the same encoded value on an axis, Style stores that common value and Dialogue uses zero to inherit it. Otherwise, Style stores zero on that axis and each Dialogue stores its actual value. Margin differences alone therefore do not split styles, and a true zero cannot accidentally inherit another subtitle's nonzero value. Grouping compares serialized values without first truncating them to integers. Events produced by mask expansion reuse the same source style reference and margins.
+
+These rules preserve corresponding style properties and sharing, without reconstructing the complete source file. Unused Style definitions, original `\rStyle` references, whether an attribute came from a Style or text override, and original margin override/inheritance syntax are not retained. SecondaryColour unused by timed text is not stored as an independent source-style field. Style Encoding is not restored and export writes a fixed value. Scale and rotation can become native geometry and return as equivalent tags rather than their original Style fields. Save `.aeginext` to continue editing with native data intact.
 
 ## Exchange limits
 
@@ -53,7 +66,9 @@ Identified numeric, timing, and layout losses are reported separately. When both
 
 The advanced ASS editor provides a temporary text projection of native data. Unchanged timing, color precision, font resources, independent appearances, and preservable native tracks recover their original values. Ordinary text or inline-style changes do not automatically reduce the project to ASS precision. Editing a tag updates its corresponding representable property.
 
-Range Offset, generated-block origins and their parent references, local POSITION tracks, and unrepresentable reversed text curves are retained through this projection. Sampled ASS tags do not become the authoritative replacement for a preserved native reverse curve. To regroup or retime a generated effect after text edits, reapply its template as described in [Effect scripts](effect-dsl.md#editable-results-and-reapplication).
+File-export style compaction does not apply to this editor. Advanced editing retains its complete style projection and the existing property-editing and native-data restoration rules.
+
+Range Offset, generated-block origins and their parent references, local POSITION tracks, and unrepresentable reversed text curves are retained through this projection. Sampled ASS tags do not become the authoritative replacement for a preserved native reverse curve. To regroup or retime a generated effect after text edits, reapply its template as described in [Effect scripts](effect-dsl.md).
 
 File import follows external ASS semantics, including source-operation order, empty-parameter resets, the karaoke clock, and resolution conversion. The advanced projection and external files have different boundaries. Projection text is not a complete project backup; save `.aeginext` to retain native capabilities.
 
@@ -65,6 +80,7 @@ Conversion results include diagnostics associated with subtitles, source tags, o
 
 | Diagnostic category | Meaning |
 |---|---|
+| `Ass.StyleName` | Output style names were adjusted for separators, surrounding whitespace, or conflicting definitions; native names are unchanged |
 | `Ass.UnsupportedTag`, `Ass.Drawing` | Source content lacks a current native adapter |
 | `Ass.TransformLayout`, `Ass.TextRangeGeometry` | Parameters survive, but layout and transform order can change appearance |
 | `Ass.RangeTranslation` | Output omits independent text-range translation |
