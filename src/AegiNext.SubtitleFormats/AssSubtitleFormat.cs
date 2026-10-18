@@ -356,6 +356,7 @@ public static class AssSubtitleFormat
                 diagnostics.Add(new("Ass.LayerBlur", "ASS text-edge blur cannot represent project whole-layer blur. Whole-layer blur was omitted during export.", SubtitleId: line.Id));
             }
             var conversion = new AssEventConversionContext(sourceDocument, layer, line, placementMeasurer, diagnostics);
+            var margins = styles[line.Id].DialogueMargins;
             foreach (var sample in AssMaskSampling.Samples(document, layer, line, diagnostics, timeOffset))
             {
                 if (exportedCount++ >= 100000)
@@ -376,7 +377,7 @@ public static class AssSubtitleFormat
                 var opacity = conversion.OpacityTags(sample, timeOffset);
                 var maskTags = sample.Tags.Length == 0 ? string.Empty : "{" + sample.Tags + "}";
                 result.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Dialogue: {order},{AssFormatValues.Time(sample.Start + timeOffset, MediaTimeRounding.FLOOR)},{AssFormatValues.Time(sample.End + timeOffset, MediaTimeRounding.CEILING)},{styles[line.Id].Name},,0,0,0,,{placement}{opacity}{maskTags}{body.Text}"));
+                    $"Dialogue: {order},{AssFormatValues.Time(sample.Start + timeOffset, MediaTimeRounding.FLOOR)},{AssFormatValues.Time(sample.End + timeOffset, MediaTimeRounding.CEILING)},{styles[line.Id].Name},,{AssFormatValues.Number(margins.Left)},{AssFormatValues.Number(margins.Right)},{AssFormatValues.Number(margins.Vertical)},,{placement}{opacity}{maskTags}{body.Text}"));
             }
             order++;
         }
