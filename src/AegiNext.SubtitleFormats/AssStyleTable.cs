@@ -7,23 +7,23 @@ namespace AegiNext.SubtitleFormats;
 
 internal static class AssStyleTable
 {
-    internal static Dictionary<Guid, string> Write(ImmutableArray<SubtitleLine> lines, StringBuilder output,
+    internal static Dictionary<Guid, AssExportStyle> Write(ImmutableArray<SubtitleLine> lines, StringBuilder output,
         ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics)
     {
         var reserved = lines.Select(line => SafeName(line.StyleName)).ToHashSet(StringComparer.Ordinal);
         var originalNames = lines.Select(line => line.StyleName).ToHashSet(StringComparer.Ordinal);
         var used = new HashSet<string>(StringComparer.Ordinal);
         var nextSuffix = new Dictionary<string, int>(StringComparer.Ordinal);
-        var styles = new Dictionary<(string Name, string Fields), string>();
-        var names = new Dictionary<Guid, string>();
+        var styles = new Dictionary<(string Name, string Fields), AssExportStyle>();
+        var names = new Dictionary<Guid, AssExportStyle>();
         foreach (var line in lines)
         {
-            var fields = Fields(line.Style);
-            var key = (line.StyleName, fields);
-            if (!styles.TryGetValue(key, out var name))
+            var exported = AssExportStyle.Create(line.StyleName, line.Style);
+            var key = (line.StyleName, exported.Fields);
+            if (!styles.TryGetValue(key, out var style))
             {
                 var basis = SafeName(line.StyleName);
-                name = basis;
+                var name = basis;
                 if (used.Contains(name) || name != line.StyleName && originalNames.Contains(name))
                 {
                     var suffix = nextSuffix.GetValueOrDefault(basis, 2);
@@ -35,13 +35,14 @@ internal static class AssStyleTable
                     nextSuffix[basis] = suffix;
                 }
                 used.Add(name);
-                styles.Add(key, name);
-                output.Append("Style: ").Append(name).Append(',').AppendLine(fields);
+                style = exported with { Name = name };
+                styles.Add(key, style);
+                output.Append("Style: ").Append(name).Append(',').AppendLine(style.Fields);
             }
-            names.Add(line.Id, name);
-            if (name != line.StyleName)
+            names.Add(line.Id, style);
+            if (style.Name != line.StyleName)
             {
-                diagnostics.Add(new("Ass.StyleName", $"The ASS style name contains separators or surrounding whitespace, or conflicts with a different style of the same name. It was exported as '{name}'; the project style name is unchanged.", SubtitleId: line.Id));
+                diagnostics.Add(new("Ass.StyleName", $"The ASS style name contains separators or surrounding whitespace, or conflicts with a different style of the same name. It was exported as '{style.Name}'; the project style name is unchanged.", SubtitleId: line.Id));
             }
         }
         return names;
@@ -61,15 +62,5 @@ internal static class AssStyleTable
             length--;
         }
         return name[..length] + ending;
-    }
-
-    private static string Fields(SubtitleStyle style)
-    {
-        if (style.FontFamily.Contains(',', StringComparison.Ordinal))
-        {
-            throw new InvalidDataException("ASS style font names cannot contain commas.");
-        }
-        return string.Create(CultureInfo.InvariantCulture,
-            $"{style.FontFamily},{AssFormatValues.Number(style.FontSize)},{AssFormatValues.Color(style.Fill)},{AssFormatValues.Color(style.Fill)},{AssFormatValues.Color(style.Stroke)},{AssFormatValues.Color(style.ShadowColor)},{(style.Bold ? -1 : 0)},{(style.Italic ? -1 : 0)},{(style.Underline ? -1 : 0)},{(style.Strikethrough ? -1 : 0)},100,100,{AssFormatValues.Number(style.LetterSpacing)},0,1,{AssFormatValues.Number(style.StrokeWidth)},{AssFormatValues.Number(style.ShadowOffset.Y)},{AssFormatValues.Alignment(style.Alignment)},{AssFormatValues.Number(style.Margins.Left)},{AssFormatValues.Number(style.Margins.Right)},{AssFormatValues.Number(style.Margins.Vertical)},1");
     }
 }

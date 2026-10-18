@@ -308,7 +308,7 @@ public static class AssSubtitleFormat
         result.AppendLine("[V4+ Styles]").AppendLine("Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding");
         var styles = AssStyleTable.Write(document.Subtitles, result, diagnostics);
         var graphicStyle = document.Layers.Any(layer => layer.Kind == LayerKind.SHAPE)
-            ? AssShapeWriter.WriteStyle(styles.Values, result) : string.Empty;
+            ? AssShapeWriter.WriteStyle(styles.Values.Select(style => style.Name), result) : string.Empty;
         var reportedDiagnostics = new HashSet<(Guid? SubtitleId, string Code)>();
         result.AppendLine().AppendLine("[Events]").AppendLine("Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text");
         var byId = document.Subtitles.ToDictionary(line => line.Id);
@@ -376,7 +376,7 @@ public static class AssSubtitleFormat
                 var opacity = conversion.OpacityTags(sample, timeOffset);
                 var maskTags = sample.Tags.Length == 0 ? string.Empty : "{" + sample.Tags + "}";
                 result.AppendLine(string.Create(CultureInfo.InvariantCulture,
-                    $"Dialogue: {order},{AssFormatValues.Time(sample.Start + timeOffset, MediaTimeRounding.FLOOR)},{AssFormatValues.Time(sample.End + timeOffset, MediaTimeRounding.CEILING)},{styles[line.Id]},,0,0,0,,{placement}{opacity}{maskTags}{body.Text}"));
+                    $"Dialogue: {order},{AssFormatValues.Time(sample.Start + timeOffset, MediaTimeRounding.FLOOR)},{AssFormatValues.Time(sample.End + timeOffset, MediaTimeRounding.CEILING)},{styles[line.Id].Name},,0,0,0,,{placement}{opacity}{maskTags}{body.Text}"));
             }
             order++;
         }
