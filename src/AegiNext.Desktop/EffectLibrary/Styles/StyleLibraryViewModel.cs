@@ -65,6 +65,7 @@ public sealed class StyleLibraryViewModel : ObservableObject
     {
         Fonts = fonts;
         OnPropertyChanged(nameof(Fonts));
+        OnPropertyChanged(nameof(FontSource));
         InvalidatePreview();
     }
 
@@ -118,8 +119,8 @@ public sealed class StyleLibraryViewModel : ObservableObject
             }
         }, () => CanEdit && !switching);
         ApplyCommand = new(() => Submit(true), () => CanApply);
-        CaptureCommand = new(() => CaptureRequested?.Invoke(this, EventArgs.Empty),
-            () => HasSelectedSubtitle && !IsBusy);
+        CaptureCommand = new(() => CaptureRequested?.Invoke(this, new(SelectedStyle!)),
+            () => HasSelectedSubtitle && SelectedStyle is not null && selectedIds.Length == 1 && !IsBusy && !switching);
         ImportCommand = new(() => ImportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy);
         ExportCommand = new(() => ExportRequested?.Invoke(this, EventArgs.Empty), () => !IsBusy && !switching);
         RefreshLanguage();
@@ -128,7 +129,7 @@ public sealed class StyleLibraryViewModel : ObservableObject
     public event EventHandler<LibraryStyleEventArgs>? UpsertRequested;
     public event EventHandler<LibraryStyleEventArgs>? ApplyRequested;
     public event EventHandler<LibraryStyleDeleteEventArgs>? DeleteRequested;
-    public event EventHandler? CaptureRequested;
+    public event EventHandler<LibraryStyleEventArgs>? CaptureRequested;
     public event EventHandler? ImportRequested;
     public event EventHandler? ExportRequested;
     public RelayCommand AddCommand { get; }
@@ -163,7 +164,9 @@ public sealed class StyleLibraryViewModel : ObservableObject
     public bool CanEdit => HasDraft && selectedIds.Length <= 1 && !IsBusy;
     public bool CanApply => CanEdit && HasSelectedSubtitle;
     public bool IsAvailable => !IsBusy;
-    public string FontSource => Localization.Get("Settings." + (draft?.Preset.Font is null ? "SystemFont" : "EmbeddedFont"));
+    public string FontSource => Localization.Get("Settings." + (Fonts.Catalog?.ApplicationFonts.Any(family =>
+        string.Equals(family.FamilyName, draft?.Preset.Style.FontFamily, StringComparison.OrdinalIgnoreCase)) == true
+            ? "ApplicationFont" : "SystemFont"));
     public int DraftVersion => draftVersion;
     public bool HasPreview => HasDraft && selectedIds.Length <= 1;
     internal long PreviewRevision => previewRevision;
@@ -475,8 +478,7 @@ public sealed class StyleLibraryViewModel : ObservableObject
         {
             if (!EqualityComparer<bool>.Default.Equals(Bold, value))
             {
-                ChangeStyle(style => (draft?.Preset.Font is null ? Fonts.ToggleBold(style, value) :
-                    new SubtitleInlineStyleOverride { Bold = value }).ApplyTo(style));
+                ChangeStyle(style => Fonts.ToggleBold(style, value).ApplyTo(style));
                 NotifyFontChanged();
                 OnPropertyChanged();
             }
@@ -490,8 +492,7 @@ public sealed class StyleLibraryViewModel : ObservableObject
         {
             if (!EqualityComparer<bool>.Default.Equals(Italic, value))
             {
-                ChangeStyle(style => (draft?.Preset.Font is null ? Fonts.ToggleItalic(style, value) :
-                    new SubtitleInlineStyleOverride { Italic = value }).ApplyTo(style));
+                ChangeStyle(style => Fonts.ToggleItalic(style, value).ApplyTo(style));
                 NotifyFontChanged();
                 OnPropertyChanged();
             }
@@ -792,7 +793,7 @@ public sealed class StyleLibraryViewModel : ObservableObject
 
     internal void CommitFont(FontSelection selection)
     {
-        ChangeStyle(style => SubtitleFontSelectionService.CreateOverride(selection).ApplyTo(style), true);
+        ChangeStyle(style => SubtitleFontSelectionService.CreateOverride(selection).ApplyTo(style));
         NotifyFontChanged();
     }
 
@@ -889,11 +890,11 @@ public sealed class StyleLibraryViewModel : ObservableObject
         SetSelection(null, []);
     }
 
-    private void ChangeStyle(Func<SubtitleStyle, SubtitleStyle> change, bool clearFont = false)
+    private void ChangeStyle(Func<SubtitleStyle, SubtitleStyle> change)
     {
         if (!loading && draft is not null)
         {
-            draft.UpdateStyle(change(draft.Preset.Style), clearFont);
+            draft.UpdateStyle(change(draft.Preset.Style));
             RefreshPositionMeasurement(!Position.IsExplicit);
             OnPropertyChanged(nameof(FontSource));
             InvalidatePreview();

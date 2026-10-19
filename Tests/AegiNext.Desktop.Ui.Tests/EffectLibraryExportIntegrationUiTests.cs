@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using System.Security.Cryptography;
 using AegiNext.Application.Presets;
 using AegiNext.Core.Effects;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.EffectLibrary;
@@ -25,7 +26,7 @@ public sealed class EffectLibraryExportIntegrationUiTests
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
         await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
         await context.Initialization;
-        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new(Guid.NewGuid(), "Saved style", new())));
+        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new SubtitleStylePreset(Guid.NewGuid(), "Saved style", new())));
         await context.RunEffectOperationAsync(() => context.EffectScriptLibrary.UpsertAsync(Effect("saved-effect")));
         var before = context.EffectLibrary.Snapshot;
         var dialogs = new StartupTestDialogService();
@@ -90,14 +91,15 @@ public sealed class EffectLibraryExportIntegrationUiTests
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
         await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
         await context.Initialization;
-        var fontBytes = ImmutableArray.Create<byte>(1, 2, 3, 4);
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Portable style", new(),
-            new("portable.ttf", Convert.ToHexStringLower(SHA256.HashData(fontBytes.AsSpan())), fontBytes),
+        var fontBytes = (await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"), TestContext.Current.CancellationToken)).ToImmutableArray();
+        var font = new EmbeddedSubtitleFont("NotoSans.ttf", Convert.ToHexStringLower(SHA256.HashData(fontBytes.AsSpan())), fontBytes);
+        var family = new FontFamilyBundle("Noto Sans", [font]);
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Portable style", new() { FontFamily = "Noto Sans" },
             new TimingPostProcessorOptions());
         ImmutableArray<SubtitleStylePreset> styles = styleCount == 0 ? [] : [style];
         var effects = Enumerable.Range(0, effectCount).Select(index => Effect($"selected-{index}")).ToImmutableArray();
         await context.RunEffectLibraryOperationAsync(() => context.EffectLibrary.UpdateAsync(context.EffectLibrary.Snapshot.Revision,
-            current => current with { Styles = new() { Presets = styles }, Effects = new() { Presets = effects } }));
+            current => current with { Styles = new() { Presets = styles }, Effects = new() { Presets = effects }, FontFamilies = styleCount == 0 ? [] : [family] }));
         var before = context.EffectLibrary.Snapshot;
         var output = Path.Combine(environment.DirectoryPath, "output");
         Directory.CreateDirectory(output);
@@ -123,6 +125,7 @@ public sealed class EffectLibraryExportIntegrationUiTests
         {
             var package = await EffectLibraryPackageStore.LoadAsync(singlePath);
             AssertStyleEqual(style, Assert.Single(package.Styles.Presets));
+            Assert.Equal(font.Data, Assert.Single(Assert.Single(package.FontFamilies).Files).Data);
             Assert.Equal(effects, package.Effects.Presets);
         }
         else if (format == EffectLibraryExportFormat.SOURCE)
@@ -140,7 +143,9 @@ public sealed class EffectLibraryExportIntegrationUiTests
             Assert.Equal(effectCount, effectPaths.Length);
             if (styleCount > 0)
             {
-                AssertStyleEqual(style, Assert.Single((await SubtitleStylePresetStore.LoadAsync(stylePaths.Single())).Presets));
+                var package = await SubtitleStylePresetStore.LoadAsync(stylePaths.Single());
+                AssertStyleEqual(style, Assert.Single(package.Styles.Presets));
+                Assert.Equal(font.Data, Assert.Single(Assert.Single(package.FontFamilies).Files).Data);
             }
             var exportedEffects = await Task.WhenAll(effectPaths.Select(path => EffectScriptPresetStore.ReadPresetAsync(path)));
             Assert.Equal(effects.OrderBy(preset => preset.Id), exportedEffects.OrderBy(preset => preset.Id));
@@ -154,8 +159,9 @@ public sealed class EffectLibraryExportIntegrationUiTests
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
         await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
         await context.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Saved", new());
-        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(style));
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Saved", new() { FontFamily = "Noto Sans" });
+        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new CapturedSubtitleStyle(style,
+            [StyleExchangeUiTestFonts.Family])));
         var before = context.EffectLibrary.Snapshot;
         var bytes = await File.ReadAllBytesAsync(context.EffectLibrary.ManifestPath);
         var output = Path.Combine(environment.DirectoryPath, "retry.aegistyles");
@@ -179,7 +185,7 @@ public sealed class EffectLibraryExportIntegrationUiTests
 
         Assert.Equal(1, dialogs.ExportDialogRequests);
         Assert.Equal(3, dialogs.SaveCount);
-        Assert.Equal(style, Assert.Single((await SubtitleStylePresetStore.LoadAsync(output)).Presets));
+        Assert.Equal(style, Assert.Single((await SubtitleStylePresetStore.LoadAsync(output)).Styles.Presets));
         Assert.Null(context.LastError);
         Assert.Null(model.Error);
     }
@@ -301,11 +307,6 @@ public sealed class EffectLibraryExportIntegrationUiTests
 
     private static void AssertStyleEqual(SubtitleStylePreset expected, SubtitleStylePreset actual)
     {
-        Assert.Equal(expected with { Font = null }, actual with { Font = null });
-        var expectedFont = Assert.IsType<EmbeddedSubtitleFont>(expected.Font);
-        var actualFont = Assert.IsType<EmbeddedSubtitleFont>(actual.Font);
-        Assert.Equal(expectedFont.FileName, actualFont.FileName);
-        Assert.Equal(expectedFont.Sha256, actualFont.Sha256);
-        Assert.True(expectedFont.Data.AsSpan().SequenceEqual(actualFont.Data.AsSpan()));
+        Assert.Equal(expected, actual);
     }
 }

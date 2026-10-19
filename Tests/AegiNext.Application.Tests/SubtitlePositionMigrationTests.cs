@@ -74,36 +74,23 @@ public sealed class SubtitlePositionMigrationTests
     }
 
     [Fact]
-    public void VersionOneStyleLibraryMigratesAndVersionTwoPositionRoundTrips()
+    public void VersionOneStyleLibraryAndVersionTwoAreRejected()
     {
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "position", new()
-        {
-            Position = new() { Anchor = new(0.1, 0.9), Pivot = new(0, 1), Offset = new(17, -39) }
-        });
-        var encoded = SubtitleStylePresetStore.Serialize(new() { Presets = [preset] });
-        Assert.Equal(preset.Style.Position, SubtitleStylePresetStore.Deserialize(encoded).Presets[0].Style.Position);
-        var legacy = JsonNode.Parse(encoded)!.AsObject();
-        MakeLegacy(legacy);
-        var migrated = SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(legacy.ToJsonString()));
-
-        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, migrated.Version);
-        Assert.Equal(preset.Id, migrated.Presets[0].Id);
-        Assert.Null(migrated.Presets[0].Style.Position);
-        legacy["presets"]![0]!["style"]!.AsObject().Remove("margin");
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(legacy.ToJsonString())));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize("{\"version\":1,\"presets\":[]}"u8));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize("{\"version\":2,\"presets\":[]}"u8));
     }
 
     [Fact]
     public void VersionTwoLibraryRejectsIncompleteOrOutOfRangePosition()
     {
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "position", new() { Position = new() });
-        var current = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [preset] }))!.AsObject();
+        var current = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [preset] }))!.AsObject();
         var position = current["presets"]![0]!["style"]!["position"]!.AsObject();
         position.Remove("pivot");
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(current.ToJsonString())));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(current.ToJsonString())));
         position["pivot"] = new JsonObject { ["x"] = 0.5, ["y"] = 1 };
         position["anchor"]!["x"] = 2;
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(current.ToJsonString())));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(current.ToJsonString())));
     }
 
     private static void MakeLegacy(JsonObject root)

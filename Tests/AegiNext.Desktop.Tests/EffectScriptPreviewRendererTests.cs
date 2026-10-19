@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Rendering;
@@ -40,12 +41,13 @@ public sealed class EffectScriptPreviewRendererTests
         var font = new EmbeddedSubtitleFont("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Portable", new()
         {
-            FontFamily = "Embedded preview fixture", FontSize = 44, StrokeWidth = 0, ShadowColor = SceneColor.Transparent,
+            FontFamily = "Noto Sans", FontSize = 44, StrokeWidth = 0, ShadowColor = SceneColor.Transparent,
             Margins = new(12, 12, 12), Alignment = TextAlignment.MIDDLE_CENTER,
             Scaling = new() { ReferenceWidth = 320, ReferenceHeight = 180 }
-        }, font);
+        });
         var input = new EffectScriptPreviewInput(BuiltinEffectScripts.Get("letter-bounce").Source, new() { Text = "ABCD" }, preset);
-        var request = Request(input);
+        var catalog = new SystemFontCatalog([new FontFamilyBundle("Noto Sans", [font])], SystemFontCatalog.Empty);
+        var request = new EffectScriptPreviewRequest(Guid.NewGuid(), 1, input, fontCatalog: catalog);
         var scene = EffectPresetPreviewScene.Create(input.Options, input.Source, preset, CancellationToken.None);
         var subtitle = Assert.Single(scene.Document.Subtitles);
         Assert.Empty(subtitle.AnimationRanges);
@@ -53,22 +55,18 @@ public sealed class EffectScriptPreviewRendererTests
         var plan = EffectScriptCompiler.CompileInstance(EffectScriptParser.Parse(instance.Source), instance,
             scene.Document.Layers[0], subtitle);
         Assert.Equal(4, plan.Ranges.Length);
-        var asset = Assert.Single(scene.Document.Assets);
-        Assert.Equal(asset.Id, subtitle.Style.FontAssetId);
-        using var stream = scene.Assets.Open(asset);
-        using var copied = new MemoryStream();
-        stream.CopyTo(copied);
-        Assert.Equal(bytes, copied.ToArray());
+        Assert.Empty(scene.Document.Assets);
+        Assert.Null(subtitle.Style.FontAssetId);
         using var renderer = new EffectScriptPreviewRenderer();
         var moving = renderer.Render(request, new(3, 20), CancellationToken.None);
         var resting = renderer.Render(request, new(4, 5), CancellationToken.None);
         var redInput = input with { StylePreset = preset with { Style = preset.Style with { Fill = new(1, 0, 0) } } };
-        var red = renderer.Render(Request(redInput), new(4, 5), CancellationToken.None);
+        var red = renderer.Render(new(Guid.NewGuid(), 1, redInput, fontCatalog: catalog), new(4, 5), CancellationToken.None);
 
         Assert.NotEqual(moving.Pixels.ToArray(), resting.Pixels.ToArray());
         Assert.NotEqual(resting.Pixels.ToArray(), red.Pixels.ToArray());
         Assert.Null(preset.Style.FontAssetId);
-        Assert.Same(font, preset.Font);
+        Assert.Same(font, Assert.Single(Assert.Single(catalog.ApplicationFonts).Files));
         Assert.Equal(SceneColor.White, preset.Style.Fill);
         Assert.Equal(2, renderer.CompilationCount);
         Assert.Equal(1, renderer.CachedSceneCount);

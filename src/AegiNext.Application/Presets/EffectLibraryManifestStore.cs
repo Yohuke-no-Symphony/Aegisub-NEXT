@@ -1,4 +1,6 @@
 using System.Buffers;
+using AegiNext.Application.Fonts;
+using AegiNext.Core.Fonts;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -8,7 +10,7 @@ namespace AegiNext.Application.Presets;
 
 internal static class EffectLibraryManifestStore
 {
-    internal const int MAXIMUM_FILE_BYTES = 256 * 1024;
+    internal const int MAXIMUM_FILE_BYTES = 4 * 1024 * 1024;
     private static readonly UTF8Encoding strictUtf8 = new(false, true);
     private static readonly SearchValues<char> hexadecimal = SearchValues.Create("0123456789abcdef");
     private static readonly JsonSerializerOptions options = CreateOptions();
@@ -24,7 +26,7 @@ internal static class EffectLibraryManifestStore
         return bytes;
     }
 
-    internal static EffectLibraryManifest Deserialize(ReadOnlySpan<byte> bytes)
+    internal static EffectLibraryManifest? DeserializeCurrent(ReadOnlySpan<byte> bytes)
     {
         if (bytes.Length > MAXIMUM_FILE_BYTES)
         {
@@ -33,18 +35,19 @@ internal static class EffectLibraryManifestStore
         try
         {
             _ = strictUtf8.GetCharCount(bytes);
-            using var document = JsonDocument.Parse(bytes.ToArray(), new() { MaxDepth = 3 });
+            using var document = JsonDocument.Parse(bytes.ToArray(), new() { MaxDepth = 8 });
             if (document.RootElement.ValueKind != JsonValueKind.Object)
             {
                 throw new JsonException("效果库清单必须为对象。");
             }
-            var keys = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var property in document.RootElement.EnumerateObject())
+            RejectDuplicateKeys(document.RootElement);
+            if (!document.RootElement.TryGetProperty("version", out var version) || !version.TryGetInt32(out var number) || number is not (1 or 2))
             {
-                if (!keys.Add(property.Name))
-                {
-                    throw new JsonException("效果库清单字段重复。");
-                }
+                throw new InvalidDataException("效果库清单版本无效。");
+            }
+            if (number == 1)
+            {
+                return null;
             }
             var manifest = document.RootElement.Deserialize<EffectLibraryManifest>(options) ??
                 throw new JsonException("效果库清单不能为 null。");
@@ -72,15 +75,32 @@ internal static class EffectLibraryManifestStore
 
     private static void Validate(EffectLibraryManifest manifest)
     {
-        if (manifest.Version != 1 || manifest.Revision == Guid.Empty || manifest.Styles.IsDefault || manifest.Effects.IsDefault ||
+        if (manifest.Version != 2 || manifest.Revision == Guid.Empty || manifest.Styles.IsDefault || manifest.Effects.IsDefault || manifest.FontFamilies.IsDefault ||
             manifest.Styles.Length > 256 || manifest.Effects.Length > 512)
         {
             throw new InvalidDataException("效果库清单版本、修订或条目数量无效。");
         }
+        var families = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var family in manifest.FontFamilies)
+        {
+            if (family is null || family.Files.IsDefaultOrEmpty || !families.Add(family.FamilyName))
+            {
+                throw new InvalidDataException("字体族清单无效或重复。");
+            }
+            FontFamilyBundleValidator.ValidateFamilyName(family.FamilyName);
+            var files = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var file in family.Files)
+            {
+                if (file is null || !files.Add(PrivateFontFiles.Name(file.Sha256)) || string.IsNullOrWhiteSpace(file.FileName))
+                {
+                    throw new InvalidDataException("字体文件清单无效或重复。");
+                }
+            }
+        }
         var styles = new HashSet<Guid>();
         foreach (var name in manifest.Styles)
         {
-            if (!styles.Add(EntryIdentity(name, ".aegistyles")))
+            if (!styles.Add(EntryIdentity(name, ".json")))
             {
                 throw new InvalidDataException("效果库清单包含重复样式身份。");
             }
@@ -91,6 +111,29 @@ internal static class EffectLibraryManifestStore
             if (!effects.Add(EntryIdentity(name, ".aegieffect")))
             {
                 throw new InvalidDataException("效果库清单包含重复特效身份。");
+            }
+        }
+    }
+
+    private static void RejectDuplicateKeys(JsonElement element)
+    {
+        if (element.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in element.EnumerateObject())
+            {
+                if (!names.Add(property.Name))
+                {
+                    throw new JsonException("效果库清单字段重复。");
+                }
+                RejectDuplicateKeys(property.Value);
+            }
+        }
+        else if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+            {
+                RejectDuplicateKeys(item);
             }
         }
     }
@@ -112,7 +155,7 @@ internal static class EffectLibraryManifestStore
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             WriteIndented = true,
-            MaxDepth = 3,
+            MaxDepth = 8,
             UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
             RespectRequiredConstructorParameters = true,
             TypeInfoResolver = resolver

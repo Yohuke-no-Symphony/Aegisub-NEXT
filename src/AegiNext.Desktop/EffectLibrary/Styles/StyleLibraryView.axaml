@@ -25,7 +25,7 @@
           <controlsCommon:IconText Text="{Loc Key=EffectLibrary.OpenExportDialog}" IconKey="Export" />
         </Button>
         <Button Name="CaptureStyleButton" Command="{Binding CaptureCommand}">
-          <controlsCommon:IconText Text="{Loc Key=Settings.Capture}" IconKey="Subtitles" />
+          <controlsCommon:IconText Text="{Loc Key=Settings.OverwriteCurrentStyle}" IconKey="Subtitles" />
         </Button>
         <Button Name="SaveStyleButton" Click="SaveStyle" IsEnabled="{Binding CanEdit}" Classes="accent">
           <controlsCommon:IconText Text="{Loc Key=Settings.Save}" IconKey="Save" />

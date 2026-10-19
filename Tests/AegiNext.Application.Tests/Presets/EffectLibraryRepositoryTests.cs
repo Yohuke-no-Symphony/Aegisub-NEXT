@@ -13,45 +13,70 @@ namespace AegiNext.Application.Tests.Presets;
 public sealed class EffectLibraryRepositoryTests
 {
     [Fact]
-    public async Task LegacyLibrariesMigrateToSeparateImmutableFilesWithoutLosingPortableContent()
+    public async Task LegacySingleFileLibrariesAreIgnoredAndNewStylesCanBeSavedWithoutChangingOriginals()
     {
         using var directory = new TemporaryProjectDirectory();
         var legacyStyles = Path.Combine(directory.Path, "subtitle-styles.aegistyles");
         var legacyEffects = Path.Combine(directory.Path, "effect-scripts.json");
-        var fontBytes = new byte[] { 1, 2, 3, 4 };
-        var first = Style("First") with
-        {
-            Font = new("font.ttf", Convert.ToHexStringLower(SHA256.HashData(fontBytes)), fontBytes.ToImmutableArray()),
-            TimingPostProcessor = new()
-        };
-        var second = Style("Second");
-        var effect = Effect("personal-fade", "展示名称");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [second, first] }, legacyStyles);
-        await EffectScriptPresetStore.SaveAsync(new() { Presets = [effect] }, legacyEffects);
-        var originalStyles = await File.ReadAllBytesAsync(legacyStyles);
-        var originalEffects = await File.ReadAllBytesAsync(legacyEffects);
-        var root = Path.Combine(directory.Path, "EffectLibrary");
+        await File.WriteAllTextAsync(legacyStyles, "{\"version\":7,\"presets\":[]}");
+        await File.WriteAllTextAsync(legacyEffects, "legacy effects");
+        var original = await File.ReadAllBytesAsync(legacyStyles);
+        using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "EffectLibrary"));
+        await repository.LoadAsync();
+        Assert.Empty(repository.Snapshot.Styles.Presets);
+        Assert.Equal(original, await File.ReadAllBytesAsync(legacyStyles));
+        Assert.Equal("legacy effects", await File.ReadAllTextAsync(legacyEffects));
+        Assert.False(Directory.Exists(repository.DirectoryPath));
+        var current = Style("Current");
 
-        using (var repository = new EffectLibraryRepository(root, legacyStyles, legacyEffects))
-        {
-            await repository.LoadAsync();
-            Assert.NotEqual(Guid.Empty, repository.Snapshot.Revision);
-            Assert.Equal([second.Id, first.Id], repository.Snapshot.Styles.Presets.Select(preset => preset.Id));
-            var migrated = repository.Snapshot.Styles.Presets[1];
-            Assert.Equal(first.Name, migrated.Name);
-            Assert.Equal(first.TimingPostProcessor, migrated.TimingPostProcessor);
-            Assert.Equal(fontBytes, migrated.Font!.Data);
-            Assert.Equal(effect, Assert.Single(repository.Snapshot.Effects.Presets));
-            Assert.Equal(2, Directory.GetFiles(Path.Combine(root, "styles"), "*.aegistyles").Length);
-            Assert.Single(Directory.GetFiles(Path.Combine(root, "effects"), "*.aegieffect"));
-            Assert.Equal(originalStyles, await File.ReadAllBytesAsync(Path.Combine(root, "legacy", Path.GetFileName(legacyStyles))));
-            Assert.Equal(originalEffects, await File.ReadAllBytesAsync(Path.Combine(root, "legacy", Path.GetFileName(legacyEffects))));
-        }
+        await repository.UpdateStylesAsync(styles => styles with { Presets = [current] });
 
-        using var reopened = new EffectLibraryRepository(root, legacyStyles, legacyEffects);
+        Assert.Equal(current, Assert.Single(repository.Snapshot.Styles.Presets));
+        Assert.Equal(original, await File.ReadAllBytesAsync(legacyStyles));
+        Assert.Equal("legacy effects", await File.ReadAllTextAsync(legacyEffects));
+        using var reopened = new EffectLibraryRepository(repository.DirectoryPath);
         await reopened.LoadAsync();
-        Assert.Equal([second.Id, first.Id], reopened.Snapshot.Styles.Presets.Select(preset => preset.Id));
-        Assert.Equal(effect.Source, Assert.Single(reopened.Snapshot.Effects.Presets).Source);
+        Assert.Equal(current, Assert.Single(reopened.Snapshot.Styles.Presets));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LegacyManifestIsArchivedIntactAndDoesNotBlockCreatingTheCurrentLibrary(bool trailingSeparator)
+    {
+        using var directory = new TemporaryProjectDirectory();
+        var root = Path.Combine(directory.Path, "EffectLibrary");
+        var originals = new Dictionary<string, byte[]>
+        {
+            ["manifest.json"] = "{\"version\":1,\"revision\":\"aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa\",\"styles\":[\"unreadable.aegistyles\"],\"effects\":[]}"u8.ToArray(),
+            ["styles/unreadable.aegistyles"] = "old style bytes"u8.ToArray(),
+            ["effects/unreadable.aegieffect"] = "old effect bytes"u8.ToArray()
+        };
+        foreach (var (name, bytes) in originals)
+        {
+            var path = Path.Combine(root, name);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllBytesAsync(path, bytes);
+        }
+        using var repository = new EffectLibraryRepository(trailingSeparator ? root + Path.DirectorySeparatorChar : root);
+        Assert.Equal(Path.Combine(directory.Path, "fonts"), repository.FontDirectoryPath);
+
+        await repository.LoadAsync();
+
+        Assert.Empty(repository.Snapshot.Styles.Presets);
+        Assert.Empty(repository.Snapshot.Effects.Presets);
+        Assert.False(Directory.Exists(root));
+        var archive = Assert.Single(Directory.GetDirectories(directory.Path, "EffectLibrary.legacy-*"));
+        var current = Style("Current");
+        await repository.UpdateStylesAsync(styles => styles with { Presets = [current] });
+        using var reopened = new EffectLibraryRepository(root);
+        await reopened.LoadAsync();
+        Assert.Equal(current, Assert.Single(reopened.Snapshot.Styles.Presets));
+        Assert.Single(Directory.GetDirectories(directory.Path, "EffectLibrary.legacy-*"));
+        foreach (var (name, bytes) in originals)
+        {
+            Assert.Equal(bytes, await File.ReadAllBytesAsync(Path.Combine(archive, name)));
+        }
     }
 
     [Fact]
@@ -93,12 +118,12 @@ public sealed class EffectLibraryRepositoryTests
         var first = Style("First");
         var second = Style("Second");
         await repository.UpdateStylesAsync(current => current with { Presets = [first, second] });
-        var original = Directory.GetFiles(Path.Combine(root, "styles"), "*.aegistyles");
+        var original = Directory.GetFiles(Path.Combine(root, "styles"), "*.json");
         foreach (var path in original)
         {
             var bytes = await File.ReadAllBytesAsync(path);
-            var preset = Assert.Single(SubtitleStylePresetStore.Deserialize(bytes).Presets);
-            Assert.Equal($"{preset.Id:N}-{Convert.ToHexStringLower(SHA256.HashData(bytes))}.aegistyles", Path.GetFileName(path));
+            var preset = Assert.Single(SubtitleStylePresetMetadataStore.Deserialize(bytes).Presets);
+            Assert.Equal($"{preset.Id:N}-{Convert.ToHexStringLower(SHA256.HashData(bytes))}.json", Path.GetFileName(path));
         }
         var unchanged = Assert.Single(original, path => Path.GetFileName(path).StartsWith($"{second.Id:N}-", StringComparison.Ordinal));
         var revision = repository.Snapshot.Revision;
@@ -107,7 +132,7 @@ public sealed class EffectLibraryRepositoryTests
 
         Assert.NotEqual(revision, repository.Snapshot.Revision);
         Assert.True(File.Exists(unchanged));
-        Assert.Equal(second, Assert.Single((await SubtitleStylePresetStore.LoadAsync(unchanged)).Presets));
+        Assert.Equal(second, Assert.Single((await SubtitleStylePresetMetadataStore.LoadAsync(unchanged)).Presets));
         Assert.Equal("Renamed", repository.Snapshot.Styles.Presets[0].Name);
     }
 
@@ -193,16 +218,15 @@ public sealed class EffectLibraryRepositoryTests
         using var directory = new TemporaryProjectDirectory();
         var root = Path.Combine(directory.Path, "EffectLibrary");
         var legacy = Path.Combine(directory.Path, "subtitle-styles.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [Style("Legacy")] }, legacy);
-        using var repository = new EffectLibraryRepository(root, legacy);
-        await repository.LoadAsync();
+        using var repository = new EffectLibraryRepository(root);
         await repository.UpdateStylesAsync(current => current with { Presets = [Style("Current")] });
+        await TestStylePackageStore.SaveAsync(new() { Presets = [Style("Legacy")] }, legacy);
         var snapshot = repository.Snapshot;
         await File.WriteAllTextAsync(repository.ManifestPath, "{\"version\":99}");
 
         await Assert.ThrowsAsync<InvalidDataException>(() => repository.LoadAsync());
         Assert.Same(snapshot, repository.Snapshot);
-        using var reopened = new EffectLibraryRepository(root, legacy);
+        using var reopened = new EffectLibraryRepository(root);
         await Assert.ThrowsAsync<InvalidDataException>(() => reopened.LoadAsync());
         Assert.Empty(reopened.Snapshot.Styles.Presets);
     }
@@ -213,15 +237,15 @@ public sealed class EffectLibraryRepositoryTests
         using var directory = new TemporaryProjectDirectory();
         var root = Path.Combine(directory.Path, "EffectLibrary");
         var legacy = Path.Combine(directory.Path, "subtitle-styles.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [Style("Legacy")] }, legacy);
-        using var repository = new EffectLibraryRepository(root, legacy);
-        await repository.LoadAsync();
+        using var repository = new EffectLibraryRepository(root);
+        await repository.UpdateStylesAsync(current => current with { Presets = [Style("Current")] });
+        await TestStylePackageStore.SaveAsync(new() { Presets = [Style("Legacy")] }, legacy);
         var snapshot = repository.Snapshot;
         File.Delete(repository.ManifestPath);
 
         await Assert.ThrowsAsync<InvalidDataException>(() => repository.LoadAsync());
         Assert.Same(snapshot, repository.Snapshot);
-        using var reopened = new EffectLibraryRepository(root, legacy);
+        using var reopened = new EffectLibraryRepository(root);
         await Assert.ThrowsAsync<InvalidDataException>(() => reopened.LoadAsync());
     }
 
@@ -230,6 +254,8 @@ public sealed class EffectLibraryRepositoryTests
     [InlineData("path")]
     [InlineData("duplicate")]
     [InlineData("missing")]
+    [InlineData("version")]
+    [InlineData("futureVersion")]
     public async Task TamperedManifestOrItemIsRejectedWithoutPublishingPartialData(string mutation)
     {
         using var directory = new TemporaryProjectDirectory();
@@ -239,7 +265,7 @@ public sealed class EffectLibraryRepositoryTests
         var snapshot = repository.Snapshot;
         var manifest = JsonNode.Parse(await File.ReadAllBytesAsync(repository.ManifestPath))!.AsObject();
         var entries = manifest["styles"]!.AsArray();
-        var path = Assert.Single(Directory.GetFiles(Path.Combine(root, "styles"), "*.aegistyles"));
+        var path = Assert.Single(Directory.GetFiles(Path.Combine(root, "styles"), "*.json"));
         if (mutation == "hash")
         {
             await File.AppendAllTextAsync(path, " ");
@@ -252,6 +278,10 @@ public sealed class EffectLibraryRepositoryTests
         {
             entries.Add(entries[0]!.DeepClone());
         }
+        else if (mutation is "version" or "futureVersion")
+        {
+            manifest["version"] = mutation == "version" ? 1 : 3;
+        }
         else
         {
             File.Delete(path);
@@ -260,20 +290,21 @@ public sealed class EffectLibraryRepositoryTests
 
         await Assert.ThrowsAsync<InvalidDataException>(() => repository.LoadAsync());
         Assert.Same(snapshot, repository.Snapshot);
+        Assert.Empty(Directory.GetDirectories(directory.Path, "EffectLibrary.legacy-*"));
     }
 
     [Fact]
-    public async Task InvalidLegacyLibraryDoesNotPublishOrArchiveEitherCollection()
+    public async Task InvalidLegacyFilesAreIgnoredWithoutPublishingOrArchivingEitherCollection()
     {
         using var directory = new TemporaryProjectDirectory();
         var root = Path.Combine(directory.Path, "EffectLibrary");
         var legacyStyles = Path.Combine(directory.Path, "subtitle-styles.aegistyles");
         var legacyEffects = Path.Combine(directory.Path, "effect-scripts.json");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [Style("Valid")] }, legacyStyles);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [Style("Valid")] }, legacyStyles);
         await File.WriteAllTextAsync(legacyEffects, "invalid");
-        using var repository = new EffectLibraryRepository(root, legacyStyles, legacyEffects);
+        using var repository = new EffectLibraryRepository(root);
 
-        await Assert.ThrowsAsync<InvalidDataException>(() => repository.LoadAsync());
+        await repository.LoadAsync();
 
         Assert.Empty(repository.Snapshot.Styles.Presets);
         Assert.Empty(repository.Snapshot.Effects.Presets);
@@ -290,12 +321,12 @@ public sealed class EffectLibraryRepositoryTests
         var root = Path.Combine(directory.Path, "EffectLibrary");
         var legacy = Path.Combine(directory.Path, "subtitle-styles.aegistyles");
         var original = Style("Legacy");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [original] }, legacy);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [original] }, legacy);
         var before = await File.ReadAllBytesAsync(legacy);
-        var uncommitted = SubtitleStylePresetStore.Serialize(new() { Presets = [Style("Uncommitted")] });
+        var uncommitted = TestStylePackageStore.Serialize(new() { Presets = [Style("Uncommitted")] });
         Directory.CreateDirectory(Path.Combine(root, "styles"));
         await File.WriteAllBytesAsync(Path.Combine(root, "styles", "orphan.aegistyles"), uncommitted);
-        using var repository = new EffectLibraryRepository(root, legacy);
+        using var repository = new EffectLibraryRepository(root);
 
         await Assert.ThrowsAsync<InvalidDataException>(() => repository.LoadAsync());
 

@@ -40,6 +40,18 @@ public sealed class UserSettingsBundleV3Tests
         Assert.Single(imported.Layouts.Presets);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void GenuineLegacyStyleJsonCannotBeAppliedAsPendingSettings(int version)
+    {
+        var bytes = UserSettingsTransferTestData.CreateLegacyArchive(version);
+        var files = UserSettingsTransferTestData.ReadArchive(bytes);
+        Assert.Equal(7, JsonNode.Parse(files["subtitle-styles.aegistyles"])!["version"]!.GetValue<int>());
+        Assert.Equal(version, UserSettingsBundleStore.Deserialize(bytes).SourceVersion);
+        Assert.Throws<InvalidDataException>(() => UserSettingsBundleStore.DeserializeForRestore(bytes));
+    }
+
     [Fact]
     public void OmittedTagLibraryStillUsesVersionThreeAndPreservesItsOmission()
     {
@@ -82,7 +94,7 @@ public sealed class UserSettingsBundleV3Tests
     [Theory]
     [InlineData("subtitle-styles.aegistyles")]
     [InlineData("effect-scripts.json")]
-    public void LegacyPendingReaderStillRequiresCompleteValidMaterialDocuments(string name)
+    public void LegacyPendingReaderRejectsUnsupportedMaterialsWhileManualImportKeepsSettings(string name)
     {
         var files = UserSettingsTransferTestData.ReadArchive(UserSettingsTransferTestData.CreateLegacyArchive(2));
         files[name] = "{}"u8.ToArray();

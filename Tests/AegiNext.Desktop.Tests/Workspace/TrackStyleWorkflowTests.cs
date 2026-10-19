@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
+using AegiNext.Application.Presets;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
@@ -66,8 +68,10 @@ public sealed class TrackStyleWorkflowTests
         var digest = Convert.ToHexStringLower(SHA256.HashData(bytes.AsSpan()));
         Assert.Equal("bfb7bb691513f12e734dc346c03a03f784912432d7e3fa8e56efcf906fe86b3d", digest);
         var font = new EmbeddedSubtitleFont("NotoSans.ttf", digest, bytes);
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Panel font", new() { FontSize = 61 }, font);
-        await session.Styles.UpsertAsync(preset);
+        var family = new FontFamilyBundle("Noto Sans", [font]);
+        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Panel font", new() { FontFamily = family.FamilyName, FontSize = 61 });
+        await session.ApplicationContext.RunStyleOperationAsync(() => session.StyleLibrary.UpsertAsync(new CapturedSubtitleStyle(preset, [family])));
+        session.Styles.Refresh(preset.Id);
         context.Dialogs.OpenPath = Path.Combine(context.DirectoryPath, "import.srt");
         await File.WriteAllTextAsync(context.Dialogs.OpenPath,
             "1\n00:00:00,125 --> 00:00:01,125\nFirst\n\n2\n00:00:01,125 --> 00:00:02,125\nSecond\n");
@@ -77,13 +81,14 @@ public sealed class TrackStyleWorkflowTests
 
         Assert.Null(session.LastError);
         Assert.False(session.IsProjectBusy);
-        var asset = Assert.Single(context.Editor.Snapshot.Assets);
+        Assert.Empty(context.Editor.Snapshot.Assets);
         var imported = context.Editor.Snapshot.Subtitles.Where(line => line.Id != otherCue).ToArray();
         Assert.Equal(2, imported.Length);
         Assert.All(imported, line =>
         {
             Assert.Equal(session.CurrentTrackId, session.ClipIndex.GetSubtitleTrackId(line.Id));
-            Assert.Equal(preset.Style with { FontAssetId = asset.Id }, line.Style);
+            Assert.Equal(preset.Style, line.Style);
+            Assert.Null(line.Style.FontAssetId);
         });
         Assert.Equal(new MediaTime(1, 8), imported[0].Start);
         Assert.Equal(new MediaTime(17, 8), imported[1].End);

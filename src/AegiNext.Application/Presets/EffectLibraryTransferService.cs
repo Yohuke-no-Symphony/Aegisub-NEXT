@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
+using AegiNext.Application.Fonts;
 
 namespace AegiNext.Application.Presets;
 
@@ -8,12 +10,21 @@ namespace AegiNext.Application.Presets;
 public sealed class EffectLibraryTransferService
 {
     private readonly EffectLibraryRepository repository;
+    private readonly IFontFamilySource fontSource;
+    private readonly IFontFamilyValidator fontValidator;
+    private readonly ImmutableArray<FontFamilyBundle> frozenFontFamilies;
 
     /// <summary>使用应用唯一的共享效果库仓库。</summary>
-    public EffectLibraryTransferService(EffectLibraryRepository repository)
+    public EffectLibraryTransferService(EffectLibraryRepository repository, IFontFamilySource fontSource, IFontFamilyValidator fontValidator,
+        ImmutableArray<FontFamilyBundle> frozenFontFamilies = default)
     {
         ArgumentNullException.ThrowIfNull(repository);
+        ArgumentNullException.ThrowIfNull(fontSource);
+        ArgumentNullException.ThrowIfNull(fontValidator);
         this.repository = repository;
+        this.fontSource = fontSource;
+        this.fontValidator = fontValidator;
+        this.frozenFontFamilies = frozenFontFamilies;
     }
 
     /// <summary>读取多个独立文件和包，生成绑定到当前修订的完整冲突预览，不提交任何导入内容。</summary>
@@ -25,6 +36,8 @@ public sealed class EffectLibraryTransferService
         var captured = repository.Snapshot;
         var entries = new List<EffectLibraryImportEntry>();
         long inputBytes = 0;
+        var inputFonts = new Dictionary<string, FontFamilyBundle>(StringComparer.OrdinalIgnoreCase);
+        var inputFontData = new Dictionary<string, ImmutableArray<byte>>(StringComparer.Ordinal);
         foreach (var path in inputs)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -34,9 +47,10 @@ public sealed class EffectLibraryTransferService
             {
                 case ".aegistyles":
                     var collection = await SubtitleStylePresetStore.LoadAsync(path, cancellationToken).ConfigureAwait(false);
-                    foreach (var preset in collection.Presets)
+                    RegisterFamilies(collection.FontFamilies, inputFonts, inputFontData);
+                    foreach (var preset in collection.Styles.Presets)
                     {
-                        AddInput(entries, StyleEntry(preset, sourceName), ref inputBytes);
+                        AddInput(entries, StyleEntry(preset, inputFonts.Values, sourceName), ref inputBytes);
                     }
                     break;
                 case ".aegieffect":
@@ -55,9 +69,10 @@ public sealed class EffectLibraryTransferService
                     break;
                 case ".aegilibrary":
                     var package = await EffectLibraryPackageStore.LoadAsync(path, cancellationToken).ConfigureAwait(false);
+                    RegisterFamilies(package.FontFamilies, inputFonts, inputFontData);
                     foreach (var preset in package.Styles.Presets)
                     {
-                        AddInput(entries, StyleEntry(preset, sourceName), ref inputBytes);
+                        AddInput(entries, StyleEntry(preset, inputFonts.Values, sourceName), ref inputBytes);
                     }
                     foreach (var preset in package.Effects.Presets)
                     {
@@ -67,6 +82,7 @@ public sealed class EffectLibraryTransferService
                 default:
                     throw new InvalidDataException("导入文件必须是样式、完整特效、特效脚本或效果库包。");
             }
+            PrivateFontFiles.ValidateInputBudget(inputFonts.Values, inputBytes);
         }
         var frozen = entries.ToImmutableArray();
         var rows = frozen.Select((entry, index) => AnalyzeRow(entry, index, captured)).ToArray();
@@ -108,12 +124,20 @@ public sealed class EffectLibraryTransferService
         return repository.UpdateAsync(plan.ExpectedRevision, current => Merge(current, plan, choices), beforeCommit, cancellationToken);
     }
 
-    /// <summary>导出一个自包含样式；源为调用方已冻结快照。</summary>
+    /// <summary>导出一个样式及其完整字体族。</summary>
     public Task ExportStyleAsync(SubtitleStylePreset preset, string path, Action? beforeCommit = null,
         CancellationToken cancellationToken = default)
     {
+        return ExportStylesAsync(new() { Presets = [preset] }, path, beforeCommit, cancellationToken);
+    }
+
+    /// <summary>导出冻结的样式选择，全部字体族收集完成后才写入目标。</summary>
+    public async Task ExportStylesAsync(SubtitleStylePresetCollection styles, string path, Action? beforeCommit = null,
+        CancellationToken cancellationToken = default)
+    {
         RequireExportPath(path);
-        return SubtitleStylePresetStore.SaveAsync(new() { Presets = [preset] }, path, beforeCommit, cancellationToken);
+        var prepared = await CaptureExportFamiliesAsync(styles.Presets, repository.Snapshot.FontFamilies, cancellationToken).ConfigureAwait(false);
+        await SubtitleStylePresetStore.SaveAsync(new() { Styles = styles with { Presets = prepared.Styles }, FontFamilies = prepared.Families }, path, beforeCommit, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>导出一个完整个人特效，保留既有库身份、展示名称和源文。</summary>
@@ -159,7 +183,7 @@ public sealed class EffectLibraryTransferService
         var selectedStyles = styles.ToImmutableArray();
         var selectedEffects = effects.ToImmutableArray();
         cancellationToken.ThrowIfCancellationRequested();
-        _ = SubtitleStylePresetStore.Serialize(new() { Presets = selectedStyles });
+        _ = SubtitleStylePresetMetadataStore.Serialize(new() { Presets = selectedStyles });
         _ = EffectScriptPresetStore.Serialize(new() { Presets = selectedEffects });
         RequireExportPath(directory);
         var destinations = GetIndependentDestinations(selectedStyles, selectedEffects, directory);
@@ -175,8 +199,9 @@ public sealed class EffectLibraryTransferService
                 throw new IOException($"导出目标已存在，未覆盖任何文件：{path}");
             }
         }
-        var content = selectedStyles.Select(preset => SubtitleStylePresetStore.Serialize(new() { Presets = [preset] }))
-            .Concat(selectedEffects.Select(EffectScriptPresetStore.SerializePreset)).ToArray();
+        var prepared = await CaptureExportFamiliesAsync(selectedStyles, repository.Snapshot.FontFamilies, cancellationToken).ConfigureAwait(false);
+        selectedStyles = prepared.Styles;
+        var families = prepared.Families;
         var destination = Path.GetFullPath(directory);
         Directory.CreateDirectory(destination);
         var staging = Path.Combine(destination, $".aeginext-export-{Guid.NewGuid():N}");
@@ -186,8 +211,20 @@ public sealed class EffectLibraryTransferService
         {
             for (var index = 0; index < destinations.Count; index++)
             {
-                await EffectLibraryTransferFiles.WriteNewAsync(Path.Combine(staging, Path.GetFileName(destinations[index])), content[index],
-                    cancellationToken).ConfigureAwait(false);
+                var stagedPath = Path.Combine(staging, Path.GetFileName(destinations[index]));
+                if (index < selectedStyles.Length)
+                {
+                    var preset = selectedStyles[index];
+                    await SubtitleStylePresetStore.SaveAsync(new()
+                    {
+                        Styles = new() { Presets = [preset] },
+                        FontFamilies = families.Where(family => string.Equals(family.FamilyName, preset.Style.FontFamily, StringComparison.OrdinalIgnoreCase)).ToImmutableArray()
+                    }, stagedPath, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await EffectScriptPresetStore.WritePresetAsync(selectedEffects[index - selectedStyles.Length], stagedPath, cancellationToken).ConfigureAwait(false);
+                }
             }
             cancellationToken.ThrowIfCancellationRequested();
             beforeCommit?.Invoke();
@@ -212,34 +249,80 @@ public sealed class EffectLibraryTransferService
         }
     }
 
-    /// <summary>把调用方冻结的个人选择项打包成与全库导出相同格式的共享包。</summary>
+    /// <summary>收集完整字体族后将冻结选择打包。</summary>
     public Task ExportPackageAsync(IEnumerable<SubtitleStylePreset> styles, IEnumerable<EffectScriptPreset> effects,
         string path, Action? beforeCommit = null, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(styles);
-        ArgumentNullException.ThrowIfNull(effects);
-        RequireExportPath(path);
-        return EffectLibraryPackageStore.SaveAsync(new()
-        {
-            Styles = new() { Presets = styles.ToImmutableArray() },
-            Effects = new() { Presets = effects.ToImmutableArray() }
-        }, path, beforeCommit, cancellationToken);
+        return ExportPackageCoreAsync(styles, effects, repository.Snapshot.FontFamilies, path, beforeCommit, cancellationToken);
     }
 
-    /// <summary>冻结当前整个个人效果库，导出为可供其他人合并使用的共享包。</summary>
+    /// <summary>冻结当前整个个人效果库并导出。</summary>
     public async Task ExportAllPackageAsync(string path, Action? beforeCommit = null, CancellationToken cancellationToken = default)
     {
         await repository.EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
         await ExportAllPackageAsync(repository.Snapshot, path, beforeCommit, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary>导出宿主在显示选择器前已捕获的完整快照，选择器期间的编辑不改变输出。</summary>
+    /// <summary>以显示选择器前冻结的样式、特效和私有字体快照导出。</summary>
     public Task ExportAllPackageAsync(EffectLibrarySnapshot snapshot, string path, Action? beforeCommit = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
+        return ExportPackageCoreAsync(snapshot.Styles.Presets, snapshot.Effects.Presets, snapshot.FontFamilies, path, beforeCommit, cancellationToken);
+    }
+
+    private async Task ExportPackageCoreAsync(IEnumerable<SubtitleStylePreset> styles, IEnumerable<EffectScriptPreset> effects,
+        ImmutableArray<FontFamilyBundle> frozenFonts, string path, Action? beforeCommit, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(styles);
+        ArgumentNullException.ThrowIfNull(effects);
         RequireExportPath(path);
-        return EffectLibraryPackageStore.SaveAsync(new() { Styles = snapshot.Styles, Effects = snapshot.Effects }, path, beforeCommit, cancellationToken);
+        var selected = styles.ToImmutableArray();
+        var selectedEffects = effects.ToImmutableArray();
+        var prepared = await CaptureExportFamiliesAsync(selected, frozenFonts, cancellationToken).ConfigureAwait(false);
+        selected = prepared.Styles;
+        var families = prepared.Families;
+        await EffectLibraryPackageStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = selected }, Effects = new() { Presets = selectedEffects }, FontFamilies = families
+        }, path, beforeCommit, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<(ImmutableArray<SubtitleStylePreset> Styles, ImmutableArray<FontFamilyBundle> Families)> CaptureExportFamiliesAsync(
+        IEnumerable<SubtitleStylePreset> styles, ImmutableArray<FontFamilyBundle> availableFonts, CancellationToken cancellationToken)
+    {
+        var selected = styles.ToImmutableArray();
+        var captured = new Dictionary<string, FontFamilyBundle>(StringComparer.OrdinalIgnoreCase);
+        var fonts = frozenFontFamilies.IsDefault ? availableFonts : frozenFontFamilies;
+        foreach (var name in selected.Select(preset => preset.Style.FontFamily).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var family = fonts.FirstOrDefault(family => string.Equals(family.FamilyName, name, StringComparison.OrdinalIgnoreCase)) ??
+                await fontSource.CaptureAsync(name, cancellationToken: cancellationToken).ConfigureAwait(false);
+            fontValidator.Validate(family);
+            captured.Add(name, family);
+        }
+        var families = captured.Values.DistinctBy(family => family.FamilyName, StringComparer.OrdinalIgnoreCase).ToImmutableArray();
+        FontFamilyBundleValidator.Validate(families);
+        return (selected.Select(preset => preset with { Style = preset.Style with { FontFamily = captured[preset.Style.FontFamily].FamilyName } }).ToImmutableArray(), families);
+    }
+
+    private void RegisterFamilies(ImmutableArray<FontFamilyBundle> families, Dictionary<string, FontFamilyBundle> known,
+        Dictionary<string, ImmutableArray<byte>> files)
+    {
+        foreach (var family in families)
+        {
+            if (known.TryGetValue(family.FamilyName, out var previous))
+            {
+                if (!PrivateFontFiles.SameFamily(previous, family))
+                {
+                    throw new InvalidDataException("导入输入包含同一字体族的不同版本。");
+                }
+                continue;
+            }
+            fontValidator.Validate(family);
+            known.Add(family.FamilyName, PrivateFontFiles.ShareFontData(family, files));
+        }
     }
 
     private static EffectLibraryImportRow AnalyzeRow(EffectLibraryImportEntry entry, int index, EffectLibrarySnapshot snapshot)
@@ -297,7 +380,8 @@ public sealed class EffectLibraryTransferService
         }
         var targetId = targets.Keys.Single();
         var sameContent = entry.Kind == EffectLibraryItemKind.STYLE
-            ? SameStyle(entry.Style!, snapshot.Styles.Presets.Single(preset => preset.Id == targetId))
+            ? SameStyle(entry.Style!, snapshot.Styles.Presets.Single(preset => preset.Id == targetId)) &&
+                SameFonts(entry.FontFamilies, snapshot.FontFamilies)
             : SameEffect(entry.Effect!, entry.HasEffectName, snapshot.Effects.Presets.Single(preset => preset.Id == targetId), true);
         return row with
         {
@@ -409,6 +493,7 @@ public sealed class EffectLibraryTransferService
     {
         var styles = current.Styles.Presets;
         var effects = current.Effects.Presets;
+        var fonts = current.FontFamilies;
         foreach (var row in plan.Rows)
         {
             var decision = choices[row.Index];
@@ -420,6 +505,7 @@ public sealed class EffectLibraryTransferService
             if (entry.Kind == EffectLibraryItemKind.STYLE)
             {
                 var preset = entry.Style!;
+                fonts = PrivateFontFiles.Merge(fonts, entry.FontFamilies);
                 if (decision == EffectLibraryImportDecision.IMPORT)
                 {
                     styles = styles.Add(preset);
@@ -444,7 +530,7 @@ public sealed class EffectLibraryTransferService
                 }
             }
         }
-        return current with { Styles = current.Styles with { Presets = styles }, Effects = current.Effects with { Presets = effects } };
+        return current with { Styles = current.Styles with { Presets = styles }, Effects = current.Effects with { Presets = effects }, FontFamilies = fonts };
     }
 
     private static EffectLibraryImportDecision DefaultDecision(EffectLibraryImportRow row)
@@ -461,9 +547,14 @@ public sealed class EffectLibraryTransferService
 
     private static bool SameStyle(SubtitleStylePreset first, SubtitleStylePreset second)
     {
-        var left = SubtitleStylePresetStore.Serialize(new() { Presets = [first with { Id = second.Id }] });
-        var right = SubtitleStylePresetStore.Serialize(new() { Presets = [second] });
+        var left = SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [first with { Id = second.Id }] });
+        var right = SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [second] });
         return left.AsSpan().SequenceEqual(right);
+    }
+
+    private static bool SameFonts(ImmutableArray<FontFamilyBundle> incoming, ImmutableArray<FontFamilyBundle> installed)
+    {
+        return incoming.All(family => installed.Any(other => PrivateFontFiles.SameFamily(family, other)));
     }
 
     private static bool SameEffect(EffectScriptPreset first, bool firstHasName, EffectScriptPreset second, bool secondHasName)
@@ -472,9 +563,10 @@ public sealed class EffectLibraryTransferService
             (!firstHasName || !secondHasName || string.Equals(first.Name, second.Name, StringComparison.Ordinal));
     }
 
-    private static EffectLibraryImportEntry StyleEntry(SubtitleStylePreset preset, string sourceName)
+    private static EffectLibraryImportEntry StyleEntry(SubtitleStylePreset preset, IEnumerable<FontFamilyBundle> families, string sourceName)
     {
-        return new() { Kind = EffectLibraryItemKind.STYLE, Style = preset, ExternalId = preset.Id, SourceName = sourceName };
+        return new() { Kind = EffectLibraryItemKind.STYLE, Style = preset, ExternalId = preset.Id, SourceName = sourceName,
+            FontFamilies = families.Where(family => string.Equals(family.FamilyName, preset.Style.FontFamily, StringComparison.OrdinalIgnoreCase)).ToImmutableArray() };
     }
 
     private static EffectLibraryImportEntry EffectEntry(EffectScriptPreset preset, bool complete, string sourceName)
@@ -486,11 +578,12 @@ public sealed class EffectLibraryTransferService
     private static void AddInput(List<EffectLibraryImportEntry> entries, EffectLibraryImportEntry entry, ref long bytes)
     {
         bytes = checked(bytes + (entry.Kind == EffectLibraryItemKind.STYLE
-            ? SubtitleStylePresetStore.Serialize(new() { Presets = [entry.Style!] }).Length
+            ? SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [entry.Style!] }).Length
+            : entry.HasEffectName ? EffectScriptPresetStore.SerializePreset(entry.Effect!).Length
             : System.Text.Encoding.UTF8.GetByteCount(entry.Effect!.Source)));
         if (bytes > EffectLibraryPackageStore.MAXIMUM_FILE_BYTES)
         {
-            throw new InvalidDataException("本次效果库导入内容超过 128 MiB。");
+            throw new InvalidDataException("本次效果库导入内容超过 1 GiB。");
         }
         entries.Add(entry);
     }

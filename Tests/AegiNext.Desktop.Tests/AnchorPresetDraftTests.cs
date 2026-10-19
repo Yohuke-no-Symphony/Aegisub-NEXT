@@ -114,10 +114,9 @@ public sealed class AnchorPresetDraftTests
     }
 
     [Fact]
-    public void TemplateMeasurementFeedsPresetsAndDoesNotReplaceTheEmbeddedFont()
+    public void TemplateMeasurementFeedsPresetsAndDoesNotReplaceTheFontFamily()
     {
-        var embedded = new EmbeddedSubtitleFont("sample.ttf", new('a', 64), [1, 2, 3]);
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Example", new(), embedded);
+        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Example", new());
         var resolved = new SubtitlePosition { Anchor = new(0.5, 1), Pivot = new(0.5, 1), Offset = new(3, -11) };
         var geometry = CreateGeometry();
         var model = new StyleLibraryViewModel();
@@ -125,7 +124,7 @@ public sealed class AnchorPresetDraftTests
         model.SetPositionMeasurement(value =>
         {
             requests++;
-            Assert.Same(embedded, value.Font);
+            Assert.Equal(preset.Style.FontFamily, value.Style.FontFamily);
             return new(value.Style.Position ?? resolved, geometry);
         });
         model.UpdateStyles([preset]);
@@ -134,7 +133,7 @@ public sealed class AnchorPresetDraftTests
         Assert.True(model.Position.SelectPreset(new(0, 0), true));
 
         Assert.True(requests >= 2);
-        Assert.Same(embedded, model.Draft!.Font);
+        Assert.Equal(preset.Style.FontFamily, model.Draft!.Style.FontFamily);
         AssertSameGlyphPoints(resolved, model.Draft.Style.Position!, geometry);
         model.Position.OffsetX.RawText = "7e-";
         model.RefreshLanguage();

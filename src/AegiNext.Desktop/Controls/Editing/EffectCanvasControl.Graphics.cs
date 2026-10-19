@@ -167,7 +167,7 @@ public sealed partial class EffectCanvasControl
         Guid? hit;
         try
         {
-            renderer ??= new(new DirectoryProjectAssetResolver(directory));
+            renderer ??= new(new DirectoryProjectAssetResolver(directory), fontCatalog);
             hit = renderer.HitTestLayer(EditorDocument(), position, new((float)project.X, (float)project.Y));
         }
         catch (Exception error) when (IsRenderingFailure(error))

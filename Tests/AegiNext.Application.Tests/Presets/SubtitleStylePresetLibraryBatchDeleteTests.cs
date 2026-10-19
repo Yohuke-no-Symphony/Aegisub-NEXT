@@ -27,7 +27,7 @@ public sealed class SubtitleStylePresetLibraryBatchDeleteTests
         await deletion;
 
         Assert.Equal(new[] { second, fourth }, library.Snapshot.Presets.ToArray());
-        Assert.Equal(new[] { second, fourth }, (await SubtitleStylePresetStore.LoadAsync(path)).Presets.ToArray());
+        Assert.Equal(new[] { second, fourth }, (await TestStyleLibraryStorage.LoadAsync(path)).Presets.ToArray());
         Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
     }
 
@@ -42,7 +42,7 @@ public sealed class SubtitleStylePresetLibraryBatchDeleteTests
         await library.UpsertAsync(first);
         await library.UpsertAsync(second);
         var snapshot = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(path);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(path));
 
         await Assert.ThrowsAsync<InvalidDataException>(() => library.RemoveAsync([first.Id, Guid.NewGuid(), second.Id]));
         using var cancellation = new CancellationTokenSource();
@@ -50,7 +50,7 @@ public sealed class SubtitleStylePresetLibraryBatchDeleteTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => library.RemoveAsync([first.Id, second.Id], cancellation.Token));
 
         Assert.Same(snapshot, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(path)));
         Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
     }
 
@@ -84,8 +84,8 @@ public sealed class SubtitleStylePresetLibraryBatchDeleteTests
         await library.UpsertAsync(first);
         await library.UpsertAsync(second);
         var snapshot = library.Snapshot;
-        File.Delete(path);
-        Directory.CreateDirectory(path);
+        File.Delete(TestStyleLibraryStorage.ManifestPath(path));
+        Directory.CreateDirectory(TestStyleLibraryStorage.ManifestPath(path));
 
         await Assert.ThrowsAsync<IOException>(() => library.RemoveAsync([first.Id, second.Id]));
 
@@ -101,18 +101,18 @@ public sealed class SubtitleStylePresetLibraryBatchDeleteTests
         var path = Path.Combine(directory.Path, "styles.aegistyles");
         var first = Preset("First");
         var second = Preset("Second");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first, second] }, path);
+        await TestStyleLibraryStorage.SaveAsync(new() { Presets = [first, second] }, path);
         using var library = new SubtitleStylePresetLibrary(path);
 
         await library.RemoveAsync([first.Id, second.Id]);
 
         Assert.Empty(library.Snapshot.Presets);
-        Assert.Empty((await SubtitleStylePresetStore.LoadAsync(path)).Presets);
+        Assert.Empty((await TestStyleLibraryStorage.LoadAsync(path)).Presets);
         var snapshot = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(path);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(path));
         await library.RemoveAsync(Array.Empty<Guid>());
         Assert.Same(snapshot, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(path)));
     }
 
     private static SubtitleStylePreset Preset(string name)

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Rendering;
 using AegiNext.Rendering.Fonts;
@@ -9,17 +10,17 @@ namespace AegiNext.Desktop.Tests;
 public sealed class SubtitleStylePreviewRenderingTests
 {
     [Fact]
-    public void PreviewUsesEmbeddedFontAndChangesRealPixelsWithoutChangingThePreset()
+    public void PreviewUsesApplicationFontAndChangesRealPixelsWithoutChangingThePreset()
     {
         var bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"));
         var font = new EmbeddedSubtitleFont("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "", new()
         {
             Scaling = new() { ReferenceWidth = 320, ReferenceHeight = 180 },
-            FontFamily = "Embedded preview fixture", FontSize = 44, Margins = new(12, 12, 12),
+            FontFamily = "Noto Sans", FontSize = 44, Margins = new(12, 12, 12),
             StrokeWidth = 0, ShadowColor = SceneColor.Transparent
-        }, font);
-        var catalog = new SystemFontCatalog();
+        });
+        var catalog = new SystemFontCatalog([new FontFamilyBundle("Noto Sans", [font])], SystemFontCatalog.Empty);
         var request = new SubtitleStylePreviewRequest(1, preset, "ABC\nDEF", 320, 180, catalog);
 
         var first = SubtitleStylePreviewRenderer.Render(request, CancellationToken.None);
@@ -40,7 +41,7 @@ public sealed class SubtitleStylePreviewRenderingTests
         Assert.All(first.Pixels.ToArray().Chunk(4), pixel => Assert.Equal(255, pixel[3]));
         Assert.Null(preset.Style.FontAssetId);
         Assert.Equal(SceneColor.White, preset.Style.Fill);
-        Assert.Same(font, preset.Font);
+        Assert.Same(font, Assert.Single(Assert.Single(catalog.ApplicationFonts).Files));
     }
 
     [Fact]

@@ -20,7 +20,7 @@ internal static class NativeVideoExport
 
         var inputAsset = request.Project.Assets.Single(asset => asset.Id == request.Project.Media!.AssetId);
         var input = ProjectAssetLocation.Resolve(inputAsset, request.ProjectDirectory);
-        using var render = new ExportRenderContext(request.Project, request.ProjectDirectory, progress, cancellationToken);
+        using var render = new ExportRenderContext(request.Project, request.ProjectDirectory, progress, cancellationToken, request.FontFamilies);
         var handle = GCHandle.Alloc(render);
         var arguments = CreateRequestArguments(request);
         var error = stackalloc byte[1024];

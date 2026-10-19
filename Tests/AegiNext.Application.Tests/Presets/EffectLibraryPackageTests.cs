@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using AegiNext.Application.Presets;
@@ -17,9 +16,8 @@ public sealed class EffectLibraryPackageTests
     [Fact]
     public void PackagePreservesOrderPortableFontsTimingAndOriginalEffectMetadata()
     {
-        var font = new byte[] { 1, 2, 3, 4 };
         var first = new SubtitleStylePreset(Guid.NewGuid(), "First", new SubtitleStyle(),
-            new("font.ttf", Convert.ToHexStringLower(SHA256.HashData(font)), font.ToImmutableArray()), new TimingPostProcessorOptions());
+            new TimingPostProcessorOptions());
         var second = new SubtitleStylePreset(Guid.NewGuid(), "Second", new SubtitleStyle());
         var effect = Effect();
         var package = new EffectLibraryPackage
@@ -28,17 +26,17 @@ public sealed class EffectLibraryPackageTests
             Effects = new() { Presets = [effect] }
         };
 
-        var bytes = EffectLibraryPackageStore.Serialize(package);
-        var read = EffectLibraryPackageStore.Deserialize(bytes);
+        var bytes = TestEffectLibraryPackageStore.Serialize(package);
+        var read = TestEffectLibraryPackageStore.Deserialize(bytes);
 
         Assert.Equal([second.Id, first.Id], read.Styles.Presets.Select(preset => preset.Id));
         Assert.Equal(first.Name, read.Styles.Presets[1].Name);
         Assert.Equal(first.TimingPostProcessor, read.Styles.Presets[1].TimingPostProcessor);
-        Assert.Equal(font, read.Styles.Presets[1].Font!.Data);
+        Assert.NotEmpty(read.FontFamilies);
         Assert.Equal(effect, Assert.Single(read.Effects.Presets));
         using var buffer = new MemoryStream(bytes);
         using var archive = new ZipArchive(buffer, ZipArchiveMode.Read);
-        Assert.Equal(4, archive.Entries.Count);
+        Assert.Equal(5, archive.Entries.Count);
         Assert.DoesNotContain(archive.Entries, entry => entry.FullName.Contains("settings", StringComparison.Ordinal) ||
             entry.FullName.Contains("legacy", StringComparison.Ordinal) || entry.FullName.Contains("revision", StringComparison.Ordinal));
     }
@@ -53,7 +51,7 @@ public sealed class EffectLibraryPackageTests
     [InlineData("utf8")]
     public void UnknownDuplicateUnsafeMissingAndCorruptedEntriesAreRejected(string mutation)
     {
-        var bytes = EffectLibraryPackageStore.Serialize(new() { Effects = new() { Presets = [Effect()] } });
+        var bytes = TestEffectLibraryPackageStore.Serialize(new() { Effects = new() { Presets = [Effect()] } });
         var malformed = Rewrite(bytes, entries =>
         {
             if (mutation == "unknown")
@@ -88,21 +86,21 @@ public sealed class EffectLibraryPackageTests
             }
         });
 
-        Assert.Throws<InvalidDataException>(() => EffectLibraryPackageStore.Deserialize(malformed));
+        Assert.Throws<InvalidDataException>(() => TestEffectLibraryPackageStore.Deserialize(malformed));
     }
 
     [Fact]
     public void EmptyPackageRoundTripsAndPersonalPackagesRejectBuiltinTemplatesAndCollectionConflicts()
     {
-        var empty = EffectLibraryPackageStore.Deserialize(EffectLibraryPackageStore.Serialize(new()));
+        var empty = TestEffectLibraryPackageStore.Deserialize(TestEffectLibraryPackageStore.Serialize(new()));
         Assert.Empty(empty.Styles.Presets);
         Assert.Empty(empty.Effects.Presets);
         var effect = Effect();
-        Assert.Throws<InvalidDataException>(() => EffectLibraryPackageStore.Serialize(new()
+        Assert.Throws<InvalidDataException>(() => TestEffectLibraryPackageStore.Serialize(new()
         {
             Effects = new() { Presets = [effect, effect with { Id = Guid.NewGuid() }] }
         }));
-        Assert.Throws<InvalidDataException>(() => EffectLibraryPackageStore.Serialize(new()
+        Assert.Throws<InvalidDataException>(() => TestEffectLibraryPackageStore.Serialize(new()
         {
             Effects = new() { Presets = [new(Guid.NewGuid(), "Builtin", BuiltinEffectScripts.Get("fade-in").Source)] }
         }));
@@ -111,7 +109,7 @@ public sealed class EffectLibraryPackageTests
     [Fact]
     public void ExpansionBudgetIsCheckedBeforeReadingDeclaredLargeEntries()
     {
-        var bytes = EffectLibraryPackageStore.Serialize(new()
+        var bytes = TestEffectLibraryPackageStore.Serialize(new()
         {
             Styles = new() { Presets = Enumerable.Range(0, 3).Select(index =>
                 new SubtitleStylePreset(Guid.NewGuid(), $"Style {index}", new SubtitleStyle())).ToImmutableArray() }
@@ -130,9 +128,9 @@ public sealed class EffectLibraryPackageTests
             offset += 46 + nameLength + extraLength + commentLength;
         }
 
-        var error = Assert.Throws<InvalidDataException>(() => EffectLibraryPackageStore.Deserialize(bytes));
+        var error = Assert.Throws<InvalidDataException>(() => TestEffectLibraryPackageStore.Deserialize(bytes));
 
-        Assert.Contains("128 MiB", error.Message, StringComparison.Ordinal);
+        Assert.Contains("预算", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -142,16 +140,16 @@ public sealed class EffectLibraryPackageTests
         var oversized = Path.Combine(directory.Path, "oversized.aegilibrary");
         await using (var stream = new FileStream(oversized, FileMode.CreateNew, FileAccess.Write))
         {
-            stream.SetLength(EffectLibraryPackageStore.MAXIMUM_FILE_BYTES + 1L);
+            stream.SetLength(TestEffectLibraryPackageStore.MAXIMUM_FILE_BYTES + 1L);
         }
-        await Assert.ThrowsAsync<InvalidDataException>(() => EffectLibraryPackageStore.LoadAsync(oversized));
+        await Assert.ThrowsAsync<InvalidDataException>(() => TestEffectLibraryPackageStore.LoadAsync(oversized));
         var path = Path.Combine(directory.Path, "retained.aegilibrary");
-        await EffectLibraryPackageStore.SaveAsync(new() { Effects = new() { Presets = [Effect()] } }, path);
+        await TestEffectLibraryPackageStore.SaveAsync(new() { Effects = new() { Presets = [Effect()] } }, path);
         var bytes = await File.ReadAllBytesAsync(path);
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => EffectLibraryPackageStore.SaveAsync(new(), path, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => TestEffectLibraryPackageStore.SaveAsync(new(), path, cancellation.Token));
 
         Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
     }

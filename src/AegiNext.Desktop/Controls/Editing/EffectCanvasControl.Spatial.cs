@@ -78,7 +78,7 @@ public sealed partial class EffectCanvasControl
         }
         try
         {
-            renderer ??= new(new DirectoryProjectAssetResolver(directory));
+            renderer ??= new(new DirectoryProjectAssetResolver(directory), fontCatalog);
             var found = spatialTarget.TextRangeId is { } rangeId
                 ? renderer.GetAnimationRangeGeometry(scene, position, selected.Id, rangeId)
                 : renderer.GetLayerGeometry(scene, position, selected.Id);

@@ -282,7 +282,8 @@ public sealed class ExportCommandTests
     {
         var runtime = new CliRuntime(console, interactive);
         var app = new CliApplication(runtime);
-        var runner = new ExportRunner(runtime, service);
+        var runner = new ExportRunner(runtime, service,
+            fontLibrary: new(Path.Combine(Path.GetTempPath(), "aeginext-cli-font-tests", Guid.NewGuid().ToString("N"))));
         app.RegisterInstance(runner);
         app.RegisterCommand<ExportCommand>("export", "Export project video", cancellationToken => runner.RunAsync(new(), cancellationToken));
         return app;

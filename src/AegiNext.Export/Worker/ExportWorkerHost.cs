@@ -70,7 +70,8 @@ public static class ExportWorkerHost
                 EncodingMode = video.EncodingMode,
                 VideoBitrate = video.VideoBitrate,
                 DecodeMode = video.DecodeMode,
-                RateControlMode = video.RateControlMode
+                RateControlMode = video.RateControlMode,
+                FontFamilies = await ExportFontSnapshot.ReadAsync(job.FontFamilies, job.TemporaryDirectory, token).ConfigureAwait(false)
             };
             var progress = new ExportWorkerProgress(writer);
             var videoPath = Path.Combine(job.TemporaryDirectory, "video.nut");

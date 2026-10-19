@@ -134,7 +134,10 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
             }
             else
             {
-                var request = new VideoExportRequest(document, projectDirectory, path).WithSettings(settings!);
+                var request = new VideoExportRequest(document, projectDirectory, path)
+                {
+                    FontFamilies = session.ApplicationContext.EffectLibrary.Snapshot.FontFamilies
+                }.WithSettings(settings!);
                 var submitted = session.ApplicationContext.Tasks.Submit(new VideoExportTask(session, this, request, duration));
                 taskHandle = submitted;
                 await submitted.Completion;

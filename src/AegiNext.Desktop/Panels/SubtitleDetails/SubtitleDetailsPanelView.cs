@@ -682,7 +682,7 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
                     KaraokeVisualState.ACTIVE => SubtitlePreviewMode.HIGHLIGHTED,
                     KaraokeVisualState.INACTIVE => SubtitlePreviewMode.INACTIVE,
                     _ => SubtitlePreviewMode.NORMAL
-                });
+                }, session.Fonts.Catalog);
             rich.SetSelection(selectionStart, selectionEnd);
             error.Text = coordinator.Error ?? rich.RenderDiagnostic;
             error.IsVisible = !string.IsNullOrEmpty(error.Text);
@@ -803,6 +803,7 @@ internal sealed partial class SubtitleDetailsPanelView : UserControl, IWorkbench
         if (!disposed)
         {
             selectionFont.RefreshFontCandidates(session.Fonts.Candidates);
+            Refresh();
         }
     }
 

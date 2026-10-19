@@ -15,12 +15,12 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();
         using var inputDirectory = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(settingsDirectory.Path);
         await owner.Initialization;
         var bundle = CreatePresets();
         var stylePath = Path.Combine(inputDirectory.Path, "style.aegistyles");
         var scriptPath = Path.Combine(inputDirectory.Path, "effect.aegifx");
-        await SubtitleStylePresetStore.SaveAsync(bundle.Styles, stylePath);
+        await SubtitleStylePresetStore.SaveAsync(new() { Styles = bundle.Styles, FontFamilies = bundle.FontFamilies }, stylePath);
         await EffectScriptPresetStore.WriteScriptAsync(bundle.Effects.Presets.Single().Source, scriptPath);
         var task = new EffectLibraryImportAnalysisTask(owner, [stylePath, scriptPath]);
 
@@ -31,6 +31,8 @@ public sealed class EffectLibraryTransferBoundaryTests
         var plan = await analysis.Completion;
         Assert.Empty(owner.StyleLibrary.Snapshot.Presets);
         Assert.Empty(owner.EffectScriptLibrary.Snapshot.Presets);
+        Assert.Empty(owner.EffectLibrary.Snapshot.FontFamilies);
+        Assert.False(Directory.Exists(owner.LibraryPaths.FontsDirectory));
         var commitTask = new EffectLibraryImportCommitTask(owner, plan,
             new Dictionary<int, EffectLibraryImportDecision>());
         Assert.Contains(owner.GetLibraryResource(PersonalLibraryKind.EFFECT_LIBRARY), commitTask.Resources);
@@ -39,6 +41,8 @@ public sealed class EffectLibraryTransferBoundaryTests
 
         AssertStyleEqual(bundle.Styles.Presets.Single(), owner.StyleLibrary.Snapshot.Presets.Single());
         Assert.Equal(bundle.Effects.Presets.Single().Source, owner.EffectScriptLibrary.Snapshot.Presets.Single().Source);
+        Assert.Equal(bundle.FontFamilies[0].Files[0].Sha256,
+            Assert.Single(Assert.Single(owner.EffectLibrary.Snapshot.FontFamilies).Files).Sha256);
         Assert.Equal(AegiTaskState.Succeeded, analysis.Snapshot.State);
         Assert.Equal(AegiTaskState.Succeeded, commit.Snapshot.State);
     }
@@ -48,7 +52,7 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();
         using var outputDirectory = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(settingsDirectory.Path);
         await owner.Initialization;
         var bundle = CreatePresets();
         var stylePath = Path.Combine(outputDirectory.Path, "style.aegistyles");
@@ -59,7 +63,9 @@ public sealed class EffectLibraryTransferBoundaryTests
             EffectLibraryExportMode.SCRIPT_SOURCE));
         await Task.WhenAll(styles.Completion, effects.Completion);
 
-        AssertStyleEqual(bundle.Styles.Presets.Single(), (await SubtitleStylePresetStore.LoadAsync(stylePath)).Presets.Single());
+        var exported = await SubtitleStylePresetStore.LoadAsync(stylePath);
+        AssertStyleEqual(bundle.Styles.Presets.Single(), exported.Styles.Presets.Single());
+        Assert.Equal(bundle.FontFamilies[0].Files[0].Sha256, Assert.Single(Assert.Single(exported.FontFamilies).Files).Sha256);
         Assert.Equal(bundle.Effects.Presets.Single().Source, (await EffectScriptPresetStore.ReadScriptAsync(scriptPath)).Source);
         Assert.Empty(owner.StyleLibrary.Snapshot.Presets);
         Assert.Empty(owner.EffectScriptLibrary.Snapshot.Presets);
@@ -72,10 +78,11 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();
         using var outputDirectory = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(settingsDirectory.Path);
         await owner.Initialization;
         ImmutableArray<SubtitleStylePreset> selection =
-        [new(Guid.NewGuid(), "Same/name", new()), new(Guid.NewGuid(), "Same\\name", new())];
+        [new(Guid.NewGuid(), "Same/name", new() { FontFamily = "Noto Sans" }),
+            new(Guid.NewGuid(), "Same\\name", new() { FontFamily = "Noto Sans" })];
         var paths = owner.EffectLibraryTransfer.GetIndependentDestinations(selection, [], outputDirectory.Path);
         var task = new EffectLibraryExportTask(owner, selection, [], outputDirectory.Path,
             EffectLibraryExportMode.INDEPENDENT_FILES);
@@ -87,6 +94,11 @@ public sealed class EffectLibraryTransferBoundaryTests
         Assert.All(paths, path => Assert.True(File.Exists(path)));
         Assert.Empty(Directory.EnumerateDirectories(outputDirectory.Path));
         Assert.Equal(2, Directory.EnumerateFiles(outputDirectory.Path).Count());
+        foreach (var path in paths)
+        {
+            Assert.Equal(EffectLibraryTestFonts.Family.Files[0].Sha256,
+                Assert.Single(Assert.Single((await SubtitleStylePresetStore.LoadAsync(path)).FontFamilies).Files).Sha256);
+        }
     }
 
     [Theory]
@@ -98,7 +110,7 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();
         using var outputDirectory = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(settingsDirectory.Path);
         await owner.Initialization;
         var bundle = CreatePresets();
         var libraryPath = Path.Combine(settingsDirectory.Path,
@@ -109,7 +121,7 @@ public sealed class EffectLibraryTransferBoundaryTests
         }
         else
         {
-            await SubtitleStylePresetStore.SaveAsync(bundle.Styles, libraryPath);
+            await SubtitleStylePresetStore.SaveAsync(new() { Styles = bundle.Styles, FontFamilies = bundle.FontFamilies }, libraryPath);
         }
 
         var original = await File.ReadAllBytesAsync(libraryPath);
@@ -140,7 +152,7 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();
         using var outputDirectory = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(settingsDirectory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(settingsDirectory.Path);
         await owner.Initialization;
         var root = owner.LibraryPaths.EffectLibraryDirectory;
         if (symbolicLink)
@@ -150,7 +162,7 @@ public sealed class EffectLibraryTransferBoundaryTests
             root = alias;
         }
         var destination = Path.Combine(root, "exported.aegistyles");
-        var task = new EffectLibraryExportTask(owner, [new(Guid.NewGuid(), "Selected", new())], [], destination,
+        var task = new EffectLibraryExportTask(owner, [new(Guid.NewGuid(), "Selected", new() { FontFamily = "Noto Sans" })], [], destination,
             EffectLibraryExportMode.SINGLE_FILE);
 
         await Assert.ThrowsAsync<InvalidDataException>(() => owner.Tasks.Submit(task).Completion);
@@ -163,11 +175,12 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();
         using var outputDirectory = new TemporaryWorkbenchDirectory();
-        using var repository = new EffectLibraryRepository(settingsDirectory.Path);
-        var transfer = new EffectLibraryTransferService(repository);
+        using var repository = new EffectLibraryRepository(settingsDirectory.Path, Path.Combine(settingsDirectory.Path, "fonts"));
+        var transfer = EffectLibraryTestFonts.CreateTransfer(repository);
         var outputPath = outputDirectory.Path;
         ImmutableArray<SubtitleStylePreset> selection =
-        [new(Guid.NewGuid(), "First", new()), new(Guid.NewGuid(), "Second", new())];
+        [new(Guid.NewGuid(), "First", new() { FontFamily = "Noto Sans" }),
+            new(Guid.NewGuid(), "Second", new() { FontFamily = "Noto Sans" })];
         var paths = transfer.GetIndependentDestinations(selection, [], outputPath);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => transfer.ExportIndependentAsync(selection,
@@ -186,11 +199,12 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();
         using var outputDirectory = new TemporaryWorkbenchDirectory();
-        using var repository = new EffectLibraryRepository(settingsDirectory.Path);
-        var transfer = new EffectLibraryTransferService(repository);
+        using var repository = new EffectLibraryRepository(settingsDirectory.Path, Path.Combine(settingsDirectory.Path, "fonts"));
+        var transfer = EffectLibraryTestFonts.CreateTransfer(repository);
         using var cancellation = new CancellationTokenSource();
         ImmutableArray<SubtitleStylePreset> selection =
-        [new(Guid.NewGuid(), "First", new()), new(Guid.NewGuid(), "Second", new())];
+        [new(Guid.NewGuid(), "First", new() { FontFamily = "Noto Sans" }),
+            new(Guid.NewGuid(), "Second", new() { FontFamily = "Noto Sans" })];
         var paths = transfer.GetIndependentDestinations(selection, [], outputDirectory.Path);
 
         await transfer.ExportIndependentAsync(selection, [], outputDirectory.Path, cancellation.Cancel, cancellation.Token);
@@ -204,14 +218,18 @@ public sealed class EffectLibraryTransferBoundaryTests
     {
         using var directory = new TemporaryWorkbenchDirectory();
         using var inputDirectory = new TemporaryWorkbenchDirectory();
-        using var repository = new EffectLibraryRepository(directory.Path);
-        var transfer = new EffectLibraryTransferService(repository);
-        var original = new SubtitleStylePreset(Guid.NewGuid(), "Original", new());
+        using var repository = new EffectLibraryRepository(directory.Path, Path.Combine(directory.Path, "fonts"));
+        var transfer = EffectLibraryTestFonts.CreateTransfer(repository);
+        var original = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontFamily = "Noto Sans" });
         await repository.UpdateStylesAsync(collection => collection with { Presets = [original] });
         var before = repository.Snapshot;
         var bytes = await File.ReadAllBytesAsync(repository.ManifestPath);
         var incomingPath = Path.Combine(inputDirectory.Path, "incoming.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [new(Guid.NewGuid(), "Incoming", new())] }, incomingPath);
+        await SubtitleStylePresetStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = [new(Guid.NewGuid(), "Incoming", new() { FontFamily = "Noto Sans" })] },
+            FontFamilies = [EffectLibraryTestFonts.Family]
+        }, incomingPath);
         var plan = await transfer.AnalyzeImportAsync([incomingPath]);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => transfer.CommitImportAsync(plan,
@@ -222,16 +240,15 @@ public sealed class EffectLibraryTransferBoundaryTests
         Assert.Equal(bytes, await File.ReadAllBytesAsync(repository.ManifestPath));
         Assert.Empty(Directory.EnumerateDirectories(directory.Path, ".staging-*"));
         Assert.Empty(Directory.EnumerateFiles(directory.Path, ".*.tmp"));
+        Assert.Empty(repository.Snapshot.FontFamilies);
     }
 
     private static EffectLibrarySnapshot CreatePresets()
     {
-        var bytes = ImmutableArray.Create<byte>(1, 2, 3, 4);
-        var font = new EmbeddedSubtitleFont("subtitle.ttf",
-            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes.AsSpan())), bytes);
         return new()
         {
-            Styles = new() { Presets = [new(Guid.NewGuid(), "Personal style", new() { FontSize = 62 }, font)] },
+            Styles = new() { Presets = [new(Guid.NewGuid(), "Personal style", new() { FontSize = 62, FontFamily = "Noto Sans" })] },
+            FontFamilies = [EffectLibraryTestFonts.Family],
             Effects = new()
             {
                 Presets = [new(Guid.NewGuid(), "Personal effect", "effect \"transfer-user\" version 3\nshort-clip compress\nscope clip current\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\nend\n")]
@@ -241,11 +258,6 @@ public sealed class EffectLibraryTransferBoundaryTests
 
     private static void AssertStyleEqual(SubtitleStylePreset expected, SubtitleStylePreset actual)
     {
-        Assert.Equal(expected with { Font = null }, actual with { Font = null });
-        var expectedFont = Assert.IsType<EmbeddedSubtitleFont>(expected.Font);
-        var actualFont = Assert.IsType<EmbeddedSubtitleFont>(actual.Font);
-        Assert.Equal(expectedFont.FileName, actualFont.FileName);
-        Assert.Equal(expectedFont.Sha256, actualFont.Sha256);
-        Assert.True(expectedFont.Data.AsSpan().SequenceEqual(actualFont.Data.AsSpan()));
+        Assert.Equal(expected, actual);
     }
 }

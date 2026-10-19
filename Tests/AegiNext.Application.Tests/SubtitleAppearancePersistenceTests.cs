@@ -66,10 +66,10 @@ public sealed class SubtitleAppearancePersistenceTests
         {
             Presets = [new(Guid.NewGuid(), "Typography", document.Subtitles[0].Style)]
         };
-        var stored = SubtitleStylePresetStore.Serialize(collection);
-        Assert.Equal(stored, SubtitleStylePresetStore.Serialize(SubtitleStylePresetStore.Deserialize(stored)));
+        var stored = SubtitleStylePresetMetadataStore.Serialize(collection);
+        Assert.Equal(stored, SubtitleStylePresetMetadataStore.Serialize(SubtitleStylePresetMetadataStore.Deserialize(stored)));
         Assert.Equal(ProjectDocument.CURRENT_VERSION, ProjectStore.Deserialize(bytes).Version);
-        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, SubtitleStylePresetStore.Deserialize(stored).Version);
+        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, SubtitleStylePresetMetadataStore.Deserialize(stored).Version);
     }
 
     [Theory]
@@ -119,24 +119,10 @@ public sealed class SubtitleAppearancePersistenceTests
     [InlineData(3)]
     [InlineData(4)]
     [InlineData(5)]
-    public void LegacyStyleLibrariesUpgradeDefaultsAndRejectUndeclaredFields(int version)
+    public void LegacyStyleLibrariesAreRejected(int version)
     {
-        var collection = new SubtitleStylePresetCollection { Presets = [new(Guid.NewGuid(), "Legacy", new())] };
-        var root = JsonNode.Parse(SubtitleStylePresetStore.Serialize(collection))!.AsObject();
-        root["version"] = version;
-        LegacySubtitleMarginsJsonFixture.DowngradeLibrary(root);
-        if (version == 1)
-        {
-            root["presets"]![0]!["style"]!.AsObject().Remove("position");
-        }
-        Assert.Equal(SubtitleStylePresetStore.Serialize(collection),
-            SubtitleStylePresetStore.Serialize(SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString()))));
-        foreach (var field in Fields("line"))
-        {
-            var changed = root.DeepClone().AsObject();
-            changed["presets"]![0]!["style"]![field] = field == "wrapMode" ? JsonValue.Create("GRAPHEME") : JsonValue.Create(0);
-            Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(changed.ToJsonString())));
-        }
+        var bytes = System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version},\"presets\":[]}}");
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(bytes));
     }
 
     [Theory]
@@ -146,12 +132,12 @@ public sealed class SubtitleAppearancePersistenceTests
     [InlineData("strokeBlur")]
     public void CurrentStyleLibraryRejectsMissingAppearanceFields(string field)
     {
-        var root = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new()
+        var root = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new()
         {
             Presets = [new(Guid.NewGuid(), "Current", new())]
         }))!.AsObject();
         root["presets"]![0]!["style"]!.AsObject().Remove(field);
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
     }
 
     [Theory]

@@ -18,7 +18,7 @@ All new scripts use **version 3**. Earlier source versions must be rewritten; ol
 
 ## Preview a draft
 
-Select one script to loop its current source, including unsaved edits. Adjust **Preview text**, **Duration (seconds)**, **Preview style**, and declared parameters. Embedded fonts in the selected style are used. Parameter trials do not rewrite source defaults or save the template.
+Select one script to loop its current source, including unsaved edits. Adjust **Preview text**, **Duration (seconds)**, **Preview style**, and declared parameters. Rendering uses the selected style and the application font library. Parameter trials do not rewrite source defaults or save the template.
 
 Use play/pause, loop, and the position slider to inspect a frame. Space toggles playback in the preview area; text inputs retain normal space input. Cmd/Ctrl + wheel zooms and left drag pans. Leaving the page pauses playback. Source changes update after about 200 ms; errors stay local to preview. Correct invalid parameter input or press Esc to restore only that field.
 

@@ -18,15 +18,12 @@ internal sealed class LibraryStyleDraft(SubtitleStylePreset preset)
         Preset = Preset with { TimingPostProcessor = options };
     }
 
-    internal void UpdateStyle(SubtitleStyle style, bool clearFont = false)
+    internal void UpdateStyle(SubtitleStyle style)
     {
         ArgumentNullException.ThrowIfNull(style);
         Preset = Preset with
         {
-            Style = style with { FontAssetId = null },
-            Font = !clearFont && string.Equals(style.FontFamily, Preset.Style.FontFamily, StringComparison.Ordinal)
-                ? Preset.Font
-                : null
+            Style = style with { FontAssetId = null }
         };
     }
 

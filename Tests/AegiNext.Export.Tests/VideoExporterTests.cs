@@ -5,12 +5,72 @@ using AegiNext.Core.Timing;
 using AegiNext.Media.Decoding;
 using AegiNext.Export;
 using AegiNext.Media.Probing;
+using System.Security.Cryptography;
+using AegiNext.Core.Fonts;
+using AegiNext.Rendering.Fonts;
 
 namespace AegiNext.Export.Tests;
 
 [Collection(nameof(NativeExportTestGroup))]
 public sealed class VideoExporterTests
 {
+    [ExportTheory]
+    [InlineData(VideoCodec.H264)]
+    public async Task WorkerBurnsApplicationFontSnapshotWithoutProjectFontAssets(VideoCodec codec)
+    {
+        using var fixture = await SdrPreviewFixture.CreateAsync(false);
+        var directory = Path.GetDirectoryName(fixture.MediaPath)!;
+        var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"));
+        var digest = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var family = new FontFamilyBundle("Noto Sans", [new("NotoSans.ttf", digest, [.. bytes])]);
+        var catalog = new SystemFontCatalog([family], SystemFontCatalog.Empty);
+        var black = Assert.Single(catalog.Faces, face => face.Variant.Weight == 900 && face.Variant.Width == 5);
+        var line = new SubtitleLine
+        {
+            Text = "AegiNext 8",
+            Style = new()
+            {
+                FontFamily = family.FamilyName, FontVariant = black.Variant, Bold = true,
+                FontSize = 18, Alignment = TextAlignment.TOP_LEFT, Margins = new(6, 6, 6),
+                StrokeWidth = 0, ShadowColor = SceneColor.Transparent, ShadowBlur = 0
+            }
+        };
+        var project = CreateProject(fixture.MediaPath, 1, 96, 64) with
+        {
+            Subtitles = [line],
+            Layers = [new() { Id = line.Id, Kind = LayerKind.SUBTITLE, SubtitleId = line.Id, Start = line.Start, End = line.End }]
+        };
+        Assert.DoesNotContain(project.Assets, asset => asset.Kind == ProjectAssetKind.FONT);
+        var snapshotObserved = false;
+        var progress = new ExportProgressCapture(value =>
+        {
+            if (value.Stage == "encoding" && value.FrameCount > 0)
+            {
+                var temporary = Assert.Single(Directory.GetDirectories(directory, ".aeginext-export-*"));
+                var raw = Assert.Single(Directory.GetFiles(Path.Combine(temporary, "fonts")));
+                Assert.Equal(digest, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(raw))));
+                snapshotObserved = true;
+            }
+        });
+        var output = Path.Combine(directory, "application-font.mkv");
+
+        var result = await new VideoExporter().ExportAsync(Request(project, directory, output) with
+        {
+            Codec = codec, FontFamilies = [family], AudioMode = AudioExportMode.None
+        }, progress);
+
+        Assert.Equal(3UL, result.Frames);
+        Assert.True(snapshotObserved);
+        using var source = FfmpegVideoDecoder.Open(fixture.MediaPath, 1);
+        using var rendered = FfmpegVideoDecoder.Open(output, 0);
+        using var original = source.ReadFrame();
+        using var frame = rendered.ReadFrame();
+        Assert.NotNull(original);
+        Assert.NotNull(frame);
+        Assert.False(original.CopyPlane(0).AsSpan().SequenceEqual(frame.CopyPlane(0)));
+        Assert.Empty(Directory.GetDirectories(directory, ".aeginext-export-*"));
+    }
+
     [MacSystemFontExportTheory]
     [InlineData(VideoCodec.H264)]
     public async Task WorkerShapesMixedChineseAndZwjEmojiWithSystemFontFallback(VideoCodec codec)

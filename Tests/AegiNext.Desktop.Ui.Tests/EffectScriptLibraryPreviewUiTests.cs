@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Effects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Controls;
@@ -413,7 +414,9 @@ public sealed class EffectScriptLibraryPreviewUiTests
         var bytes = await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"),
             TestContext.Current.CancellationToken);
         var font = new EmbeddedSubtitleFont("NotoSans.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), bytes.ToImmutableArray());
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Personal style 中文", new(), font);
+        var catalog = new SystemFontCatalog([new FontFamilyBundle("Noto Sans", [font])], SystemFontCatalog.Empty);
+        model.PreviewFonts = catalog;
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Personal style 中文", new() { FontFamily = "Noto Sans" });
         model.UpdatePreviewStyles([style]);
         model.SelectedPreviewStyle = style;
         var view = new EffectScriptLibraryView(() => renderer, timeProvider: new ManualPlaybackTimeProvider(),
@@ -423,7 +426,8 @@ public sealed class EffectScriptLibraryPreviewUiTests
         {
             window.Show();
             await PresentAsync(window, view);
-            Assert.Same(font, renderer.Requests.Last().Input.StylePreset!.Font);
+            Assert.Equal(style.Style, renderer.Requests.Last().Input.StylePreset!.Style);
+            Assert.Same(catalog, renderer.Requests.Last().FontCatalog);
             model.PreviewFonts = SystemFontCatalog.Empty;
             await PresentAsync(window, view);
             Assert.Same(SystemFontCatalog.Empty, renderer.Requests.Last().FontCatalog);
@@ -435,7 +439,7 @@ public sealed class EffectScriptLibraryPreviewUiTests
                 UiTestActions.Find<ComboBox>(window, "EffectPreviewStyleInput").SelectedItem).Id);
             model.UpdatePreviewStyles([]);
             await PresentAsync(window, view);
-            Assert.Null(renderer.Requests.Last().Input.StylePreset!.Font);
+            Assert.Null(renderer.Requests.Last().Input.StylePreset!.Style.FontAssetId);
             var first = model.Effects[0];
             var second = model.Effects[1];
             model.SelectEffects(first.Id, [first.Id, second.Id]);

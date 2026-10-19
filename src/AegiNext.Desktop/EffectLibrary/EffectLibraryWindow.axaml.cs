@@ -61,7 +61,7 @@ public sealed partial class EffectLibraryWindow : Window
 
     public event EventHandler<LibraryStyleEventArgs>? UpsertStyleRequested;
     public event EventHandler<LibraryStyleDeleteEventArgs>? DeleteStyleRequested;
-    public event EventHandler? CaptureStyleRequested;
+    public event EventHandler<LibraryStyleEventArgs>? CaptureStyleRequested;
     public event EventHandler<LibraryStyleEventArgs>? ApplyStyleRequested;
     public event EventHandler? ImportStylesRequested;
     public event EventHandler? ExportStylesRequested;
@@ -206,9 +206,9 @@ public sealed partial class EffectLibraryWindow : Window
         ApplyStyleRequested?.Invoke(this, e);
     }
 
-    private void OnCaptureStyleRequested(object? sender, EventArgs e)
+    private void OnCaptureStyleRequested(object? sender, LibraryStyleEventArgs e)
     {
-        CaptureStyleRequested?.Invoke(this, EventArgs.Empty);
+        CaptureStyleRequested?.Invoke(this, e);
     }
 
     private void OnImportStylesRequested(object? sender, EventArgs e)

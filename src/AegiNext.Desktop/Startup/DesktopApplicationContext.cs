@@ -58,8 +58,9 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
         AudioAnalysisBudget = new(preferences.AudioAnalysis.Execution.MaximumWorkers);
         preferencesLoadError = PreferencesStore.LoadError;
         SettingsRestore = new(PreferencesStore.DirectoryPath);
-        EffectLibrary = new(LibraryPaths.EffectLibraryDirectory, LibraryPaths.LegacyStyleFile, LibraryPaths.LegacyEffectFile);
-        EffectLibraryTransfer = new(EffectLibrary);
+        EffectLibrary = new(LibraryPaths.EffectLibraryDirectory, LibraryPaths.FontsDirectory);
+        FontSource = new FontFamilySource(() => fonts.Catalog);
+        EffectLibraryTransfer = new(EffectLibrary, FontSource, new FontFamilyValidator());
         StyleLibrary = new(EffectLibrary);
         EffectScriptLibrary = new(EffectLibrary);
         ExportPresetLibrary = new(LibraryPaths.ExportPresetFile);
@@ -86,6 +87,7 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
     internal PersonalLibraryPaths LibraryPaths { get; }
     internal EffectLibraryRepository EffectLibrary { get; }
     internal EffectLibraryTransferService EffectLibraryTransfer { get; }
+    internal FontFamilySource FontSource { get; }
     internal SubtitleStylePresetLibrary StyleLibrary { get; }
     internal EffectScriptPresetLibrary EffectScriptLibrary { get; }
     internal VideoExportPresetLibrary ExportPresetLibrary { get; }
@@ -358,6 +360,10 @@ internal sealed class DesktopApplicationContext : IAsyncDisposable
             var previousEffects = EffectScriptLibrary.Snapshot;
             var before = LibrarySnapshot(kind);
             await operation();
+            if (kind is PersonalLibraryKind.STYLE or PersonalLibraryKind.EFFECT or PersonalLibraryKind.EFFECT_LIBRARY)
+            {
+                fonts.SetApplicationFonts(EffectLibrary.Snapshot.FontFamilies);
+            }
             var after = LibrarySnapshot(kind);
             if (!propagateFailure || !ReferenceEquals(before, after))
             {

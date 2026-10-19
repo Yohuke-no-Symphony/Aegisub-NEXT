@@ -36,7 +36,7 @@ public sealed class SubtitleTextAlignmentPersistenceTests
 
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Aligned", style);
         var collection = new SubtitleStylePresetCollection { Presets = [preset] };
-        var restoredPresets = SubtitleStylePresetStore.Deserialize(SubtitleStylePresetStore.Serialize(collection));
+        var restoredPresets = SubtitleStylePresetMetadataStore.Deserialize(SubtitleStylePresetMetadataStore.Serialize(collection));
         Assert.Equal(collection.Version, restoredPresets.Version);
         Assert.Equal(preset, Assert.Single(restoredPresets.Presets));
     }
@@ -65,9 +65,9 @@ public sealed class SubtitleTextAlignmentPersistenceTests
         Assert.Null(restored.Subtitles[0].Style.TextAlign);
 
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Legacy", style);
-        var presetBytes = SubtitleStylePresetStore.Serialize(new() { Presets = [preset] });
+        var presetBytes = SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [preset] });
         Assert.DoesNotContain("textAlign", Encoding.UTF8.GetString(presetBytes), StringComparison.Ordinal);
-        Assert.Equal(preset, Assert.Single(SubtitleStylePresetStore.Deserialize(presetBytes).Presets));
+        Assert.Equal(preset, Assert.Single(SubtitleStylePresetMetadataStore.Deserialize(presetBytes).Presets));
     }
 
     [Fact]
@@ -84,11 +84,11 @@ public sealed class SubtitleTextAlignmentPersistenceTests
         Assert.Null(restored.Tracks[0].DefaultStyle!.TextAlign);
         Assert.DoesNotContain("textAlign", Encoding.UTF8.GetString(ProjectStore.Serialize(restored)), StringComparison.Ordinal);
 
-        var presets = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Legacy", new())] }))!;
+        var presets = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Legacy", new())] }))!;
         presets["presets"]![0]!["style"]!["textAlign"] = null;
-        var restoredPresets = SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString()));
+        var restoredPresets = SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString()));
         Assert.Null(Assert.Single(restoredPresets.Presets).Style.TextAlign);
-        Assert.DoesNotContain("textAlign", Encoding.UTF8.GetString(SubtitleStylePresetStore.Serialize(restoredPresets)), StringComparison.Ordinal);
+        Assert.DoesNotContain("textAlign", Encoding.UTF8.GetString(SubtitleStylePresetMetadataStore.Serialize(restoredPresets)), StringComparison.Ordinal);
     }
 
     [Theory]
@@ -111,9 +111,9 @@ public sealed class SubtitleTextAlignmentPersistenceTests
         track["tracks"]![0]!["defaultStyle"]!["textAlign"] = JsonNode.Parse(value);
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(track.ToJsonString())));
 
-        var presets = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Aligned", new())] }))!;
+        var presets = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Aligned", new())] }))!;
         presets["presets"]![0]!["style"]!["textAlign"] = JsonNode.Parse(value);
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString())));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString())));
     }
 
     [Fact]
@@ -125,6 +125,6 @@ public sealed class SubtitleTextAlignmentPersistenceTests
         var source = editor.Snapshot;
         var invalid = source with { Subtitles = [source.Subtitles[0] with { Style = style }] };
         Assert.Throws<InvalidDataException>(() => ProjectStore.Serialize(invalid));
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Invalid", style)] }));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Invalid", style)] }));
     }
 }

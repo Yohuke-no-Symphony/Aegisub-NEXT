@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Media.Decoding;
 
@@ -6,6 +8,8 @@ namespace AegiNext.Export;
 /// <summary>当前工程的独立压制快照；资源目录必须显式指定，最终输出不会覆盖现有文件。</summary>
 public sealed record VideoExportRequest(ProjectDocument Project, string ProjectDirectory, string OutputPath)
 {
+    /// <summary>本次导出冻结的应用字体族原文件；独立 worker 只读取此快照。</summary>
+    public ImmutableArray<FontFamilyBundle> FontFamilies { get; init; } = [];
     public VideoCodec Codec { get; init; } = VideoCodec.Auto;
     public VideoEncodingMode EncodingMode { get; init; } = VideoEncodingMode.SOFTWARE;
     public VideoRateControlMode RateControlMode { get; init; } = VideoRateControlMode.AUTOMATIC;

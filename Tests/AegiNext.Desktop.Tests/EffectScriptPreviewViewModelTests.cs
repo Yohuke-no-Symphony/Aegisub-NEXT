@@ -123,12 +123,11 @@ public sealed class EffectScriptPreviewViewModelTests
     }
 
     [Fact]
-    public void StyleRefreshKeepsStableSelectionAndEmbeddedFontAndFallsBackAfterDeletion()
+    public void StyleRefreshKeepsStableSelectionAndFontFamilyAndFallsBackAfterDeletion()
     {
         var model = new EffectScriptLibraryViewModel();
         var first = new SubtitleStylePreset(Guid.NewGuid(), "First", new());
-        var font = new EmbeddedSubtitleFont("Test.ttf", new('a', 64), [1, 2, 3]);
-        var second = new SubtitleStylePreset(Guid.NewGuid(), "Second", new() { FontSize = 80 }, font);
+        var second = new SubtitleStylePreset(Guid.NewGuid(), "Second", new() { FontSize = 80 });
         model.UpdatePreviewStyles([first, second]);
         model.SelectedPreviewStyle = second;
         model.UpdatePreviewPlayback(new(1, 2), false, false);
@@ -137,7 +136,7 @@ public sealed class EffectScriptPreviewViewModelTests
         model.UpdatePreviewStyles([first, second with { Name = "Renamed" }]);
 
         Assert.Equal(second.Id, model.SelectedPreviewStyle!.Id);
-        Assert.Same(font, model.SelectedPreviewStyle.Font);
+        Assert.Equal(second.Style, model.SelectedPreviewStyle.Style);
         Assert.Equal(revision, model.PreviewRevision);
         Assert.Equal(0.5, model.PreviewPosition);
         var updated = second with { Style = second.Style with { FontSize = 96 } };
@@ -150,7 +149,7 @@ public sealed class EffectScriptPreviewViewModelTests
 
         Assert.Equal(model.PreviewStyles[0].Id, model.SelectedPreviewStyle.Id);
         Assert.NotEqual(second.Id, model.SelectedPreviewStyle.Id);
-        Assert.Null(model.SelectedPreviewStyle.Font);
+        Assert.Null(model.SelectedPreviewStyle.Style.FontAssetId);
         Assert.False(model.IsDirty);
     }
 

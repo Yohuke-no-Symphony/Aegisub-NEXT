@@ -1,6 +1,5 @@
 using AegiNext.Desktop.EffectLibrary;
 using System.Globalization;
-using System.Security.Cryptography;
 using AegiNext.Core.Presets;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Controls.Common;
@@ -131,13 +130,11 @@ public sealed class SettingsWindowUiTests
     }
 
     [AvaloniaFact]
-    public void StyleEditsRetainEmbeddedFontAndHdrColorUntilFontIsChanged()
+    public void StyleEditsRetainFontFamilyAndHdrColorUntilFontIsChanged()
     {
         using var environment = new UiTestEnvironment();
-        var font = new EmbeddedSubtitleFont("sample.ttf", Convert.ToHexStringLower(SHA256.HashData([1, 2, 3])),
-            [1, 2, 3]);
         var original =
-            new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Fill = new(2.5, 1.25, 0.5, 0.9) }, font);
+            new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Fill = new(2.5, 1.25, 0.5, 0.9) });
         var preferences = new WorkbenchPreferences { Language = "en-US", Theme = WorkbenchTheme.LIGHT };
         var window = new EffectLibraryWindow(preferences);
         var settings = new SettingsWindow(preferences);
@@ -207,17 +204,17 @@ public sealed class SettingsWindowUiTests
             var changed = Assert.Single(saved);
             Assert.True(changed.Style.Bold);
             Assert.Equal(original.Style.Fill, changed.Style.Fill);
-            Assert.Same(font, changed.Font);
+            Assert.Equal(original.Style.FontFamily, changed.Style.FontFamily);
             Assert.Equal(ProjectTextAlignment.TOP_RIGHT, changed.Style.Alignment);
             Assert.Equal(position, changed.Style.Position);
 
             UiTestActions.Click(window, "DuplicateStyleButton");
             UiTestActions.Click(window, "SaveStyleButton");
             Assert.NotEqual(original.Id, saved[^1].Id);
-            Assert.Same(font, saved[^1].Font);
+            Assert.Equal(original.Style.FontFamily, saved[^1].Style.FontFamily);
             SetFontText(UiTestActions.Find<FontFamilyPicker>(window, "FontInput"), "serif");
             UiTestActions.Click(window, "SaveStyleButton");
-            Assert.Null(saved[^1].Font);
+            Assert.Null(saved[^1].Style.FontAssetId);
             window.UpdateSelectionAvailability(false);
             Assert.False(UiTestActions.Find<Button>(window, "CaptureStyleButton").IsEffectivelyEnabled);
             Assert.False(window.ViewModel.Styles.CanApply);

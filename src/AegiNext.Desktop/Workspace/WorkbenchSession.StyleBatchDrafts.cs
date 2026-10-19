@@ -91,7 +91,7 @@ internal sealed partial class WorkbenchSession
             {
                 return document;
             }
-            var placement = layerPlacement.Resolve(document, projectDirectory, layer, StyleAnimationTarget(layer).LocalTime);
+            var placement = layerPlacement.Resolve(document, projectDirectory, layer, StyleAnimationTarget(layer).LocalTime, Fonts.Catalog);
             var draft = new SubtitlePositionDraft();
             draft.Load(subtitle.Style, placement.Position, placement.BasePosition is not null,
                 placement.Geometry is { } geometry ? geometry with { Transform = transform } : null);

@@ -19,6 +19,12 @@ internal sealed class SystemFontResolver
     {
         if (style.FontVariant is not { } variant)
         {
+            var application = OrderCandidates(catalog.Faces.Where(face => face.IsApplicationFont && MatchesFamily(face, style.FontFamily)), style)
+                .FirstOrDefault();
+            if (application is not null)
+            {
+                return TryOpen(application)!.Value with { IsExactMatch = true };
+            }
             using var fontStyle = FontStyle(style);
             return new(SKTypeface.FromFamilyName(style.FontFamily, fontStyle), null, false);
         }
@@ -53,7 +59,8 @@ internal sealed class SystemFontResolver
     {
         if (variant.PostScriptName is { } postScriptName)
         {
-            var byPostScript = catalog.Faces.FirstOrDefault(face =>
+            var privateFamily = catalog.Faces.Any(face => face.IsApplicationFont && MatchesFamily(face, familyName));
+            var byPostScript = catalog.Faces.FirstOrDefault(face => (!privateFamily || face.IsApplicationFont && MatchesFamily(face, familyName)) &&
                 string.Equals(face.Variant.PostScriptName, postScriptName, StringComparison.OrdinalIgnoreCase));
             if (byPostScript is not null)
             {
@@ -63,6 +70,53 @@ internal sealed class SystemFontResolver
         return catalog.Faces.FirstOrDefault(face => MatchesFamily(face, familyName)
             && NormalizeName(face.Variant.Name) == NormalizeName(variant.Name)
             && face.Variant.Weight == variant.Weight && face.Variant.Width == variant.Width && face.Variant.Italic == variant.Italic);
+    }
+
+    internal IEnumerable<ResolvedSystemFont> ApplicationFallbacks(SubtitleStyle style)
+    {
+        var candidates = OrderCandidates(catalog.Faces.Where(face => face.IsApplicationFont), style)
+            .GroupBy(face => face.FamilyName, StringComparer.OrdinalIgnoreCase).Select(family => family.First());
+        foreach (var candidate in candidates)
+        {
+            yield return TryOpen(candidate)!.Value;
+        }
+    }
+
+    internal IEnumerable<ResolvedSystemFont> SystemFallbacks(SubtitleStyle style, int character)
+    {
+        using var requestedStyle = FontStyle(style);
+        foreach (var family in new[] { style.FontFamily, null })
+        {
+            var typeface = manager.MatchCharacter(family, requestedStyle, ["und"], character);
+            if (typeface is null)
+            {
+                continue;
+            }
+            if (catalog.Faces.Any(face => face.IsApplicationFont && MatchesFamily(face, typeface.FamilyName)))
+            {
+                typeface.Dispose();
+                continue;
+            }
+            yield return new(typeface, style.FontVariant.HasValue ? Describe(typeface) : null, false);
+        }
+        var candidates = OrderCandidates(catalog.Faces.Where(face => !face.IsApplicationFont), style)
+            .GroupBy(face => face.FamilyName, StringComparer.OrdinalIgnoreCase).Select(family => family.First());
+        foreach (var candidate in candidates)
+        {
+            if (TryOpen(candidate) is { } resolved)
+            {
+                yield return resolved;
+            }
+        }
+    }
+
+    private static IOrderedEnumerable<SystemFontFace> OrderCandidates(IEnumerable<SystemFontFace> faces, SubtitleStyle style)
+    {
+        return faces.OrderBy(face => face.Variant.Italic != style.Italic)
+            .ThenBy(face => Math.Abs(face.Variant.Width - (style.FontVariant?.Width ?? 5)))
+            .ThenBy(face => Math.Abs(face.Variant.Weight - (style.FontVariant?.Weight ?? (style.Bold ? 700 : 400))))
+            .ThenBy(face => face.IsVariable).ThenBy(face => face.FamilyName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(face => face.Variant.Name, StringComparer.OrdinalIgnoreCase);
     }
 
     internal static SKFontStyle FontStyle(SubtitleStyle style)
@@ -92,6 +146,10 @@ internal sealed class SystemFontResolver
 
     private ResolvedSystemFont? TryOpen(SystemFontFace candidate)
     {
+        if (candidate.ApplicationSource is { } application)
+        {
+            return new(application.Open(), candidate, false);
+        }
         using var styles = manager.GetFontStyles(candidate.SourceFamilyName);
         if (candidate.StyleIndex < 0 || candidate.StyleIndex >= styles.Count)
         {

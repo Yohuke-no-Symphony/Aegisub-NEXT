@@ -1,3 +1,4 @@
+using AegiNext.Core.Presets;
 using System.IO.Compression;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Layouts;
@@ -23,7 +24,7 @@ public sealed class TransferSettingsUiTests
         {
             var original = new VideoExportPreset(Guid.NewGuid(), "Daily", new());
             await context.RunExportPresetOperationAsync(() => context.ExportPresetLibrary.UpsertAsync(original));
-            await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new(Guid.NewGuid(), "Personal style", new())));
+            await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new SubtitleStylePreset(Guid.NewGuid(), "Personal style", new())));
             var preferences = context.Preferences;
             var pending = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
             dialogs.Inner.PendingSaveSelection = pending;

@@ -1,5 +1,6 @@
 using AegiNext.Application.Presets;
 using AegiNext.Desktop.EffectLibrary.Transfer;
+using AegiNext.Desktop.Tests.EffectLibrary;
 
 namespace AegiNext.Desktop.Tests;
 
@@ -32,13 +33,19 @@ public sealed class EffectLibraryTransferViewModelTests
     {
         using var directory = new TemporaryWorkbenchDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var first = new AegiNext.Core.Presets.SubtitleStylePreset(Guid.NewGuid(), "Same", new());
+        var first = new AegiNext.Core.Presets.SubtitleStylePreset(Guid.NewGuid(), "Same", new() { FontFamily = "Noto Sans" });
         var second = first with { Style = first.Style with { FontSize = 100 } };
         var firstPath = Path.Combine(directory.Path, "first.aegistyles");
         var secondPath = Path.Combine(directory.Path, "second.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first] }, firstPath);
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [second] }, secondPath);
-        var plan = await new EffectLibraryTransferService(repository).AnalyzeImportAsync([firstPath, secondPath]);
+        await SubtitleStylePresetStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = [first] }, FontFamilies = [EffectLibraryTestFonts.Family]
+        }, firstPath);
+        await SubtitleStylePresetStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = [second] }, FontFamilies = [EffectLibraryTestFonts.Family]
+        }, secondPath);
+        var plan = await EffectLibraryTestFonts.CreateTransfer(repository).AnalyzeImportAsync([firstPath, secondPath]);
         using var model = new EffectLibraryTransferViewModel();
         model.SetPreview(plan);
         Assert.All(model.Rows, row => Assert.Equal(EffectLibraryImportDecision.SKIP, row.Decision));

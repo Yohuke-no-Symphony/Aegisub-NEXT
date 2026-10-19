@@ -25,6 +25,7 @@ internal sealed class ProjectPreviewConverter : IVideoPreviewConverter, ICachedV
     private PreviewGraphicsContext? graphics;
     private bool graphicsDisabled;
     private ProjectSceneRenderer? renderer;
+    private SystemFontCatalog? renderedFonts;
     private string? directory;
     private AegiNext.Core.Projects.ProjectDocument? failedDocument;
     private bool disposed;
@@ -187,6 +188,10 @@ internal sealed class ProjectPreviewConverter : IVideoPreviewConverter, ICachedV
     {
         cancellationToken.ThrowIfCancellationRequested();
         var document = state.Document;
+        if (!ReferenceEquals(renderedFonts, fontCatalog?.Invoke()))
+        {
+            failedDocument = null;
+        }
         if (ReferenceEquals(document, failedDocument))
         {
             return CompleteFrame(background, background, state, time);
@@ -228,11 +233,13 @@ internal sealed class ProjectPreviewConverter : IVideoPreviewConverter, ICachedV
         CancellationToken cancellationToken)
     {
         using var current = graphics?.MakeCurrent();
-        if (renderer is null || directory != state.Directory)
+        var fonts = fontCatalog?.Invoke();
+        if (renderer is null || directory != state.Directory || !ReferenceEquals(renderedFonts, fonts))
         {
             renderer?.Dispose();
             directory = state.Directory;
-            renderer = new(new DirectoryProjectAssetResolver(directory), fontCatalog?.Invoke(), graphics?.Context,
+            renderedFonts = fonts;
+            renderer = new(new DirectoryProjectAssetResolver(directory), fonts, graphics?.Context,
                 skipUnavailableImagesInPreview: true);
         }
         var size = GetPreviewSize(state.Document, background.Width, background.Height);

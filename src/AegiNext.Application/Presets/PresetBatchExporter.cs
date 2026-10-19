@@ -9,15 +9,15 @@ public static class PresetBatchExporter
 {
     private const int MAXIMUM_STEM_BYTES = 180;
 
-    /// <summary>每个所选样式输出一份包含该样式和内嵌字体的独立 .aegistyles 文件。</summary>
-    public static Task ExportStylesAsync(IEnumerable<SubtitleStylePreset> presets, string directory,
+    /// <summary>每个所选样式输出一份包含该样式和完整字体族的独立 .aegistyles 文件。</summary>
+    public static Task ExportStylesAsync(IEnumerable<CapturedSubtitleStyle> presets, string directory,
         CancellationToken cancellationToken = default)
     {
         return ExportStylesAsync(presets, directory, null, cancellationToken);
     }
 
     /// <summary>Stages every selected style before entering a non-cancellable publication phase.</summary>
-    public static async Task ExportStylesAsync(IEnumerable<SubtitleStylePreset> presets, string directory, Action? beforePublish,
+    public static async Task ExportStylesAsync(IEnumerable<CapturedSubtitleStyle> presets, string directory, Action? beforePublish,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(presets);
@@ -31,9 +31,10 @@ public static class PresetBatchExporter
 
         var identities = new HashSet<Guid>();
         var entries = new List<(Guid Id, string Stem, Func<string, CancellationToken, Task> Write)>();
-        foreach (var preset in selection)
+        foreach (var captured in selection)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var preset = captured.Preset;
             SubtitleStylePresetValidator.Validate(preset);
             if (!identities.Add(preset.Id))
             {
@@ -41,7 +42,7 @@ public static class PresetBatchExporter
             }
 
             entries.Add((preset.Id, SafeStem(preset.Name), (path, token) =>
-                SubtitleStylePresetStore.SaveAsync(new() { Presets = [preset] }, path, token)));
+                SubtitleStylePresetStore.SaveAsync(new() { Styles = new() { Presets = [preset] }, FontFamilies = captured.FontFamilies }, path, token)));
         }
 
         await ExportAsync(entries, directory, ".aegistyles", beforePublish, cancellationToken).ConfigureAwait(false);

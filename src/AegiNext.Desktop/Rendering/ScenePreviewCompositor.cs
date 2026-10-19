@@ -2,6 +2,7 @@ using AegiNext.Media.Preview;
 using AegiNext.Rendering.Projects;
 using SkiaSharp;
 using System.Runtime.InteropServices;
+using AegiNext.Rendering.Fonts;
 
 namespace AegiNext.Desktop.Rendering;
 
@@ -9,15 +10,17 @@ internal sealed class ScenePreviewCompositor : IDisposable
 {
     private ProjectSceneRenderer? renderer;
     private string? directory;
+    private SystemFontCatalog? fontCatalog;
     internal Exception? ImageWarning => renderer?.PreviewImageFailures.Values.FirstOrDefault();
 
     internal SdrVideoFrame Compose(ScenePreviewRequest request, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (renderer is null || directory != request.Directory)
+        if (renderer is null || directory != request.Directory || !ReferenceEquals(fontCatalog, request.FontCatalog))
         {
             renderer?.Dispose();
-            renderer = new(new DirectoryProjectAssetResolver(request.Directory), skipUnavailableImagesInPreview: true);
+            fontCatalog = request.FontCatalog;
+            renderer = new(new DirectoryProjectAssetResolver(request.Directory), fontCatalog, skipUnavailableImagesInPreview: true);
             directory = request.Directory;
         }
         var background = request.Background ?? new(1, 1, new byte[] { 0, 0, 0, 255 });

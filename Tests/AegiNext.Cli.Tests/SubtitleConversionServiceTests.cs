@@ -16,7 +16,7 @@ public sealed class SubtitleConversionServiceTests
         var input = directory.File("input.srt");
         const string SOURCE = "1\n00:00:01,003 --> 00:00:02,007\n第一行\nمرحبا 😀\n";
         await File.WriteAllTextAsync(input, SOURCE, new UTF8Encoding(true, true));
-        var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "srt", CancellationToken.None);
         var line = Assert.Single(SubtitleTextFormat.ParseSrt(result.Text));
         Assert.Equal("第一行\nمرحبا 😀", line.Text);
         Assert.Equal(new MediaTime(1003, 1000), line.Start);
@@ -31,7 +31,7 @@ public sealed class SubtitleConversionServiceTests
         var input = directory.File("input.srt");
         await File.WriteAllBytesAsync(input, [0xC3, 0x28]);
         var console = new TestConsole();
-        var exit = await new CliApplication(new(console, false)).RunAsync(["convert", "-i", input, "--target", "srt"]);
+        var exit = await new CliApplication(new(console, false), CreateService()).RunAsync(["convert", "-i", input, "--target", "srt"]);
         Assert.Equal(1, exit);
         Assert.False(File.Exists(directory.File("input.converted.srt")));
     }
@@ -46,7 +46,7 @@ public sealed class SubtitleConversionServiceTests
         var input = await directory.InputAsync(name, source);
         var output = directory.File("converted.srt");
         var console = new TestConsole();
-        var exit = await new CliApplication(new(console, false)).RunAsync(["convert", "-i", input, "--target", "srt", "-o", output]);
+        var exit = await new CliApplication(new(console, false), CreateService()).RunAsync(["convert", "-i", input, "--target", "srt", "-o", output]);
         Assert.Equal(1, exit);
         Assert.Contains($"Error: {expectedMessage}", console.Output);
         Assert.False(File.Exists(output));
@@ -64,7 +64,7 @@ public sealed class SubtitleConversionServiceTests
             Media = new(asset.Id, 0, null, new(5)) { PlaybackOrigin = new(2) }
         }, [new SubtitleLine { Start = new(1), End = new(2), Text = "字幕" }], "Imported");
         await ProjectStore.CreateAsync(document, input);
-        var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "srt", CancellationToken.None);
         var line = Assert.Single(SubtitleTextFormat.ParseSrt(result.Text));
         Assert.Equal(new MediaTime(4), line.Start);
         Assert.Equal(new MediaTime(5), line.End);
@@ -83,7 +83,7 @@ public sealed class SubtitleConversionServiceTests
             Media = new(asset.Id, 0, null, new(5))
         }, [new SubtitleLine { Start = new(1), End = new(2), Text = "字幕" }], "Imported");
         await ProjectStore.CreateAsync(document, input);
-        var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "srt", CancellationToken.None);
         var diagnostic = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Subtitle.PlaybackOriginUnknown");
         Assert.StartsWith("The project media playback origin is unconfirmed", diagnostic.Message, StringComparison.Ordinal);
         Assert.Equal(new MediaTime(1), Assert.Single(SubtitleTextFormat.ParseSrt(result.Text)).Start);
@@ -94,7 +94,7 @@ public sealed class SubtitleConversionServiceTests
     {
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("source.ass", AssSource("Hello"));
-        var result = await new SubtitleConversionService().ConvertAsync(input, "ass", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "ass", CancellationToken.None);
         var parsed = AssSubtitleFormat.ParseAtSourceResolution(result.Text);
         Assert.Equal(640, parsed.Width);
         Assert.Equal(360, parsed.Height);
@@ -106,7 +106,7 @@ public sealed class SubtitleConversionServiceTests
     {
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("source.ass", AssSource(@"{\clip(0,0,200,100)\move(10,20,100,120)}Hello"));
-        var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "srt", CancellationToken.None);
         var mask = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Srt.Mask");
         var animation = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Srt.Animation");
         Assert.StartsWith("SRT does not support clipping masks", mask.Message, StringComparison.Ordinal);
@@ -121,7 +121,7 @@ public sealed class SubtitleConversionServiceTests
     {
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("source.ass", AssSource("Hello").Replace("PlayResY: 360\n", "", StringComparison.Ordinal));
-        var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "srt", CancellationToken.None);
         var diagnostic = Assert.Single(result.Diagnostics, diagnostic => diagnostic.Code == "Ass.PlayRes");
         Assert.StartsWith("Missing ASS PlayRes axes use default dimensions", diagnostic.Message, StringComparison.Ordinal);
     }
@@ -132,7 +132,7 @@ public sealed class SubtitleConversionServiceTests
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("drawing.ass", AssSource(@"{\q2\an7\pos(80,60)\pbo20\p1}m 0 0 l 30 0 30 30 0 30 m 60 0 l 90 0 90 30 60 30{\p0}"));
 
-        var result = await new SubtitleConversionService().ConvertAsync(input, "ass", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "ass", CancellationToken.None);
         var imported = AssSubtitleFormat.ParseAtSourceResolution(result.Text).Result;
 
         Assert.Empty(imported.Lines);
@@ -147,7 +147,7 @@ public sealed class SubtitleConversionServiceTests
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("drawing.ass", AssSource(@"{\q2\an7\pos(80,60)\p1}m 0 0 l 30 0 30 30 0 30"));
 
-        var result = await new SubtitleConversionService().ConvertAsync(input, "srt", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "srt", CancellationToken.None);
 
         Assert.Empty(SubtitleTextFormat.ParseSrt(result.Text));
         var diagnostic = Assert.Single(result.Diagnostics, item => item.Code == "Subtitle.Composition");
@@ -161,7 +161,7 @@ public sealed class SubtitleConversionServiceTests
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("mask.ass", AssSource(@"{\clip(m 20 10 l 300 10 300 200 20 200)\clip(120,0,450,220)}Hello"));
 
-        var result = await new SubtitleConversionService().ConvertAsync(input, "ass", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "ass", CancellationToken.None);
         var imported = AssSubtitleFormat.ParseAtSourceResolution(result.Text).Result;
         var mask = Assert.IsType<VectorClipMask>(Assert.Single(imported.Clips).Mask);
         var points = mask.Contours.SelectMany(contour => contour.Nodes).Select(node => node.Position).ToArray();
@@ -178,10 +178,15 @@ public sealed class SubtitleConversionServiceTests
         using var directory = new CliTestDirectory();
         var input = await directory.InputAsync("origin.ass", AssSource(@"{\q2\org(205,155)\frz37}Fj"));
 
-        var result = await new SubtitleConversionService().ConvertAsync(input, "ass", CancellationToken.None);
+        var result = await CreateService().ConvertAsync(input, "ass", CancellationToken.None);
 
         Assert.Contains(@"\org(205,155)", result.Text, StringComparison.Ordinal);
         Assert.DoesNotContain(result.Diagnostics, item => item.Code is "Ass.RotationOrigin" or "Ass.PlacementMeasurement");
+    }
+
+    private static SubtitleConversionService CreateService()
+    {
+        return new(new CliFontLibrary(Path.Combine(Path.GetTempPath(), "aeginext-cli-font-tests", Guid.NewGuid().ToString("N"))));
     }
 
     private static string AssSource(string text)

@@ -192,23 +192,10 @@ public sealed class SubtitleContentPersistenceTests
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
-    public void OldStyleLibrariesUpgradeDecorationDefaults(int version)
+    public void OldStyleLibrariesAreRejected(int version)
     {
-        var preset = new AegiNext.Core.Presets.SubtitleStylePreset(Guid.NewGuid(), "old", new());
-        var node = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [preset] }))!;
-        node["version"] = version;
-        LegacySubtitleMarginsJsonFixture.DowngradeLibrary(node.AsObject());
-        var style = node["presets"]![0]!["style"]!.AsObject();
-        style.Remove("underline");
-        style.Remove("strikethrough");
-        if (version == 1)
-        {
-            style.Remove("position");
-        }
-        var result = SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(node.ToJsonString()));
-        Assert.Equal(AegiNext.Core.Presets.SubtitleStylePresetCollection.CURRENT_VERSION, result.Version);
-        Assert.False(result.Presets[0].Style.Underline);
-        Assert.False(result.Presets[0].Style.Strikethrough);
+        var bytes = System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version},\"presets\":[]}}");
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(bytes));
     }
 
     [Fact]

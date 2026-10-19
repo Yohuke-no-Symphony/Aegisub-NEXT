@@ -435,14 +435,23 @@ internal sealed class EffectLibraryWindowCoordinator(DesktopApplicationContext a
         }, effects);
     }
 
-    private void OnCaptureStyleRequested(object? sender, EventArgs e)
+    private void OnCaptureStyleRequested(object? sender, LibraryStyleEventArgs e)
     {
-        if (session is { } active)
+        if (session is { } active && Window is { } target)
         {
-            _ = RunAsync(() =>
+            _ = RunAsync(async () =>
             {
-                active.Styles.Queue(active.Styles.CaptureAsync);
-                return active.Styles.Completion;
+                if (!await target.ViewModel.Styles.PrepareToLeaveAsync() || disposed || active.IsClosing ||
+                    !ReferenceEquals(Window, target) || !ReferenceEquals(session, active) ||
+                    target.ViewModel.Styles.SelectedStyle?.Id != e.Preset.Id || target.ViewModel.Styles.SelectedIds.Length != 1)
+                {
+                    return;
+                }
+                await active.Styles.QueueAsync(() => active.Styles.CaptureAsync(e.Preset.Id));
+                if (!disposed && !active.IsClosing && ReferenceEquals(Window, target))
+                {
+                    target.UpdateStyles(active.StyleLibrary.Snapshot.Presets, e.Preset.Id);
+                }
             });
         }
     }

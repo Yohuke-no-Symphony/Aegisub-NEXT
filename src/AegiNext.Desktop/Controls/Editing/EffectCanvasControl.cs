@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using AegiNext.Media.Preview;
 using AegiNext.Rendering.Projects;
+using AegiNext.Rendering.Fonts;
 using SkiaSharp;
 using AegiNext.Desktop.Rendering;
 using AegiNext.Desktop.Shortcuts;
@@ -24,6 +25,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     private readonly EffectCompilationCache effectPlans = new();
     private readonly VideoFrameSurface sceneSurface = new();
     private ProjectSceneRenderer? renderer;
+    private SystemFontCatalog? fontCatalog;
     private ScenePreviewScheduler? previewScheduler;
     private Task previewDrain = Task.CompletedTask;
     private long previewSequence;
@@ -133,10 +135,22 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
         return true;
     }
 
-    internal void SetScene(ProjectDocument value, ProjectLayer? layer, MediaTime time, string? assetDirectory = null, bool editorPose = false)
+    internal void SetScene(ProjectDocument value, ProjectLayer? layer, MediaTime time, string? assetDirectory = null,
+        bool editorPose = false, SystemFontCatalog? fonts = null)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         var directoryChanged = false;
+        if (!ReferenceEquals(fontCatalog, fonts))
+        {
+            renderer?.Dispose();
+            renderer = null;
+            fontCatalog = fonts;
+            renderedDocument = null;
+            compositeDocument = null;
+            selectedGeometry = null;
+            reportedFailures.Clear();
+            directoryChanged = true;
+        }
         if (assetDirectory is { } nextDirectory && directory != nextDirectory)
         {
             renderer?.Dispose();
@@ -874,7 +888,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
     {
         try
         {
-            renderer ??= new(new DirectoryProjectAssetResolver(directory));
+            renderer ??= new(new DirectoryProjectAssetResolver(directory), fontCatalog);
             return renderer.GetLayerGeometry(sceneDocument, position, layerId);
         }
         catch (Exception error) when (IsRenderingFailure(error))
@@ -955,7 +969,7 @@ public sealed partial class EffectCanvasControl : Control, IDisposable, IWorkben
             InvalidateVisual();
         }, DispatcherPriority.Render));
         previewScheduler.Submit(new(++previewSequence, sceneRevision, sceneDocument, position, videoTime, video,
-            size.Width, size.Height, directory, interactive));
+            size.Width, size.Height, directory, interactive, fontCatalog));
     }
 
     private bool CanReuseComposite(ProjectDocument sceneDocument)

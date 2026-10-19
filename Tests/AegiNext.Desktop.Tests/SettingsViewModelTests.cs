@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Editing;
@@ -247,27 +246,45 @@ public sealed class SettingsViewModelTests
     }
 
     [Fact]
-    public void TypographyChangesPreserveHdrAndPortableFontAndExplicitFontConfirmationReplacesFont()
+    public void TypographyChangesPreserveHdrAndFamilyUntilExplicitFontConfirmation()
     {
-        var font = new EmbeddedSubtitleFont("sample.ttf", Convert.ToHexStringLower(SHA256.HashData([1, 2, 3])),
-            [1, 2, 3]);
         var original =
-            new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Fill = new(2.5, 1.25, 0.5, 0.9) }, font);
+            new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { Fill = new(2.5, 1.25, 0.5, 0.9) });
         var model = new StyleLibraryViewModel();
         model.UpdateStyles([original]);
         model.Bold = true;
         model.Margins.Vertical.RawText = "88";
         model.RefreshLanguage();
 
-        Assert.Same(font, model.Draft!.Font);
+        Assert.Equal(original.Style.FontFamily, model.Draft!.Style.FontFamily);
         Assert.Equal(original.Style.Fill, model.Draft.Style.Fill);
         Assert.True(model.Draft.Style.Bold);
         Assert.False(original.Style.Bold);
         model.DuplicateCommand.Execute(null);
         Assert.NotEqual(original.Id, model.Draft.Id);
-        Assert.Same(font, model.Draft.Font);
+        Assert.Equal(original.Style.FontFamily, model.Draft.Style.FontFamily);
         model.CommitFont("serif");
-        Assert.Null(model.Draft.Font);
+        Assert.Null(model.Draft.Style.FontAssetId);
+    }
+
+    [Fact]
+    public void OverwritingTheCurrentStyleRequiresOneSavedStyleAndASubtitle()
+    {
+        var first = new SubtitleStylePreset(Guid.NewGuid(), "First", new());
+        var second = new SubtitleStylePreset(Guid.NewGuid(), "Second", new());
+        var model = new StyleLibraryViewModel { HasSelectedSubtitle = true };
+        Assert.False(model.CaptureCommand.CanExecute(null));
+
+        model.UpdateStyles([first, second]);
+        Assert.True(model.CaptureCommand.CanExecute(null));
+        model.SelectStyles(first.Id, [first.Id, second.Id]);
+        Assert.False(model.CaptureCommand.CanExecute(null));
+        model.SelectStyles(second.Id, [second.Id]);
+        Assert.True(model.CaptureCommand.CanExecute(null));
+        model.AddCommand.Execute(null);
+        Assert.True(model.HasDraft);
+        Assert.Null(model.SelectedStyle);
+        Assert.False(model.CaptureCommand.CanExecute(null));
     }
 
     [Fact]

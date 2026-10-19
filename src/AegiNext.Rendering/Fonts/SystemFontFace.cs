@@ -15,5 +15,8 @@ public sealed record SystemFontFace
     public int NamedInstanceIndex { get; init; }
     public int CollectionIndex { get; init; }
     public bool IsStyleEnumerated { get; init; }
+    /// <summary>该候选由应用字体库的原始文件提供，不依赖操作系统安装。</summary>
+    public bool IsApplicationFont => ApplicationSource is not null;
+    internal ApplicationFontFaceSource? ApplicationSource { get; init; }
     public string DisplayName => string.IsNullOrWhiteSpace(Variant.Name) ? FamilyName : $"{FamilyName} {Variant.Name}";
 }

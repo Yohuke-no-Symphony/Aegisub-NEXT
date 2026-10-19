@@ -24,7 +24,7 @@ public sealed class SubtitleFontVariantPersistenceTests
         Assert.Equal(style, restored.Subtitles[0].Style);
         Assert.Equal(source.Subtitles[0].InlineSpans.ToArray(), restored.Subtitles[0].InlineSpans.ToArray());
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Named face", style);
-        var collection = SubtitleStylePresetStore.Deserialize(SubtitleStylePresetStore.Serialize(new() { Presets = [preset] }));
+        var collection = SubtitleStylePresetMetadataStore.Deserialize(SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [preset] }));
         Assert.Equal(preset, Assert.Single(collection.Presets));
     }
 
@@ -39,9 +39,9 @@ public sealed class SubtitleFontVariantPersistenceTests
         Assert.DoesNotContain("fontVariant", json, StringComparison.Ordinal);
         Assert.DoesNotContain("clearFontVariant", json, StringComparison.Ordinal);
         Assert.Null(ProjectStore.Deserialize(bytes).Subtitles[0].Style.FontVariant);
-        var presetBytes = SubtitleStylePresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Old", new() { Bold = true })] });
+        var presetBytes = SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Old", new() { Bold = true })] });
         Assert.DoesNotContain("fontVariant", Encoding.UTF8.GetString(presetBytes), StringComparison.Ordinal);
-        Assert.True(Assert.Single(SubtitleStylePresetStore.Deserialize(presetBytes).Presets).Style.Bold);
+        Assert.True(Assert.Single(SubtitleStylePresetMetadataStore.Deserialize(presetBytes).Presets).Style.Bold);
     }
 
     [Theory]
@@ -57,9 +57,9 @@ public sealed class SubtitleFontVariantPersistenceTests
         var project = JsonNode.Parse(ProjectStore.Serialize(editor.Snapshot))!;
         project["subtitles"]![0]!["style"]!["fontVariant"]!.AsObject().Remove(field);
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(project.ToJsonString())));
-        var presets = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Face", Style())] }))!;
+        var presets = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Face", Style())] }))!;
         presets["presets"]![0]!["style"]!["fontVariant"]!.AsObject().Remove(field);
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString())));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString())));
     }
 
     [Fact]
@@ -75,11 +75,11 @@ public sealed class SubtitleFontVariantPersistenceTests
         Assert.Equal(style.FontVariant!.Value with { PostScriptName = null }, restoredProject.Subtitles[0].Style.FontVariant);
         Assert.DoesNotContain("postScriptName", Encoding.UTF8.GetString(ProjectStore.Serialize(restoredProject)), StringComparison.Ordinal);
 
-        var presets = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Face", style)] }))!;
+        var presets = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [new(Guid.NewGuid(), "Face", style)] }))!;
         presets["presets"]![0]!["style"]!["fontVariant"]!.AsObject().Remove("postScriptName");
-        var restoredPresets = SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString()));
+        var restoredPresets = SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(presets.ToJsonString()));
         Assert.Equal(style.FontVariant!.Value with { PostScriptName = null }, Assert.Single(restoredPresets.Presets).Style.FontVariant);
-        Assert.DoesNotContain("postScriptName", Encoding.UTF8.GetString(SubtitleStylePresetStore.Serialize(restoredPresets)), StringComparison.Ordinal);
+        Assert.DoesNotContain("postScriptName", Encoding.UTF8.GetString(SubtitleStylePresetMetadataStore.Serialize(restoredPresets)), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -112,9 +112,9 @@ public sealed class SubtitleFontVariantPersistenceTests
         using var directory = new TemporaryProjectDirectory();
         var editor = new ProjectEditor();
         var id = editor.AddSubtitle(new(0), new(2), "AB");
-        var preset = await SubtitleStylePresetService.CaptureAsync("Face", Style(), editor.Snapshot, directory.Path);
-        Assert.Null(preset.Font);
-        var applied = await SubtitleStylePresetService.ApplyAsync(preset, editor.Snapshot, directory.Path, [id]);
+        var preset = await SubtitleStylePresetService.CaptureAsync("Face", Style(), editor.Snapshot, directory.Path, new Presets.UnavailableFontFamilySource());
+        Assert.Empty(preset.FontFamilies);
+        var applied = await SubtitleStylePresetService.ApplyAsync(preset.Preset, editor.Snapshot, directory.Path, [id]);
         Assert.Equal(Style(), Assert.Single(applied.Subtitles).Style);
     }
 

@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Export;
@@ -6,6 +8,19 @@ namespace AegiNext.Export.Tests;
 
 public sealed class ExportRenderContextTests
 {
+    [Fact]
+    public void InvalidApplicationFontSnapshotIsRejectedBeforeRendering()
+    {
+        byte[] bytes = [1, 2, 3, 4];
+        var family = new FontFamilyBundle("Private Family", [new("private.ttf",
+            Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes])]);
+
+        Assert.Throws<InvalidDataException>(() =>
+        {
+            using var context = new ExportRenderContext(Project(), AppContext.BaseDirectory, null, CancellationToken.None, [family]);
+        });
+    }
+
     [Fact]
     public unsafe void CallbackPublishesUpdatesAndRetainsTheNativeBufferOnHits()
     {

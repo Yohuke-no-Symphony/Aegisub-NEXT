@@ -29,11 +29,11 @@ public sealed class TextShaper : IDisposable
         typeface = ownedTypeface;
         FontFamily = face?.FamilyName ?? typeface.FamilyName;
         ResolvedFontVariant = face?.Variant;
-        synthesizeBold = !explicitVariant && bold && typeface.FontWeight < (int)SKFontStyleWeight.Bold;
-        synthesizeItalic = italic && typeface.FontSlant == SKFontStyleSlant.Upright;
+        synthesizeBold = !explicitVariant && bold && (face?.Variant.Weight ?? typeface.FontWeight) < (int)SKFontStyleWeight.Bold;
+        synthesizeItalic = italic && !(face?.Variant.Italic ?? typeface.FontSlant != SKFontStyleSlant.Upright);
         try
         {
-            if (face is { IsVariable: true })
+            if (face is { IsVariable: true, IsApplicationFont: false })
             {
                 namedInstanceShaper = new(typeface, face.NamedInstanceIndex, face.CollectionIndex);
             }

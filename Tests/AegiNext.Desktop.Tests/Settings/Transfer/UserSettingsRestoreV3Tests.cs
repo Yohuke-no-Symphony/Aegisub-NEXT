@@ -12,7 +12,7 @@ public sealed class UserSettingsRestoreV3Tests
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
-    public void ExistingNewManifestProtectsAllLiveFilesFromLegacyPending(int version)
+    public void UnsupportedLegacyPendingPreservesTheNewManifestAndAllLiveFiles(int version)
     {
         using var directory = new TemporaryWorkbenchDirectory();
         var paths = new PersonalLibraryPaths(directory.Path);
@@ -28,7 +28,7 @@ public sealed class UserSettingsRestoreV3Tests
         File.WriteAllBytes(pendingPath, pending);
         using var restore = new UserSettingsRestoreService(directory.Path);
 
-        Assert.Throws<InvalidOperationException>(restore.ApplyPending);
+        Assert.Throws<InvalidDataException>(restore.ApplyPending);
 
         Assert.Equal("original preferences", File.ReadAllText(preferencesPath));
         Assert.Equal("damaged new manifest", File.ReadAllText(manifestPath));
@@ -41,7 +41,7 @@ public sealed class UserSettingsRestoreV3Tests
     [Theory]
     [InlineData("directory")]
     [InlineData("danglingLink")]
-    public void NonRegularManifestAlsoProtectsLegacyPending(string kind)
+    public void UnsupportedLegacyPendingLeavesNonRegularManifestUntouched(string kind)
     {
         using var directory = new TemporaryWorkbenchDirectory();
         var paths = new PersonalLibraryPaths(directory.Path);
@@ -61,7 +61,7 @@ public sealed class UserSettingsRestoreV3Tests
         File.WriteAllBytes(pendingPath, pending);
         using var restore = new UserSettingsRestoreService(directory.Path);
 
-        Assert.Throws<InvalidOperationException>(restore.ApplyPending);
+        Assert.Throws<InvalidDataException>(restore.ApplyPending);
 
         Assert.Equal(pending, File.ReadAllBytes(pendingPath));
         Assert.False(File.Exists(Path.Combine(directory.Path, "preferences.json")));
@@ -97,28 +97,38 @@ public sealed class UserSettingsRestoreV3Tests
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
-    public void LegacyPendingWithoutNewManifestKeepsItsOriginalLibraryRestorePromise(int version)
+    public void LegacyPendingWithoutNewManifestIsRejectedAndPreservesAllOriginalFiles(int version)
     {
         using var directory = new TemporaryWorkbenchDirectory();
+        var paths = new PersonalLibraryPaths(directory.Path);
+        var originals = new Dictionary<string, byte[]>(StringComparer.Ordinal)
+        {
+            ["preferences.json"] = "original preferences"u8.ToArray(),
+            [Path.GetFileName(paths.LegacyStyleFile)] = "original styles"u8.ToArray(),
+            [Path.GetFileName(paths.LegacyEffectFile)] = "original effects"u8.ToArray()
+        };
+        foreach (var (name, content) in originals)
+        {
+            File.WriteAllBytes(Path.Combine(directory.Path, name), content);
+        }
         var restoreDirectory = Path.Combine(directory.Path, ".settings-restore");
         Directory.CreateDirectory(restoreDirectory);
         var bytes = UserSettingsTransferTestData.CreateLegacyArchive(version);
-        File.WriteAllBytes(Path.Combine(restoreDirectory, "pending.aegisettings"), bytes);
-        var expected = UserSettingsTransferTestData.ReadArchive(bytes);
-        expected.Remove("manifest.json");
+        var pendingPath = Path.Combine(restoreDirectory, "pending.aegisettings");
+        File.WriteAllBytes(pendingPath, bytes);
         using var restore = new UserSettingsRestoreService(directory.Path);
 
-        restore.ApplyPending();
+        Assert.Throws<InvalidDataException>(restore.ApplyPending);
 
-        foreach (var (name, content) in expected)
+        foreach (var (name, content) in originals)
         {
             Assert.Equal(content, File.ReadAllBytes(Path.Combine(directory.Path, name)));
         }
-        Assert.False(restore.HasPending);
-        var backup = SettingsTransferJson.Deserialize<UserSettingsRestoreBackup>(
-            File.ReadAllBytes(Path.Combine(restore.RetentionBackupPath!, "backup.json")), 65536);
-        Assert.Equal(version, backup.Version);
-        Assert.Equal(version == 1 ? 5 : 6, backup.Files.Length);
+        Assert.Equal(bytes, File.ReadAllBytes(pendingPath));
+        Assert.True(restore.HasPending);
+        Assert.False(restore.HasRecoveryJournal);
+        Assert.Null(restore.RetentionBackupPath);
+        Assert.False(File.Exists(paths.EffectLibraryManifestFile));
     }
 
     [Theory]
@@ -180,7 +190,7 @@ public sealed class UserSettingsRestoreV3Tests
         using var restore = new UserSettingsRestoreService(directory.Path);
         if (phase == "applying" && retainPending)
         {
-            Assert.Throws<InvalidOperationException>(restore.ApplyPending);
+            Assert.Throws<InvalidDataException>(restore.ApplyPending);
         }
         else
         {

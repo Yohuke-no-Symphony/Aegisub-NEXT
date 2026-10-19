@@ -32,7 +32,7 @@ internal sealed record EffectScriptPreviewInput(string Source, EffectPresetPrevi
             Parameters.All(pair => other.Parameters.TryGetValue(pair.Key, out var value) && value == pair.Value) && Options.Text == other.Options.Text &&
             Options.Duration == other.Options.Duration && Options.CanvasWidth == other.Options.CanvasWidth &&
             Options.CanvasHeight == other.Options.CanvasHeight && Options.FramesPerSecond == other.Options.FramesPerSecond &&
-            GetStyle() == other.GetStyle() && HasSameFont(StylePreset?.Font, other.StylePreset?.Font);
+            GetStyle() == other.GetStyle();
     }
 
     internal bool HasSameVisuals(EffectScriptPreviewInput other)
@@ -52,9 +52,4 @@ internal sealed record EffectScriptPreviewInput(string Source, EffectPresetPrevi
         };
     }
 
-    private static bool HasSameFont(EmbeddedSubtitleFont? first, EmbeddedSubtitleFont? second)
-    {
-        return first is null ? second is null : second is not null && first.Sha256 == second.Sha256 &&
-            (first.Data == second.Data || first.Data.AsSpan().SequenceEqual(second.Data.AsSpan()));
-    }
 }

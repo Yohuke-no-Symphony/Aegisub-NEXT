@@ -234,7 +234,7 @@ public sealed class VideoExportGeometryTests
         var restored = JsonSerializer.Deserialize<ExportWorkerMessage>(serialized, ExportWire.Options)!;
         using var json = JsonDocument.Parse(serialized);
 
-        Assert.Equal(6, ExportWire.VERSION);
+        Assert.Equal(7, ExportWire.VERSION);
         Assert.Equal(message, restored);
         Assert.Equal(1082, json.RootElement.GetProperty("outputGeometry").GetProperty("height").GetInt32());
         Assert.Equal(2, json.RootElement.GetProperty("outputGeometry").GetProperty("paddingBottom").GetInt32());

@@ -325,7 +325,7 @@ public sealed partial class EffectScriptLibraryViewModel
 
     private static bool HasSamePreviewStyle(SubtitleStylePreset? left, SubtitleStylePreset? right)
     {
-        return left?.Style == right?.Style && left?.Font == right?.Font;
+        return left?.Style == right?.Style;
     }
 
     private static double Seconds(MediaTime time) => (double)time.Numerator / time.Denominator;

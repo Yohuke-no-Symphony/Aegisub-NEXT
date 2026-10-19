@@ -49,8 +49,8 @@ public sealed class SubtitleMarginsPersistenceTests
         {
             Presets = [new(Guid.NewGuid(), "Independent", document.Subtitles[0].Style)]
         };
-        var encoded = SubtitleStylePresetStore.Serialize(collection);
-        var library = SubtitleStylePresetStore.Deserialize(encoded);
+        var encoded = SubtitleStylePresetMetadataStore.Serialize(collection);
+        var library = SubtitleStylePresetMetadataStore.Deserialize(encoded);
         Assert.Equal(collection.Presets[0], library.Presets[0]);
         var root = JsonNode.Parse(encoded)!;
         Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, root["version"]!.GetValue<int>());
@@ -86,25 +86,10 @@ public sealed class SubtitleMarginsPersistenceTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
-    public void LegacyStyleLibrariesMigrateUniformMargins(int version)
+    public void LegacyStyleLibrariesAreRejected(int version)
     {
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Legacy", new()
-        {
-            Margins = new(17.5, 17.5, 17.5),
-            Position = version == 1 ? null : new() { Offset = new(19.125, -23.25) }
-        });
-        var collection = new SubtitleStylePresetCollection { Presets = [preset] };
-        var root = JsonNode.Parse(SubtitleStylePresetStore.Serialize(collection))!.AsObject();
-        root["version"] = version;
-        LegacySubtitleMarginsJsonFixture.DowngradeLibrary(root);
-        if (version == 1)
-        {
-            root["presets"]![0]!["style"]!.AsObject().Remove("position");
-        }
-        var restored = SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString()));
-
-        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, restored.Version);
-        Assert.Equal(preset, Assert.Single(restored.Presets));
+        var bytes = System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version},\"presets\":[]}}");
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(bytes));
     }
 
     /// <summary>当前版本不能接受旧字段、缺失边距或不完整的独立边距对象。</summary>
@@ -123,12 +108,12 @@ public sealed class SubtitleMarginsPersistenceTests
         var root = JsonNode.Parse(ProjectStore.Serialize(Document(new())))!.AsObject();
         MutateCurrentStyle(root["subtitles"]![0]!["style"]!.AsObject(), mutation);
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
-        root = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new()
+        root = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new()
         {
             Presets = [new(Guid.NewGuid(), "Strict", new())]
         }))!.AsObject();
         MutateCurrentStyle(root["presets"]![0]!["style"]!.AsObject(), mutation);
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
     }
 
     /// <summary>旧版本不能冒认新字段，也不能通过迁移补全缺失或无效标量。</summary>
@@ -152,7 +137,7 @@ public sealed class SubtitleMarginsPersistenceTests
         }
         foreach (var version in new[] { 1, 2, 3, 4 })
         {
-            var root = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new()
+            var root = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new()
             {
                 Presets = [new(Guid.NewGuid(), "Strict", new())]
             }))!.AsObject();
@@ -164,7 +149,7 @@ public sealed class SubtitleMarginsPersistenceTests
                 style.Remove("position");
             }
             MutateLegacyStyle(style, mutation);
-            Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
+            Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(root.ToJsonString())));
         }
     }
 
@@ -179,13 +164,13 @@ public sealed class SubtitleMarginsPersistenceTests
         using var parsed = JsonDocument.Parse(bytes);
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(bytes));
         Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(parsed.RootElement));
-        json = Encoding.UTF8.GetString(SubtitleStylePresetStore.Serialize(new()
+        json = Encoding.UTF8.GetString(SubtitleStylePresetMetadataStore.Serialize(new()
         {
             Presets = [new(Guid.NewGuid(), "Strict", new())]
         }));
         duplicate = json.Replace("\"left\": 40,", "\"left\": 40, \"le\\u0066t\": 40,", StringComparison.Ordinal);
         Assert.NotEqual(json, duplicate);
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encoding.UTF8.GetBytes(duplicate)));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encoding.UTF8.GetBytes(duplicate)));
     }
 
     private static ProjectDocument Document(SubtitleMargins margins)

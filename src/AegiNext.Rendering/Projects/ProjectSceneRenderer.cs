@@ -24,6 +24,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
     private readonly Dictionary<(nint Handle, SubtitleFontVariant? Variant, int Instance, int Collection, bool Bold, bool Italic), TextShaper> actualTextShapers = [];
     private readonly Dictionary<(string Family, SubtitleFontVariant? Variant, bool Bold, bool Italic, string Grapheme), TextShaper> resolvedTextShapers = [];
     private readonly Lazy<SystemFontResolver> systemFonts;
+    private readonly bool hasApplicationFonts;
     private readonly SKColorSpace linear = SKColorSpace.CreateSrgbLinear();
     private readonly RenderSurfacePool surfacePool;
     private PreparedProjectScene? prepared;
@@ -54,6 +55,7 @@ public sealed partial class ProjectSceneRenderer : IDisposable
         images = new(assets);
         this.graphicsContext = graphicsContext;
         surfacePool = new(maximumRetainedSurfaceBytes, graphicsContext);
+        hasApplicationFonts = fontCatalog is { ApplicationFonts.IsDefaultOrEmpty: false };
         systemFonts = new(() => new(fontCatalog ?? new SystemFontCatalog()));
     }
 

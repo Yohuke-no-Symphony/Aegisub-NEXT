@@ -1,6 +1,9 @@
 using AegiNext.Desktop.EffectLibrary;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
+using AegiNext.Desktop.Editing;
+using AegiNext.Rendering.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Settings;
@@ -25,9 +28,11 @@ public sealed class SettingsPreviewInteractionLifecycleUiTests
         var bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"));
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Preview", new()
         {
-            FontFamily = "Embedded preview fixture", StrokeWidth = 0, ShadowColor = SceneColor.Transparent
-        }, new("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]));
+            FontFamily = "Noto Sans", StrokeWidth = 0, ShadowColor = SceneColor.Transparent
+        });
         var window = new EffectLibraryWindow(new WorkbenchPreferences());
+        var font = new EmbeddedSubtitleFont("NotoSans.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]);
+        window.ViewModel.Styles.SetFonts(new(new SystemFontCatalog([new FontFamilyBundle("Noto Sans", [font])], SystemFontCatalog.Empty)));
         IPointer? pointer = null;
         try
         {

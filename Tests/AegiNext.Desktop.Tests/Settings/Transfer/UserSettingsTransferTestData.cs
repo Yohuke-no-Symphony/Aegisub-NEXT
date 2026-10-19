@@ -71,10 +71,7 @@ internal static class UserSettingsTransferTestData
         {
             ["manifest.json"] = System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version}}}"),
             ["preferences.json"] = WorkbenchPreferencesStore.Serialize(preferences ?? bundle.Preferences, allowForeignWorkspace: true),
-            ["subtitle-styles.aegistyles"] = SubtitleStylePresetStore.Serialize(new()
-            {
-                Presets = [new(Guid.NewGuid(), "Legacy style", new() { FontSize = 62 })]
-            }),
+            ["subtitle-styles.aegistyles"] = "{\"version\":7,\"presets\":[]}"u8.ToArray(),
             ["effect-scripts.json"] = EffectScriptPresetStore.Serialize(new()
             {
                 Presets = [new(Guid.NewGuid(), "Legacy effect", "effect \"legacy-transfer\" version 3\nshort-clip compress\nscope clip current\nsegment stay flex 1\n    at 0 opacity base\n    at 1 opacity base\nend\nend\n")]

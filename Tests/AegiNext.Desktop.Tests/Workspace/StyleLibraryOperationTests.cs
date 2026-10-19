@@ -1,7 +1,49 @@
 namespace AegiNext.Desktop.Tests.Workspace;
 
+[Collection("Workspace session")]
 public sealed class StyleLibraryOperationTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AwaitedOperationPropagatesItsOwnFailureOrCancellationAndReleasesBusyState(bool cancelled)
+    {
+        await using var context = new WorkspaceSessionTestContext();
+        await context.InitializeAsync();
+        var styles = context.Session.Styles;
+        var notifications = new List<bool>();
+        styles.BusyChanged += (_, _) => notifications.Add(styles.IsBusy);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var operation = styles.QueueAsync(async () =>
+        {
+            await release.Task;
+            if (cancelled)
+            {
+                throw new OperationCanceledException();
+            }
+            throw new InvalidOperationException("This capture failed.");
+        });
+        var drain = styles.Completion;
+        Assert.True(styles.IsBusy);
+        Assert.False(drain.IsCompleted);
+
+        release.SetResult();
+        if (cancelled)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => drain);
+        }
+        else
+        {
+            var error = await Assert.ThrowsAsync<InvalidOperationException>(() => operation);
+            Assert.Same(error, await Assert.ThrowsAsync<InvalidOperationException>(() => drain));
+        }
+
+        Assert.False(styles.IsBusy);
+        Assert.False(notifications.Last());
+        Assert.Null(context.Session.LastError);
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]

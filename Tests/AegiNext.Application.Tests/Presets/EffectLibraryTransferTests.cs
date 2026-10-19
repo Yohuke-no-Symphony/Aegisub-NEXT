@@ -12,7 +12,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var packaged = Style("Packaged");
         var independent = Style("Independent");
         var complete = Effect("complete", "展示名称");
@@ -21,8 +21,8 @@ public sealed class EffectLibraryTransferTests
         var stylePath = Path.Combine(directory.Path, "style.aegistyles");
         var effectPath = Path.Combine(directory.Path, "effect.aegieffect");
         var rawPath = Path.Combine(directory.Path, "raw.aegifx");
-        await EffectLibraryPackageStore.SaveAsync(new() { Styles = new() { Presets = [packaged] } }, packagePath);
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [independent] }, stylePath);
+        await TestEffectLibraryPackageStore.SaveAsync(new() { Styles = new() { Presets = [packaged] } }, packagePath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [independent] }, stylePath);
         await EffectScriptPresetStore.WritePresetAsync(complete, effectPath);
         await EffectScriptPresetStore.WriteScriptAsync(raw.Source, rawPath);
         var plan = await service.AnalyzeImportAsync([packagePath, stylePath, effectPath, rawPath]);
@@ -49,18 +49,22 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var existing = Style("Same");
-        await repository.UpdateStylesAsync(current => current with { Presets = [existing] });
+        await repository.UpdateAsync(Guid.Empty, current => current with
+        {
+            Styles = new() { Presets = [existing] },
+            FontFamilies = TestStylePackageStore.Package(new() { Presets = [existing] }).FontFamilies
+        });
         var path = Path.Combine(directory.Path, "import.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [existing with { Id = Guid.NewGuid() }] }, path);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [existing with { Id = Guid.NewGuid() }] }, path);
         var identical = await service.AnalyzeImportAsync([path]);
         Assert.Equal(EffectLibraryImportStatus.IDENTICAL, Assert.Single(identical.Rows).Status);
         var snapshot = repository.Snapshot;
         await service.CommitImportAsync(identical, new Dictionary<int, EffectLibraryImportDecision>());
         Assert.Same(snapshot, repository.Snapshot);
         var imported = existing with { Id = Guid.NewGuid(), Style = existing.Style with { FontSize = 100 } };
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [imported] }, path);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [imported] }, path);
         var conflict = await service.AnalyzeImportAsync([path]);
         var row = Assert.Single(conflict.Rows);
         Assert.Equal(existing.Id, row.TargetId);
@@ -80,7 +84,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var existing = Effect("personal", "本地名称");
         await repository.UpdateEffectsAsync(current => current with { Presets = [existing] });
         var imported = existing with { Id = Guid.NewGuid(), Name = "输入名称", Source = existing.Source + "\n" };
@@ -111,7 +115,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var existing = Effect("old-script", "Same Name");
         await repository.UpdateEffectsAsync(current => current with { Presets = [existing] });
         var imported = Effect("new-script", existing.Name);
@@ -134,12 +138,12 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var first = Style("First");
         var second = Style("Second");
         await repository.UpdateStylesAsync(current => current with { Presets = [first, second] });
         var path = Path.Combine(directory.Path, "crossed.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first with { Name = second.Name }] }, path);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [first with { Name = second.Name }] }, path);
         var plan = await service.AnalyzeImportAsync([path]);
         var row = Assert.Single(plan.Rows);
         Assert.Equal(EffectLibraryImportStatus.CONFLICT, row.Status);
@@ -161,7 +165,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var first = Effect("first", "First");
         var second = Effect("second", "Second");
         await repository.UpdateEffectsAsync(current => current with { Presets = [first, second] });
@@ -182,7 +186,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var original = Effect("frozen", "Original");
         var path = Path.Combine(directory.Path, "effect.aegieffect");
         await EffectScriptPresetStore.WritePresetAsync(original, path);
@@ -201,7 +205,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var first = Style("Same");
         var second = first with { Style = first.Style with { FontSize = 100 } };
         if (alreadyExists)
@@ -210,8 +214,8 @@ public sealed class EffectLibraryTransferTests
         }
         var firstPath = Path.Combine(directory.Path, "first.aegistyles");
         var secondPath = Path.Combine(directory.Path, "second.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first] }, firstPath);
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [second] }, secondPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [first] }, firstPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [second] }, secondPath);
         var plan = await service.AnalyzeImportAsync([firstPath, secondPath]);
         Assert.All(plan.Rows, row => Assert.Equal(EffectLibraryImportStatus.CONFLICT, row.Status));
         Assert.NotNull(plan.Rows[0].ConflictGroupId);
@@ -233,7 +237,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var effect = Effect("personal", "完整名称");
         var rawPath = Path.Combine(directory.Path, "raw.aegifx");
         var completePath = Path.Combine(directory.Path, "complete.aegieffect");
@@ -255,7 +259,7 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var path = Path.Combine(directory.Path, "builtin.aegifx");
         var source = BuiltinEffectScripts.Get("fade-in").Source;
         await EffectScriptPresetStore.WriteScriptAsync(source, path);
@@ -280,12 +284,12 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var path = Path.Combine(directory.Path, "style.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [Style("Imported")] }, path);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [Style("Imported")] }, path);
         var plan = await service.AnalyzeImportAsync([path]);
         using var other = new EffectLibraryRepository(Path.Combine(directory.Path, "other"));
-        await Assert.ThrowsAsync<ArgumentException>(() => new EffectLibraryTransferService(other).CommitImportAsync(plan,
+        await Assert.ThrowsAsync<ArgumentException>(() => new EffectLibraryTransferService(other, new TestFontFamilySource(), new TestFontFamilyValidator()).CommitImportAsync(plan,
             new Dictionary<int, EffectLibraryImportDecision>()));
         await Assert.ThrowsAsync<InvalidDataException>(() => service.CommitImportAsync(plan,
             new Dictionary<int, EffectLibraryImportDecision> { [100] = EffectLibraryImportDecision.IMPORT }));
@@ -303,10 +307,10 @@ public sealed class EffectLibraryTransferTests
     {
         using var directory = new TemporaryProjectDirectory();
         using var repository = new EffectLibraryRepository(Path.Combine(directory.Path, "library"));
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var path = Path.Combine(directory.Path, "style.aegistyles");
         var invalid = Path.Combine(directory.Path, "invalid.aegieffect");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [Style("Imported")] }, path);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [Style("Imported")] }, path);
         await File.WriteAllBytesAsync(invalid, [0xFF]);
         await Assert.ThrowsAsync<InvalidDataException>(() => service.AnalyzeImportAsync([path, invalid]));
         Assert.Empty(repository.Snapshot.Styles.Presets);
@@ -331,7 +335,7 @@ public sealed class EffectLibraryTransferTests
         using var directory = new TemporaryProjectDirectory();
         var root = Path.Combine(directory.Path, "library");
         using var repository = new EffectLibraryRepository(root);
-        var service = new EffectLibraryTransferService(repository);
+        var service = new EffectLibraryTransferService(repository, new TestFontFamilySource(), new TestFontFamilyValidator());
         var style = Style("Selected");
         var effect = Effect("selected", "原名称");
         await repository.UpdateAsync(Guid.Empty, current => current with
@@ -344,11 +348,11 @@ public sealed class EffectLibraryTransferTests
         var output = Path.Combine(directory.Path, "export");
         var destinations = service.GetIndependentDestinations([style], [effect], output);
         await service.ExportIndependentAsync([style], [effect], output);
-        Assert.Equal(style, Assert.Single((await SubtitleStylePresetStore.LoadAsync(destinations[0])).Presets));
+        Assert.Equal(style, Assert.Single((await TestStylePackageStore.LoadAsync(destinations[0])).Presets));
         Assert.Equal(effect, await EffectScriptPresetStore.ReadPresetAsync(destinations[1]));
         var packagePath = Path.Combine(directory.Path, "whole.aegilibrary");
         await service.ExportAllPackageAsync(frozen, packagePath);
-        Assert.Equal(effect.Name, Assert.Single((await EffectLibraryPackageStore.LoadAsync(packagePath)).Effects.Presets).Name);
+        Assert.Equal(effect.Name, Assert.Single((await TestEffectLibraryPackageStore.LoadAsync(packagePath)).Effects.Presets).Name);
         var alias = Path.Combine(directory.Path, "alias");
         Directory.CreateSymbolicLink(alias, root);
 

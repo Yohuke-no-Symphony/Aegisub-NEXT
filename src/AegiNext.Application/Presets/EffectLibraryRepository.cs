@@ -1,14 +1,14 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
+using AegiNext.Application.Fonts;
 
 namespace AegiNext.Application.Presets;
 
 /// <summary>以不可变逐项文件和原子清单维护共享效果库；只在提交成功后发布完整快照。</summary>
 public sealed class EffectLibraryRepository : IDisposable
 {
-    private readonly string? legacyStyleFilePath;
-    private readonly string? legacyEffectFilePath;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Lock lifetime = new();
     private EffectLibrarySnapshot snapshot = new();
@@ -18,26 +18,22 @@ public sealed class EffectLibraryRepository : IDisposable
     private bool disposed;
     private int operations;
 
-    /// <summary>由宿主指定效果库绝对目录及需要一次性迁移的旧库路径；不依赖工作目录。</summary>
-    public EffectLibraryRepository(string absoluteDirectoryPath, string? legacyStyleFilePath = null, string? legacyEffectFilePath = null)
+    /// <summary>使用宿主提供的效果库和私有字体绝对目录；旧版目录原样归档，不转换其中内容。</summary>
+    public EffectLibraryRepository(string absoluteDirectoryPath, string? absoluteFontDirectoryPath = null)
     {
-        DirectoryPath = AbsolutePath(absoluteDirectoryPath, nameof(absoluteDirectoryPath));
+        DirectoryPath = Path.TrimEndingDirectorySeparator(AbsolutePath(absoluteDirectoryPath, nameof(absoluteDirectoryPath)));
+        FontDirectoryPath = AbsolutePath(absoluteFontDirectoryPath ?? Path.Combine(Path.GetDirectoryName(DirectoryPath)!, "fonts"),
+            nameof(absoluteFontDirectoryPath));
         ManifestPath = Path.Combine(DirectoryPath, "manifest.json");
-        this.legacyStyleFilePath = legacyStyleFilePath is null ? null : AbsolutePath(legacyStyleFilePath, nameof(legacyStyleFilePath));
-        this.legacyEffectFilePath = legacyEffectFilePath is null ? null : AbsolutePath(legacyEffectFilePath, nameof(legacyEffectFilePath));
-        if (this.legacyStyleFilePath is { } styles && IsWithinDirectory(styles) ||
-            this.legacyEffectFilePath is { } effects && IsWithinDirectory(effects))
-        {
-            throw new ArgumentException("旧库迁移来源不能位于新效果库目录内。");
-        }
     }
 
+    public string FontDirectoryPath { get; }
     public string DirectoryPath { get; }
     public string ManifestPath { get; }
     public EffectLibrarySnapshot Snapshot => Volatile.Read(ref snapshot);
     public event EventHandler<EffectLibraryChangedEventArgs>? Changed;
 
-    /// <summary>已完成提交后的归档源清理或旧条目清理错误；不会把成功提交降级为失败。</summary>
+    /// <summary>已完成提交后的旧条目或字体文件清理错误；不会把成功提交降级为失败。</summary>
     public ImmutableArray<Exception> MaintenanceErrors
     {
         get
@@ -49,7 +45,7 @@ public sealed class EffectLibraryRepository : IDisposable
         }
     }
 
-    /// <summary>完整校验清单和全部条目；首次没有清单时迁移旧库，已有清单绝不回退到旧数据。</summary>
+    /// <summary>完整校验当前库；首次加载旧版目录时原样归档，并从空库开始。</summary>
     public Task LoadAsync(CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(() => ReadAsync(cancellationToken), cancellationToken);
@@ -79,12 +75,12 @@ public sealed class EffectLibraryRepository : IDisposable
         return UpdateCoreAsync(expectedRevision, update, beforeCommit, cancellationToken);
     }
 
-    /// <summary>判断导出位置是否会覆盖应用管理的库内容或尚待迁移的旧库文件。</summary>
+    /// <summary>判断导出位置是否会覆盖应用管理的效果库和私有字体文件。</summary>
     public bool IsManagedPath(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var fullPath = Path.GetFullPath(path);
-        return IsWithinDirectory(fullPath) || PathsEqual(fullPath, legacyStyleFilePath) || PathsEqual(fullPath, legacyEffectFilePath);
+        return IsWithinDirectory(fullPath) || IsWithinFontDirectory(fullPath);
     }
 
     /// <summary>宿主需先等待全部操作结束；门面不拥有此仓库，释放后拒绝新操作。</summary>
@@ -111,6 +107,12 @@ public sealed class EffectLibraryRepository : IDisposable
         return ExecuteAsync(() => EnsureLoadedAsync(cancellationToken), cancellationToken);
     }
 
+    internal Task UpdateContentAsync(Func<EffectLibrarySnapshot, EffectLibrarySnapshot> update,
+        Action? beforeCommit = null, CancellationToken cancellationToken = default)
+    {
+        return UpdateCoreAsync(null, update, beforeCommit, cancellationToken);
+    }
+
     private Task UpdateCoreAsync(Guid? expectedRevision, Func<EffectLibrarySnapshot, EffectLibrarySnapshot> update,
         Action? beforeCommit, CancellationToken cancellationToken)
     {
@@ -123,7 +125,7 @@ public sealed class EffectLibraryRepository : IDisposable
                 throw new InvalidOperationException("效果库已发生变化，请重新检查导入预览。");
             }
             var updated = update(current) ?? throw new InvalidDataException("效果库修改不能返回 null。");
-            await CommitAsync(updated, null, beforeCommit, cancellationToken).ConfigureAwait(false);
+            await CommitAsync(updated, beforeCommit, cancellationToken).ConfigureAwait(false);
         }, cancellationToken);
     }
 
@@ -178,13 +180,26 @@ public sealed class EffectLibraryRepository : IDisposable
         var bytes = await ReadOptionalAsync(ManifestPath, EffectLibraryManifestStore.MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false);
         if (bytes is not null)
         {
-            var nextManifest = EffectLibraryManifestStore.Deserialize(bytes);
+            var nextManifest = EffectLibraryManifestStore.DeserializeCurrent(bytes);
+            if (nextManifest is null)
+            {
+                if (manifest is not null)
+                {
+                    throw new InvalidDataException("当前效果库清单不能替换为旧版格式。");
+                }
+                cancellationToken.ThrowIfCancellationRequested();
+                RejectSymbolicLink(DirectoryPath);
+                var archive = Path.TrimEndingDirectorySeparator(DirectoryPath) + $".legacy-{Guid.NewGuid():N}";
+                Directory.Move(DirectoryPath, archive);
+                loaded = true;
+                return;
+            }
             var styles = ImmutableArray.CreateBuilder<SubtitleStylePreset>();
             foreach (var name in nextManifest.Styles)
             {
-                var content = await ReadEntryAsync("styles", name, ".aegistyles", SubtitleStylePresetStore.MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false);
-                var collection = SubtitleStylePresetStore.Deserialize(content);
-                if (collection.Presets.Length != 1 || collection.Presets[0].Id != EffectLibraryManifestStore.EntryIdentity(name, ".aegistyles"))
+                var content = await ReadEntryAsync("styles", name, ".json", SubtitleStylePresetMetadataStore.MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false);
+                var collection = SubtitleStylePresetMetadataStore.Deserialize(content);
+                if (collection.Presets.Length != 1 || collection.Presets[0].Id != EffectLibraryManifestStore.EntryIdentity(name, ".json"))
                 {
                     throw new InvalidDataException("本地样式条目必须包含与文件名对应的一个样式。");
                 }
@@ -205,7 +220,8 @@ public sealed class EffectLibraryRepository : IDisposable
             {
                 Revision = nextManifest.Revision,
                 Styles = new() { Presets = styles.ToImmutable() },
-                Effects = new() { Presets = effects.ToImmutable() }
+                Effects = new() { Presets = effects.ToImmutable() },
+                FontFamilies = await ReadFontFamiliesAsync(nextManifest.FontFamilies, FontDirectoryPath, cancellationToken).ConfigureAwait(false)
             };
             ValidateSnapshot(value);
             cancellationToken.ThrowIfCancellationRequested();
@@ -225,44 +241,85 @@ public sealed class EffectLibraryRepository : IDisposable
             CleanupUnreferencedEntries();
             return;
         }
-        if (manifest is not null || HasManagedData())
+        if (manifest is not null || HasManagedData(DirectoryPath))
         {
             throw new InvalidDataException("效果库已初始化但清单缺失，不能重新导入旧库。");
         }
-        var styleBytes = legacyStyleFilePath is { } stylesPath
-            ? await ReadOptionalAsync(stylesPath, SubtitleStylePresetStore.MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false) : null;
-        var effectBytes = legacyEffectFilePath is { } effectsPath
-            ? await ReadOptionalAsync(effectsPath, EffectScriptPresetStore.MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false) : null;
-        var migrated = new EffectLibrarySnapshot
-        {
-            Styles = styleBytes is null ? new() : SubtitleStylePresetStore.Deserialize(styleBytes),
-            Effects = effectBytes is null ? new() : EffectScriptPresetStore.Deserialize(effectBytes)
-        };
-        ValidateSnapshot(migrated);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (styleBytes is null && effectBytes is null)
-        {
-            loaded = true;
-            return;
-        }
-        var archives = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        if (styleBytes is not null)
-        {
-            archives.Add(ArchiveRelativePath(legacyStyleFilePath!, styleBytes), styleBytes);
-        }
-        if (effectBytes is not null)
-        {
-            var name = ArchiveRelativePath(legacyEffectFilePath!, effectBytes);
-            if (archives.ContainsKey(name))
-            {
-                name = Path.Combine("legacy", Path.GetFileName(legacyEffectFilePath!) + "." + Digest(effectBytes) + ".bak");
-            }
-            archives.Add(name, effectBytes);
-        }
-        await CommitAsync(migrated, archives, null, cancellationToken).ConfigureAwait(false);
         loaded = true;
-        RemoveArchivedSource(legacyStyleFilePath, styleBytes);
-        RemoveArchivedSource(legacyEffectFilePath, effectBytes);
+    }
+
+    /// <summary>只读当前有效清单及字体字节；不初始化、迁移、清理或写入任何文件。</summary>
+    public static async Task<ImmutableArray<FontFamilyBundle>> LoadFontFamiliesAsync(string absoluteDirectoryPath,
+        string absoluteFontDirectoryPath, CancellationToken cancellationToken = default)
+    {
+        var directory = AbsolutePath(absoluteDirectoryPath, nameof(absoluteDirectoryPath));
+        var fonts = AbsolutePath(absoluteFontDirectoryPath, nameof(absoluteFontDirectoryPath));
+        var manifestPath = Path.Combine(directory, "manifest.json");
+        for (var attempt = 0; ; attempt++)
+        {
+            var bytes = await ReadOptionalAsync(manifestPath, EffectLibraryManifestStore.MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false);
+            if (bytes is null)
+            {
+                if (HasManagedData(directory))
+                {
+                    throw new InvalidDataException("效果库已有条目但有效清单缺失；原文件已保留。");
+                }
+                return [];
+            }
+            var current = EffectLibraryManifestStore.DeserializeCurrent(bytes);
+            if (current is null)
+            {
+                return [];
+            }
+            try
+            {
+                return await ReadFontFamiliesAsync(current.FontFamilies, fonts, cancellationToken).ConfigureAwait(false);
+            }
+            catch (InvalidDataException) when (attempt < 2)
+            {
+                var latest = await ReadOptionalAsync(manifestPath, EffectLibraryManifestStore.MAXIMUM_FILE_BYTES, cancellationToken).ConfigureAwait(false);
+                if (latest is null || bytes.AsSpan().SequenceEqual(latest))
+                {
+                    throw;
+                }
+            }
+        }
+    }
+
+    private static async Task<ImmutableArray<FontFamilyBundle>> ReadFontFamiliesAsync(ImmutableArray<FontFamilyReference> references,
+        string directory, CancellationToken cancellationToken)
+    {
+        var data = new Dictionary<string, ImmutableArray<byte>>(StringComparer.Ordinal);
+        var families = ImmutableArray.CreateBuilder<FontFamilyBundle>();
+        foreach (var family in references)
+        {
+            var files = ImmutableArray.CreateBuilder<EmbeddedSubtitleFont>();
+            foreach (var file in family.Files)
+            {
+                if (!data.TryGetValue(file.Sha256, out var bytes))
+                {
+                    var path = Path.Combine(directory, PrivateFontFiles.Name(file.Sha256));
+                    byte[] raw;
+                    try
+                    {
+                        RejectSymbolicLink(directory);
+                        RejectSymbolicLink(path);
+                        raw = await PresetFileReader.ReadAsync(path, FontFamilyBundleValidator.MAXIMUM_FONT_BYTES, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception error) when (error is FileNotFoundException or DirectoryNotFoundException)
+                    {
+                        throw new InvalidDataException("私有字体清单引用的文件不存在。", error);
+                    }
+                    bytes = System.Runtime.InteropServices.ImmutableCollectionsMarshal.AsImmutableArray(raw);
+                    data.Add(file.Sha256, bytes);
+                }
+                files.Add(new(file.FileName, file.Sha256, bytes));
+            }
+            families.Add(new(family.FamilyName, files.ToImmutable()));
+        }
+        var result = families.ToImmutable();
+        FontFamilyBundleValidator.ValidateLibrary(result);
+        return result;
     }
 
     private async Task<byte[]> ReadEntryAsync(string kind, string name, string extension, int maximumBytes,
@@ -288,8 +345,7 @@ public sealed class EffectLibraryRepository : IDisposable
         return bytes;
     }
 
-    private async Task CommitAsync(EffectLibrarySnapshot value, Dictionary<string, byte[]>? archives,
-        Action? beforeCommit, CancellationToken cancellationToken)
+    private async Task CommitAsync(EffectLibrarySnapshot value, Action? beforeCommit, CancellationToken cancellationToken)
     {
         ValidateSnapshot(value);
         cancellationToken.ThrowIfCancellationRequested();
@@ -298,8 +354,8 @@ public sealed class EffectLibraryRepository : IDisposable
         foreach (var preset in value.Styles.Presets)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var bytes = SubtitleStylePresetStore.Serialize(new() { Presets = [preset] });
-            var name = $"{preset.Id:N}-{Digest(bytes)}.aegistyles";
+            var bytes = SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [preset] });
+            var name = $"{preset.Id:N}-{Digest(bytes)}.json";
             styleNames.Add(name);
             entries.Add(Path.Combine("styles", name), bytes);
         }
@@ -316,19 +372,20 @@ public sealed class EffectLibraryRepository : IDisposable
         {
             Revision = Guid.NewGuid(),
             Styles = styleNames.ToImmutable(),
-            Effects = effectNames.ToImmutable()
+            Effects = effectNames.ToImmutable(),
+            FontFamilies = PrivateFontFiles.References(value.FontFamilies)
         };
-        if (archives is null && (manifest is not null && SameEntries(manifest, nextManifest) ||
-            manifest is null && nextManifest.Styles.IsEmpty && nextManifest.Effects.IsEmpty))
+        if (manifest is not null && SameEntries(manifest, nextManifest) ||
+            manifest is null && nextManifest.Styles.IsEmpty && nextManifest.Effects.IsEmpty && nextManifest.FontFamilies.IsEmpty)
         {
             return;
         }
-        if (archives is not null)
+        var fontEntries = value.FontFamilies.SelectMany(family => family.Files)
+            .DistinctBy(file => file.Sha256).ToDictionary(file => PrivateFontFiles.Name(file.Sha256), file => file.Data.AsMemory(), StringComparer.Ordinal);
+        if (fontEntries.Count > 0)
         {
-            foreach (var archive in archives)
-            {
-                entries.Add(archive.Key, archive.Value);
-            }
+            Directory.CreateDirectory(FontDirectoryPath);
+            RejectSymbolicLink(FontDirectoryPath);
         }
         Directory.CreateDirectory(DirectoryPath);
         var staging = Path.Combine(DirectoryPath, $".staging-{Guid.NewGuid():N}");
@@ -354,6 +411,32 @@ public sealed class EffectLibraryRepository : IDisposable
                 var temporary = Path.Combine(staging, entry.Key);
                 Directory.CreateDirectory(Path.GetDirectoryName(temporary)!);
                 await WriteNewAsync(temporary, entry.Value, cancellationToken).ConfigureAwait(false);
+            }
+            foreach (var font in fontEntries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var destination = Path.Combine(FontDirectoryPath, font.Key);
+                if (File.Exists(destination))
+                {
+                    RejectSymbolicLink(destination);
+                    var existing = await PresetFileReader.ReadAsync(destination, font.Value.Length, cancellationToken).ConfigureAwait(false);
+                    if (!existing.AsSpan().SequenceEqual(font.Value.Span))
+                    {
+                        throw new InvalidDataException("私有字体文件内容与 SHA-256 不一致，未覆盖原文件。");
+                    }
+                    continue;
+                }
+                var temporary = Path.Combine(FontDirectoryPath, $".{font.Key}.{Guid.NewGuid():N}.tmp");
+                try
+                {
+                    await WriteNewAsync(temporary, font.Value, cancellationToken).ConfigureAwait(false);
+                    File.Move(temporary, destination);
+                    published.Add(destination);
+                }
+                finally
+                {
+                    File.Delete(temporary);
+                }
             }
             var manifestTemporary = Path.Combine(staging, "manifest.json");
             await WriteNewAsync(manifestTemporary, EffectLibraryManifestStore.Serialize(nextManifest), cancellationToken).ConfigureAwait(false);
@@ -401,11 +484,12 @@ public sealed class EffectLibraryRepository : IDisposable
 
     private static void ValidateSnapshot(EffectLibrarySnapshot value)
     {
-        _ = SubtitleStylePresetStore.Serialize(value.Styles);
+        _ = SubtitleStylePresetMetadataStore.Serialize(value.Styles);
         _ = EffectScriptPresetStore.Serialize(value.Effects);
+        FontFamilyBundleValidator.ValidateLibrary(value.FontFamilies);
     }
 
-    private static async Task WriteNewAsync(string path, byte[] bytes, CancellationToken cancellationToken)
+    private static async Task WriteNewAsync(string path, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         await using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None,
             65536, FileOptions.Asynchronous | FileOptions.WriteThrough);
@@ -427,39 +511,29 @@ public sealed class EffectLibraryRepository : IDisposable
         }
     }
 
-    private string ArchiveRelativePath(string source, byte[] bytes)
-    {
-        var name = Path.Combine("legacy", Path.GetFileName(source));
-        var path = Path.Combine(DirectoryPath, name);
-        if (File.Exists(path))
-        {
-            name = Path.Combine("legacy", Path.GetFileName(source) + "." + Digest(bytes) + ".bak");
-        }
-        return name;
-    }
-
-    private void RemoveArchivedSource(string? path, byte[]? archived)
-    {
-        if (path is null || archived is null)
-        {
-            return;
-        }
-        TryMaintenance(() =>
-        {
-            if (File.Exists(path) && new FileInfo(path).Length == archived.Length && File.ReadAllBytes(path).AsSpan().SequenceEqual(archived))
-            {
-                File.Delete(path);
-            }
-        });
-    }
-
     private void CleanupUnreferencedEntries()
     {
         if (manifest is null)
         {
             return;
         }
-        CleanupDirectory("styles", ".aegistyles", manifest.Styles);
+        CleanupDirectory("styles", ".json", manifest.Styles);
+        var activeFonts = manifest.FontFamilies.SelectMany(family => family.Files).Select(file => PrivateFontFiles.Name(file.Sha256))
+            .ToHashSet(StringComparer.Ordinal);
+        if (Directory.Exists(FontDirectoryPath))
+        {
+            TryMaintenance(() =>
+            {
+                RejectSymbolicLink(FontDirectoryPath);
+                foreach (var path in Directory.EnumerateFiles(FontDirectoryPath, "*.font"))
+                {
+                    if (!activeFonts.Contains(Path.GetFileName(path)))
+                    {
+                        TryMaintenance(() => File.Delete(path));
+                    }
+                }
+            });
+        }
         CleanupDirectory("effects", ".aegieffect", manifest.Effects);
         TryMaintenance(() =>
         {
@@ -491,11 +565,11 @@ public sealed class EffectLibraryRepository : IDisposable
         });
     }
 
-    private bool HasManagedData()
+    private static bool HasManagedData(string directory)
     {
-        return Directory.Exists(Path.Combine(DirectoryPath, "legacy")) && Directory.EnumerateFiles(Path.Combine(DirectoryPath, "legacy")).Any() ||
-            Directory.Exists(Path.Combine(DirectoryPath, "styles")) && Directory.EnumerateFiles(Path.Combine(DirectoryPath, "styles"), "*.aegistyles").Any() ||
-            Directory.Exists(Path.Combine(DirectoryPath, "effects")) && Directory.EnumerateFiles(Path.Combine(DirectoryPath, "effects"), "*.aegieffect").Any();
+        return Directory.Exists(Path.Combine(directory, "legacy")) && Directory.EnumerateFiles(Path.Combine(directory, "legacy")).Any() ||
+            Directory.Exists(Path.Combine(directory, "styles")) && Directory.EnumerateFiles(Path.Combine(directory, "styles")).Any() ||
+            Directory.Exists(Path.Combine(directory, "effects")) && Directory.EnumerateFiles(Path.Combine(directory, "effects"), "*.aegieffect").Any();
     }
 
     private void TryMaintenance(Action action)
@@ -522,15 +596,20 @@ public sealed class EffectLibraryRepository : IDisposable
         return string.Equals(destination, root, comparison) || destination.StartsWith(prefix, comparison);
     }
 
-    private static bool PathsEqual(string path, string? other)
+    private bool IsWithinFontDirectory(string path)
     {
-        return other is not null && string.Equals(EffectLibraryPath.ResolvePhysicalPath(path), EffectLibraryPath.ResolvePhysicalPath(other),
-            OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        var root = EffectLibraryPath.ResolvePhysicalPath(FontDirectoryPath);
+        var destination = EffectLibraryPath.ResolvePhysicalPath(path);
+        var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        var prefix = Path.EndsInDirectorySeparator(root) ? root : root + Path.DirectorySeparatorChar;
+        return string.Equals(destination, root, comparison) || destination.StartsWith(prefix, comparison);
     }
 
     private static bool SameEntries(EffectLibraryManifest first, EffectLibraryManifest second)
     {
-        return first.Styles.SequenceEqual(second.Styles) && first.Effects.SequenceEqual(second.Effects);
+        return first.Styles.SequenceEqual(second.Styles) && first.Effects.SequenceEqual(second.Effects) &&
+            first.FontFamilies.Select(family => family.FamilyName + ":" + string.Join(",", family.Files.Select(file => file.Sha256)))
+                .SequenceEqual(second.FontFamilies.Select(family => family.FamilyName + ":" + string.Join(",", family.Files.Select(file => file.Sha256))), StringComparer.Ordinal);
     }
 
     private static string AbsolutePath(string path, string parameter)

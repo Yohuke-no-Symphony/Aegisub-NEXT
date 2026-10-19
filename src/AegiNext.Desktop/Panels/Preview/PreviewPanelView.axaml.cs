@@ -14,6 +14,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
+using Avalonia.Threading;
 
 namespace AegiNext.Desktop.Panels.Preview;
 
@@ -111,6 +112,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
             }
         };
         session.PreviewUpdated += OnPreviewUpdated;
+        session.Fonts.Changed += OnFontsChanged;
         session.ViewModel.GesturesCancelled += OnGesturesCancelled;
     }
 
@@ -305,8 +307,15 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
         canvas.EditMode = scene.Mode;
         canvas.MaskSelectedNodeId = session.SceneEditing.MaskNodeId;
         canvas.SpatialTarget = scene.SpatialTarget;
-        canvas.SetScene(scene.Document, scene.SelectedLayer, scene.Position, scene.AssetDirectory, scene.IsEditingPose);
+        canvas.SetScene(scene.Document, scene.SelectedLayer, scene.Position, scene.AssetDirectory, scene.IsEditingPose, session.Fonts.Catalog);
     }
+    private void OnFontsChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
+    {
+        if (!disposed)
+        {
+            ApplyScene();
+        }
+    });
     private void OnSceneGestureCancelled(object? sender, EventArgs e)
     {
         canvas.CancelGesture();
@@ -326,6 +335,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
             videoSurface.RemoveHandler(DragDrop.DragOverEvent, OnVideoDragOver);
             videoSurface.RemoveHandler(DragDrop.DropEvent, OnVideoDrop);
             session.PreviewUpdated -= OnPreviewUpdated;
+            session.Fonts.Changed -= OnFontsChanged;
             session.ViewModel.GesturesCancelled -= OnGesturesCancelled;
             viewModel.PropertyChanged -= OnSceneChanged;
             session.SceneGestureCancellationRequested -= OnSceneGestureCancelled;

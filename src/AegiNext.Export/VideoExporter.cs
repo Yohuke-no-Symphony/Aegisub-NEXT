@@ -28,11 +28,16 @@ public sealed class VideoExporter
         {
             var ffmpeg = ExportExecutable.Resolve("ffmpeg", request.FfmpegPath ?? Environment.GetEnvironmentVariable("AEGINEXT_FFMPEG_PATH"));
             var settings = VideoExportSettingsValidator.Normalize(request.ToSettings());
+            var fontFamilies = await ExportFontSnapshot.WriteAsync(request.FontFamilies, transaction.TemporaryDirectory,
+                cancellationToken).ConfigureAwait(false);
             var job = new ExportWorkerJob(JsonSerializer.SerializeToElement(request.Project, ExportWire.Options),
                 Path.GetFullPath(request.ProjectDirectory), transaction.TemporaryDirectory, transaction.Extension,
                 ffmpeg, ExportWorkerOperation.BURN_IN,
                 new(settings.Codec, settings.Preset, settings.Quality, settings.AudioMode, settings.AudioBitrate,
-                    settings.EncodingMode, settings.VideoBitrate, request.DecodeMode, settings.RateControlMode), ExportWire.VERSION);
+                    settings.EncodingMode, settings.VideoBitrate, request.DecodeMode, settings.RateControlMode), ExportWire.VERSION)
+            {
+                FontFamilies = fontFamilies
+            };
             var completed = await ExportWorkerClient.RunAsync(JsonSerializer.Serialize(job, ExportWire.Options),
                 request.WorkerPath, transaction.TemporaryDirectory, message =>
                 {

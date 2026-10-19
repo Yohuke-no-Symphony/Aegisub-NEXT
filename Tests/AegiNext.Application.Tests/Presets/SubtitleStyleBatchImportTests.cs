@@ -20,13 +20,13 @@ public sealed class SubtitleStyleBatchImportTests
         await library.UpsertAsync(retained);
         var firstPath = Path.Combine(directory.Path, "first.aegistyles");
         var secondPath = Path.Combine(directory.Path, "second.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first, second] }, firstPath);
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [third] }, secondPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [first, second] }, firstPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [third] }, secondPath);
 
         await library.ImportAsync([firstPath, secondPath]);
 
         Assert.Equal(new[] { retained.Id, first.Id, second.Id, third.Id }, library.Snapshot.Presets.Select(item => item.Id));
-        var readBack = await SubtitleStylePresetStore.LoadAsync(libraryPath);
+        var readBack = await TestStyleLibraryStorage.LoadAsync(libraryPath);
         Assert.Equal(library.Snapshot.Presets.Select(item => item.Id), readBack.Presets.Select(item => item.Id));
     }
 
@@ -39,16 +39,16 @@ public sealed class SubtitleStyleBatchImportTests
         using var library = new SubtitleStylePresetLibrary(libraryPath);
         await library.UpsertAsync(Preset("Existing"));
         var snapshot = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(libraryPath);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath));
         var firstPath = Path.Combine(directory.Path, "first.aegistyles");
         var secondPath = Path.Combine(directory.Path, "invalid.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [Preset("Valid")] }, firstPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [Preset("Valid")] }, firstPath);
         await File.WriteAllTextAsync(secondPath, "invalid JSON");
 
         await Assert.ThrowsAsync<InvalidDataException>(() => library.ImportAsync([firstPath, secondPath]));
 
         Assert.Same(snapshot, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(libraryPath));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath)));
         Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
     }
 
@@ -63,18 +63,18 @@ public sealed class SubtitleStyleBatchImportTests
         using var library = new SubtitleStylePresetLibrary(libraryPath);
         await library.UpsertAsync(Preset("Existing"));
         var snapshot = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(libraryPath);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath));
         var first = Preset("Imported");
         var second = duplicateId ? first with { Name = "Other" } : Preset("IMPORTED");
         var firstPath = Path.Combine(directory.Path, "first.aegistyles");
         var secondPath = Path.Combine(directory.Path, "second.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first] }, firstPath);
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [second] }, secondPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [first] }, firstPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [second] }, secondPath);
 
         await Assert.ThrowsAsync<InvalidDataException>(() => library.ImportAsync([firstPath, secondPath]));
 
         Assert.Same(snapshot, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(libraryPath));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath)));
     }
 
     /// <summary>取消与空输入都不改变已有提交。</summary>
@@ -86,9 +86,9 @@ public sealed class SubtitleStyleBatchImportTests
         using var library = new SubtitleStylePresetLibrary(libraryPath);
         await library.UpsertAsync(Preset("Existing"));
         var snapshot = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(libraryPath);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath));
         var firstPath = Path.Combine(directory.Path, "first.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [Preset("Imported")] }, firstPath);
+        await TestStylePackageStore.SaveAsync(new() { Presets = [Preset("Imported")] }, firstPath);
         using var cancellation = new CancellationTokenSource();
         await cancellation.CancelAsync();
 
@@ -96,7 +96,7 @@ public sealed class SubtitleStyleBatchImportTests
         await library.ImportAsync(Array.Empty<string>());
 
         Assert.Same(snapshot, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(libraryPath));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath)));
     }
 
     /// <summary>文件选择期间库发生修改时，导出仍使用先前捕获的样式快照。</summary>
@@ -107,20 +107,20 @@ public sealed class SubtitleStyleBatchImportTests
         var libraryPath = Path.Combine(directory.Path, "library.aegistyles");
         using var library = new SubtitleStylePresetLibrary(libraryPath);
         var captured = Preset("Captured");
-        await library.UpsertAsync(captured);
+        await library.UpsertAsync(TestStyleLibraryStorage.Captured(captured));
         var changed = captured with { Name = "Changed", Style = captured.Style with { FontSize = 99 } };
         await library.UpsertAsync(changed);
         var snapshot = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(libraryPath);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath));
         var destination = Path.Combine(directory.Path, "selected.aegistyles");
 
         await library.ExportAsync(captured, destination);
 
-        var exported = Assert.Single((await SubtitleStylePresetStore.LoadAsync(destination)).Presets);
+        var exported = Assert.Single((await TestStylePackageStore.LoadAsync(destination)).Presets);
         Assert.Equal(captured, exported);
         Assert.Equal(changed, Assert.Single(library.Snapshot.Presets));
         Assert.Same(snapshot, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(libraryPath));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath)));
     }
 
     /// <summary>单条快照导出禁止写回当前库，非法内容不替换既有目标。</summary>
@@ -133,7 +133,7 @@ public sealed class SubtitleStyleBatchImportTests
         var preset = Preset("Existing");
         await library.UpsertAsync(preset);
         var snapshot = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(libraryPath);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath));
         var destination = Path.Combine(directory.Path, "existing.aegistyles");
         await File.WriteAllTextAsync(destination, "Retain existing target");
 
@@ -142,7 +142,7 @@ public sealed class SubtitleStyleBatchImportTests
 
         Assert.Equal("Retain existing target", await File.ReadAllTextAsync(destination));
         Assert.Same(snapshot, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(libraryPath));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(libraryPath)));
         Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
     }
 

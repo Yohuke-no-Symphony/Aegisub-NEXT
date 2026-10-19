@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Rendering.Projects;
+using AegiNext.Rendering.Fonts;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -20,6 +21,7 @@ public sealed class RichSubtitleEditor : Control, IDisposable
     private readonly RichSubtitleInputMethodClient inputMethod;
     private readonly Cursor textCursor = new(StandardCursorType.Ibeam);
     private ProjectSceneRenderer? renderer;
+    private SystemFontCatalog? fontCatalog;
     private string? directory;
     private ProjectDocument? document;
     private SubtitleLine? line;
@@ -67,7 +69,7 @@ public sealed class RichSubtitleEditor : Control, IDisposable
 
     /// <summary>同步不可变内容及工程资源，保持同一行的选区；不发出业务编辑。</summary>
     public void SetContent(ProjectDocument source, SubtitleLine? value, string projectDirectory,
-        MediaTime? localTime = null, SubtitlePreviewMode previewMode = SubtitlePreviewMode.TIMED)
+        MediaTime? localTime = null, SubtitlePreviewMode previewMode = SubtitlePreviewMode.TIMED, SystemFontCatalog? fonts = null)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         var previousId = line?.Id;
@@ -77,7 +79,7 @@ public sealed class RichSubtitleEditor : Control, IDisposable
         }
         var previewTime = previewMode == SubtitlePreviewMode.TIMED ? localTime : null;
         var sameContent = ReferenceEquals(document, source) && line == value && directory == projectDirectory &&
-            this.previewMode == previewMode && renderedTime == previewTime && renderedPreedit == preedit &&
+            ReferenceEquals(fontCatalog, fonts) && this.previewMode == previewMode && renderedTime == previewTime && renderedPreedit == preedit &&
             (preedit.Length == 0 || renderedSelectionStart == selectionStart && renderedSelectionEnd == selectionEnd);
         this.previewMode = previewMode;
         document = source;
@@ -93,11 +95,12 @@ public sealed class RichSubtitleEditor : Control, IDisposable
             selectionStart = Boundary(Math.Min(selectionStart, Text.Length));
             selectionEnd = Boundary(Math.Min(selectionEnd, Text.Length));
         }
-        if (renderer is null || directory != projectDirectory)
+        if (renderer is null || directory != projectDirectory || !ReferenceEquals(fontCatalog, fonts))
         {
             renderer?.Dispose();
             directory = projectDirectory;
-            renderer = new(new DirectoryProjectAssetResolver(projectDirectory));
+            fontCatalog = fonts;
+            renderer = new(new DirectoryProjectAssetResolver(projectDirectory), fonts);
         }
         if (!sameContent)
         {

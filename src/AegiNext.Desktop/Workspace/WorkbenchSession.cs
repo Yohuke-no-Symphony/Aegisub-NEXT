@@ -449,8 +449,29 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
                     ClearInspectorPreview();
                 }
                 ViewModel.RefreshCommands();
+                playback.Invalidate();
+                controller.InvalidatePreview();
+                _ = RefreshFontPreviewAsync();
             }
         }, CancellationToken.None);
+    }
+
+    private async Task RefreshFontPreviewAsync()
+    {
+        try
+        {
+            await controller.RefreshPausedPreviewAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception error)
+        {
+            if (!closing)
+            {
+                ShowError(error);
+            }
+        }
     }
 
     internal async Task WaitForProjectIdleAsync()

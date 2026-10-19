@@ -18,11 +18,14 @@ public sealed class EffectLibraryTransferUiTests
     public async Task MixedImportShowsPreviewAndOnlyCommitsAfterConfirmation()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
         var input = Path.Combine(environment.DirectoryPath, "incoming.aegilibrary");
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Shared style", new());
-        await EffectLibraryPackageStore.SaveAsync(new() { Styles = new() { Presets = [style] } }, input);
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Shared style", new() { FontFamily = "Noto Sans" });
+        await EffectLibraryPackageStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = [style] }, FontFamilies = [StyleExchangeUiTestFonts.Family]
+        }, input);
         var effect = new EffectScriptPreset(Guid.NewGuid(), "Shared effect",
             BuiltinEffectScripts.Get("fade-in").Source.Replace("\"fade-in\"", "\"mixed-import\"", StringComparison.Ordinal));
         var effectPath = Path.Combine(environment.DirectoryPath, "incoming.aegieffect");
@@ -46,12 +49,18 @@ public sealed class EffectLibraryTransferUiTests
                 Assert.Single(model.Rows, row => row.Row.Status == EffectLibraryImportStatus.IDENTICAL).Decision);
             Assert.Empty(context.StyleLibrary.Snapshot.Presets);
             Assert.Empty(context.EffectScriptLibrary.Snapshot.Presets);
+            Assert.Empty(context.EffectLibrary.Snapshot.FontFamilies);
+            Assert.False(Directory.Exists(context.LibraryPaths.FontsDirectory));
 
             UiTestActions.Click(host, "CommitEffectLibraryImportButton");
             await coordinator.Completion.WaitAsync(TimeSpan.FromSeconds(5));
 
             Assert.Equal(style, Assert.Single(context.StyleLibrary.Snapshot.Presets));
             Assert.Equal(effect, Assert.Single(context.EffectScriptLibrary.Snapshot.Presets));
+            Assert.Equal(StyleExchangeUiTestFonts.Family.Files[0].Sha256,
+                Assert.Single(Assert.Single(context.EffectLibrary.Snapshot.FontFamilies).Files).Sha256);
+            Assert.Equal(StyleExchangeUiTestFonts.Family.Files[0].Sha256,
+                Assert.Single(Assert.Single(context.Fonts.Catalog!.ApplicationFonts).Files).Sha256);
             Assert.False(model.HasPreview);
             Assert.Null(model.Error);
         }
@@ -65,10 +74,14 @@ public sealed class EffectLibraryTransferUiTests
     public async Task ClearingPreviewDuringDraftPreparationPreventsThePendingCommit()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
         var input = Path.Combine(environment.DirectoryPath, "style.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [new(Guid.NewGuid(), "Imported", new())] }, input);
+        await SubtitleStylePresetStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = [new(Guid.NewGuid(), "Imported", new() { FontFamily = "Noto Sans" })] },
+            FontFamilies = [StyleExchangeUiTestFonts.Family]
+        }, input);
         var dialogs = new StartupTestDialogService { OpenPaths = [input] };
         TaskCompletionSource<bool>? preparation = null;
         using var model = new EffectLibraryTransferViewModel();
@@ -83,6 +96,8 @@ public sealed class EffectLibraryTransferUiTests
         await pendingCommit.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.Empty(context.StyleLibrary.Snapshot.Presets);
+        Assert.Empty(context.EffectLibrary.Snapshot.FontFamilies);
+        Assert.False(Directory.Exists(context.LibraryPaths.FontsDirectory));
         Assert.False(model.HasPreview);
         Assert.Null(model.Error);
     }
@@ -91,7 +106,7 @@ public sealed class EffectLibraryTransferUiTests
     public async Task ClosingDuringDraftPreparationIgnoresTheLatePreparationResult()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
         var preparation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var model = new EffectLibraryTransferViewModel();
@@ -112,10 +127,14 @@ public sealed class EffectLibraryTransferUiTests
     public async Task ClosingCancelsUnresolvedPreparationAndIgnoresItsLaterCompletion()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
         var input = Path.Combine(environment.DirectoryPath, "style.aegistyles");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [new(Guid.NewGuid(), "Imported", new())] }, input);
+        await SubtitleStylePresetStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = [new(Guid.NewGuid(), "Imported", new() { FontFamily = "Noto Sans" })] },
+            FontFamilies = [StyleExchangeUiTestFonts.Family]
+        }, input);
         var preparation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         var dialogs = new StartupTestDialogService { OpenPaths = [input] };
         using var model = new EffectLibraryTransferViewModel();
@@ -145,9 +164,9 @@ public sealed class EffectLibraryTransferUiTests
     public async Task ClosingCancelsUnresolvedDialogSelectionAndNeverExportsItsLateResult()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Original", new());
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontFamily = "Noto Sans" });
         await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(style));
         var selection = new TaskCompletionSource<EffectLibraryExportRequest?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var output = Path.Combine(environment.DirectoryPath, "late.aegistyles");
@@ -185,9 +204,9 @@ public sealed class EffectLibraryTransferUiTests
     public async Task ClosingCancelsAnUnresponsiveDialogServiceAndRejectsItsLateExportCallback()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Saved", new());
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Saved", new() { FontFamily = "Noto Sans" });
         await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(style));
         var before = context.EffectLibrary.Snapshot;
         var answer = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -230,9 +249,9 @@ public sealed class EffectLibraryTransferUiTests
     public async Task ClosingAnUnresponsiveDialogWaitsForTheCommittedExportAndItsStagingCleanup()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Saved style", new());
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Saved style", new() { FontFamily = "Noto Sans" });
         var effect = new EffectScriptPreset(Guid.NewGuid(), "Saved effect",
             BuiltinEffectScripts.Get("fade-in").Source.Replace("\"fade-in\"", "\"committed-export\"", StringComparison.Ordinal));
         await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(style));
@@ -273,7 +292,7 @@ public sealed class EffectLibraryTransferUiTests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => export);
 
             Assert.Equal(style, Assert.Single((await SubtitleStylePresetStore.LoadAsync(
-                Assert.Single(Directory.GetFiles(output, "*.aegistyles")))).Presets));
+                Assert.Single(Directory.GetFiles(output, "*.aegistyles")))).Styles.Presets));
             Assert.Equal(effect, await EffectScriptPresetStore.ReadPresetAsync(Assert.Single(Directory.GetFiles(output, "*.aegieffect"))));
             Assert.Empty(Directory.GetDirectories(output));
             Assert.False(answer.Task.IsCompleted);
@@ -306,18 +325,22 @@ public sealed class EffectLibraryTransferUiTests
     public async Task StalePreviewIsReanalyzedLocallyAndRequiresAnotherConfirmation()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
         var input = Path.Combine(environment.DirectoryPath, "style.aegistyles");
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Imported", new());
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [style] }, input);
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Imported", new() { FontFamily = "Noto Sans" });
+        await SubtitleStylePresetStore.SaveAsync(new()
+        {
+            Styles = new() { Presets = [style] }, FontFamilies = [StyleExchangeUiTestFonts.Family]
+        }, input);
         var dialogs = new StartupTestDialogService { OpenPaths = [input] };
         using var model = new EffectLibraryTransferViewModel();
         using var coordinator = new EffectLibraryTransferCoordinator(context, model, dialogs,
             () => Task.FromResult(true));
         await coordinator.ImportAsync();
         var previous = model.ImportPlan;
-        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new(Guid.NewGuid(), "Intervening", new())));
+        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(
+            new SubtitleStylePreset(Guid.NewGuid(), "Intervening", new() { FontFamily = "Noto Sans" })));
 
         await coordinator.CommitImportAsync();
 
@@ -336,9 +359,9 @@ public sealed class EffectLibraryTransferUiTests
     public async Task ExportFreezesTheCommittedLibraryBeforeDialogAndClosingIgnoresLatePickerResult()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false });
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
         await context.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Original", new());
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontFamily = "Noto Sans" });
         await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(style));
         var pending = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
         var dialogs = new StartupTestDialogService { PendingSaveSelection = pending };

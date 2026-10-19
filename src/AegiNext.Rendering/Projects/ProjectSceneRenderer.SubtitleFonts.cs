@@ -53,7 +53,7 @@ public sealed partial class ProjectSceneRenderer
         {
             return existing;
         }
-        var resolved = !style.FontAssetId.HasValue && style.FontVariant.HasValue
+        var resolved = !style.FontAssetId.HasValue && (style.FontVariant.HasValue || hasApplicationFonts)
             ? systemFonts.Value.Resolve(style) : new ResolvedSystemFont(Typeface(document, style), null, false);
         var result = CacheTextShaper(resolved.Typeface, style, resolved.Face);
         textShapers.Add(key, result);
@@ -73,11 +73,36 @@ public sealed partial class ProjectSceneRenderer
             resolvedTextShapers.Add(key, preferred);
             return preferred;
         }
+        if (hasApplicationFonts)
+        {
+            foreach (var candidate in systemFonts.Value.ApplicationFallbacks(style))
+            {
+                var fallback = CacheTextShaper(candidate.Typeface, style, candidate.Face);
+                if (fallback.ContainsGlyphs(grapheme))
+                {
+                    resolvedTextShapers.Add(key, fallback);
+                    return fallback;
+                }
+            }
+        }
         using var fontStyle = FontStyle(style);
         foreach (var rune in grapheme.EnumerateRunes())
         {
             if (TextShaper.IsShapingControl(rune))
             {
+                continue;
+            }
+            if (hasApplicationFonts)
+            {
+                foreach (var systemCandidate in systemFonts.Value.SystemFallbacks(style, rune.Value))
+                {
+                    var systemFallback = CacheTextShaper(systemCandidate.Typeface, style, systemCandidate.Face);
+                    if (systemFallback.ContainsGlyphs(grapheme))
+                    {
+                        resolvedTextShapers.Add(key, systemFallback);
+                        return systemFallback;
+                    }
+                }
                 continue;
             }
             var candidate = SKFontManager.Default.MatchCharacter(style.FontFamily, fontStyle, ["und"], rune.Value);

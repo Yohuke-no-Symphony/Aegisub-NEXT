@@ -72,26 +72,10 @@ public sealed class SubtitleScalingPersistenceTests
     [InlineData(4)]
     [InlineData(5)]
     [InlineData(6)]
-    public async Task LegacyLibrariesUseDefaultReferenceDimensions(int version)
+    public async Task LegacyLibrariesAreRejected(int version)
     {
-        using var directory = new TemporaryProjectDirectory();
-        var collection = Library(new());
-        var root = JsonNode.Parse(SubtitleStylePresetStore.Serialize(collection))!.AsObject();
-        root["version"] = version;
-        LegacySubtitleMarginsJsonFixture.DowngradeLibrary(root);
-        if (version == 1)
-        {
-            root["presets"]![0]!["style"]!.AsObject().Remove("position");
-        }
-
-        var bytes = Encode(root);
-        var expected = SubtitleStylePresetStore.Serialize(collection);
-        Assert.Equal(expected, SubtitleStylePresetStore.Serialize(SubtitleStylePresetStore.Deserialize(bytes)));
-        var path = Path.Combine(directory.Path, "legacy-scaling.aegistyles");
-        await File.WriteAllBytesAsync(path, bytes);
-        Assert.Equal(expected, SubtitleStylePresetStore.Serialize(await SubtitleStylePresetStore.LoadAsync(path)));
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
-        Assert.Equal(version, root["version"]!.GetValue<int>());
+        var bytes = System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version},\"presets\":[]}}");
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(bytes));
     }
 
     /// <summary>当前工程和样式库完整保留用户设定的参考尺寸与匹配权重。</summary>
@@ -107,11 +91,11 @@ public sealed class SubtitleScalingPersistenceTests
         };
         var bytes = ProjectStore.Serialize(original);
         Assert.Equal(bytes, ProjectStore.Serialize(ProjectStore.Deserialize(bytes)));
-        Assert.Equal(15, ProjectStore.Deserialize(bytes).Version);
+        Assert.Equal(ProjectDocument.CURRENT_VERSION, ProjectStore.Deserialize(bytes).Version);
         var collection = Library(original.Subtitles[0].Style);
-        bytes = SubtitleStylePresetStore.Serialize(collection);
-        Assert.Equal(bytes, SubtitleStylePresetStore.Serialize(SubtitleStylePresetStore.Deserialize(bytes)));
-        Assert.Equal(7, SubtitleStylePresetStore.Deserialize(bytes).Version);
+        bytes = SubtitleStylePresetMetadataStore.Serialize(collection);
+        Assert.Equal(bytes, SubtitleStylePresetMetadataStore.Serialize(SubtitleStylePresetMetadataStore.Deserialize(bytes)));
+        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, SubtitleStylePresetMetadataStore.Deserialize(bytes).Version);
     }
 
     /// <summary>当前完整样式拒绝缺失、空、未知、不完整或非法的参考设置。</summary>
@@ -140,9 +124,9 @@ public sealed class SubtitleScalingPersistenceTests
             Assert.Throws<InvalidDataException>(() => ProjectStore.Deserialize(parsed.RootElement));
         }
 
-        var library = JsonNode.Parse(SubtitleStylePresetStore.Serialize(Library(new())))!.AsObject();
+        var library = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(Library(new())))!.AsObject();
         MutateScaling(library["presets"]![0]!["style"]!.AsObject(), mutation);
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encode(library)));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encode(library)));
     }
 
     /// <summary>任何旧版本都不能携带未声明的参考设置，即使字段值为空。</summary>
@@ -163,7 +147,7 @@ public sealed class SubtitleScalingPersistenceTests
 
         foreach (var version in Enumerable.Range(1, 6))
         {
-            var root = JsonNode.Parse(SubtitleStylePresetStore.Serialize(Library(new())))!.AsObject();
+            var root = JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(Library(new())))!.AsObject();
             root["version"] = version;
             LegacySubtitleMarginsJsonFixture.DowngradeLibrary(root);
             if (version == 1)
@@ -171,7 +155,7 @@ public sealed class SubtitleScalingPersistenceTests
                 root["presets"]![0]!["style"]!.AsObject().Remove("position");
             }
             root["presets"]![0]!["style"]!["scaling"] = nullValue ? null : ScalingNode();
-            Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(Encode(root)));
+            Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(Encode(root)));
         }
     }
 
@@ -190,12 +174,12 @@ public sealed class SubtitleScalingPersistenceTests
         await File.WriteAllBytesAsync(path, bytes);
         await Assert.ThrowsAsync<InvalidDataException>(() => ProjectStore.LoadAsync(path));
 
-        json = Encoding.UTF8.GetString(SubtitleStylePresetStore.Serialize(Library(new())));
+        json = Encoding.UTF8.GetString(SubtitleStylePresetMetadataStore.Serialize(Library(new())));
         bytes = Encoding.UTF8.GetBytes(DuplicateWidth(json));
-        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetStore.Deserialize(bytes));
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(bytes));
         path = Path.Combine(directory.Path, "duplicate.aegistyles");
         await File.WriteAllBytesAsync(path, bytes);
-        await Assert.ThrowsAsync<InvalidDataException>(() => SubtitleStylePresetStore.LoadAsync(path));
+        await Assert.ThrowsAsync<InvalidDataException>(() => SubtitleStylePresetMetadataStore.LoadAsync(path));
     }
 
     private static ProjectDocument Document(int width, int height)

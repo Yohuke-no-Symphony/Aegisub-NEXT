@@ -6,13 +6,25 @@ using AegiNext.Core.Timing;
 using AegiNext.Rendering.Fonts;
 using AegiNext.Rendering.SubtitleFormats;
 using AegiNext.SubtitleFormats;
-using SkiaSharp;
 
 namespace AegiNext.Cli;
 
 /// <summary>复用格式库、工程导入操作和共享 ASS 排版完成转换。</summary>
 public sealed class SubtitleConversionService : ISubtitleConversionService
 {
+    private readonly CliFontLibrary fontLibrary;
+
+    /// <summary>使用与桌面端相同的应用字体目录和有效效果库清单。</summary>
+    public SubtitleConversionService() : this(new())
+    {
+    }
+
+    internal SubtitleConversionService(CliFontLibrary fontLibrary)
+    {
+        ArgumentNullException.ThrowIfNull(fontLibrary);
+        this.fontLibrary = fontLibrary;
+    }
+
     /// <summary>读取严格 UTF-8 字幕或版本化工程，汇总导入和导出诊断。</summary>
     public async Task<SubtitleFormatWriteResult> ConvertAsync(string inputPath, string target, CancellationToken cancellationToken)
     {
@@ -32,7 +44,7 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
             cancellationToken.ThrowIfCancellationRequested();
             if (extension.Equals(".ass", StringComparison.OrdinalIgnoreCase))
             {
-                fonts = new(SKFontManager.Default, cancellationToken: cancellationToken);
+                fonts = await fontLibrary.LoadCatalogAsync(cancellationToken).ConfigureAwait(false);
                 using var importMeasurer = new AssSubtitlePlacementMeasurer(Path.GetDirectoryName(inputPath)!, fonts);
                 var imported = AssSubtitleFormat.ParseAtSourceResolution(source, new AssFontWeightResolver(fonts.Faces),
                     placementMeasurer: importMeasurer, maskGeometryCombiner: new AssMaskGeometryCombiner());
@@ -63,7 +75,7 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
         SubtitleFormatWriteResult result;
         if (target.Equals("ass", StringComparison.OrdinalIgnoreCase))
         {
-            fonts ??= new(SKFontManager.Default, cancellationToken: cancellationToken);
+            fonts ??= await fontLibrary.LoadCatalogAsync(cancellationToken).ConfigureAwait(false);
             using var measurer = new AssSubtitlePlacementMeasurer(Path.GetDirectoryName(inputPath)!, fonts);
             result = AssSubtitleFormat.Write(document, timeOffset, measurer);
         }

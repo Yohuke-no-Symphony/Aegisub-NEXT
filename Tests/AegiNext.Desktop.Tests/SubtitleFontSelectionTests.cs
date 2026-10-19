@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
@@ -38,14 +37,13 @@ public sealed class SubtitleFontSelectionTests
     }
 
     [Fact]
-    public void SettingsSynchronizeBlackWithoutChangingItAndClearSameFamilyEmbeddedPayload()
+    public void SettingsSynchronizeBlackWithoutChangingItAndSelectOtherFamilyVariants()
     {
-        var font = new EmbeddedSubtitleFont("fixture.ttf", Convert.ToHexStringLower(SHA256.HashData([1, 2, 3])), [1, 2, 3]);
         var model = new StyleLibraryViewModel();
         model.SetFonts(Fonts());
-        model.UpdateStyles([new(Guid.NewGuid(), "Embedded", new() { FontFamily = "Fixture" }, font)]);
+        model.UpdateStyles([new(Guid.NewGuid(), "Example", new() { FontFamily = "Fixture" })]);
         model.CommitFont(new FontSelection("Fixture", Variant("Black", 900), true));
-        Assert.Null(model.Draft!.Font);
+        Assert.Null(model.Draft!.Style.FontAssetId);
         Assert.Equal(900, model.Draft.Style.FontVariant?.Weight);
         Assert.True(model.Bold);
         model.Bold = true;

@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
+using AegiNext.Application.Presets;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
@@ -12,15 +14,24 @@ public sealed class StyleBatchPresetTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task ApplyingPresetToSelectedSubtitlesClearsTheirInlineFormattingWithOneUndo(bool embeddedFont)
+    public async Task ApplyingPresetToSelectedSubtitlesClearsTheirInlineFormattingWithOneUndo(bool applicationFont)
     {
         var document = Document();
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         var session = context.Session;
         session.SetProjectLocation(null, context.DirectoryPath);
-        var preset = await CreatePresetAsync(embeddedFont);
-        await session.Styles.UpsertAsync(preset);
+        var captured = await CreatePresetAsync(applicationFont);
+        var preset = captured.Preset;
+        if (applicationFont)
+        {
+            await session.ApplicationContext.RunStyleOperationAsync(() => session.StyleLibrary.UpsertAsync(captured));
+            session.Styles.Refresh(preset.Id);
+        }
+        else
+        {
+            await session.Styles.UpsertAsync(preset);
+        }
         var selected = document.Layers.Where(layer => layer.SubtitleId == document.Subtitles[0].Id ||
             layer.SubtitleId == document.Subtitles[1].Id).Select(layer => layer.Id).ToArray();
         session.SelectLayer(selected[0], selected);
@@ -31,19 +42,17 @@ public sealed class StyleBatchPresetTests
         Assert.Null(session.LastError);
         Assert.False(session.IsProjectBusy);
         var changed = context.Editor.Snapshot;
-        var font = embeddedFont ? Assert.Single(changed.Assets.Where(asset => asset.Kind == ProjectAssetKind.FONT)) : null;
-        var expectedStyle = preset.Style with { FontAssetId = font?.Id };
         foreach (var original in document.Subtitles.Take(2))
         {
             var line = changed.Subtitles.Single(value => value.Id == original.Id);
             Assert.Equal(original with
             {
-                Style = expectedStyle, StyleName = preset.Name, StylePresetId = preset.Id, InlineSpans = []
+                Style = preset.Style, StyleName = preset.Name, StylePresetId = preset.Id, InlineSpans = []
             }, line);
         }
         Assert.Same(document.Subtitles[2], changed.Subtitles[2]);
         Assert.Equal(document.Layers, changed.Layers);
-        Assert.Equal(document.Assets.Length + (embeddedFont ? 1 : 0), changed.Assets.Length);
+        Assert.Equal(document.Assets, changed.Assets);
         Assert.True(context.Editor.Undo());
         Assert.Same(document, context.Editor.Snapshot);
         Assert.False(context.Editor.CanUndo);
@@ -61,7 +70,7 @@ public sealed class StyleBatchPresetTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         var session = context.Session;
-        var preset = await CreatePresetAsync(false);
+        var preset = (await CreatePresetAsync(false)).Preset;
         await session.Styles.UpsertAsync(preset);
         var primary = document.Layers.First(layer => layer.Kind == primaryKind);
         session.SelectLayer(primary.Id, document.Layers.Select(layer => layer.Id).ToArray());
@@ -83,7 +92,7 @@ public sealed class StyleBatchPresetTests
         await using var context = new WorkspaceSessionTestContext(document);
         await context.InitializeAsync();
         var session = context.Session;
-        var preset = await CreatePresetAsync(false);
+        var preset = (await CreatePresetAsync(false)).Preset;
         await session.Styles.UpsertAsync(preset);
         session.SelectCue(document.Subtitles[0].Id);
         var shape = document.Layers.Single(layer => layer.Kind == LayerKind.SHAPE);
@@ -97,15 +106,19 @@ public sealed class StyleBatchPresetTests
         Assert.False(context.Editor.CanUndo);
     }
 
-    private static async Task<SubtitleStylePreset> CreatePresetAsync(bool embeddedFont)
+    private static async Task<CapturedSubtitleStyle> CreatePresetAsync(bool applicationFont)
     {
-        EmbeddedSubtitleFont? font = null;
-        if (embeddedFont)
+        ImmutableArray<FontFamilyBundle> families = [];
+        if (applicationFont)
         {
             var bytes = (await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"))).ToImmutableArray();
-            font = new("NotoSans.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes.AsSpan())), bytes);
+            var font = new EmbeddedSubtitleFont("NotoSans.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes.AsSpan())), bytes);
+            families = [new("Noto Sans", [font])];
         }
-        return new(Guid.NewGuid(), "Batch preset", new() { FontFamily = "sans-serif", FontSize = 96, Fill = new(0.2, 0.4, 0.6) }, font);
+        return new(new(Guid.NewGuid(), "Batch preset", new()
+        {
+            FontFamily = applicationFont ? "Noto Sans" : "sans-serif", FontSize = 96, Fill = new(0.2, 0.4, 0.6)
+        }), families);
     }
 
     private static ProjectDocument Document()

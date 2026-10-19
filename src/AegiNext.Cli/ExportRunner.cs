@@ -5,7 +5,8 @@ using Spectre.Console;
 
 namespace AegiNext.Cli;
 
-internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService service, TimeProvider? clock = null)
+internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService service, TimeProvider? clock = null,
+    CliFontLibrary? fontLibrary = null)
 {
     internal async Task<int> RunAsync(ExportSettings options, CancellationToken cancellationToken)
     {
@@ -39,7 +40,11 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
             throw new CliUsageException("Video export requires a media binding and a project canvas with even width and height.");
         }
         var request = new VideoExportRequest(project, Path.GetDirectoryName(input)!, output)
-            .WithSettings(configuration.Settings) with { DecodeMode = configuration.DecodeMode };
+            .WithSettings(configuration.Settings) with
+        {
+            DecodeMode = configuration.DecodeMode,
+            FontFamilies = await (fontLibrary ?? new()).LoadFamiliesAsync(cancellationToken).ConfigureAwait(false)
+        };
         PrintSummary(request);
         VideoExportResult result;
         if (runtime.CanPrompt(options))

@@ -1,4 +1,6 @@
 using AegiNext.Core.Presets;
+using System.Collections.Immutable;
+using AegiNext.Core.Fonts;
 
 namespace AegiNext.Application.Presets;
 
@@ -7,4 +9,5 @@ public sealed record EffectLibraryPackage
 {
     public SubtitleStylePresetCollection Styles { get; init; } = new();
     public EffectScriptPresetDocument Effects { get; init; } = new();
+    public ImmutableArray<FontFamilyBundle> FontFamilies { get; init; } = [];
 }

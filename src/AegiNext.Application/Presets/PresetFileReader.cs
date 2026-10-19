@@ -10,20 +10,21 @@ internal static class PresetFileReader
             throw new InvalidDataException("预设或字体文件超过容量预算。");
         }
 
-        using var buffer = new MemoryStream(checked((int)stream.Length));
-        var chunk = new byte[65536];
-        int read;
-        while ((read = await stream.ReadAsync(chunk, cancellationToken).ConfigureAwait(false)) > 0)
+        var bytes = new byte[checked((int)stream.Length)];
+        try
         {
-            if (buffer.Length + read > maximumBytes)
-            {
-                throw new InvalidDataException("预设或字体文件超过容量预算。");
-            }
-
-            buffer.Write(chunk, 0, read);
+            await stream.ReadExactlyAsync(bytes, cancellationToken).ConfigureAwait(false);
         }
-
+        catch (EndOfStreamException error)
+        {
+            throw new InvalidDataException("读取预设或字体时文件长度发生变化。", error);
+        }
+        var extra = new byte[1];
+        if (await stream.ReadAsync(extra, cancellationToken).ConfigureAwait(false) != 0)
+        {
+            throw new InvalidDataException("读取预设或字体时文件长度发生变化。");
+        }
         cancellationToken.ThrowIfCancellationRequested();
-        return buffer.ToArray();
+        return bytes;
     }
 }

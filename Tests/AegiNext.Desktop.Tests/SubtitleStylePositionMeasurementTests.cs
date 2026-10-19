@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
+using AegiNext.Rendering.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Rendering;
 using AegiNext.Desktop.EffectLibrary.Styles;
@@ -31,20 +33,21 @@ public sealed class SubtitleStylePositionMeasurementTests
     }
 
     [Fact]
-    public void EmbeddedFontMeasurementsUseActualInkAndCurrentCanvasWithoutWritingAssets()
+    public void ApplicationFontMeasurementsUseActualInkAndCurrentCanvasWithoutWritingAssets()
     {
         var bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"));
         var font = new EmbeddedSubtitleFont("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]);
         var preset = new SubtitleStylePreset(Guid.NewGuid(), "Example", new()
         {
             Scaling = new() { ReferenceWidth = 256, ReferenceHeight = 160 },
-            FontFamily = "Embedded test font", FontSize = 22, Margins = new(8, 8, 8),
+            FontFamily = "Noto Sans", FontSize = 22, Margins = new(8, 8, 8),
             StrokeWidth = 0, ShadowColor = SceneColor.Transparent
-        }, font);
+        });
 
-        var measured = SubtitleStylePositionMeasurer.Measure(preset, 256, 160, "  ABC  \n  DEF  ");
-        var plain = SubtitleStylePositionMeasurer.Measure(preset, 256, 160, "ABC\nDEF");
-        var largerCanvas = SubtitleStylePositionMeasurer.Measure(preset, 1920, 1080, "  ABC  \n  DEF  ");
+        var fonts = new SystemFontCatalog([new FontFamilyBundle("Noto Sans", [font])], SystemFontCatalog.Empty);
+        var measured = SubtitleStylePositionMeasurer.Measure(preset, 256, 160, "  ABC  \n  DEF  ", fonts);
+        var plain = SubtitleStylePositionMeasurer.Measure(preset, 256, 160, "ABC\nDEF", fonts);
+        var largerCanvas = SubtitleStylePositionMeasurer.Measure(preset, 1920, 1080, "  ABC  \n  DEF  ", fonts);
 
         Assert.Null(measured.Error);
         Assert.NotNull(measured.Position);
@@ -61,14 +64,14 @@ public sealed class SubtitleStylePositionMeasurementTests
             Scaling = new() { ReferenceWidth = 1920, ReferenceHeight = 1080 },
             FontSize = 22 * scale, Margins = new(8 * scale, 8 * scale, 8 * scale)
         } };
-        var expectedLarge = SubtitleStylePositionMeasurer.Measure(canvasPreset, 1920, 1080, "  ABC  \n  DEF  ");
+        var expectedLarge = SubtitleStylePositionMeasurer.Measure(canvasPreset, 1920, 1080, "  ABC  \n  DEF  ", fonts);
         Assert.Equal(scale, largerCanvas.Geometry.OffsetScale, 10);
         Assert.Equal(expectedLarge.Geometry!.GlyphSize, largerCanvas.Geometry.GlyphSize);
         Assert.True(largerCanvas.Geometry.GlyphSize.X > measured.Geometry.GlyphSize.X * 5);
         Assert.True(largerCanvas.Geometry.GlyphSize.Y > measured.Geometry.GlyphSize.Y * 5);
         Assert.Null(preset.Style.FontAssetId);
         Assert.Null(preset.Style.Position);
-        Assert.Same(font, preset.Font);
+        Assert.Same(font, Assert.Single(Assert.Single(fonts.ApplicationFonts).Files));
     }
 
     [Fact]
@@ -94,10 +97,10 @@ public sealed class SubtitleStylePositionMeasurementTests
     }
 
     [Fact]
-    public void InvalidFontReportsADiagnosticAndFontRepairRestoresPresetSelection()
+    public void InvalidStyleReportsADiagnosticAndRepairRestoresPresetSelection()
     {
         var font = new EmbeddedSubtitleFont("Broken.ttf", Convert.ToHexStringLower(SHA256.HashData([1, 2, 3])), [1, 2, 3]);
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Broken example", new() { FontFamily = "Broken embedded face" }, font);
+        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Broken example", new() { FontFamily = "Broken embedded face", FontSize = 0 });
         var model = new StyleLibraryViewModel();
         model.SetPositionMeasurement(value => SubtitleStylePositionMeasurer.Measure(value, 320, 180, "Subtitle Preview"));
         model.UpdateStyles([preset]);
@@ -105,14 +108,15 @@ public sealed class SubtitleStylePositionMeasurementTests
         Assert.True(model.HasPositionMeasurementError);
         Assert.False(string.IsNullOrWhiteSpace(model.PositionMeasurementError));
         Assert.False(model.Position.CanSelectPreset);
-        Assert.Same(font, model.Draft!.Font);
+        Assert.Equal(0, model.Draft!.Style.FontSize);
         Assert.Null(model.Draft.Style.Position);
 
+        model.FontSizeText = "64";
         model.CommitFont("sans-serif");
 
         Assert.False(model.HasPositionMeasurementError);
         Assert.Null(model.PositionMeasurementError);
-        Assert.Null(model.Draft.Font);
+        Assert.Null(model.Draft.Style.FontAssetId);
         Assert.True(model.Position.CanSelectPreset);
         Assert.NotNull(model.Position.Geometry);
         Assert.True(model.Position.SelectPreset(new(0.5, 0.5)));

@@ -506,7 +506,7 @@ internal sealed partial class WorkbenchSession
 
     private Rendering.LayerPlacementResolution ResolvePlacement(ProjectDocument document, ProjectLayer? layer)
     {
-        var result = layerPlacement.Resolve(document, projectDirectory, layer, AnimationTarget?.LocalTime);
+        var result = layerPlacement.Resolve(document, projectDirectory, layer, AnimationTarget?.LocalTime, Fonts.Catalog);
         if (result.Error is { } error)
         {
             placementDiagnostic = new InvalidDataException($"{Localization.Get("Workbench.SubtitlePositionUnavailable")}: {error.Message}", error);

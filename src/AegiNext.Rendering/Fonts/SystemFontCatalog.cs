@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Projects;
 using SkiaSharp;
 
@@ -7,6 +8,8 @@ namespace AegiNext.Rendering.Fonts;
 /// <summary>系统已安装字体的托管快照，不保留字体或字体样式集合的原生资源。</summary>
 public sealed class SystemFontCatalog
 {
+    private readonly ImmutableArray<SystemFontFace> systemFaces;
+    private readonly ImmutableArray<SystemFontFace> installedFaces;
     /// <summary>枚举默认系统字体管理器中的全部字体。</summary>
     public SystemFontCatalog() : this(SKFontManager.Default)
     {
@@ -46,14 +49,35 @@ public sealed class SystemFontCatalog
                 }
             }
         }
-        Faces = Merge(faces);
+        installedFaces = faces.ToImmutable();
+        Faces = Merge(installedFaces);
+        systemFaces = Faces;
         Issues = issues.ToImmutable();
     }
 
     internal SystemFontCatalog(IEnumerable<SystemFontFace> faces)
     {
         Faces = Merge(faces);
+        systemFaces = Faces;
+        installedFaces = Faces;
         Issues = [];
+    }
+
+    /// <summary>将完整应用字体族叠加到系统快照；同名族的全部系统变体由应用族替代。</summary>
+    public SystemFontCatalog(IEnumerable<FontFamilyBundle> applicationFonts, SystemFontCatalog? systemCatalog = null)
+    {
+        ArgumentNullException.ThrowIfNull(applicationFonts);
+        ApplicationFonts = applicationFonts.ToImmutableArray();
+        FontFamilyBundleValidator.ValidateLibrary(ApplicationFonts);
+        var original = systemCatalog ?? new SystemFontCatalog();
+        systemFaces = original.systemFaces;
+        installedFaces = original.installedFaces;
+        Issues = original.Issues;
+        var applicationFaces = ApplicationFonts.SelectMany(ReadApplicationFaces).ToImmutableArray();
+        var privateNames = applicationFaces.SelectMany(face => face.Aliases.Append(face.FamilyName))
+            .Concat(ApplicationFonts.Select(family => family.FamilyName)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        Faces = Merge(systemFaces.Where(face => !privateNames.Contains(face.FamilyName) &&
+            !face.Aliases.Any(privateNames.Contains)).Concat(applicationFaces));
     }
 
     /// <summary>无需枚举原生字体即可取得空目录。</summary>
@@ -61,6 +85,48 @@ public sealed class SystemFontCatalog
 
     public ImmutableArray<SystemFontFace> Faces { get; }
     public ImmutableArray<SystemFontCatalogIssue> Issues { get; }
+    /// <summary>当前应用字体族的原始文件快照；集合文件保持完整，供交换与独立导出冻结使用。</summary>
+    public ImmutableArray<FontFamilyBundle> ApplicationFonts { get; } = [];
+    internal ImmutableArray<SystemFontFace> InstalledFaces => installedFaces;
+
+    /// <summary>保留系统来源及其他应用字体族，以提供的完整字体族替换同名族。</summary>
+    public SystemFontCatalog WithFontFamilies(IEnumerable<FontFamilyBundle> applicationFonts)
+    {
+        ArgumentNullException.ThrowIfNull(applicationFonts);
+        var replacements = applicationFonts.ToImmutableArray();
+        FontFamilyBundleValidator.ValidateLibrary(replacements);
+        var names = replacements.Select(family => family.FamilyName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return new(ApplicationFonts.Where(family => !names.Contains(family.FamilyName)).Concat(replacements), this);
+    }
+
+    private static IEnumerable<SystemFontFace> ReadApplicationFaces(FontFamilyBundle family)
+    {
+        foreach (var file in family.Files)
+        {
+            var matches = OpenTypeFontFileReader.Read(file).Where(face => FontFamilyValidator.MatchesFamily(face.Metadata, family.FamilyName)).ToArray();
+            if (matches.Length == 0)
+            {
+                throw new InvalidDataException($"Font file '{file.FileName}' does not contain family '{family.FamilyName}'.");
+            }
+            foreach (var original in matches)
+            {
+                var metadata = original.Metadata;
+                var faces = CreateFaces(metadata, new()
+                {
+                    FamilyName = metadata.FamilyName!, SourceFamilyName = family.FamilyName,
+                    StyleName = metadata.SubfamilyName, PostScriptName = metadata.PostScriptName,
+                    Weight = metadata.Weight ?? 400, Width = metadata.Width ?? 5, Italic = metadata.Italic ?? false,
+                    FontIndex = original.CollectionIndex
+                });
+                foreach (var face in faces)
+                {
+                    var coordinates = metadata.NamedInstances.FirstOrDefault(instance => instance.Index == face.NamedInstanceIndex)?.Coordinates
+                        ?? metadata.Axes.ToImmutableDictionary(axis => axis.Tag, axis => axis.Default);
+                    yield return face with { ApplicationSource = new(file, original.CollectionIndex, coordinates) };
+                }
+            }
+        }
+    }
 
     internal static ImmutableArray<SystemFontFace> ReadTypeface(SKTypeface typeface, string sourceFamilyName, int styleIndex, string? styleName)
     {

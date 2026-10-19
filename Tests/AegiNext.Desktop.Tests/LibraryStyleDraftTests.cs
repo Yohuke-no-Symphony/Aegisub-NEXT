@@ -7,14 +7,14 @@ namespace AegiNext.Desktop.Tests;
 public sealed class LibraryStyleDraftTests
 {
     [Fact]
-    public void ChangingTypographyPreservesEmbeddedFontAndUneditedHdrColors()
+    public void ChangingTypographyPreservesFontFamilyAndUneditedHdrColors()
     {
         var original = CreatePreset();
         var draft = new LibraryStyleDraft(original);
 
         draft.UpdateStyle(draft.Preset.Style with { FontSize = 72, Bold = true, Margins = new(88, 88, 88) });
 
-        Assert.Same(original.Font, draft.Preset.Font);
+        Assert.Equal(original.Style.FontFamily, draft.Preset.Style.FontFamily);
         Assert.Equal(original.Style.Fill, draft.Preset.Style.Fill);
         Assert.Equal(original.Style.ShadowColor, draft.Preset.Style.ShadowColor);
         Assert.Equal(72, draft.Preset.Style.FontSize);
@@ -25,19 +25,19 @@ public sealed class LibraryStyleDraftTests
     }
 
     [Fact]
-    public void ExplicitFontFamilyChangeRemovesEmbeddedFontAndProjectAssetIdentity()
+    public void ExplicitFontFamilyChangeClearsProjectAssetIdentity()
     {
         var draft = new LibraryStyleDraft(CreatePreset());
 
         draft.UpdateStyle(draft.Preset.Style with { FontFamily = "serif", FontAssetId = Guid.NewGuid() });
 
         Assert.Equal("serif", draft.Preset.Style.FontFamily);
-        Assert.Null(draft.Preset.Font);
+        Assert.Null(draft.Preset.Style.FontAssetId);
         Assert.Null(draft.Preset.Style.FontAssetId);
     }
 
     [Fact]
-    public void DuplicateHasIndependentIdentityAndKeepsPortableFontAndOriginalStyle()
+    public void DuplicateHasIndependentIdentityAndKeepsFontFamilyAndOriginalStyle()
     {
         var original = CreatePreset();
         var draft = new LibraryStyleDraft(original);
@@ -45,7 +45,7 @@ public sealed class LibraryStyleDraftTests
 
         Assert.NotEqual(original.Id, copy.Preset.Id);
         Assert.Equal("Copy", copy.Preset.Name);
-        Assert.Same(original.Font, copy.Preset.Font);
+        Assert.Equal(original.Style.FontFamily, copy.Preset.Style.FontFamily);
         Assert.Same(original.Style, copy.Preset.Style);
 
         copy.Rename("Renamed");
@@ -84,8 +84,7 @@ public sealed class LibraryStyleDraftTests
     private static SubtitleStylePreset CreatePreset()
     {
         return new(Guid.NewGuid(), "Original",
-            new() { FontFamily = "Portable Family", Fill = new(2.5, 1.25, 0.5, 0.9), ShadowColor = new(1.5, 0.1, 0.2, 0.5) },
-            new("portable.ttf", new string('a', 64), [1, 2, 3]));
+            new() { FontFamily = "Portable Family", Fill = new(2.5, 1.25, 0.5, 0.9), ShadowColor = new(1.5, 0.1, 0.2, 0.5) });
     }
 
     [Fact]

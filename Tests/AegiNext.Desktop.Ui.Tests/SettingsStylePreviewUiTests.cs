@@ -2,6 +2,9 @@ using AegiNext.Desktop.EffectLibrary;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using AegiNext.Core.Presets;
+using AegiNext.Core.Fonts;
+using AegiNext.Desktop.Editing;
+using AegiNext.Rendering.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.I18n;
@@ -177,15 +180,14 @@ public sealed class SettingsStylePreviewUiTests
     }
 
     [AvaloniaFact]
-    public async Task SwitchingToAnUnreadableEmbeddedFontClearsThePreviousStylesImage()
+    public async Task InvalidPreviewTextClearsThePreviousStylesImage()
     {
         using var environment = new UiTestEnvironment();
         var window = CreateWindow(false);
         var first = CreatePreset();
         var broken = first with
         {
-            Id = Guid.NewGuid(), Name = "Broken",
-            Font = new("Broken.ttf", Convert.ToHexStringLower(SHA256.HashData([1, 2, 3])), [1, 2, 3])
+            Id = Guid.NewGuid(), Name = "Broken"
         };
         try
         {
@@ -198,6 +200,8 @@ public sealed class SettingsStylePreviewUiTests
             Assert.NotNull(frame.Source);
 
             window.ViewModel.Styles.SelectStyles(broken.Id, [broken.Id]);
+            window.ViewModel.Styles.PreviewText = "\uD800";
+            Assert.True(window.ViewModel.Styles.TryCreatePreviewPreset(out _));
             await RenderAsync(window, view);
 
             Assert.NotNull(window.ViewModel.Styles.PreviewError);
@@ -211,7 +215,9 @@ public sealed class SettingsStylePreviewUiTests
 
     private static EffectLibraryWindow CreateWindow(bool dark)
     {
-        return new(new WorkbenchPreferences()) { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        var window = new EffectLibraryWindow(new WorkbenchPreferences()) { RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light };
+        window.ViewModel.Styles.SetFonts(CreateFonts());
+        return window;
     }
 
     [AvaloniaFact]
@@ -310,13 +316,19 @@ public sealed class SettingsStylePreviewUiTests
         }
     }
 
-    private static SubtitleStylePreset CreatePreset()
+    private static SubtitleFontSelectionService CreateFonts()
     {
         var bytes = File.ReadAllBytes(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"));
+        var font = new EmbeddedSubtitleFont("NotoSans.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]);
+        return new(new SystemFontCatalog([new FontFamilyBundle("Noto Sans", [font])], SystemFontCatalog.Empty));
+    }
+
+    private static SubtitleStylePreset CreatePreset()
+    {
         return new(Guid.NewGuid(), "Example", new()
         {
-            FontFamily = "Embedded preview fixture", StrokeWidth = 0, ShadowColor = SceneColor.Transparent
-        }, new("Sample.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes)), [.. bytes]));
+            FontFamily = "Noto Sans", StrokeWidth = 0, ShadowColor = SceneColor.Transparent
+        });
     }
 
     private static async Task RenderAsync(Window window, StyleLibraryView view)

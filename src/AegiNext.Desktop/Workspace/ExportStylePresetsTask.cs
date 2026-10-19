@@ -17,16 +17,8 @@ internal sealed class ExportStylePresetsTask(WorkbenchSession session, string pa
         {
             throw new InvalidDataException("导出位置不能是正在使用的样式库文件。");
         }
-        var temporary = Path.GetFullPath(path) + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        try
-        {
-            await SubtitleStylePresetStore.SaveAsync(captured, temporary, context.CancellationToken);
-            context.EnterCommit();
-            File.Move(temporary, path, true);
-        }
-        finally
-        {
-            File.Delete(temporary);
-        }
+        session.ApplicationContext.LibraryPaths.RequireExternalExportPath(path);
+        await session.ApplicationContext.EffectLibraryTransfer.ExportStylesAsync(captured, path,
+            () => context.EnterCommit(), context.CancellationToken);
     }
 }

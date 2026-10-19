@@ -35,6 +35,12 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
 
     internal void Queue(Func<Task> action)
     {
+        _ = QueueAsync(() => session.RunCommandAsync(action));
+    }
+
+    internal Task QueueAsync(Func<Task> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
         queuedOperations++;
         BusyChanged?.Invoke(this, EventArgs.Empty);
         var operation = RunAsync(action);
@@ -43,6 +49,7 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
             operations.Add(operation);
         }
         _ = ForgetOperationAsync(operation);
+        return operation;
     }
 
     private async Task ForgetOperationAsync(Task operation)
@@ -60,7 +67,7 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
         {
             if (!session.IsClosing)
             {
-                await session.RunCommandAsync(action);
+                await action();
             }
         }
         finally
@@ -103,29 +110,38 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
         session.NotifyStyleLibraryChanged();
     }
 
-    internal async Task CaptureAsync()
+    internal async Task CaptureAsync(Guid presetId)
     {
-        if (session.IsProjectBusy || !session.TryCommitDrafts() || session.SelectedCue is not { } cue)
+        if (session.IsClosing || session.IsProjectBusy || !session.TryCommitDrafts() || session.SelectedCue is not { } cue)
         {
             return;
         }
-        await session.ApplicationContext.Tasks.Submit(new CaptureSubtitleStyleTask(session, this, cue,
-            session.Editor.Snapshot, session.ProjectDirectory)).Completion;
+        var captured = session.Editor.Snapshot;
+        var directory = session.ProjectDirectory;
+        if (cue.Style.FontAssetId.HasValue)
+        {
+            await session.Fonts.EnsureLoadedAsync();
+        }
+        if (session.IsClosing)
+        {
+            return;
+        }
+        await session.ApplicationContext.Tasks.Submit(new CaptureSubtitleStyleTask(session, this, presetId, cue,
+            captured, directory)).Completion;
     }
 
-    internal async Task CaptureCoreAsync(SubtitleLine cue, ProjectDocument captured, string directory,
+    internal async Task CaptureCoreAsync(Guid presetId, SubtitleLine cue, ProjectDocument captured, string directory,
         AegiTaskExecutionContext context)
     {
-        var index = 1;
-        var name = $"{Localization.Get("Workbench.CapturedStyle")} {index}";
-        while (session.StyleLibrary.Snapshot.Presets.Any(value => string.Equals(value.Name, name, StringComparison.OrdinalIgnoreCase)))
-        {
-            name = $"{Localization.Get("Workbench.CapturedStyle")} {++index}";
-        }
-        var preset = await SubtitleStylePresetService.CaptureAsync(name, cue.Style, captured, directory,
-            cancellationToken: context.CancellationToken);
+        var target = session.StyleLibrary.Snapshot.Presets.FirstOrDefault(value => value.Id == presetId) ??
+            throw new KeyNotFoundException("待覆盖的字幕样式不存在。");
+        var result = await SubtitleStylePresetService.CaptureAsync(target.Name, cue.Style, captured, directory,
+            session.ApplicationContext.FontSource, presetId, context.CancellationToken);
         context.EnterCommit();
-        await UpsertAsync(preset);
+        await session.ApplicationContext.RunStyleOperationAsync(() => session.StyleLibrary.OverwriteAsync(result));
+        Refresh(result.Preset.Id);
+        session.LogInfo("Styles", Localization.Get("WorkflowLog.StyleSaved"),
+            session.StyleLibrary.Snapshot.Presets.Single(value => value.Id == presetId).Name);
     }
 
     internal async Task ApplyAsync(SubtitleStylePreset preset)
@@ -248,6 +264,11 @@ internal sealed class StyleLibraryCoordinator(WorkbenchSession session, IWorkben
         var path = await dialogs.SaveFileAsync("ExportStyles", "StyleFiles", ["*.aegistyles"], ".aegistyles", "styles.aegistyles");
         if (path is not null)
         {
+            await session.Fonts.EnsureLoadedAsync();
+            if (session.IsClosing)
+            {
+                return;
+            }
             await session.ApplicationContext.Tasks.Submit(new ExportStylePresetsTask(session, path, session.StyleLibrary.Snapshot)).Completion;
             session.LogInfo("Styles", Localization.Get("WorkflowLog.StylesExported"), path);
         }

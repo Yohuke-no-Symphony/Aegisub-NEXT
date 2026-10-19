@@ -12,5 +12,6 @@
     <PackageReference Include="Spectre.Console.Cli.Testing" />
     <ProjectReference Include="../../src/AegiNext.Cli/AegiNext.Cli.csproj" />
     <Using Include="Xunit" />
+    <None Include="../AegiNext.Rendering.Tests/Fixtures/NotoSans.ttf" Link="Fixtures/NotoSans.ttf" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

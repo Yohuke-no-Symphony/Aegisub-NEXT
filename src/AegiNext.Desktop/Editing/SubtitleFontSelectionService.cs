@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AegiNext.Core.Fonts;
 using AegiNext.Application.Tasks;
 using AegiNext.Core.Projects;
 using AegiNext.Desktop.Controls;
@@ -12,6 +13,8 @@ internal sealed class SubtitleFontSelectionService
     private readonly Func<Task<SystemFontCatalog>>? loadCatalog;
     private readonly Lock loadingGate = new();
     private Task? loading;
+    private SystemFontCatalog? systemCatalog;
+    private ImmutableArray<FontFamilyBundle> applicationFonts = [];
 
     internal SubtitleFontSelectionService(AegiTaskService tasks) : this(() => tasks.Submit(new EnumerateSystemFontsTask()).Completion)
     {
@@ -44,6 +47,25 @@ internal sealed class SubtitleFontSelectionService
             return;
         }
         var catalog = await loadCatalog();
+        systemCatalog = catalog;
+        Publish(applicationFonts.IsEmpty ? catalog : new(applicationFonts, catalog));
+    }
+
+    internal void SetApplicationFonts(ImmutableArray<FontFamilyBundle> value)
+    {
+        if (applicationFonts == value)
+        {
+            return;
+        }
+        applicationFonts = value;
+        if (Catalog is not null)
+        {
+            Publish(new(value, systemCatalog ?? SystemFontCatalog.Empty));
+        }
+    }
+
+    private void Publish(SystemFontCatalog catalog)
+    {
         Catalog = catalog;
         LoadFaces(catalog.Faces);
         Changed?.Invoke(this, EventArgs.Empty);
@@ -52,6 +74,7 @@ internal sealed class SubtitleFontSelectionService
     internal SubtitleFontSelectionService(SystemFontCatalog catalog) : this(catalog.Faces)
     {
         Catalog = catalog;
+        systemCatalog = catalog;
     }
 
     internal SubtitleFontSelectionService(IEnumerable<SystemFontFace> faces)

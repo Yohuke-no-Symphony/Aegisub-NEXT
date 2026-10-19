@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
+using AegiNext.Application.Presets;
 using AegiNext.Application.Tasks;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Presets;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
@@ -495,8 +497,11 @@ public sealed class SubtitleListKeyboardUiTests
         var bytes = (await File.ReadAllBytesAsync(Path.Combine(AppContext.BaseDirectory, "Fixtures", "NotoSans.ttf"),
             TestContext.Current.CancellationToken)).ToImmutableArray();
         var font = new EmbeddedSubtitleFont("NotoSans.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes.AsSpan())), bytes);
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Portable font", new() { FontSize = 61 }, font);
-        await context.Session.Styles.UpsertAsync(preset);
+        var family = new FontFamilyBundle("Noto Sans", [font]);
+        var preset = new SubtitleStylePreset(Guid.NewGuid(), "Portable font", new() { FontFamily = family.FamilyName, FontSize = 61 });
+        await context.Session.ApplicationContext.RunStyleOperationAsync(() =>
+            context.Session.StyleLibrary.UpsertAsync(new CapturedSubtitleStyle(preset, [family])));
+        context.Session.Styles.Refresh(preset.Id);
         var document = CreateDocument(1, context);
         var window = Prepare(context, document);
         await context.Controller.SeekAsync(new MediaTime(41, 4));
@@ -539,8 +544,9 @@ public sealed class SubtitleListKeyboardUiTests
             var created = Assert.Single(context.Session.DocumentSnapshot.Subtitles, line => line.Id != document.Subtitles[0].Id);
             Assert.Equal(new MediaTime(2), created.Start);
             Assert.Equal(new MediaTime(41, 4), created.End);
-            var asset = Assert.Single(context.Session.DocumentSnapshot.Assets, asset => asset.Kind == ProjectAssetKind.FONT);
-            Assert.Equal(preset.Style with { FontAssetId = asset.Id }, created.Style);
+            Assert.DoesNotContain(context.Session.DocumentSnapshot.Assets, asset => asset.Kind == ProjectAssetKind.FONT);
+            Assert.Equal(preset.Style, created.Style);
+            Assert.Null(created.Style.FontAssetId);
             AssertFocused(targetWindow, document.Subtitles[0].Id, 1);
         }
         finally

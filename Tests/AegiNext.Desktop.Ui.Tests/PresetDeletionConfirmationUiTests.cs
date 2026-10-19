@@ -1,3 +1,4 @@
+using AegiNext.Core.Presets;
 using AegiNext.Desktop.EffectLibrary;
 using System.Collections.Immutable;
 using AegiNext.Application.Presets;
@@ -304,7 +305,7 @@ public sealed class PresetDeletionConfirmationUiTests
             var name = names[index];
             if (page == PresetDeletionTestPage.STYLES)
             {
-                await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new(id, name, new())));
+                await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new SubtitleStylePreset(id, name, new())));
             }
             else if (page == PresetDeletionTestPage.EFFECTS)
             {

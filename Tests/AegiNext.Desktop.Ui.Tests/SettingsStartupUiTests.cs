@@ -28,7 +28,7 @@ public sealed class SettingsStartupUiTests
     public async Task WelcomeOpensANonmodalLibraryWithoutAProjectAndKeepsSettingsSeparate()
     {
         using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
-        await using var application = new DesktopApplicationContext(new(environment.DirectoryPath));
+        await using var application = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         await application.Initialization;
         var sessionCreations = 0;
         await using var coordinator = new DesktopStartupCoordinator(_ => { }, () => { }, application,
@@ -78,7 +78,7 @@ public sealed class SettingsStartupUiTests
         };
         using var store = new WorkbenchPreferencesStore(environment.DirectoryPath);
         await store.SaveAsync(preferences, TestContext.Current.CancellationToken);
-        await using var application = new DesktopApplicationContext(new(environment.DirectoryPath));
+        await using var application = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         await application.Initialization;
         await using var session = new WorkbenchSession(new StartupTestDialogService(), applicationContext: application);
         Assert.Equal(ProjectOpenStatus.OPENED,
@@ -176,17 +176,17 @@ public sealed class SettingsStartupUiTests
     }
 
     [AvaloniaFact]
-    public async Task PersistedLegacyPreferencesAndStyleLibraryAreAppliedBeforeTheWindowIsShown()
+    public async Task PersistedLegacyPreferencesAndCurrentStyleLibraryAreAppliedBeforeTheWindowIsShown()
     {
         using var environment = new UiTestEnvironment();
         var preferencesPath = Path.Combine(environment.DirectoryPath, "preferences.json");
-        var stylesPath = Path.Combine(environment.DirectoryPath, "subtitle-styles.aegistyles");
         await File.WriteAllTextAsync(preferencesPath, LEGACY_PREFERENCES, TestContext.Current.CancellationToken);
-        var preset = new SubtitleStylePreset(Guid.NewGuid(), "nano", new());
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [preset] }, stylesPath,
-            TestContext.Current.CancellationToken);
+        var preset = new SubtitleStylePreset(Guid.NewGuid(), "nano", new() { FontFamily = "Noto Sans" });
+        using var repository = new EffectLibraryRepository(Path.Combine(environment.DirectoryPath, "effect-library"),
+            Path.Combine(environment.DirectoryPath, "fonts"));
+        using var library = new SubtitleStylePresetLibrary(repository);
+        await library.UpsertAsync(new CapturedSubtitleStyle(preset, [StyleExchangeUiTestFonts.Family]), TestContext.Current.CancellationToken);
         using var preferencesStore = new WorkbenchPreferencesStore(environment.DirectoryPath);
-        using var library = new SubtitleStylePresetLibrary(stylesPath);
         var preferences = preferencesStore.Load();
         await library.LoadAsync(TestContext.Current.CancellationToken);
         Localization.SetLanguage(preferences.Language);
@@ -195,6 +195,7 @@ public sealed class SettingsStartupUiTests
         var libraryWindow = new EffectLibraryWindow(preferences);
         try
         {
+            libraryWindow.ViewModel.Styles.SetFonts(new(StyleExchangeUiTestFonts.Catalog));
             window.UpdateShortcuts(preferences.ShortcutBindings);
             window.UpdateStyles(library.Snapshot.Presets);
             libraryWindow.UpdateStyles(library.Snapshot.Presets);
@@ -230,6 +231,89 @@ public sealed class SettingsStartupUiTests
             libraryWindow.Close();
             window.Close();
             Assert.False(window.IsVisible);
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LegacyLocalLibraryDoesNotBlockStartupOrAddingStyles(bool manifestDirectory)
+    {
+        using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
+        var originals = await WriteLegacyLibraryAsync(environment.DirectoryPath, manifestDirectory);
+        await using var application = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
+        await application.Initialization;
+        using var coordinator = new EffectLibraryWindowCoordinator(application, _ => new StartupTestDialogService());
+        var owner = new Window();
+        try
+        {
+            Assert.Null(application.EffectLibraryLoadError);
+            Assert.Null(application.LastError);
+            Assert.Empty(application.StyleLibrary.Snapshot.Presets);
+            Assert.Empty(application.EffectLibrary.Snapshot.FontFamilies);
+            owner.Show();
+            await coordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
+            var library = Assert.IsType<EffectLibraryWindow>(coordinator.Window);
+            Assert.False(library.ViewModel.HasError);
+            Assert.True(UiTestActions.Find<Button>(library, "AddStyleButton").IsEffectivelyEnabled);
+
+            UiTestActions.Click(library, "AddStyleButton");
+            await library.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+            library.ViewModel.Styles.CommitFont("Noto Sans");
+            UiTestActions.Find<TextBox>(library, "StyleNameInput").Text = "New style after upgrade";
+            UiTestActions.Click(library, "SaveStyleButton");
+            await library.ViewModel.Styles.SelectionCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+            await application.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+            Dispatcher.UIThread.RunJobs();
+
+            var saved = Assert.Single(application.StyleLibrary.Snapshot.Presets);
+            Assert.Equal("New style after upgrade", saved.Name);
+            Assert.Equal("Noto Sans", saved.Style.FontFamily);
+            Assert.False(library.ViewModel.HasError);
+            Assert.Null(application.EffectLibraryLoadError);
+            await AssertLegacyLibraryUnchangedAsync(environment.DirectoryPath, manifestDirectory, originals);
+        }
+        finally
+        {
+            coordinator.Dispose();
+            await coordinator.DisposalCompletion.WaitAsync(TimeSpan.FromSeconds(5));
+            owner.Close();
+        }
+    }
+
+    internal static async Task<IReadOnlyDictionary<string, byte[]>> WriteLegacyLibraryAsync(string directory, bool manifestDirectory)
+    {
+        var files = manifestDirectory
+            ? new Dictionary<string, byte[]>
+            {
+                ["manifest.json"] = "{\"version\":1,\"revision\":\"528a05ad-c974-4c37-9e40-d517b473850d\",\"styles\":[\"legacy.aegistyles\"],\"effects\":[\"legacy.aegieffect\"]}"u8.ToArray(),
+                [Path.Combine("styles", "legacy.aegistyles")] = "{\"version\":7,\"presets\":[]}"u8.ToArray(),
+                [Path.Combine("effects", "legacy.aegieffect")] = [0, 1, 254, 255]
+            }
+            : new Dictionary<string, byte[]>
+            {
+                ["subtitle-styles.aegistyles"] = "{\"version\":7,\"presets\":[]}"u8.ToArray(),
+                ["effect-scripts.json"] = "{\"version\":1,\"presets\":[]}"u8.ToArray()
+            };
+        var root = manifestDirectory ? Path.Combine(directory, "effect-library") : directory;
+        foreach (var file in files)
+        {
+            var path = Path.Combine(root, file.Key);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await File.WriteAllBytesAsync(path, file.Value, TestContext.Current.CancellationToken);
+        }
+        return files;
+    }
+
+    internal static async Task AssertLegacyLibraryUnchangedAsync(string directory, bool manifestDirectory,
+        IReadOnlyDictionary<string, byte[]> originals)
+    {
+        var root = manifestDirectory
+            ? Assert.Single(Directory.GetDirectories(directory, "effect-library.legacy-*"))
+            : directory;
+        foreach (var file in originals)
+        {
+            Assert.Equal(file.Value, await File.ReadAllBytesAsync(Path.Combine(root, file.Key), TestContext.Current.CancellationToken));
         }
     }
 }

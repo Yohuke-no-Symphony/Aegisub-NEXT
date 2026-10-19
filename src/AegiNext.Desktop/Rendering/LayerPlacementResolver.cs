@@ -4,6 +4,7 @@ using AegiNext.Core.Timing;
 using AegiNext.Desktop.Editing;
 using AegiNext.Rendering.Projects;
 using System.Collections.Immutable;
+using AegiNext.Rendering.Fonts;
 
 namespace AegiNext.Desktop.Rendering;
 
@@ -12,20 +13,23 @@ internal sealed class LayerPlacementResolver : IDisposable
     private readonly Lock gate = new();
     private ProjectSceneRenderer? renderer;
     private string? directory;
+    private SystemFontCatalog? fontCatalog;
     private ProjectDocument? cachedDocument;
     private readonly EffectCompilationCache effectPlans = new();
     private readonly Dictionary<Guid, (ImmutableDictionary<AnimationTrackTarget, AnimationValue> Typography,
         ImmutableArray<EffectStyleOperation> Effects, LayerPlacementResolution Result)> cache = [];
 
-    internal LayerPlacementResolution Resolve(ProjectDocument document, string projectDirectory, ProjectLayer? layer, MediaTime? contentTime = null)
+    internal LayerPlacementResolution Resolve(ProjectDocument document, string projectDirectory, ProjectLayer? layer,
+        MediaTime? contentTime = null, SystemFontCatalog? fonts = null)
     {
         lock (gate)
         {
-            return ResolveCore(document, projectDirectory, layer, contentTime);
+            return ResolveCore(document, projectDirectory, layer, contentTime, fonts);
         }
     }
 
-    private LayerPlacementResolution ResolveCore(ProjectDocument document, string projectDirectory, ProjectLayer? layer, MediaTime? contentTime = null)
+    private LayerPlacementResolution ResolveCore(ProjectDocument document, string projectDirectory, ProjectLayer? layer,
+        MediaTime? contentTime, SystemFontCatalog? fonts)
     {
         if (layer?.SubtitleId is not { } id)
         {
@@ -34,10 +38,11 @@ internal sealed class LayerPlacementResolver : IDisposable
             return new(basePosition, null);
         }
 
-        if (renderer is null || directory != projectDirectory)
+        if (renderer is null || directory != projectDirectory || !ReferenceEquals(fontCatalog, fonts))
         {
             renderer?.Dispose();
-            renderer = new(new DirectoryProjectAssetResolver(projectDirectory));
+            fontCatalog = fonts;
+            renderer = new(new DirectoryProjectAssetResolver(projectDirectory), fonts);
             directory = projectDirectory;
             cache.Clear();
         }

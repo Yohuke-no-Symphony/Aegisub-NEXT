@@ -18,7 +18,7 @@ public sealed class SubtitleStyleTimingBindingTests
         var first = Preset("中文样式");
         var second = Preset("Dialogue");
         var excluded = Preset("Excluded");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first, second, excluded] }, path);
+        await TestStyleLibraryStorage.SaveAsync(new() { Presets = [first, second, excluded] }, path);
         using var library = new SubtitleStylePresetLibrary(path);
         await library.LoadAsync();
         var before = library.Snapshot;
@@ -32,7 +32,7 @@ public sealed class SubtitleStyleTimingBindingTests
         Assert.Equal(second with { TimingPostProcessor = options }, after.Presets[1]);
         Assert.Same(before.Presets[2], after.Presets[2]);
         Assert.Null(before.Presets[0].TimingPostProcessor);
-        var persisted = await SubtitleStylePresetStore.LoadAsync(path);
+        var persisted = await TestStyleLibraryStorage.LoadAsync(path);
         Assert.Equal(after.Presets.ToArray(), persisted.Presets.ToArray());
 
         await library.SetTimingPostProcessorAsync([first.Id, second.Id], null);
@@ -51,7 +51,7 @@ public sealed class SubtitleStyleTimingBindingTests
         using var library = new SubtitleStylePresetLibrary(path);
         await library.UpsertAsync(first);
         var before = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(path);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(path));
 
         await Assert.ThrowsAsync<InvalidDataException>(() => library.SetTimingPostProcessorAsync(
             [first.Id, Guid.NewGuid()], new()));
@@ -63,7 +63,7 @@ public sealed class SubtitleStyleTimingBindingTests
             [first.Id], new(), cancellation.Token));
 
         Assert.Same(before, library.Snapshot);
-        Assert.Equal(bytes, await File.ReadAllBytesAsync(path));
+        Assert.Equal(bytes, await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(path)));
         Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
     }
 
@@ -75,13 +75,13 @@ public sealed class SubtitleStyleTimingBindingTests
         var originalPath = Path.Combine(directory.Path, "original.aegistyles");
         var first = Preset("First");
         var second = Preset("Second");
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = [first, second] }, path);
+        await TestStyleLibraryStorage.SaveAsync(new() { Presets = [first, second] }, path);
         using var library = new SubtitleStylePresetLibrary(path);
         await library.LoadAsync();
         var before = library.Snapshot;
-        var bytes = await File.ReadAllBytesAsync(path);
-        File.Move(path, originalPath);
-        Directory.CreateDirectory(path);
+        var bytes = await File.ReadAllBytesAsync(TestStyleLibraryStorage.ManifestPath(path));
+        File.Move(TestStyleLibraryStorage.ManifestPath(path), originalPath);
+        Directory.CreateDirectory(TestStyleLibraryStorage.ManifestPath(path));
 
         await Assert.ThrowsAnyAsync<IOException>(() => library.SetTimingPostProcessorAsync([first.Id, second.Id], new()));
 
@@ -99,16 +99,16 @@ public sealed class SubtitleStyleTimingBindingTests
         var options = new TimingPostProcessorOptions();
         var preset = Preset("Bound") with { TimingPostProcessor = options };
         using var library = new SubtitleStylePresetLibrary(path);
-        await library.UpsertAsync(preset);
+        await library.UpsertAsync(TestStyleLibraryStorage.Captured(preset));
         var before = library.Snapshot;
         var timestamp = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        File.SetLastWriteTimeUtc(path, timestamp);
+        File.SetLastWriteTimeUtc(TestStyleLibraryStorage.ManifestPath(path), timestamp);
 
         await library.SetTimingPostProcessorAsync([preset.Id], options with { });
         await library.SetTimingPostProcessorAsync([], null);
 
         Assert.Same(before, library.Snapshot);
-        Assert.Equal(timestamp, File.GetLastWriteTimeUtc(path));
+        Assert.Equal(timestamp, File.GetLastWriteTimeUtc(TestStyleLibraryStorage.ManifestPath(path)));
         using var empty = new SubtitleStylePresetLibrary(Path.Combine(directory.Path, "empty.aegistyles"));
         await empty.SetTimingPostProcessorAsync([], null);
         Assert.False(File.Exists(Path.Combine(directory.Path, "empty.aegistyles")));
@@ -119,28 +119,10 @@ public sealed class SubtitleStyleTimingBindingTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
-    public void LegacyLibrariesUpgradeWithoutInventingAnAssociation(int version)
+    public void LegacyLibrariesAreRejectedWithoutInventingAnAssociation(int version)
     {
-        var json = JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [Preset("Legacy")] }))!.AsObject();
-        json["version"] = version;
-        LegacySubtitleMarginsJsonFixture.DowngradeLibrary(json);
-        var preset = json["presets"]![0]!.AsObject();
-        preset.Remove("timingPostProcessor");
-        var style = preset["style"]!.AsObject();
-        if (version == 1)
-        {
-            style.Remove("position");
-        }
-        if (version <= 2)
-        {
-            style.Remove("underline");
-            style.Remove("strikethrough");
-        }
-
-        var restored = SubtitleStylePresetStore.Deserialize(System.Text.Encoding.UTF8.GetBytes(json.ToJsonString()));
-
-        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, restored.Version);
-        Assert.Null(Assert.Single(restored.Presets).TimingPostProcessor);
+        var bytes = System.Text.Encoding.UTF8.GetBytes($"{{\"version\":{version},\"presets\":[]}}");
+        Assert.Throws<InvalidDataException>(() => SubtitleStylePresetMetadataStore.Deserialize(bytes));
     }
 
     [Theory]
@@ -187,7 +169,7 @@ public sealed class SubtitleStyleTimingBindingTests
         var options = new TimingPostProcessorOptions { LeadOutMilliseconds = 222, KeyframeSnapEnabled = false };
         var preset = Preset("Original") with { TimingPostProcessor = options };
         using var library = new SubtitleStylePresetLibrary(path);
-        await library.UpsertAsync(preset);
+        await library.UpsertAsync(TestStyleLibraryStorage.Captured(preset));
         var changed = preset with { Name = "Renamed", Style = preset.Style with { FontSize = 72 } };
         await library.UpsertAsync(changed);
         var duplicate = changed with { Id = Guid.NewGuid(), Name = "Duplicate" };
@@ -202,31 +184,27 @@ public sealed class SubtitleStyleTimingBindingTests
         Assert.Equal(options, library.Snapshot.Presets[1].TimingPostProcessor);
         await library.RemoveAsync(preset.Id);
         Assert.Equal(duplicate.Id, Assert.Single(library.Snapshot.Presets).Id);
-        Assert.Equal(options, Assert.Single((await SubtitleStylePresetStore.LoadAsync(path)).Presets).TimingPostProcessor);
-        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, (await SubtitleStylePresetStore.LoadAsync(exportPath)).Version);
+        Assert.Equal(options, Assert.Single((await TestStyleLibraryStorage.LoadAsync(path)).Presets).TimingPostProcessor);
+        Assert.Equal(SubtitleStylePresetCollection.CURRENT_VERSION, (await TestStylePackageStore.LoadAsync(exportPath)).Version);
     }
 
     [Fact]
-    public async Task BindingPreservesEmbeddedFontResourcesInMemoryAndOnDisk()
+    public async Task BindingPreservesPrivateFontResourcesInMemoryAndOnDisk()
     {
         using var directory = new TemporaryProjectDirectory();
-        var path = Path.Combine(directory.Path, "styles.aegistyles");
-        var bytes = ImmutableArray.Create<byte>(1, 2, 3, 4);
-        var font = new EmbeddedSubtitleFont("font.ttf", Convert.ToHexStringLower(SHA256.HashData(bytes.AsSpan())), bytes);
-        var preset = Preset("Embedded font") with { Font = font };
-        using var library = new SubtitleStylePresetLibrary(path);
-        await library.UpsertAsync(preset);
-
+        var root = Path.Combine(directory.Path, "library");
+        using var repository = new EffectLibraryRepository(root);
+        using var library = new SubtitleStylePresetLibrary(repository);
+        var preset = Preset("Private font");
+        var family = TestStylePackageStore.Family(preset.Style.FontFamily);
+        await library.UpsertAsync(new CapturedSubtitleStyle(preset, [family]));
         await library.SetTimingPostProcessorAsync([preset.Id], new());
-
-        var bound = Assert.Single(library.Snapshot.Presets);
-        Assert.Equal(preset.Id, bound.Id);
-        Assert.Same(preset.Style, bound.Style);
-        Assert.Same(font, bound.Font);
-        var restored = Assert.Single((await SubtitleStylePresetStore.LoadAsync(path)).Presets);
-        Assert.Equal(font.Sha256, restored.Font!.Sha256);
-        Assert.Equal(bytes.ToArray(), restored.Font.Data.ToArray());
-        Assert.Equal(bound.TimingPostProcessor, restored.TimingPostProcessor);
+        Assert.Equal(preset.Id, Assert.Single(library.Snapshot.Presets).Id);
+        Assert.Equal(family, Assert.Single(repository.Snapshot.FontFamilies));
+        using var reopened = new EffectLibraryRepository(root);
+        await reopened.LoadAsync();
+        Assert.Equal(family.Files[0].Sha256, Assert.Single(reopened.Snapshot.FontFamilies).Files[0].Sha256);
+        Assert.NotNull(Assert.Single(reopened.Snapshot.Styles.Presets).TimingPostProcessor);
     }
 
     [Fact]
@@ -235,7 +213,7 @@ public sealed class SubtitleStyleTimingBindingTests
         using var directory = new TemporaryProjectDirectory();
         var path = Path.Combine(directory.Path, "styles.aegistyles");
         var presets = Enumerable.Range(0, 256).Select(index => Preset($"Style {index}")).ToImmutableArray();
-        await SubtitleStylePresetStore.SaveAsync(new() { Presets = presets }, path);
+        await TestStyleLibraryStorage.SaveAsync(new() { Presets = presets }, path);
         using var library = new SubtitleStylePresetLibrary(path);
 
         await library.SetTimingPostProcessorAsync(presets.Select(preset => preset.Id), new());
@@ -253,11 +231,11 @@ public sealed class SubtitleStyleTimingBindingTests
     private static JsonObject BoundJson()
     {
         var preset = Preset("Bound") with { TimingPostProcessor = new() };
-        return JsonNode.Parse(SubtitleStylePresetStore.Serialize(new() { Presets = [preset] }))!.AsObject();
+        return JsonNode.Parse(SubtitleStylePresetMetadataStore.Serialize(new() { Presets = [preset] }))!.AsObject();
     }
 
     private static SubtitleStylePresetCollection Deserialize(JsonObject json)
     {
-        return SubtitleStylePresetStore.Deserialize(System.Text.Encoding.UTF8.GetBytes(json.ToJsonString()));
+        return SubtitleStylePresetMetadataStore.Deserialize(System.Text.Encoding.UTF8.GetBytes(json.ToJsonString()));
     }
 }

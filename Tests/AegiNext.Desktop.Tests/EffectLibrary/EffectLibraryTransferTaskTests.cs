@@ -15,15 +15,16 @@ public sealed class EffectLibraryTransferTaskTests
     {
         using var directory = new TemporaryWorkbenchDirectory();
         using var input = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(directory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(directory.Path);
         await owner.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Shared style", new());
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Shared style", new() { FontFamily = "Noto Sans" });
         var effect = Effect("shared-effect");
         var path = Path.Combine(input.Path, "shared.aegilibrary");
         await EffectLibraryPackageStore.SaveAsync(new()
         {
             Styles = new() { Presets = [style] },
-            Effects = new() { Presets = [effect] }
+            Effects = new() { Presets = [effect] },
+            FontFamilies = [EffectLibraryTestFonts.Family]
         }, path);
         var analysisTask = new EffectLibraryImportAnalysisTask(owner, [path]);
         Assert.Contains(AegiTaskResource.DeferredStoragePath(path), analysisTask.Resources);
@@ -35,12 +36,17 @@ public sealed class EffectLibraryTransferTaskTests
         Assert.Equal(2, plan.Rows.Length);
         Assert.Empty(owner.StyleLibrary.Snapshot.Presets);
         Assert.Empty(owner.EffectScriptLibrary.Snapshot.Presets);
+        Assert.Empty(owner.EffectLibrary.Snapshot.FontFamilies);
+        Assert.False(Directory.Exists(owner.LibraryPaths.FontsDirectory));
         var commit = owner.Tasks.Submit(new EffectLibraryImportCommitTask(owner, plan,
             new Dictionary<int, EffectLibraryImportDecision>()));
         await commit.Completion;
 
         Assert.Equal(style, Assert.Single(owner.StyleLibrary.Snapshot.Presets));
         Assert.Equal(effect, Assert.Single(owner.EffectScriptLibrary.Snapshot.Presets));
+        var installed = Assert.Single(owner.EffectLibrary.Snapshot.FontFamilies);
+        Assert.Equal(EffectLibraryTestFonts.Family.Files[0].Sha256, Assert.Single(installed.Files).Sha256);
+        Assert.True(Directory.EnumerateFiles(owner.LibraryPaths.FontsDirectory, "*", SearchOption.AllDirectories).Any());
         Assert.Equal(AegiTaskState.Succeeded, analysis.Snapshot.State);
         Assert.Equal(AegiTaskState.Succeeded, commit.Snapshot.State);
         Assert.Null(commit.Snapshot.ScopeId);
@@ -51,23 +57,27 @@ public sealed class EffectLibraryTransferTaskTests
     {
         using var directory = new TemporaryWorkbenchDirectory();
         using var output = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(directory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(directory.Path);
         await owner.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontSize = 41 });
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Original", new() { FontSize = 41, FontFamily = "Noto Sans" });
         var effect = Effect("frozen-effect");
         await owner.RunStyleOperationAsync(() => owner.StyleLibrary.UpsertAsync(style));
         await owner.RunEffectOperationAsync(() => owner.EffectScriptLibrary.UpsertAsync(effect));
+        owner.Fonts.SetApplicationFonts([EffectLibraryTestFonts.Family]);
         var captured = owner.EffectLibrary.Snapshot;
         var path = Path.Combine(output.Path, "shared.aegilibrary");
         var task = new EffectLibraryExportTask(owner, captured.Styles.Presets, captured.Effects.Presets,
             path, EffectLibraryExportMode.PACKAGE);
         await owner.RunStyleOperationAsync(() => owner.StyleLibrary.UpsertAsync(style with { Name = "Changed" }));
+        Assert.Empty(owner.Fonts.Catalog!.ApplicationFonts);
+        Assert.Empty(owner.Fonts.Catalog.Faces);
 
         await owner.Tasks.Submit(task).Completion;
 
         var exported = await EffectLibraryPackageStore.LoadAsync(path);
         Assert.Equal(style, Assert.Single(exported.Styles.Presets));
         Assert.Equal(effect, Assert.Single(exported.Effects.Presets));
+        Assert.Equal(EffectLibraryTestFonts.Family.Files[0].Sha256, Assert.Single(Assert.Single(exported.FontFamilies).Files).Sha256);
         Assert.Equal("Changed", Assert.Single(owner.StyleLibrary.Snapshot.Presets).Name);
     }
 
@@ -76,12 +86,12 @@ public sealed class EffectLibraryTransferTaskTests
     {
         using var directory = new TemporaryWorkbenchDirectory();
         using var input = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(directory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(directory.Path);
         await owner.Initialization;
         var path = Path.Combine(input.Path, "incoming.aegieffect");
         await EffectScriptPresetStore.WritePresetAsync(Effect("incoming-effect"), path);
         var plan = await owner.Tasks.Submit(new EffectLibraryImportAnalysisTask(owner, [path])).Completion;
-        var latest = new SubtitleStylePreset(Guid.NewGuid(), "Intervening", new());
+        var latest = new SubtitleStylePreset(Guid.NewGuid(), "Intervening", new() { FontFamily = "Noto Sans" });
         await owner.RunStyleOperationAsync(() => owner.StyleLibrary.UpsertAsync(latest));
         var snapshot = owner.EffectLibrary.Snapshot;
 
@@ -99,9 +109,9 @@ public sealed class EffectLibraryTransferTaskTests
     {
         using var directory = new TemporaryWorkbenchDirectory();
         using var output = new TemporaryWorkbenchDirectory();
-        await using var owner = new DesktopApplicationContext(new(directory.Path), new());
+        await using var owner = EffectLibraryTestFonts.CreateOwner(directory.Path);
         await owner.Initialization;
-        var style = new SubtitleStylePreset(Guid.NewGuid(), "Shared", new());
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Shared", new() { FontFamily = "Noto Sans" });
         var effect = Effect("named-effect") with { Name = "Custom display name" };
         var task = new EffectLibraryExportTask(owner, [style], [effect], output.Path,
             EffectLibraryExportMode.INDEPENDENT_FILES);
@@ -112,6 +122,9 @@ public sealed class EffectLibraryTransferTaskTests
 
         var exported = await EffectScriptPresetStore.ReadPresetAsync(Assert.Single(paths, path => path.EndsWith(".aegieffect", StringComparison.Ordinal)));
         Assert.Equal(effect, exported);
+        var exportedStyle = await SubtitleStylePresetStore.LoadAsync(Assert.Single(paths, path => path.EndsWith(".aegistyles", StringComparison.Ordinal)));
+        Assert.Equal(EffectLibraryTestFonts.Family.Files[0].Sha256,
+            Assert.Single(Assert.Single(exportedStyle.FontFamilies).Files).Sha256);
         Assert.All(paths, path => Assert.True(File.Exists(path)));
     }
 
@@ -120,8 +133,10 @@ public sealed class EffectLibraryTransferTaskTests
     {
         using var directory = new TemporaryWorkbenchDirectory();
         using var output = new TemporaryWorkbenchDirectory();
-        await File.WriteAllTextAsync(Path.Combine(directory.Path, "effect-scripts.json"), "{broken");
-        await using var owner = new DesktopApplicationContext(new(directory.Path), new());
+        var libraryDirectory = Path.Combine(directory.Path, "effect-library");
+        Directory.CreateDirectory(libraryDirectory);
+        await File.WriteAllTextAsync(Path.Combine(libraryDirectory, "manifest.json"), "{broken");
+        await using var owner = EffectLibraryTestFonts.CreateOwner(directory.Path);
         await owner.Initialization;
         var builtin = new EffectScriptPreset(Guid.NewGuid(), "Fade in", BuiltinEffectScripts.Get("fade-in").Source);
         var path = Path.Combine(output.Path, "fade-in.aegifx");

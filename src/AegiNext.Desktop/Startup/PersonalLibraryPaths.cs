@@ -11,6 +11,7 @@ internal sealed class PersonalLibraryPaths
 
     internal string DirectoryPath { get; }
     internal string EffectLibraryDirectory => Path.Combine(DirectoryPath, "effect-library");
+    internal string FontsDirectory => Path.Combine(DirectoryPath, "fonts");
     internal string EffectLibraryManifestFile => Path.Combine(EffectLibraryDirectory, "manifest.json");
     internal string LegacyStyleFile => Path.Combine(DirectoryPath, "subtitle-styles.aegistyles");
     internal string LegacyEffectFile => Path.Combine(DirectoryPath, "effect-scripts.json");
@@ -21,9 +22,12 @@ internal sealed class PersonalLibraryPaths
     {
         var destination = UserSettingsTransferFiles.ResolvePhysicalPath(path);
         var root = UserSettingsTransferFiles.ResolvePhysicalPath(EffectLibraryDirectory);
+        var fontRoot = UserSettingsTransferFiles.ResolvePhysicalPath(FontsDirectory);
         var comparison = OperatingSystem.IsWindows() || OperatingSystem.IsMacOS()
             ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         if (string.Equals(destination, root, comparison) ||
+            string.Equals(destination, fontRoot, comparison) ||
+            destination.StartsWith(fontRoot + Path.DirectorySeparatorChar, comparison) ||
             destination.StartsWith(root + Path.DirectorySeparatorChar, comparison) ||
             string.Equals(destination, UserSettingsTransferFiles.ResolvePhysicalPath(LegacyStyleFile), comparison) ||
             string.Equals(destination, UserSettingsTransferFiles.ResolvePhysicalPath(LegacyEffectFile), comparison))

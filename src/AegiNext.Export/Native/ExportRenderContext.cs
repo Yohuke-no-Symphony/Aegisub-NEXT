@@ -1,6 +1,9 @@
+using System.Collections.Immutable;
+using AegiNext.Core.Fonts;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Rendering.Projects;
+using AegiNext.Rendering.Fonts;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
@@ -17,12 +20,14 @@ internal sealed class ExportRenderContext : IDisposable
     private ulong retainedRevision;
     private readonly bool profileEnabled = Environment.GetEnvironmentVariable("AEGINEXT_EXPORT_PROFILE") == "1";
 
-    internal ExportRenderContext(ProjectDocument project, string projectDirectory, IProgress<VideoExportProgress>? progress, CancellationToken cancellationToken)
+    internal ExportRenderContext(ProjectDocument project, string projectDirectory, IProgress<VideoExportProgress>? progress,
+        CancellationToken cancellationToken, ImmutableArray<FontFamilyBundle> fontFamilies = default)
     {
         this.project = project;
         this.progress = progress;
         this.cancellationToken = cancellationToken;
-        renderer = new(new DirectoryProjectAssetResolver(projectDirectory));
+        renderer = new(new DirectoryProjectAssetResolver(projectDirectory),
+            fontFamilies.IsDefaultOrEmpty ? null : new SystemFontCatalog(fontFamilies));
         channelCount = checked(project.Width * project.Height * 4);
     }
 

@@ -265,6 +265,7 @@ public sealed partial class StyleLibraryView : UserControl, IDisposable
 
         if (!disposed && model is not null && ReferenceEquals(sender, observedFonts))
         {
+            model.SetFonts(observedFonts!);
             RefreshFontFamilies();
             RefreshPreview();
         }
@@ -309,7 +310,7 @@ public sealed partial class StyleLibraryView : UserControl, IDisposable
         var preset = model!.Draft;
         var style = preset?.Style ?? new();
         this.FindControl<FontFamilyPicker>("FontInput")!.SetCurrentFont(
-            new(style.FontFamily, style.FontVariant, preset?.Font is null && !style.FontAssetId.HasValue));
+            new(style.FontFamily, style.FontVariant, !style.FontAssetId.HasValue));
     }
 
     private void RefreshPreview()

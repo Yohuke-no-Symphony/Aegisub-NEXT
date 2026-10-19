@@ -27,7 +27,7 @@ public sealed class SettingsLibrarySelectionUiTests
     public async Task ExportWritesOnlySelectedSavedFilesAndImportAcceptsMultipleFiles(bool effects)
     {
         using var environment = new UiTestEnvironment();
-        var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
+        var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         var output = Path.Combine(environment.DirectoryPath, "selected-export");
         Directory.CreateDirectory(output);
         var dialogs = new StartupTestDialogService { FolderPath = output };
@@ -52,7 +52,8 @@ public sealed class SettingsLibrarySelectionUiTests
                 }
                 else
                 {
-                    await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new(ids[index], $"Style {index}", new())));
+                    await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(
+                        new SubtitleStylePreset(ids[index], $"Style {index}", new() { FontFamily = "Noto Sans" })));
                 }
             }
             owner.Show();
@@ -87,7 +88,9 @@ public sealed class SettingsLibrarySelectionUiTests
             else
             {
                 var exported = await Task.WhenAll(files.Select(path => SubtitleStylePresetStore.LoadAsync(path, TestContext.Current.CancellationToken)));
-                Assert.Equal(new[] { ids[0], ids[2] }.Order(), exported.SelectMany(value => value.Presets).Select(value => value.Id).Order());
+                Assert.Equal(new[] { ids[0], ids[2] }.Order(), exported.SelectMany(value => value.Styles.Presets).Select(value => value.Id).Order());
+                Assert.All(exported, value => Assert.Equal(StyleExchangeUiTestFonts.Family.Files[0].Sha256,
+                    Assert.Single(Assert.Single(value.FontFamilies).Files).Sha256));
                 await context.RunStyleOperationAsync(() => context.StyleLibrary.RemoveAsync(ids[0]));
                 await context.RunStyleOperationAsync(() => context.StyleLibrary.RemoveAsync(ids[2]));
             }
@@ -120,7 +123,7 @@ public sealed class SettingsLibrarySelectionUiTests
     public async Task PageSwitchHonorsSaveDiscardAndCancel(bool effects, int choice)
     {
         using var environment = new UiTestEnvironment();
-        var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
+        var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         var dialogs = new StartupTestDialogService { PresetChoice = choice };
         using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
@@ -141,6 +144,7 @@ public sealed class SettingsLibrarySelectionUiTests
             else
             {
                 window.ViewModel.Styles.AddCommand.Execute(null);
+                window.ViewModel.Styles.CommitFont("Noto Sans");
                 window.ViewModel.Styles.Name = "Changed 样式 123";
                 Assert.Empty(window.ViewModel.Styles.Styles);
             }
@@ -171,7 +175,7 @@ public sealed class SettingsLibrarySelectionUiTests
     public async Task InvalidDraftCannotLeaveWhenSaveIsChosenAndDiscardCanClose(bool effects)
     {
         using var environment = new UiTestEnvironment();
-        var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
+        var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         var dialogs = new StartupTestDialogService { PresetChoice = 0 };
         using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
@@ -189,6 +193,7 @@ public sealed class SettingsLibrarySelectionUiTests
             else
             {
                 window.ViewModel.Styles.AddCommand.Execute(null);
+                window.ViewModel.Styles.CommitFont("Noto Sans");
                 window.ViewModel.Styles.FontSizeText = "7e-";
             }
             window.SelectPage(EffectLibraryPage.TRANSFER);
@@ -220,7 +225,7 @@ public sealed class SettingsLibrarySelectionUiTests
     public async Task StorageFailureKeepsNewDraftOutOfListAndCanBeRetried(bool effects)
     {
         using var environment = new UiTestEnvironment();
-        var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
+        var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         var dialogs = new StartupTestDialogService { PresetChoice = 0 };
         using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
         var owner = new Window();
@@ -238,6 +243,7 @@ public sealed class SettingsLibrarySelectionUiTests
             else
             {
                 window.ViewModel.Styles.AddCommand.Execute(null);
+                window.ViewModel.Styles.CommitFont("Noto Sans");
                 window.ViewModel.Styles.Name = "Retry Style 中文 123";
             }
             var path = context.EffectLibrary.ManifestPath;
@@ -270,7 +276,7 @@ public sealed class SettingsLibrarySelectionUiTests
     public async Task ReentrantNavigationAndCloseWaitForTheOriginalDecision()
     {
         using var environment = new UiTestEnvironment();
-        var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
+        var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         var decision = new TaskCompletionSource<int>();
         var dialogs = new StartupTestDialogService { PendingPresetDecision = decision };
         using var coordinator = new EffectLibraryWindowCoordinator(context, _ => dialogs);
@@ -282,6 +288,7 @@ public sealed class SettingsLibrarySelectionUiTests
             await coordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             window.ViewModel.Styles.AddCommand.Execute(null);
+            window.ViewModel.Styles.CommitFont("Noto Sans");
             window.SelectPage(EffectLibraryPage.EFFECTS);
             var navigation = window.ViewModel.NavigationCompletion;
             Assert.False(navigation.IsCompleted);
@@ -310,7 +317,7 @@ public sealed class SettingsLibrarySelectionUiTests
     public async Task OwnerCloseCanBeCancelledAndResumesAfterTheDraftIsDiscarded()
     {
         using var environment = new UiTestEnvironment();
-        var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath));
+        var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath);
         using var coordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
         try
@@ -347,7 +354,7 @@ public sealed class SettingsLibrarySelectionUiTests
     public async Task ActualUnsavedDialogOffersCancelDiscardAndSave(string language, bool dark)
     {
         using var environment = new UiTestEnvironment();
-        var context = new DesktopApplicationContext(new WorkbenchPreferencesStore(environment.DirectoryPath),
+        var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath,
             new() { Language = language, Theme = dark ? WorkbenchTheme.DARK : WorkbenchTheme.LIGHT });
         using var coordinator = new EffectLibraryWindowCoordinator(context);
         var owner = new Window();
@@ -358,6 +365,7 @@ public sealed class SettingsLibrarySelectionUiTests
             await coordinator.OpenAsync(owner, page: EffectLibraryPage.STYLES);
             var window = coordinator.Window!;
             window.ViewModel.Styles.AddCommand.Execute(null);
+            window.ViewModel.Styles.CommitFont("Noto Sans");
             window.ViewModel.Styles.Name = "字幕 Style 123";
             window.SelectPage(EffectLibraryPage.EFFECTS);
             var dialog = Assert.Single(window.OwnedWindows);

@@ -6,6 +6,7 @@ using AegiNext.Core.Presets;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Startup;
 using AegiNext.Desktop.Workspace;
+using AegiNext.Rendering.Fonts;
 
 namespace AegiNext.Desktop.EffectLibrary.Transfer;
 
@@ -67,14 +68,16 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         {
             model.SetOperationBusy(true);
             await context.Initialization.WaitAsync(token);
+            await context.Fonts.EnsureLoadedAsync().WaitAsync(token);
             var frozen = context.EffectLibrary.Snapshot;
+            var frozenFonts = context.Fonts.Catalog;
             using var dialogCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
             var dialogToken = dialogCancellation.Token;
             var dialogOperation = dialogs.ShowEffectLibraryExportAsync(frozen, async (request, scopedDialogs, requestToken) =>
             {
                 dialogToken.ThrowIfCancellationRequested();
                 using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(dialogToken, requestToken);
-                return await ExportRequestAsync(request, scopedDialogs, requestCancellation.Token);
+                return await ExportRequestAsync(request, scopedDialogs, requestCancellation.Token, frozenFonts);
             }, dialogToken);
             bool exported;
             try
@@ -150,7 +153,9 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
             var skipped = decisions.Values.Count(decision => decision == EffectLibraryImportDecision.SKIP);
             model.ClearPreview();
             previewPaths = [];
-            model.ShowStatus("EffectLibrary.Imported", added, replaced, skipped);
+            var fontsReady = plan.Rows.Any(row => row.Kind == EffectLibraryItemKind.STYLE &&
+                decisions.GetValueOrDefault(row.Index) is EffectLibraryImportDecision.IMPORT or EffectLibraryImportDecision.REPLACE);
+            model.ShowStatus(fontsReady ? "EffectLibrary.ImportedWithFonts" : "EffectLibrary.Imported", added, replaced, skipped);
         });
     }
 
@@ -172,7 +177,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
     }
 
     private async Task<bool> ExportRequestAsync(EffectLibraryExportRequest request, IWorkbenchDialogService scopedDialogs,
-        CancellationToken token)
+        CancellationToken token, SystemFontCatalog? frozenFonts)
     {
         token.ThrowIfCancellationRequested();
         var count = request.Styles.Length + request.Effects.Length;
@@ -191,7 +196,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         {
             return false;
         }
-        await SubmitAsync(new EffectLibraryExportTask(context, request.Styles, request.Effects, destination, mode), token);
+        await SubmitAsync(new EffectLibraryExportTask(context, request.Styles, request.Effects, destination, mode, frozenFonts), token);
         token.ThrowIfCancellationRequested();
         return true;
     }
