@@ -1,5 +1,6 @@
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
+using AegiNext.Desktop.Controls;
 using AegiNext.Desktop.Controls.Common;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Layouts;
@@ -21,6 +22,74 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class MainWorkspaceIntegrationUiTests
 {
+    [AvaloniaTheory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task SubtitleDetailsMenuOpensAndReopensWithoutASelectedSubtitle(bool windowMenu, bool hasSubtitles)
+    {
+        await using var context = new MainWindowTestContext();
+        var main = context.Window;
+        await context.Session.ApplicationContext.Initialization;
+        await context.Session.Styles.Completion;
+        context.Session.UpdatePreferences(context.Session.Preferences with { WindowMenuOnMac = windowMenu });
+        if (hasSubtitles)
+        {
+            context.Session.Editor.Reset(CreateSubtitleDocument());
+        }
+        Assert.True(context.Session.SelectSubtitleRows(null, []));
+        var original = context.Session.Editor.Snapshot;
+        var panel = main.Panels[WorkbenchPanelIds.SUBTITLE_DETAILS];
+        var command = Assert.IsType<AsyncRelayCommand>(main.GetCommand(WorkbenchCommand.OPEN_SUBTITLE_DETAILS));
+        var title = UiTestActions.Find<WindowTitleBar>(main, "TitleBar");
+        if (title.MenuContent is WindowMenuBar menuBar)
+        {
+            var menu = Assert.IsType<Menu>(menuBar.Content);
+            Assert.Single(MenuLeaves(menu.Items.OfType<MenuItem>()), item => ReferenceEquals(item.Command, command));
+        }
+        else
+        {
+            Assert.Single(NativeLeaves(Assert.IsType<NativeMenu>(NativeMenu.GetMenu(main))),
+                item => ReferenceEquals(item.Command, command));
+        }
+        Assert.Null(context.Session.SelectedCueId);
+        Assert.True(command.CanExecute(null));
+        Assert.False(main.GetCommand(WorkbenchCommand.DELETE_SUBTITLE).CanExecute(null));
+        Assert.False(main.GetCommand(WorkbenchCommand.SPLIT_SUBTITLE).CanExecute(null));
+
+        await command.ExecuteAsync(null);
+        var floating = Assert.Single(main.Layouts.FloatingWindows);
+        Flush(floating);
+        Assert.True(main.Layouts.IsVisible(WorkbenchPanelIds.SUBTITLE_DETAILS));
+        Assert.Same(floating, TopLevel.GetTopLevel(panel));
+        var input = UiTestActions.Find<RichSubtitleEditor>(floating, "RichSubtitleInput");
+        Assert.False(input.IsEffectivelyEnabled);
+        if (hasSubtitles)
+        {
+            context.Session.SelectCue(original.Subtitles[0].Id);
+            Assert.True(input.IsEffectivelyEnabled);
+            Assert.True(context.Session.SelectSubtitleRows(null, []));
+            Assert.False(input.IsEffectivelyEnabled);
+        }
+
+        await command.ExecuteAsync(null);
+        Assert.Same(floating, Assert.Single(main.Layouts.FloatingWindows));
+        floating.Close();
+        Flush(main);
+        Assert.False(main.Layouts.IsVisible(WorkbenchPanelIds.SUBTITLE_DETAILS));
+        Assert.True(command.CanExecute(null));
+
+        await command.ExecuteAsync(null);
+        var reopened = Assert.Single(main.Layouts.FloatingWindows);
+        Flush(reopened);
+        Assert.True(main.Layouts.IsVisible(WorkbenchPanelIds.SUBTITLE_DETAILS));
+        Assert.Same(reopened, TopLevel.GetTopLevel(panel));
+        Assert.False(input.IsEffectivelyEnabled);
+        Assert.Same(original, context.Session.Editor.Snapshot);
+        Assert.False(context.Session.Editor.CanUndo);
+    }
+
     [AvaloniaTheory]
     [InlineData(false)]
     [InlineData(true)]
