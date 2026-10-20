@@ -179,13 +179,13 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
             await repository.UpdateContentAsync(current => current with
             {
                 Styles = current.Styles with { Presets = current.Styles.Presets.AddRange(presets) },
-                FontFamilies = PrivateFontFiles.Merge(current.FontFamilies, families.Values)
+                FontFamilies = families.Count == 0 ? current.FontFamilies : PrivateFontFiles.Merge(current.FontFamilies, families.Values)
             }, beforeCommit, cancellationToken).ConfigureAwait(false);
         }, cancellationToken);
     }
 
-    /// <summary>导出指定或全部样式，字体必须已安装在当前库。</summary>
-    public Task ExportAsync(string path, IEnumerable<Guid>? ids = null, CancellationToken cancellationToken = default)
+    /// <summary>导出指定或全部样式，默认携带当前库中已安装的字体；可仅导出原始样式参数。</summary>
+    public Task ExportAsync(string path, IEnumerable<Guid>? ids = null, CancellationToken cancellationToken = default, bool includeFonts = true)
     {
         var selected = ids?.ToHashSet();
         return ExecuteAsync(async () =>
@@ -200,15 +200,15 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
             {
                 Presets = selected is null ? captured.Styles.Presets : captured.Styles.Presets.Where(preset => selected.Contains(preset.Id)).ToImmutableArray()
             };
-            await ExportCoreAsync(styles, captured, path, cancellationToken).ConfigureAwait(false);
+            await ExportCoreAsync(styles, captured, path, cancellationToken, includeFonts).ConfigureAwait(false);
         }, cancellationToken);
     }
 
-    /// <summary>导出冻结的单个样式及其已经安装的完整字体族。</summary>
-    public Task ExportAsync(SubtitleStylePreset preset, string path, CancellationToken cancellationToken = default)
+    /// <summary>导出冻结的单个样式，默认携带已经安装的完整字体族；可仅导出原始样式参数。</summary>
+    public Task ExportAsync(SubtitleStylePreset preset, string path, CancellationToken cancellationToken = default, bool includeFonts = true)
     {
         ArgumentNullException.ThrowIfNull(preset);
-        return ExecuteAsync(() => ExportCoreAsync(new() { Presets = [preset] }, repository.Snapshot, path, cancellationToken), cancellationToken);
+        return ExecuteAsync(() => ExportCoreAsync(new() { Presets = [preset] }, repository.Snapshot, path, cancellationToken, includeFonts), cancellationToken);
     }
 
     /// <summary>操作尚未结束时拒绝释放，确保宿主显式等待异步工作。</summary>
@@ -233,7 +233,8 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         }
     }
 
-    private Task ExportCoreAsync(SubtitleStylePresetCollection styles, EffectLibrarySnapshot snapshot, string path, CancellationToken cancellationToken)
+    private Task ExportCoreAsync(SubtitleStylePresetCollection styles, EffectLibrarySnapshot snapshot, string path, CancellationToken cancellationToken,
+        bool includeFonts)
     {
         if (repository.IsManagedPath(path))
         {
@@ -242,7 +243,8 @@ public sealed class SubtitleStylePresetLibrary : IDisposable
         var names = styles.Presets.Select(preset => preset.Style.FontFamily).ToHashSet(StringComparer.OrdinalIgnoreCase);
         return SubtitleStylePresetStore.SaveAsync(new()
         {
-            Styles = styles, FontFamilies = snapshot.FontFamilies.Where(family => names.Contains(family.FamilyName)).ToImmutableArray()
+            Styles = styles, IncludesFonts = includeFonts,
+            FontFamilies = includeFonts ? snapshot.FontFamilies.Where(family => names.Contains(family.FamilyName)).ToImmutableArray() : []
         }, path, cancellationToken);
     }
 

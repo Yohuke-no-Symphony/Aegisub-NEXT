@@ -33,7 +33,7 @@ Enter or blur commits valid integers; invalid drafts stay editable, and Esc rest
 
 ## Persistence and processing
 
-Associations follow stable style IDs: rename preserves them, copy duplicates them, deletion removes them, and `.aegistyles` carries them. Style metadata uses v8. The current `.aegistyles` ZIP carries styles and complete font families; legacy style files are not supported.
+Associations follow stable style IDs: rename preserves them, copy duplicates them, deletion removes them, and `.aegistyles` carries them. Style metadata uses v8. The current `.aegistyles` ZIP carries styles and, by default, complete font families; legacy style files are not supported.
 
 Projects store style preset IDs on subtitle clips. The current format is v14 and the loader accepts v3–v14; see [storage compatibility](architecture.md#time-and-storage). Legacy subtitles without IDs first resolve a track preset with the same saved style name, then an exact personal-library style name. A legacy subtitle still named `Default` also uses its track's association when its style exactly matches the track default, automatic style application is enabled, and the personal library has no preset with that name. Successful processing saves the resolved ID. A missing preset referenced by an existing ID never falls back to a newly created preset with the same name.
 

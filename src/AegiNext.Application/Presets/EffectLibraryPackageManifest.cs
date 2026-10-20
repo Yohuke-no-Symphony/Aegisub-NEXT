@@ -14,6 +14,7 @@ internal sealed record EffectLibraryPackageManifest
     public ImmutableArray<EffectLibraryPackageFile> Styles { get; init; } = [];
     [JsonRequired]
     public ImmutableArray<EffectLibraryPackageFile> Effects { get; init; } = [];
+    public bool IncludesFonts { get; init; } = true;
     [JsonRequired]
     public ImmutableArray<FontFamilyReference> FontFamilies { get; init; } = [];
 }

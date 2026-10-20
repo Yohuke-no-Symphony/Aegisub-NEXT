@@ -7,8 +7,10 @@ using AegiNext.Core.Presets;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.EffectLibrary;
 using AegiNext.Desktop.EffectLibrary.Transfer;
+using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Startup;
 using AegiNext.Desktop.Workspace;
+using AegiNext.Rendering.Fonts;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
@@ -17,6 +19,125 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class EffectLibraryExportIntegrationUiTests
 {
+    [AvaloniaTheory]
+    [InlineData(EffectLibraryExportFormat.PACKAGE, 1)]
+    [InlineData(EffectLibraryExportFormat.INDEPENDENT, 1)]
+    [InlineData(EffectLibraryExportFormat.INDEPENDENT, 2)]
+    public async Task MetadataOnlyExportDoesNotWaitForFontLoadingAndKeepsUnavailableFontNames(EffectLibraryExportFormat format, int styleCount)
+    {
+        using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
+        var fontLoads = 0;
+        var loaded = new TaskCompletionSource<SystemFontCatalog>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fonts = new SubtitleFontSelectionService(() =>
+        {
+            fontLoads++;
+            return loaded.Task;
+        });
+        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false }, fonts);
+        await context.Initialization;
+        var styles = Enumerable.Range(0, styleCount).Select(index => new SubtitleStylePreset(Guid.NewGuid(), $"Style {index}",
+            new()
+            {
+                FontFamily = "Unavailable Font Family", FontSize = 42,
+                FontVariant = new() { Name = "Heavy", Weight = 900, PostScriptName = "UnavailableFont-Heavy" }
+            }, new TimingPostProcessorOptions())).ToImmutableArray();
+        foreach (var style in styles)
+        {
+            await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(style));
+        }
+        var before = context.EffectLibrary.Snapshot;
+        var output = Path.Combine(environment.DirectoryPath, "output");
+        var singlePath = Path.Combine(output, format == EffectLibraryExportFormat.PACKAGE ? "styles.aegilibrary" : "style.aegistyles");
+        var dialogs = new StartupTestDialogService { SavePath = singlePath, FolderPath = output };
+        dialogs.ExportDialogHandler = (snapshot, exportAsync, token) => exportAsync(new(
+            snapshot.Styles.Presets, [], format, IncludeFonts: false), dialogs, token);
+        using var model = new EffectLibraryTransferViewModel();
+        using var coordinator = new EffectLibraryTransferCoordinator(context, model, dialogs, () => Task.FromResult(true));
+
+        try
+        {
+            await coordinator.ExportDialogAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.Null(model.Error);
+            Assert.Null(context.LastError);
+            Assert.Equal(1, dialogs.ExportDialogRequests);
+            Assert.Equal(1, fontLoads);
+            Assert.False(loaded.Task.IsCompleted);
+            Assert.Null(fonts.LoadedCatalog);
+            Assert.Same(before, context.EffectLibrary.Snapshot);
+            if (format == EffectLibraryExportFormat.PACKAGE)
+            {
+                var package = await EffectLibraryPackageStore.LoadAsync(singlePath);
+                Assert.False(package.IncludesFonts);
+                Assert.Empty(package.FontFamilies);
+                Assert.Equal(styles.ToArray(), package.Styles.Presets.ToArray());
+            }
+            else
+            {
+                var packages = await Task.WhenAll(Directory.GetFiles(output, "*.aegistyles").Select(path => SubtitleStylePresetStore.LoadAsync(path)));
+                Assert.Equal(styleCount, packages.Length);
+                Assert.All(packages, package =>
+                {
+                    Assert.False(package.IncludesFonts);
+                    Assert.Empty(package.FontFamilies);
+                });
+                Assert.Equal(styles.OrderBy(preset => preset.Id), packages.SelectMany(package => package.Styles.Presets).OrderBy(preset => preset.Id));
+            }
+            Assert.Empty(Directory.GetDirectories(output));
+        }
+        finally
+        {
+            loaded.TrySetResult(SystemFontCatalog.Empty);
+            await fonts.EnsureLoadedAsync();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task DeferredFontLoadingKeepsTheApplicationFontsFrozenBeforeOpeningTheDialog()
+    {
+        using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
+        var loaded = new TaskCompletionSource<SystemFontCatalog>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fonts = new SubtitleFontSelectionService(() => loaded.Task);
+        await using var context = new DesktopApplicationContext(new(environment.DirectoryPath), new() { AutoCheckUpdates = false }, fonts);
+        await context.Initialization;
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Frozen style", new() { FontFamily = "Noto Sans" });
+        var family = StyleExchangeUiTestFonts.Family;
+        await context.RunStyleOperationAsync(() => context.StyleLibrary.UpsertAsync(new CapturedSubtitleStyle(style, [family])));
+        var before = context.EffectLibrary.Snapshot;
+        var path = Path.Combine(environment.DirectoryPath, "frozen.aegistyles");
+        var dialogs = new StartupTestDialogService { SavePath = path };
+        dialogs.ExportDialogHandler = async (snapshot, exportAsync, token) =>
+        {
+            Assert.Same(before, snapshot);
+            Assert.Null(fonts.LoadedCatalog);
+            await context.RunEffectLibraryOperationAsync(() => context.EffectLibrary.UpdateAsync(context.EffectLibrary.Snapshot.Revision,
+                current => current with
+                {
+                    Styles = new() { Presets = [style with { Name = "Changed after opening" }] }, FontFamilies = []
+                }));
+            loaded.TrySetResult(SystemFontCatalog.Empty);
+            return await exportAsync(new(snapshot.Styles.Presets, [], EffectLibraryExportFormat.INDEPENDENT), dialogs, token);
+        };
+        using var model = new EffectLibraryTransferViewModel();
+        using var coordinator = new EffectLibraryTransferCoordinator(context, model, dialogs, () => Task.FromResult(true));
+        try
+        {
+            await coordinator.ExportDialogAsync().WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.Null(model.Error);
+            var exported = await SubtitleStylePresetStore.LoadAsync(path);
+            Assert.True(exported.IncludesFonts);
+            Assert.Equal(style, Assert.Single(exported.Styles.Presets));
+            Assert.Equal(family.Files[0].Data, Assert.Single(Assert.Single(exported.FontFamilies).Files).Data);
+            Assert.Empty(context.EffectLibrary.Snapshot.FontFamilies);
+        }
+        finally
+        {
+            loaded.TrySetResult(SystemFontCatalog.Empty);
+            await fonts.EnsureLoadedAsync();
+        }
+    }
+
     [AvaloniaTheory]
     [InlineData(EffectLibraryPage.STYLES)]
     [InlineData(EffectLibraryPage.EFFECTS)]

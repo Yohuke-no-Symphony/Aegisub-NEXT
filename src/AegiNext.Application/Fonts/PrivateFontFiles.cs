@@ -43,8 +43,17 @@ internal static class PrivateFontFiles
         return merged;
     }
 
-    internal static void ValidateCoverage(SubtitleStylePresetCollection styles, ImmutableArray<FontFamilyBundle> families)
+    internal static void ValidateCoverage(SubtitleStylePresetCollection styles, ImmutableArray<FontFamilyBundle> families,
+        bool includesFonts = true)
     {
+        if (!includesFonts)
+        {
+            if (families.IsDefault || !families.IsEmpty)
+            {
+                throw new InvalidDataException("不携带字体的交换包必须使用空字体族集合。");
+            }
+            return;
+        }
         FontFamilyBundleValidator.Validate(families);
         var names = families.Select(family => family.FamilyName).ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (styles.Presets.Any(preset => !names.Contains(preset.Style.FontFamily)))

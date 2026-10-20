@@ -1030,6 +1030,8 @@
     "EffectLibrary.ExportDialogFailed": "エクスポートできませんでした：{0}",
     "EffectLibrary.ExportDslId": "スクリプトID：{0}",
     "EffectLibrary.ExportFormat": "形式",
+    "EffectLibrary.ExportWithoutFonts": "フォントを含めない",
+    "EffectLibrary.ExportWithoutFontsHint": "フォント名とバリエーションのみを保持します。使用先のパソコンで必要なフォントを用意してください。",
     "EffectLibrary.ExportIndependent": "個別ファイル",
     "EffectLibrary.ExportPackage": "ライブラリパッケージ（.aegilibrary）",
     "EffectLibrary.ExportSource": "スクリプトソース（.aegifx）",

@@ -14,6 +14,52 @@ namespace AegiNext.Desktop.Ui.Tests;
 
 public sealed class EffectLibraryTransferUiTests
 {
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ImportingAStyleWithoutFontsKeepsInstalledFontsAndDoesNotReportFontInstallation(bool withInstalledFonts)
+    {
+        using var environment = new UiTestEnvironment(disableAutomaticUpdates: true);
+        await using var context = StyleExchangeUiTestFonts.CreateContext(environment.DirectoryPath, new() { AutoCheckUpdates = false });
+        await context.Initialization;
+        if (withInstalledFonts)
+        {
+            await context.RunEffectLibraryOperationAsync(() => context.EffectLibrary.UpdateAsync(context.EffectLibrary.Snapshot.Revision,
+                current => current with { FontFamilies = [StyleExchangeUiTestFonts.Family] }));
+        }
+        var installed = context.EffectLibrary.Snapshot.FontFamilies;
+        var style = new SubtitleStylePreset(Guid.NewGuid(), "Metadata-only style", new() { FontFamily = "Noto Sans", FontSize = 55 });
+        var input = Path.Combine(environment.DirectoryPath, "without-fonts.aegistyles");
+        await SubtitleStylePresetStore.SaveAsync(new() { Styles = new() { Presets = [style] }, IncludesFonts = false }, input);
+        var dialogs = new StartupTestDialogService { OpenPaths = [input] };
+        using var model = new EffectLibraryTransferViewModel();
+        using var coordinator = new EffectLibraryTransferCoordinator(context, model, dialogs, () => Task.FromResult(true));
+        var host = new Window { Width = 900, Height = 700, Content = new EffectLibraryTransferView { DataContext = model } };
+        try
+        {
+            host.Show();
+            UiTestActions.Click(host, "ImportEffectLibraryButton");
+            await coordinator.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(Assert.Single(model.ImportPlan!.Rows).IncludesFonts);
+
+            UiTestActions.Click(host, "CommitEffectLibraryImportButton");
+            await coordinator.Completion.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Null(model.Error);
+            Assert.Equal(style, Assert.Single(context.StyleLibrary.Snapshot.Presets));
+            Assert.True(installed.Equals(context.EffectLibrary.Snapshot.FontFamilies));
+            Assert.Equal(Localization.Format("EffectLibrary.Imported", 1, 0, 0), model.Status);
+            if (!withInstalledFonts)
+            {
+                Assert.False(Directory.Exists(context.LibraryPaths.FontsDirectory));
+            }
+        }
+        finally
+        {
+            host.Close();
+        }
+    }
+
     [AvaloniaFact]
     public async Task MixedImportShowsPreviewAndOnlyCommitsAfterConfirmation()
     {

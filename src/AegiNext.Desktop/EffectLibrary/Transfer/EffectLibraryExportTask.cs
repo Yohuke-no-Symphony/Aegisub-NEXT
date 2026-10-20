@@ -18,10 +18,11 @@ internal sealed class EffectLibraryExportTask : AegiTask
     private readonly IReadOnlyList<string> paths;
     private readonly SystemFontCatalog? fontCatalog;
     private readonly ImmutableArray<FontFamilyBundle> fontFamilies;
+    private readonly bool includeFonts;
 
     internal EffectLibraryExportTask(DesktopApplicationContext owner, ImmutableArray<SubtitleStylePreset> styles,
         ImmutableArray<EffectScriptPreset> effects, string destination, EffectLibraryExportMode mode,
-        SystemFontCatalog? fontCatalog = null)
+        SystemFontCatalog? fontCatalog = null, bool includeFonts = true)
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentException.ThrowIfNullOrWhiteSpace(destination);
@@ -34,8 +35,9 @@ internal sealed class EffectLibraryExportTask : AegiTask
         this.effects = effects;
         this.destination = Path.GetFullPath(destination);
         this.mode = mode;
-        this.fontCatalog = fontCatalog ?? owner.Fonts.Catalog;
-        fontFamilies = this.fontCatalog?.ApplicationFonts ?? owner.EffectLibrary.Snapshot.FontFamilies;
+        this.includeFonts = includeFonts;
+        this.fontCatalog = includeFonts ? fontCatalog ?? owner.Fonts.Catalog : null;
+        fontFamilies = includeFonts ? this.fontCatalog?.ApplicationFonts ?? owner.EffectLibrary.Snapshot.FontFamilies : [];
         paths = mode switch
         {
             EffectLibraryExportMode.INDEPENDENT_FILES => owner.EffectLibraryTransfer.GetIndependentDestinations(styles, effects, this.destination),
@@ -67,16 +69,16 @@ internal sealed class EffectLibraryExportTask : AegiTask
         Action beforeCommit = () => context.EnterCommit();
         return Task.Run(() =>
         {
-            var capturedFonts = fontCatalog ?? (styles.IsEmpty ? SystemFontCatalog.Empty : new SystemFontCatalog(fontFamilies));
+            var capturedFonts = !includeFonts || styles.IsEmpty ? SystemFontCatalog.Empty : fontCatalog ?? new SystemFontCatalog(fontFamilies);
             var transfer = new EffectLibraryTransferService(owner.EffectLibrary, new FontFamilySource(() => capturedFonts),
                 new FontFamilyValidator(), capturedFonts.ApplicationFonts);
             return mode switch
             {
-                EffectLibraryExportMode.PACKAGE => transfer.ExportPackageAsync(styles, effects, destination, beforeCommit, token),
-                EffectLibraryExportMode.INDEPENDENT_FILES => transfer.ExportIndependentAsync(styles, effects, destination, beforeCommit, token),
+                EffectLibraryExportMode.PACKAGE => transfer.ExportPackageAsync(styles, effects, destination, beforeCommit, token, includeFonts: includeFonts),
+                EffectLibraryExportMode.INDEPENDENT_FILES => transfer.ExportIndependentAsync(styles, effects, destination, beforeCommit, token, includeFonts: includeFonts),
                 EffectLibraryExportMode.SCRIPT_SOURCE_FILES => PresetBatchExporter.ExportEffectsAsync(effects, destination, beforeCommit, token),
                 EffectLibraryExportMode.SCRIPT_SOURCE => transfer.ExportEffectSourceAsync(effects.Single(), destination, beforeCommit, token),
-                EffectLibraryExportMode.SINGLE_FILE when !styles.IsEmpty => transfer.ExportStyleAsync(styles.Single(), destination, beforeCommit, token),
+                EffectLibraryExportMode.SINGLE_FILE when !styles.IsEmpty => transfer.ExportStyleAsync(styles.Single(), destination, beforeCommit, token, includeFonts: includeFonts),
                 EffectLibraryExportMode.SINGLE_FILE => transfer.ExportEffectAsync(effects.Single(), destination, beforeCommit, token),
                 _ => throw new InvalidOperationException("导出格式无效。")
             };

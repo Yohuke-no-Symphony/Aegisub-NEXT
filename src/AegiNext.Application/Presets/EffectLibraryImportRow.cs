@@ -12,6 +12,7 @@ public sealed record EffectLibraryImportRow
     public EffectLibraryImportStatus Status { get; init; }
     public bool CanImport { get; init; }
     public bool CanReplace { get; init; }
+    public bool IncludesFonts { get; init; }
     public Guid? TargetId { get; init; }
     public string? DslId { get; init; }
     public string? PreviousDslId { get; init; }

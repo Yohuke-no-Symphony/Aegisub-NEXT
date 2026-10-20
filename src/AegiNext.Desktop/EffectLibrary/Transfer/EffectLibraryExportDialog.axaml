@@ -62,15 +62,24 @@
           <TextBlock Grid.Row="1" Text="{Loc Key=EffectLibrary.ExportEmptyLibrary}" IsVisible="{Binding IsEmpty}" Classes="field" TextWrapping="Wrap" Margin="8" />
         </Grid>
       </Border>
-      <common:PropertyRowControl Grid.Row="3" Header="{Loc Key=EffectLibrary.ExportFormat}" SeparatorThickness="0">
-        <ComboBox Name="EffectLibraryExportDialogFormat" IsEnabled="{Binding CanInteract}">
-          <ComboBox.ItemTemplate>
-            <DataTemplate x:DataType="transfer:EffectLibraryExportFormatChoice">
-              <TextBlock Text="{Binding Text}" />
-            </DataTemplate>
-          </ComboBox.ItemTemplate>
-        </ComboBox>
-      </common:PropertyRowControl>
+      <StackPanel Grid.Row="3" Spacing="4">
+        <common:PropertyRowControl Header="{Loc Key=EffectLibrary.ExportFormat}" SeparatorThickness="0">
+          <ComboBox Name="EffectLibraryExportDialogFormat" IsEnabled="{Binding CanInteract}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="transfer:EffectLibraryExportFormatChoice">
+                <TextBlock Text="{Binding Text}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </common:PropertyRowControl>
+        <common:PropertyRowControl Header="{Loc Key=EffectLibrary.ExportWithoutFonts}" SeparatorThickness="0">
+          <ToggleSwitch Name="EffectLibraryExportWithoutFonts" IsChecked="{Binding ExcludeFonts, Mode=TwoWay}"
+                        IsEnabled="{Binding CanChangeFontExport}" OnContent="" OffContent=""
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip.Tip="{Loc Key=EffectLibrary.ExportWithoutFontsHint}"
+                        AutomationProperties.Name="{Loc Key=EffectLibrary.ExportWithoutFonts}" />
+        </common:PropertyRowControl>
+      </StackPanel>
       <TextBlock Grid.Row="4" Text="{Loc Key=EffectLibrary.SourceExportHint}" IsVisible="{Binding IsSourceFormat}" Classes="field" TextWrapping="Wrap" />
       <StackPanel Grid.Row="5" Spacing="8">
         <TextBlock Text="{Loc Key=EffectLibrary.ExportInProgress}" IsVisible="{Binding IsBusy}" Classes="field" />

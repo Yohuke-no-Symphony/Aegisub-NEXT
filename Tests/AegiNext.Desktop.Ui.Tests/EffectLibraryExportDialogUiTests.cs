@@ -22,6 +22,59 @@ namespace AegiNext.Desktop.Ui.Tests;
 /// <summary>验证导出模态窗口的真实勾选、格式同步、输入和关闭边界。</summary>
 public sealed class EffectLibraryExportDialogUiTests
 {
+    [AvaloniaTheory]
+    [InlineData("en-US", "Exclude fonts", false)]
+    [InlineData("zh-CN", "不导出字体", false)]
+    [InlineData("ja-JP", "フォントを含めない", false)]
+    [InlineData("en-US", "Exclude fonts", true)]
+    [InlineData("zh-CN", "不导出字体", true)]
+    [InlineData("ja-JP", "フォントを含めない", true)]
+    public async Task FontToggleExportsMetadataOnlyAndStaysVisibleAtMinimumSize(string language, string label, bool dark)
+    {
+        using var environment = new UiTestEnvironment();
+        Localization.SetLanguage(language);
+        EffectLibraryExportRequest? exported = null;
+        await using var model = new EffectLibraryExportDialogViewModel(Snapshot(), (request, _) =>
+        {
+            exported = request;
+            return Task.FromResult(false);
+        });
+        var owner = new Window();
+        var dialog = new EffectLibraryExportDialog(model)
+        {
+            Width = 600, Height = 680, RequestedThemeVariant = dark ? ThemeVariant.Dark : ThemeVariant.Light
+        };
+        try
+        {
+            owner.Show();
+            _ = dialog.ShowDialog<bool>(owner);
+            Pump(dialog);
+            var toggle = UiTestActions.Find<ToggleSwitch>(dialog, "EffectLibraryExportWithoutFonts");
+            Assert.Equal(label, Avalonia.Automation.AutomationProperties.GetName(toggle));
+            Assert.False(toggle.IsChecked);
+            Assert.False(toggle.IsEffectivelyEnabled);
+            UiTestActions.Click(dialog, Checkbox(dialog, model.StyleRoot.Children[0]));
+            Assert.True(toggle.IsEffectivelyEnabled);
+            Assert.True(new Rect(dialog.ClientSize).Contains(BoundsIn(toggle, dialog)));
+            UiTestActions.Click(dialog, toggle);
+            Assert.True(model.ExcludeFonts);
+            Search(dialog, "missing");
+            Assert.True(toggle.IsEffectivelyEnabled);
+            UiTestActions.Click(dialog, "EffectLibraryExportSelected");
+            await model.Completion;
+            Assert.False(exported!.IncludeFonts);
+            Assert.Single(exported.Styles);
+            UiTestActions.Click(dialog, "EffectLibraryExportSelectNone");
+            Assert.False(toggle.IsEffectivelyEnabled);
+            Assert.True(toggle.IsChecked);
+        }
+        finally
+        {
+            dialog.CloseImmediately();
+            owner.Close();
+        }
+    }
+
     /// <summary>树行合并名称与详情，保留主次文字颜色和字号，并移除底部选择统计。</summary>
     [AvaloniaTheory]
     [InlineData("en-US", false)]

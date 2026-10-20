@@ -9,5 +9,6 @@ public sealed record EffectLibraryPackage
 {
     public SubtitleStylePresetCollection Styles { get; init; } = new();
     public EffectScriptPresetDocument Effects { get; init; } = new();
+    public bool IncludesFonts { get; init; } = true;
     public ImmutableArray<FontFamilyBundle> FontFamilies { get; init; } = [];
 }

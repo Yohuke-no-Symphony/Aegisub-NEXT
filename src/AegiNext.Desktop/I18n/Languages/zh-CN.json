@@ -1289,6 +1289,8 @@
     "EffectLibrary.ExportDialogFailed": "导出未完成：{0}",
     "EffectLibrary.ExportDslId": "脚本标识：{0}",
     "EffectLibrary.ExportFormat": "导出格式",
+    "EffectLibrary.ExportWithoutFonts": "不导出字体",
+    "EffectLibrary.ExportWithoutFontsHint": "仅保留字体名称和变体，目标电脑需要自行准备相应字体。",
     "EffectLibrary.ExportIndependent": "独立文件",
     "EffectLibrary.ExportPackage": "效果库包（.aegilibrary）",
     "EffectLibrary.ExportSource": "脚本原文（.aegifx）",

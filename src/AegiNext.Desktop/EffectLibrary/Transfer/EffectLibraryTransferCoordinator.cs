@@ -68,16 +68,22 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         {
             model.SetOperationBusy(true);
             await context.Initialization.WaitAsync(token);
-            await context.Fonts.EnsureLoadedAsync().WaitAsync(token);
             var frozen = context.EffectLibrary.Snapshot;
-            var frozenFonts = context.Fonts.Catalog;
+            var frozenFonts = context.Fonts.LoadedCatalog;
             using var dialogCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
             var dialogToken = dialogCancellation.Token;
             var dialogOperation = dialogs.ShowEffectLibraryExportAsync(frozen, async (request, scopedDialogs, requestToken) =>
             {
                 dialogToken.ThrowIfCancellationRequested();
                 using var requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(dialogToken, requestToken);
-                return await ExportRequestAsync(request, scopedDialogs, requestCancellation.Token, frozenFonts);
+                var scopedToken = requestCancellation.Token;
+                if (request.IncludeFonts && !request.Styles.IsEmpty && frozenFonts is null)
+                {
+                    await context.Fonts.EnsureLoadedAsync().WaitAsync(scopedToken);
+                    var loaded = context.Fonts.Catalog;
+                    frozenFonts = await Task.Run(() => new SystemFontCatalog(frozen.FontFamilies, loaded), scopedToken);
+                }
+                return await ExportRequestAsync(request, scopedDialogs, scopedToken, frozenFonts);
             }, dialogToken);
             bool exported;
             try
@@ -153,7 +159,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
             var skipped = decisions.Values.Count(decision => decision == EffectLibraryImportDecision.SKIP);
             model.ClearPreview();
             previewPaths = [];
-            var fontsReady = plan.Rows.Any(row => row.Kind == EffectLibraryItemKind.STYLE &&
+            var fontsReady = plan.Rows.Any(row => row.IncludesFonts &&
                 decisions.GetValueOrDefault(row.Index) is EffectLibraryImportDecision.IMPORT or EffectLibraryImportDecision.REPLACE);
             model.ShowStatus(fontsReady ? "EffectLibrary.ImportedWithFonts" : "EffectLibrary.Imported", added, replaced, skipped);
         });
@@ -196,7 +202,8 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
         {
             return false;
         }
-        await SubmitAsync(new EffectLibraryExportTask(context, request.Styles, request.Effects, destination, mode, frozenFonts), token);
+        await SubmitAsync(new EffectLibraryExportTask(context, request.Styles, request.Effects, destination, mode, frozenFonts,
+            includeFonts: request.IncludeFonts), token);
         token.ThrowIfCancellationRequested();
         return true;
     }

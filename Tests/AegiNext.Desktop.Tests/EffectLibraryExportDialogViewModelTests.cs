@@ -7,6 +7,44 @@ namespace AegiNext.Desktop.Tests;
 [Collection("Workspace session")]
 public sealed class EffectLibraryExportDialogViewModelTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FontExportChoiceIsFrozenAndPreservedThroughSearchAndRetries(bool excludeFonts)
+    {
+        var finish = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        EffectLibraryExportRequest? captured = null;
+        await using var model = new EffectLibraryExportDialogViewModel(EffectLibraryExportDialogTestData.Snapshot(), (request, _) =>
+        {
+            captured = request;
+            return finish.Task;
+        });
+        Assert.False(model.ExcludeFonts);
+        Assert.False(model.CanChangeFontExport);
+        model.StyleRoot.Children[0].IsChecked = true;
+        Assert.True(model.CanChangeFontExport);
+        model.ExcludeFonts = excludeFonts;
+        model.SearchText = "no matching styles";
+        Assert.True(model.CanChangeFontExport);
+        var operation = model.ExportSelectedCommand.ExecuteAsync(null);
+        try
+        {
+            Assert.False(model.CanChangeFontExport);
+            model.ExcludeFonts = !excludeFonts;
+            Assert.Equal(!excludeFonts, captured!.IncludeFonts);
+            Assert.Equal(excludeFonts, model.ExcludeFonts);
+        }
+        finally
+        {
+            finish.TrySetResult(false);
+            await operation;
+        }
+        Assert.True(model.CanChangeFontExport);
+        Assert.Equal(excludeFonts, model.ExcludeFonts);
+        using var reopened = new EffectLibraryExportDialogViewModel(EffectLibraryExportDialogTestData.Snapshot(), (_, _) => Task.FromResult(false));
+        Assert.False(reopened.ExcludeFonts);
+    }
+
     /// <summary>每次打开默认不选任何素材并使用包格式，树根展开且仅含快照个人素材。</summary>
     [Fact]
     public void NewDialogStartsWithNoSelectionAndTwoExpandedPersonalRoots()

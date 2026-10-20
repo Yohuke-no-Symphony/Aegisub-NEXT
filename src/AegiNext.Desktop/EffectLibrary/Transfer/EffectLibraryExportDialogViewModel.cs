@@ -22,6 +22,7 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
     private string searchText = string.Empty;
     private Exception? error;
     private bool isBusy;
+    private bool excludeFonts;
     private bool disposed;
 
     internal EffectLibraryExportDialogViewModel(EffectLibrarySnapshot snapshot,
@@ -72,8 +73,22 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
     public bool CanExportSelected => CanInteract && SelectedCount > 0;
     public bool HasSearchText => searchText.Length > 0;
     public bool IsSourceFormat => selectedFormat == EffectLibraryExportFormat.SOURCE;
+    public bool CanChangeFontExport => CanInteract && !IsSourceFormat &&
+        leaves.Any(node => node.Style is not null && node.IsChecked == true);
     public bool HasError => error is not null;
     public string? Error => error is null ? null : Localization.Format("EffectLibrary.ExportDialogFailed", error.Message);
+
+    public bool ExcludeFonts
+    {
+        get => excludeFonts;
+        set
+        {
+            if (CanInteract)
+            {
+                SetProperty(ref excludeFonts, value);
+            }
+        }
+    }
 
     public string SearchText
     {
@@ -199,11 +214,13 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
         OnPropertyChanged(nameof(SelectedFormat));
         OnPropertyChanged(nameof(SelectedFormatChoice));
         OnPropertyChanged(nameof(IsSourceFormat));
+        OnPropertyChanged(nameof(CanChangeFontExport));
     }
 
     private void RefreshCommands()
     {
         OnPropertyChanged(nameof(CanExportSelected));
+        OnPropertyChanged(nameof(CanChangeFontExport));
         ExportSelectedCommand.NotifyCanExecuteChanged();
         SelectAllCommand.NotifyCanExecuteChanged();
         ClearSelectionCommand.NotifyCanExecuteChanged();
@@ -230,7 +247,8 @@ internal sealed class EffectLibraryExportDialogViewModel : ObservableObject, IDi
         }
         var request = new EffectLibraryExportRequest(
             [.. leaves.Where(node => node.Style is not null && node.IsChecked == true).Select(node => node.Style!)],
-            [.. leaves.Where(node => node.Effect is not null && node.IsChecked == true).Select(node => node.Effect!)], selectedFormat);
+            [.. leaves.Where(node => node.Effect is not null && node.IsChecked == true).Select(node => node.Effect!)], selectedFormat,
+            IncludeFonts: !ExcludeFonts);
         var token = cancellation.Token;
         var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         operationCompletion = completed;

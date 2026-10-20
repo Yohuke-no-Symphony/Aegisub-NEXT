@@ -133,7 +133,7 @@ public static class EffectLibraryPackageStore
         cancellationToken.ThrowIfCancellationRequested();
         _ = SubtitleStylePresetMetadataStore.Serialize(package.Styles);
         _ = EffectScriptPresetStore.Serialize(package.Effects);
-        PrivateFontFiles.ValidateCoverage(package.Styles, package.FontFamilies);
+        PrivateFontFiles.ValidateCoverage(package.Styles, package.FontFamilies, package.IncludesFonts);
         if (stylesOnly && !package.Effects.Presets.IsEmpty)
         {
             throw new InvalidDataException("样式包不能包含特效。");
@@ -166,7 +166,8 @@ public static class EffectLibraryPackageStore
             Version = stylesOnly ? 1 : 2,
             Format = stylesOnly ? "aeginext.styles" : "aeginext.library",
             Styles = styles.ToImmutable(), Effects = effects.ToImmutable(),
-            FontFamilies = PrivateFontFiles.References(package.FontFamilies)
+            IncludesFonts = package.IncludesFonts,
+            FontFamilies = package.IncludesFonts ? PrivateFontFiles.References(package.FontFamilies) : []
         };
         var manifestBytes = JsonSerializer.SerializeToUtf8Bytes(manifest, options);
         if (manifestBytes.Length > MAXIMUM_MANIFEST_BYTES || files.Count >= MAXIMUM_ENTRY_COUNT ||
@@ -225,6 +226,10 @@ public static class EffectLibraryPackageStore
                 stylesOnly && !manifest.Effects.IsEmpty)
             {
                 throw new InvalidDataException("不支持的交换包版本或无效的清单集合。");
+            }
+            if (!manifest.IncludesFonts && !manifest.FontFamilies.IsEmpty)
+            {
+                throw new InvalidDataException("不携带字体的交换包不能声明字体文件。");
             }
             var referenced = new HashSet<string>(StringComparer.Ordinal) { MANIFEST_NAME };
             var styles = ImmutableArray.CreateBuilder<SubtitleStylePreset>();
@@ -291,11 +296,13 @@ public static class EffectLibraryPackageStore
             var result = new EffectLibraryPackage
             {
                 Styles = new() { Presets = styles.ToImmutable() },
-                Effects = new() { Presets = effects.ToImmutable() }, FontFamilies = families.ToImmutable()
+                Effects = new() { Presets = effects.ToImmutable() },
+                IncludesFonts = manifest.IncludesFonts,
+                FontFamilies = families.ToImmutable()
             };
             _ = SubtitleStylePresetMetadataStore.Serialize(result.Styles);
             _ = EffectScriptPresetStore.Serialize(result.Effects);
-            PrivateFontFiles.ValidateCoverage(result.Styles, result.FontFamilies);
+            PrivateFontFiles.ValidateCoverage(result.Styles, result.FontFamilies, result.IncludesFonts);
             return result;
         }
         catch (Exception error) when (error is ArgumentException or JsonException or OverflowException or NotSupportedException)

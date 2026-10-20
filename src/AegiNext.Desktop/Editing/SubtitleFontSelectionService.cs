@@ -95,6 +95,16 @@ internal sealed class SubtitleFontSelectionService
     }
 
     internal SystemFontCatalog? Catalog { get; private set; }
+    internal SystemFontCatalog? LoadedCatalog
+    {
+        get
+        {
+            lock (loadingGate)
+            {
+                return loadCatalog is null || loading?.IsCompletedSuccessfully == true ? Catalog : null;
+            }
+        }
+    }
     internal ImmutableArray<SystemFontFace> Faces => faces;
     internal IFontNamePreviewProvider? PreviewProvider { get; set; }
     internal ImmutableArray<FontPickerCandidate> Candidates { get; private set; }

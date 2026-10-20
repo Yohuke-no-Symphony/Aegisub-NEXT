@@ -1289,6 +1289,8 @@
     "EffectLibrary.ExportDialogFailed": "Could not export: {0}",
     "EffectLibrary.ExportDslId": "Script ID: {0}",
     "EffectLibrary.ExportFormat": "Format",
+    "EffectLibrary.ExportWithoutFonts": "Exclude fonts",
+    "EffectLibrary.ExportWithoutFontsHint": "Keep font names and variants only. The required fonts must be available on the destination computer.",
     "EffectLibrary.ExportIndependent": "Individual files",
     "EffectLibrary.ExportPackage": "Library package (.aegilibrary)",
     "EffectLibrary.ExportSource": "Script source (.aegifx)",
