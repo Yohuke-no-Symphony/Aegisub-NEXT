@@ -29,6 +29,7 @@ typedef struct an_audio_clock_snapshot
 AN_AUDIO_API uint32_t an_audio_abi_version(void);
 AN_AUDIO_API uint32_t an_audio_clock_snapshot_size(void);
 AN_AUDIO_API int an_audio_decoder_create(void **decoder, char *error, uint32_t capacity);
+AN_AUDIO_API int an_audio_decoder_set_timestamp_policy(void *decoder, int policy, char *error, uint32_t capacity);
 AN_AUDIO_API int an_audio_decoder_open(void *decoder, const char *path, int stream, int rate, int channels, char *error, uint32_t capacity);
 AN_AUDIO_API int an_audio_decoder_read(void *decoder, float *samples, int frame_capacity, int *frames, int64_t *start_sample, char *error, uint32_t capacity);
 AN_AUDIO_API int an_audio_decoder_seek(void *decoder, int64_t sample, char *error, uint32_t capacity);

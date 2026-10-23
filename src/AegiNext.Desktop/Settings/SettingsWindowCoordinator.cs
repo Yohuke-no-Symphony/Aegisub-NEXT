@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AegiNext.Desktop.Settings.Koumori;
 using System.ComponentModel;
 using AegiNext.Application.ColorTags;
 using AegiNext.Core.Presets;
@@ -149,6 +150,7 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         window.TasksChanged += OnTasksChanged;
         window.UpdatesChanged += OnUpdatesChanged;
         window.AudioAnalysisChanged += OnAudioAnalysisChanged;
+        window.KoumoriChanged += OnKoumoriChanged;
         window.AudioAnalysisRebuildRequested += OnAudioAnalysisRebuildRequested;
         window.TimingPreferencesChanged += OnTimingPreferencesChanged;
         window.TimingAssociateRequested += OnTimingAssociationRequested;
@@ -180,6 +182,7 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
         window.TasksChanged -= OnTasksChanged;
         window.UpdatesChanged -= OnUpdatesChanged;
         window.AudioAnalysisChanged -= OnAudioAnalysisChanged;
+        window.KoumoriChanged -= OnKoumoriChanged;
         window.AudioAnalysisRebuildRequested -= OnAudioAnalysisRebuildRequested;
         window.TimingPreferencesChanged -= OnTimingPreferencesChanged;
         window.TimingAssociateRequested -= OnTimingAssociationRequested;
@@ -319,6 +322,11 @@ internal sealed class SettingsWindowCoordinator(DesktopApplicationContext applic
     private void OnUpdatesChanged(object? sender, UpdateSettingsChangedEventArgs e)
     {
         UpdatePreferences(value => value with { AutoCheckUpdates = e.AutoCheckUpdates, UpdateChannel = e.UpdateChannel });
+    }
+
+    private void OnKoumoriChanged(object? sender, KoumoriPreferencesChangedEventArgs e)
+    {
+        UpdatePreferences(value => value with { Koumori = e.Preferences });
     }
 
     private void OnAudioAnalysisChanged(object? sender, AudioAnalysisPreferencesChangedEventArgs e)

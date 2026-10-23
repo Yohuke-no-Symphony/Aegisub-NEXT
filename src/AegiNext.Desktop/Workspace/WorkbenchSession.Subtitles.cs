@@ -12,6 +12,7 @@ internal sealed partial class WorkbenchSession
 {
     private Shortcuts.TimingEnterResult? pendingTimingEntry;
     private MediaTime? pendingTimingEnd;
+    private static MediaTime DefaultSubtitleDuration => new(2);
 
     internal async Task AddCueAsync()
     {
@@ -20,8 +21,13 @@ internal sealed partial class WorkbenchSession
             return;
         }
         var start = ProjectPosition < MediaTime.Zero ? MediaTime.Zero : ProjectPosition;
+        await AddCueAsync(trackId, start, start + DefaultSubtitleDuration);
+    }
+
+    private async Task AddCueAsync(Guid trackId, MediaTime start, MediaTime end)
+    {
         var presetId = ViewModel.Styles.Subtitle.SelectedPreset?.Id;
-        var cue = new SubtitleLine { Start = start, End = start + new MediaTime(2), Text = string.Empty };
+        var cue = new SubtitleLine { Start = start, End = end, Text = string.Empty };
         await CreateSubtitleClipsAsync([cue], trackId, presetId);
 
         SelectCue(cue.Id);

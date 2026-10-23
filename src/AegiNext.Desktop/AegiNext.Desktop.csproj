@@ -14,6 +14,7 @@
     <InternalsVisibleTo Include="AegiNext.Desktop.Ui.Tests" />
     <InternalsVisibleTo Include="AegiNext.Preview.Benchmarks" />
     <ProjectReference Include="../AegiNext.Media/AegiNext.Media.csproj" />
+    <ProjectReference Include="../AegiNext.Koumori/AegiNext.Koumori.csproj" />
     <ProjectReference Include="../AegiNext.Export/AegiNext.Export.csproj" />
     <ProjectReference Include="../AegiNext.Rendering/AegiNext.Rendering.csproj" />
     <ProjectReference Include="../AegiNext.Application/AegiNext.Application.csproj" />
@@ -39,4 +40,5 @@
     </None>
   </ItemGroup>
   <Import Project="../../scripts/build/AegiNext.Companions.targets" />
+  <Import Project="../../scripts/build/AegiNext.Koumori.targets" />
 </Project>

@@ -90,6 +90,10 @@ scoop install nsis
 
 Spectre 的固定版本上游许可证和包声明保存在 `scripts/publish/licenses/`；升级 `Directory.Packages.props` 中的包版本时一同更新。
 
+将完整的 Koumori 运行模型包手动放到工程根目录的 `models/koumori/`。普通 `dotnet build`、`dotnet publish`、`publish.ps1` 和 `release.ps1` 都会校验清单与所有 SHA-256 摘要，仅把清单声明的运行文件复制到可执行文件旁的 `models/koumori/`。构建会同步清理这个专用输出目录，替换或移除源模型后不会残留旧包文件。源目录为空或只有 README 时允许构建，方便不携带模型的代码检出；半包或错误包会明确失败。流程不会训练、下载模型或自动查找邻近训练仓库。发布脚本仍可用 `-KoumoriModelDirectory <运行模型包目录>` 覆盖本次来源；直接调用 MSBuild 时可用 `-p:AegiNextKoumoriModelDirectory=<运行模型包目录>`。发布包清单会记录实际部署的模型 ID 和模型清单摘要，离线验证会核对元数据与实际载荷。
+
+Koumori 支持 `win-x64` 与 `osx-arm64`。schema 1/2/3 分别包含 4/7/8 个运行文件；schema 3 增加 `snap-model.onnx`，自动生成与吸附共用编码器并使用独立输出图。`manifest.json`、其引用的 ONNX 文件、前端与解码配置及编码器许可证需要成套放入，checkpoint 和训练资料不会部署。训练状态与质量验收元数据不再作为打包准入条件，原始内容保持不变。新版运行库兼容三种格式，旧运行库不能加载 schema 3；回滚旧程序时也需恢复兼容的模型包。自动打轴设置提供“内置”和“手动指定”，默认选择内置；未放入内置模型时，请先补齐模型或改用手动目录再分析。CPU 推理固定使用 ONNX Runtime 1.31.0，其 Apple Silicon 原生库要求 macOS 14.0 及以上；随应用部署该库时，整个应用包的最低版本也随之提高。Windows 与 macOS 的原生运行验收仍须分别执行。
+
 - `media-runtime.json` 指定包内工具。
 - `package-manifest.json` 记录产品版本、原始标签、渠道、发布序号、系统构建号、`IsTestPackage` 标记、RID、Git 身份/脏状态、运行时/工具版本、依赖/许可来源、实际系统要求和文件哈希。
 - macOS 重写 Mach-O 依赖路径并签名，最高原生库要求决定最低系统版本；默认临时签名，公证另行处理。

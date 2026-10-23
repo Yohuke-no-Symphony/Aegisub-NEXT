@@ -23,10 +23,15 @@ public sealed class FfmpegAudioDecoder : IAudioSampleSource
     /// 打开本地文件绝对流索引，默认转换到 48kHz 立体声；分析可请求 16kHz 单声道。
     /// </summary>
     public static unsafe FfmpegAudioDecoder Open(string path, int streamIndex,
-        AudioSampleFormat? format = null, CancellationToken cancellationToken = default)
+        AudioSampleFormat? format = null, CancellationToken cancellationToken = default,
+        AudioTimestampPolicy timestampPolicy = AudioTimestampPolicy.PRESERVE_DISCONTINUITIES)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentOutOfRangeException.ThrowIfNegative(streamIndex);
+        if (!Enum.IsDefined(timestampPolicy))
+        {
+            throw new ArgumentOutOfRangeException(nameof(timestampPolicy));
+        }
         cancellationToken.ThrowIfCancellationRequested();
         path = Path.GetFullPath(path);
         if (!File.Exists(path))
@@ -49,6 +54,10 @@ public sealed class FfmpegAudioDecoder : IAudioSampleSource
             try
             {
                 using var registration = cancellationToken.UnsafeRegister(static state => NativeAudioMethods.Cancel((AudioDecoderHandle)state!), handle);
+                if (timestampPolicy != AudioTimestampPolicy.PRESERVE_DISCONTINUITIES)
+                {
+                    NativeAudioError.Check(NativeAudioMethods.SetTimestampPolicy(handle, (int)timestampPolicy, text, (uint)error.Length), error, cancellationToken);
+                }
                 NativeAudioError.Check(NativeAudioMethods.OpenDecoder(handle, path, streamIndex, format.SampleRate, format.Channels, text, (uint)error.Length), error, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 return new(handle, format);

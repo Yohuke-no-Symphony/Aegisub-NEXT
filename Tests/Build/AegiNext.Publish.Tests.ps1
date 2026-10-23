@@ -5,6 +5,7 @@ BeforeAll {
     $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
     Import-Module (Join-Path $repository 'scripts/publish/AegiNext.Publish.psm1') -Force
     Import-Module (Join-Path $repository 'scripts/build/AegiNext.Build.psm1')
+    . (Join-Path $PSScriptRoot 'Fixtures/KoumoriPackage.ps1')
 
     function Get-PublishTestBuildVersion
     {
@@ -79,15 +80,23 @@ Describe 'Platform publishing boundaries' {
     }
 
     It 'publishes one <Channel> identity through desktop, CLI, worker and installer (<ReleaseVersion>, SkipBuild=<SkipBuild>, AllowMissingTag=<AllowMissingTag>)' -TestCases @(
-        @{ CreateInstaller = $false; ReleaseVersion = $null; NumericVersion = '0.1.0.0'; Channel = 'beta'; SkipBuild = $true; AllowMissingTag = $false }
-        @{ CreateInstaller = $true; ReleaseVersion = '2.7.3.1'; NumericVersion = '2.7.3.1'; Channel = 'stable'; SkipBuild = $true; AllowMissingTag = $false }
-        @{ CreateInstaller = $false; ReleaseVersion = '2.7.3.2'; NumericVersion = '2.7.3.2'; Channel = 'stable'; SkipBuild = $false; AllowMissingTag = $false }
-        @{ CreateInstaller = $true; ReleaseVersion = '1.2.3.99'; NumericVersion = '1.2.3.99'; Channel = 'beta'; SkipBuild = $false; AllowMissingTag = $true }
+        @{ CreateInstaller = $false; ReleaseVersion = $null; NumericVersion = '0.1.0.0'; Channel = 'beta'; SkipBuild = $true; AllowMissingTag = $false; ModelSource = 'none' }
+        @{ CreateInstaller = $true; ReleaseVersion = '2.7.3.1'; NumericVersion = '2.7.3.1'; Channel = 'stable'; SkipBuild = $true; AllowMissingTag = $false; ModelSource = 'bundled' }
+        @{ CreateInstaller = $false; ReleaseVersion = '2.7.3.2'; NumericVersion = '2.7.3.2'; Channel = 'stable'; SkipBuild = $false; AllowMissingTag = $false; ModelSource = 'override' }
+        @{ CreateInstaller = $true; ReleaseVersion = '1.2.3.99'; NumericVersion = '1.2.3.99'; Channel = 'beta'; SkipBuild = $false; AllowMissingTag = $true; ModelSource = 'bundled' }
     ) {
-        param($CreateInstaller, $ReleaseVersion, $NumericVersion, $Channel, $SkipBuild, $AllowMissingTag)
+        param($CreateInstaller, $ReleaseVersion, $NumericVersion, $Channel, $SkipBuild, $AllowMissingTag, $ModelSource)
+        $fixture = Join-Path $TestDrive "windows publish $NumericVersion"
+        $modelDirectory = switch ($ModelSource)
+        {
+            'bundled' { Join-Path $fixture 'publish command repository/models/koumori' }
+            'override' { Join-Path $fixture 'manually selected model' }
+            default { $null }
+        }
+        if ($modelDirectory) { New-KoumoriTestPackage $modelDirectory }
         $snapshot = Get-PublishTestBuildVersion -Channel $Channel -NumericVersion $NumericVersion
-        InModuleScope AegiNext.Publish -Parameters @{ Fixture = (Join-Path $TestDrive "windows publish $NumericVersion"); CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; Snapshot = $snapshot; SkipBuild = $SkipBuild; AllowMissingTag = $AllowMissingTag; Repository = $repository } {
-            param($Fixture, $CreateInstaller, $ReleaseVersion, $Snapshot, $SkipBuild, $AllowMissingTag, $Repository)
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $fixture; ModelDirectory = $modelDirectory; ModelSource = $ModelSource; CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; Snapshot = $snapshot; SkipBuild = $SkipBuild; AllowMissingTag = $AllowMissingTag; Repository = $repository } {
+            param($Fixture, $CreateInstaller, $ReleaseVersion, $Snapshot, $SkipBuild, $AllowMissingTag, $Repository, $ModelDirectory, $ModelSource)
             $ExpectedVersion = $Snapshot.ProductVersion
             $ExpectedAssemblyVersion = $Snapshot.AssemblyVersion
             $script:publishBuildVersion = $Snapshot
@@ -126,6 +135,12 @@ Describe 'Platform publishing boundaries' {
             {
                 Set-Content -LiteralPath (Join-Path $native "aeginext_$name.dll") -Value 'fixture native module'
             }
+            if ($ModelSource -eq 'override')
+            {
+                $ignored = Join-Path $root 'models/koumori'
+                [IO.Directory]::CreateDirectory($ignored) | Out-Null
+                Set-Content -LiteralPath (Join-Path $ignored 'model.onnx') -Value 'an incomplete bundled package must not override an explicit source'
+            }
             Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'Windows'; Architecture = 'Arm64'; ProcessArchitecture = 'Arm64' } }
             Mock Get-AegiNextEnvironment { [pscustomobject]@{ Ready = $true; NativePrefixes = @{ ffmpeg = $ffmpeg; sdl3 = $sdl; cxx = $compiler } } }
             Mock Get-AegiNextSourceIdentity { [pscustomobject]@{ GitSha = ('a' * 40); WorkingTreeDirty = $true; Status = 'Recorded' } }
@@ -151,6 +166,11 @@ Describe 'Platform publishing boundaries' {
                     Set-Content -LiteralPath (Join-Path $Arguments[3] "$name.runtimeconfig.json") -Value '{"runtimeOptions":{"tfm":"net10.0","includedFrameworks":[{"name":"Microsoft.NETCore.App","version":"10.0.12"}]}}'
                     if ($name -eq 'aegi-next')
                     {
+                        if ($ModelDirectory)
+                        {
+                            $Arguments | Should -Contain "-p:AegiNextKoumoriModelDirectory=$ModelDirectory"
+                            Copy-AegiNextKoumoriPackage $ModelDirectory $Arguments[3] 'win-x64' | Out-Null
+                        }
                         $languages = Join-Path $Arguments[3] 'i18n'
                         [IO.Directory]::CreateDirectory($languages) | Out-Null
                         foreach ($identifier in @('en-US', 'zh-CN', 'ja-JP'))
@@ -182,6 +202,7 @@ Describe 'Platform publishing boundaries' {
             }
             $versionArguments = if ($null -ne $ReleaseVersion) { @{ Version = $ReleaseVersion; Tag = $Snapshot.ReleaseTag } } else { @{} }
             if ($AllowMissingTag) { $versionArguments.AllowMissingTag = $true }
+            if ($ModelSource -eq 'override') { $versionArguments.KoumoriModelDirectory = $ModelDirectory }
             $assemblyVersionArgument = "-p:AssemblyVersion=$ExpectedAssemblyVersion"
             $fileVersionArgument = "-p:FileVersion=$($Snapshot.FileVersion)"
             Invoke-AegiNextPublish -RepositoryRoot $root -RuntimeIdentifier win-x64 -SkipBuild:$SkipBuild -CreateInstaller:$CreateInstaller -OutputDirectory (Join-Path $Fixture 'published command fixture') @versionArguments
@@ -201,7 +222,7 @@ Describe 'Platform publishing boundaries' {
             else
             {
                 Should -Invoke Invoke-AegiNextBuild -Times 1 -Exactly -ParameterFilter {
-                    $Target -eq 'Workbench' -and [object]::ReferenceEquals($BuildVersion, $Snapshot)
+                    $Target -eq 'Workbench' -and [object]::ReferenceEquals($BuildVersion, $Snapshot) -and $KoumoriModelDirectory -eq $ModelDirectory
                 }
             }
             $script:managedPublishDirectories.Count | Should -Be 3
@@ -247,6 +268,17 @@ Describe 'Platform publishing boundaries' {
             (Test-AegiNextPublishedPackage (Join-Path $Fixture 'published command fixture')).ProductVersion | Should -Be $ExpectedVersion
             $manifest.GitSha | Should -Be ('a' * 40)
             $manifest.WorkingTreeDirty | Should -BeTrue
+            if ($ModelDirectory)
+            {
+                $manifest.Koumori.Directory | Should -BeExactly 'models/koumori'
+                $manifest.Koumori.ModelId | Should -BeExactly 'koumori-publish-test'
+                $manifest.Koumori.ManifestSha256 | Should -BeExactly (Get-FileHash -LiteralPath (Join-Path $ModelDirectory 'manifest.json')).Hash.ToLowerInvariant()
+                @(Get-ChildItem -LiteralPath (Join-Path $Fixture 'published command fixture/AegiNext/models/koumori') -File).Count | Should -Be 4
+            }
+            else
+            {
+                $manifest.PSObject.Properties.Name | Should -Not -Contain 'Koumori'
+            }
             $manifest.ToolVersions.Count | Should -Be 2
             $manifest.ToolVersions[0].VersionLine | Should -Be 'ffmpeg version 9.0.2 fixture'
             $manifest.ToolVersions[1].VersionLine | Should -Be 'ffprobe version 9.0.2 fixture'
@@ -366,6 +398,34 @@ Describe 'Offline package release identities' {
         (Test-AegiNextPublishedPackage $package).ProductVersion | Should -Be '1.2.3'
         Should -Invoke Get-AegiNextBuildVersion -ModuleName AegiNext.Publish -Times 0 -Exactly
         Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Publish -Times 0 -Exactly
+    }
+
+    It 'rejects undeclared mismatched missing or extra deployed model payloads: <Fault>' -TestCases @(
+        @{ Fault = 'undeclared' }, @{ Fault = 'mismatched' }, @{ Fault = 'missing' }, @{ Fault = 'extra' }) {
+        param($Fault)
+        $source = Join-Path $TestDrive "offline koumori source $Fault"
+        New-KoumoriTestPackage $source
+        InModuleScope AegiNext.Publish -Parameters @{ Source = $source; Package = $package; Fault = $Fault } {
+            param($Source, $Package, $Fault)
+            Copy-AegiNextKoumoriPackage $Source (Join-Path $Package 'AegiNext') 'win-x64' | Out-Null
+        }
+        $modelManifest = Join-Path $package 'AegiNext/models/koumori/manifest.json'
+        if ($Fault -ne 'undeclared')
+        {
+            $script:offlineManifest.Koumori = @{
+                ModelId = 'koumori-publish-test'; Directory = 'models/koumori'
+                ManifestSha256 = (Get-FileHash -LiteralPath $modelManifest).Hash.ToLowerInvariant()
+            }
+        }
+        if ($Fault -eq 'mismatched') { $script:offlineManifest.Koumori.ModelId = 'different-model' }
+        if ($Fault -eq 'missing') { Remove-Item -LiteralPath (Split-Path $modelManifest) -Recurse -Force }
+        if ($Fault -eq 'extra') { Set-Content -LiteralPath (Join-Path (Split-Path $modelManifest) 'epoch.pt') -Value 'unexpected checkpoint' }
+        $script:offlineManifest.Files = @(foreach ($file in Get-ChildItem -LiteralPath $package -File -Recurse)
+        {
+            @{ Path = [IO.Path]::GetRelativePath($package, $file.FullName); Sha256 = (Get-FileHash -LiteralPath $file.FullName).Hash.ToLowerInvariant(); Bytes = $file.Length }
+        })
+        $script:offlineManifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $package 'package-manifest.json')
+        { Test-AegiNextPublishedPackage $package } | Should -Throw '*Koumori*'
     }
 
     It 'rejects inconsistent <Field> release metadata' -TestCases @(

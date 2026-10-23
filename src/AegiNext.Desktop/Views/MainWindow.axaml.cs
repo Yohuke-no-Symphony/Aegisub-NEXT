@@ -1,4 +1,5 @@
 using AegiNext.Desktop.EffectLibrary;
+using AegiNext.Desktop.Koumori;
 using AegiNext.Desktop.I18n;
 using System.ComponentModel;
 using System.Windows.Input;
@@ -47,6 +48,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
     private readonly WorkbenchLayoutController layouts;
     private readonly Dictionary<string, ICommand> presetCommands = new(StringComparer.Ordinal);
     private readonly Dictionary<Window, string> floatingTitles = [];
+    private AutoTimingWindow? autoTimingWindow;
     private bool closing;
     private bool closeCompleted;
     private Task? disposeTask;
@@ -265,6 +267,7 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
         {
             updates.Dispose();
         }
+        autoTimingWindow?.Close();
         DisposeTaskCenter();
         ViewModel.Log.PropertyChanged -= OnLogChanged;
         workspaceHost.IsEnabled = false;
@@ -343,6 +346,17 @@ public sealed partial class MainWindow : Window, IAsyncDisposable
         if (request.Command is WorkbenchCommand.END_TEXT_INPUT or WorkbenchCommand.COPY_CLIPS or WorkbenchCommand.PASTE_CLIPS)
         {
             windowRegistry.TryExecuteFocusCommand(request.Command);
+        }
+        else if (request.Command == WorkbenchCommand.AUTO_TIMING)
+        {
+            if (autoTimingWindow is null)
+            {
+                autoTimingWindow = new(Session);
+                RegisterAuxiliaryWindow(autoTimingWindow);
+                autoTimingWindow.Closed += (_, _) => autoTimingWindow = null;
+                autoTimingWindow.Show(this);
+            }
+            autoTimingWindow.Activate();
         }
         else if (request.Command == WorkbenchCommand.OPEN_SETTINGS)
         {

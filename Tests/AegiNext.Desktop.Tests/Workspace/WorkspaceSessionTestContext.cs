@@ -21,11 +21,11 @@ internal sealed class WorkspaceSessionTestContext : IAsyncDisposable
         Func<Action<VideoPreviewUpdate>, VideoPreviewController>? controllerFactory = null,
         DesktopApplicationContext? applicationContext = null,
         Func<string, int, MediaTimelineMapping, MediaTime, string, AudioAnalysisOptions, AudioAnalysisWorkerBudget?, AudioAnalysisSession>?
-            analysisSessionFactory = null)
+            analysisSessionFactory = null, bool hasAudio = false)
     {
         Editor = new(document);
         Session = new(Dialogs,
-            controllerFactory ?? (update => new VideoPreviewController(ProbeAsync, (_, _) => new(_ => Source), () => Converter,
+            controllerFactory ?? (update => new VideoPreviewController((path, token) => ProbeAsync(path, token, hasAudio), (_, _) => new(_ => Source), () => Converter,
                 DispatchImmediately, update)), DispatchImmediately, Editor,
             applicationContext is null ? new WorkbenchPreferencesStore(directory.Path) : null,
             initialPreferences: new() { Projects = new() { WorkspaceRoot = Path.Combine(directory.Path, "workspace") } },
@@ -59,10 +59,10 @@ internal sealed class WorkspaceSessionTestContext : IAsyncDisposable
         return Session.Styles.Completion;
     }
 
-    private static Task<VideoPreviewMedia> ProbeAsync(string path, CancellationToken cancellationToken)
+    private static Task<VideoPreviewMedia> ProbeAsync(string path, CancellationToken cancellationToken, bool hasAudio)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(new VideoPreviewMedia(0, MediaTime.Zero, new(1)));
+        return Task.FromResult(new VideoPreviewMedia(0, MediaTime.Zero, new(1), hasAudio ? 1 : null));
     }
 
     private static Task DispatchImmediately(Action action, CancellationToken cancellationToken)

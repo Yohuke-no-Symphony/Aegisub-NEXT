@@ -8,6 +8,7 @@ extern "C" {
 #include <libavutil/avstring.h>
 #include <libavutil/buffer.h>
 #include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
 #include <libavutil/version.h>
 #include <libswresample/swresample.h>
 }
@@ -19,11 +20,14 @@ extern "C" {
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <numeric>
 #include <stdexcept>
 #include <vector>
 
 namespace {
 constexpr int MAX_CONVERTED_FRAMES = 262144;
+constexpr int SEEK_PREROLL_SECONDS = 1;
+constexpr int TIMESTAMP_HARD_COMPENSATION_MILLISECONDS = 100;
 void check(int result, const char *operation)
 {
     if (result < 0)
@@ -76,12 +80,21 @@ struct Decoder
     bool resampler_end = false;
     bool packet_pending = false;
     bool uses_matroska_blocks = false;
+    bool asynchronous_timestamps = false;
+    int64_t first_packet_timestamp = AV_NOPTS_VALUE;
     int64_t last_block_position = -1;
     int64_t next_sample = AV_NOPTS_VALUE;
+    int64_t resample_origin_input = AV_NOPTS_VALUE;
+    int64_t resample_origin_output = AV_NOPTS_VALUE;
+    bool align_seek_input = false;
+    bool frame_held = false;
+    int64_t next_input_sample = AV_NOPTS_VALUE;
+    int64_t gap_input_samples = 0;
     int64_t minimum_sample = std::numeric_limits<int64_t>::min();
     int64_t pending_start = 0;
     int pending_offset = 0;
     std::vector<float> pending;
+    std::vector<const uint8_t *> input_planes;
     ~Decoder()
     {
         swr_free(&resampler);
@@ -117,6 +130,7 @@ struct Decoder
         codec = avcodec_alloc_context3(decoder);
         require(codec != nullptr, "Audio codec allocation failed");
         check(avcodec_parameters_to_context(codec, format->streams[stream]->codecpar), "Audio codec parameters");
+        codec->pkt_timebase = format->streams[stream]->time_base;
         codec->thread_count = 1;
         if (uses_matroska_blocks)
         {
@@ -140,12 +154,12 @@ struct Decoder
             const auto result = avcodec_receive_frame(codec, frame);
             if (result == 0) { return true; }
             if (result == AVERROR_EOF) { return false; }
-            if (result != AVERROR(EAGAIN)) { check(result, "Decode audio"); }
+            if (result != AVERROR(EAGAIN) && result != AVERROR_INVALIDDATA) { check(result, "Decode audio"); }
             if (packet_pending)
             {
                 const auto sent = avcodec_send_packet(codec, packet);
                 if (sent == AVERROR(EAGAIN)) { throw std::runtime_error("Audio codec made no progress"); }
-                check(sent, "Send audio packet");
+                if (sent != AVERROR_INVALIDDATA) { check(sent, "Send audio packet"); }
                 av_packet_unref(packet);
                 packet_pending = false;
                 continue;
@@ -165,6 +179,10 @@ struct Decoder
                 check(read, "Read audio packet");
                 if (packet->stream_index == stream)
                 {
+                    if (first_packet_timestamp == AV_NOPTS_VALUE)
+                    {
+                        first_packet_timestamp = packet->pts;
+                    }
                     if (uses_matroska_blocks)
                     {
                         av_buffer_unref(&packet->opaque_ref);
@@ -183,10 +201,35 @@ struct Decoder
     bool convert_next()
     {
         if (resampler_end) { return false; }
-        const auto has_frame = receive();
+        if (gap_input_samples > 0)
+        {
+            const auto silence = static_cast<int>(std::min<int64_t>(gap_input_samples, 4096));
+            check(swr_inject_silence(resampler, silence), "Restore missing audio samples");
+            gap_input_samples -= silence;
+            next_input_sample += silence;
+            const auto capacity = swr_get_out_samples(resampler, 0);
+            require(capacity >= 0 && capacity <= MAX_CONVERTED_FRAMES, "Audio gap block exceeds capacity");
+            pending.resize(static_cast<size_t>(capacity) * channels);
+            auto *destination = reinterpret_cast<uint8_t *>(pending.data());
+            const auto count = swr_convert(resampler, &destination, capacity,
+                const_cast<const uint8_t **>(frame->extended_data), 0);
+            check(count, "Resample missing audio");
+            pending.resize(static_cast<size_t>(count) * channels);
+            pending_start = next_sample;
+            next_sample += count;
+            pending_offset = 0;
+            if (std::all_of(pending.begin(), pending.end(), [](float value) { return value == 0; }))
+            {
+                pending.clear();
+            }
+            return true;
+        }
+        const auto has_frame = frame_held || receive();
+        frame_held = false;
         if (cancelled.load()) { return false; }
         int output_capacity = 4096;
         int input_samples = 0;
+        int input_offset = 0;
         if (has_frame)
         {
             require(frame->sample_rate == codec->sample_rate && frame->format == codec->sample_fmt &&
@@ -203,17 +246,61 @@ struct Decoder
             const auto timestamp = frame->best_effort_timestamp;
             if (timestamp != AV_NOPTS_VALUE)
             {
-                const auto sample = av_rescale_q(timestamp, format->streams[stream]->time_base, AVRational{1, rate});
+                const auto input_sample = av_rescale_q(timestamp, format->streams[stream]->time_base,
+                    AVRational{1, codec->sample_rate});
+                auto sample = av_rescale_q(timestamp, format->streams[stream]->time_base, AVRational{1, rate});
+                const auto first_input = resample_origin_input == AV_NOPTS_VALUE;
+                if (resample_origin_input == AV_NOPTS_VALUE)
+                {
+                    resample_origin_input = input_sample;
+                    resample_origin_output = sample;
+                }
+                if (align_seek_input)
+                {
+                    const auto period = codec->sample_rate / std::gcd(codec->sample_rate, rate);
+                    const auto phase = ((input_sample - resample_origin_input) % period + period) % period;
+                    input_offset = static_cast<int>((period - phase) % period);
+                    sample = resample_origin_output + av_rescale_q(input_sample + input_offset - resample_origin_input,
+                        AVRational{1, codec->sample_rate}, AVRational{1, rate});
+                    align_seek_input = false;
+                }
                 const auto delay = swr_get_delay(resampler, rate);
                 const auto timestamp_resolution = av_rescale_q_rnd(1, format->streams[stream]->time_base,
                     AVRational{1, rate}, AV_ROUND_UP);
-                if (next_sample == AV_NOPTS_VALUE) { next_sample = sample; }
-                else if (!block_continuation &&
-                    std::llabs(sample - (next_sample + delay)) > std::max<int64_t>(2, timestamp_resolution + 1))
+                if (next_sample == AV_NOPTS_VALUE)
                 {
+                    next_sample = sample;
+                    next_input_sample = input_sample + input_offset;
+                    const auto origin = format->start_time == AV_NOPTS_VALUE ? 0 : format->start_time;
+                    const auto origin_input = av_rescale_q(origin, AV_TIME_BASE_Q, AVRational{1, codec->sample_rate});
+                    if (asynchronous_timestamps && first_input && input_sample > origin_input)
+                    {
+                        next_sample = av_rescale_q(origin, AV_TIME_BASE_Q, AVRational{1, rate});
+                        next_input_sample = origin_input;
+                        gap_input_samples = input_sample - origin_input;
+                        frame_held = true;
+                        pending.clear();
+                        pending_offset = 0;
+                        return true;
+                    }
+                }
+                else if (!block_continuation &&
+                    std::llabs(sample - (next_sample + delay)) > std::max<int64_t>(
+                        asynchronous_timestamps ? static_cast<int64_t>(rate) * TIMESTAMP_HARD_COMPENSATION_MILLISECONDS / 1000 : 2,
+                        timestamp_resolution + 1))
+                {
+                    if (asynchronous_timestamps && input_sample > next_input_sample)
+                    {
+                        gap_input_samples = input_sample - next_input_sample;
+                        frame_held = true;
+                        pending.clear();
+                        pending_offset = 0;
+                        return true;
+                    }
                     swr_close(resampler);
                     check(swr_init(resampler), "Reset discontinuous audio resampler");
                     next_sample = sample;
+                    next_input_sample = input_sample;
                 }
             }
             require(next_sample != AV_NOPTS_VALUE, "Audio frame has no usable timestamp");
@@ -225,6 +312,22 @@ struct Decoder
                     AVRational{1, frame->sample_rate}, AV_ROUND_DOWN);
                 input_samples = static_cast<int>(std::min<int64_t>(input_samples, duration_samples));
             }
+            if (input_offset >= input_samples && input_offset > 0)
+            {
+                align_seek_input = true;
+                pending.clear();
+                pending_offset = 0;
+                return true;
+            }
+            input_samples -= input_offset;
+            const auto planar = av_sample_fmt_is_planar(codec->sample_fmt);
+            const auto plane_count = planar ? codec->ch_layout.nb_channels : 1;
+            const auto sample_bytes = av_get_bytes_per_sample(codec->sample_fmt) * (planar ? 1 : codec->ch_layout.nb_channels);
+            input_planes.resize(plane_count);
+            for (auto plane = 0; plane < plane_count; ++plane)
+            {
+                input_planes[plane] = frame->extended_data[plane] + input_offset * sample_bytes;
+            }
             output_capacity = swr_get_out_samples(resampler, input_samples);
         }
         else if (next_sample == AV_NOPTS_VALUE) { resampler_end = true; return false; }
@@ -232,8 +335,9 @@ struct Decoder
         pending.resize(static_cast<size_t>(output_capacity) * channels);
         auto *destination = reinterpret_cast<uint8_t *>(pending.data());
         const auto count = swr_convert(resampler, &destination, output_capacity,
-            has_frame ? const_cast<const uint8_t **>(frame->extended_data) : nullptr, input_samples);
+            has_frame ? input_planes.data() : nullptr, input_samples);
         check(count, "Resample audio");
+        next_input_sample += input_samples;
         pending.resize(static_cast<size_t>(count) * channels);
         pending_start = next_sample;
         next_sample += count;
@@ -273,11 +377,21 @@ struct Decoder
     void seek(int64_t sample)
     {
         require(codec != nullptr, "Audio decoder is not open");
-        auto target = av_rescale_q(sample, AVRational{1, rate}, format->streams[stream]->time_base);
+        const auto preroll = std::max<int64_t>(static_cast<int64_t>(rate) * SEEK_PREROLL_SECONDS,
+            av_rescale_q(codec->seek_preroll, AVRational{1, codec->sample_rate}, AVRational{1, rate}));
+        if (resample_origin_input == AV_NOPTS_VALUE && convert_next() && sample <= pending_start + preroll)
+        {
+            minimum_sample = sample;
+            return;
+        }
+        const auto beginning = sample < std::numeric_limits<int64_t>::min() + preroll ?
+            std::numeric_limits<int64_t>::min() : sample - preroll;
+        auto target = av_rescale_q(beginning, AVRational{1, rate}, format->streams[stream]->time_base);
         const auto *track = format->streams[stream];
         if (track->start_time != AV_NOPTS_VALUE)
         {
-            target = std::max(target, track->start_time);
+            target = std::max(target, first_packet_timestamp == AV_NOPTS_VALUE ? track->start_time :
+                std::min(track->start_time, first_packet_timestamp));
             if (track->duration > 0 && track->duration < std::numeric_limits<int64_t>::max() - std::max<int64_t>(0, track->start_time))
             {
                 target = std::min(target, track->start_time + track->duration - 1);
@@ -289,8 +403,11 @@ struct Decoder
         av_frame_unref(frame);
         swr_close(resampler);
         check(swr_init(resampler), "Reset audio resampler");
-        input_end = sent_end = resampler_end = packet_pending = false;
+        input_end = sent_end = resampler_end = packet_pending = frame_held = false;
+        gap_input_samples = 0;
+        next_input_sample = AV_NOPTS_VALUE;
         next_sample = AV_NOPTS_VALUE;
+        align_seek_input = true;
         last_block_position = -1;
         minimum_sample = sample;
         pending.clear();
@@ -389,6 +506,17 @@ uint32_t an_audio_clock_snapshot_size() { return sizeof(an_audio_clock_snapshot)
 int an_audio_decoder_create(void **decoder, char *error, uint32_t capacity)
 {
     return boundary(error, capacity, [&] { require(decoder, "Missing decoder output"); *decoder = new Decoder(); return 0; });
+}
+int an_audio_decoder_set_timestamp_policy(void *decoder, int policy, char *error, uint32_t capacity)
+{
+    return boundary(error, capacity, [&]
+    {
+        require(decoder && (policy == 0 || policy == 1), "Invalid audio timestamp policy");
+        auto *value = static_cast<Decoder *>(decoder);
+        require(!value->format, "Audio timestamp policy must be selected before opening the source");
+        value->asynchronous_timestamps = policy == 1;
+        return 0;
+    });
 }
 int an_audio_decoder_open(void *decoder, const char *path, int stream, int rate, int channels, char *error, uint32_t capacity)
 {

@@ -14,6 +14,7 @@
         xmlns:mediaPages="using:AegiNext.Desktop.Settings.Media"
         xmlns:projectPages="using:AegiNext.Desktop.Settings.Projects"
         xmlns:previewPages="using:AegiNext.Desktop.Settings.Preview"
+        xmlns:koumoriPages="using:AegiNext.Desktop.Settings.Koumori"
         xmlns:audioPages="using:AegiNext.Desktop.Settings.AudioAnalysis"
         xmlns:taskPages="using:AegiNext.Desktop.Settings.Tasks"
         xmlns:updatePages="using:AegiNext.Desktop.Settings.Updates"
@@ -115,6 +116,12 @@
                 <TextBlock Text="{Loc Key=Settings.SubtitleColorTags}" VerticalAlignment="Center" />
               </StackPanel>
             </ListBoxItem>
+            <ListBoxItem DataContext="{x:Static settings:SettingsPage.KOUMORI}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <materialIcons:MaterialIcon Width="18" Height="18" Kind="AutoFix" />
+                <TextBlock Text="{Loc Key=Settings.Koumori}" VerticalAlignment="Center" />
+              </StackPanel>
+            </ListBoxItem>
             <ListBoxItem DataContext="{x:Static settings:SettingsPage.TIMING_POST_PROCESSOR}">
               <StackPanel Orientation="Horizontal" Spacing="8">
                 <materialIcons:MaterialIcon Width="18" Height="18" Kind="ClockOutline" />
@@ -213,6 +220,9 @@
         <Grid Grid.Row="1" IsVisible="{Binding IsTasksVisible}">
           <taskPages:TaskSettingsView Name="TasksView" DataContext="{Binding Tasks}"
                                      IsVisible="{Binding $parent[Grid].IsVisible}" />
+        </Grid>
+        <Grid Grid.Row="1" IsVisible="{Binding IsKoumoriVisible}">
+          <koumoriPages:KoumoriSettingsView DataContext="{Binding Koumori}" IsVisible="{Binding $parent[Grid].IsVisible}" />
         </Grid>
         <Grid Grid.Row="1" IsVisible="{Binding IsAudioAnalysisVisible}">
           <audioPages:AudioAnalysisSettingsView Name="AudioAnalysisView" DataContext="{Binding AudioAnalysis}"

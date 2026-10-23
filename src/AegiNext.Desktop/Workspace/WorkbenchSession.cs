@@ -299,6 +299,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         }
         ApplyPreferences();
         QueueAudioCalibrationPreferences(previousPreferences, value);
+        QueueKoumoriSnapAnalysis();
         analysis.UpdateExecutionOptions(value.AudioAnalysis.Execution);
         if (qualityChanged)
         {
@@ -520,9 +521,13 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
             {
                 await using var persistencePause = await persistence.PauseAsync();
                 await projectOperationsCancellation.CancelAsync();
+                koumoriSnapCancellation?.Cancel();
+                koumoriAudioSource?.Cancel();
+                await koumoriSnapCompletion;
                 analysis.Cancel();
                 export.Cancel();
                 await closeLease.DrainAsync();
+                await ReleaseKoumoriAudioSourceAsync();
                 await Task.WhenAll(timingProcessingCompletion, audioCalibrationCompletion, documentChangeTask,
                     analysis.Completion, export.Completion, styles.Completion, effectScripts.Completion)
                     .ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
@@ -570,8 +575,10 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         closing = false;
         projectOperationsCancellation.Dispose();
         projectOperationsCancellation = new();
+        koumoriSnapCache.CancelPending();
         ViewModel.IsBusy = IsProjectBusy;
         ViewModel.RefreshCommands();
+        QueueKoumoriSnapAnalysis();
     }
 
     /// <summary>等待会话任务结束并释放资源；重复调用等待同一次释放。</summary>
@@ -605,7 +612,17 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         applicationContext.Tasks.Changed -= OnTaskStateChanged;
         applicationContext.Fonts.Changed -= OnFontsChanged;
         await projectOperationsCancellation.CancelAsync();
+        koumoriSnapCancellation?.Cancel();
+        koumoriAudioSource?.Cancel();
+        await koumoriSnapCompletion;
         await closeLease.DrainAsync();
+        await ReleaseKoumoriAudioSourceAsync();
+        if (koumoriAnalyzer is not null)
+        {
+            await koumoriAnalyzer.DisposeAsync();
+        }
+        koumoriGate.Dispose();
+        koumoriContextCancellation.Dispose();
         await timingProcessingCompletion.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
         await audioCalibrationCompletion.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing | ConfigureAwaitOptions.ContinueOnCapturedContext);
         await persistence.DisposeAsync();
@@ -802,6 +819,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
         preview.TimeLabel = $"{FormatTime(relative)} / {(snapshot.Duration is { } end ? FormatTime(end) : "--:--")}";
         var timeline = ViewModel.Timeline;
         timeline.MediaDuration = snapshot.Duration is { } mediaDuration ? ToSeconds(mediaDuration) : 0;
+        QueueKoumoriSnapAnalysis();
         timeline.Position = relative;
         ViewModel.Effects.Position = EditingPosition;
         MaskEditing.Refresh();

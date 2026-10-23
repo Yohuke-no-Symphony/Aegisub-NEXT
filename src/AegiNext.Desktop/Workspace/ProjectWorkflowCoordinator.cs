@@ -268,8 +268,16 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
             return new(ProjectOpenStatus.FAILED, error);
         }
 
+        var resumeAnalysis = session.CancelKoumoriProjectAnalysis();
         var task = new OpenProjectTask(session, this, path);
-        return await AwaitProjectResultAsync(session.ApplicationContext.Tasks.Submit(task), cancellationToken, () => task.Outcome);
+        var handle = session.ApplicationContext.Tasks.Submit(task);
+        var recovery = resumeAnalysis ? session.ObserveKoumoriProjectOpenAsync(handle) : Task.CompletedTask;
+        var result = await AwaitProjectResultAsync(handle, cancellationToken, () => task.Outcome);
+        if (handle.Completion.IsCompleted)
+        {
+            await recovery;
+        }
+        return result;
     }
 
     internal async Task<ProjectOpenResult> OpenProjectCoreAsync(string path, AegiTaskExecutionContext context)
@@ -388,6 +396,7 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
                 {
                     diagnostics.Add(error);
                 }
+                session.PrepareKoumoriProjectAnalysis(context);
             }
             else
             {

@@ -82,7 +82,7 @@ public sealed class TimelineContextEditingUiTests
     }
 
     [AvaloniaFact]
-    public async Task BlankTrackContextCreatesAtItsCapturedTimeAndTrackRatherThanThePlayhead()
+    public async Task BlankTrackContextCreatesTwoSecondsAtItsCapturedTimeAndTrackWithoutFollowingPlayback()
     {
         await using var context = new MainWindowTestContext();
         await context.OpenMediaAsync();
@@ -101,35 +101,36 @@ public sealed class TimelineContextEditingUiTests
 
         var created = Assert.Single(context.Session.DocumentSnapshot.Subtitles);
         Assert.Equal(new MediaTime(6), created.Start);
-        Assert.Equal(new MediaTime(6001, 1000), created.End);
+        Assert.Equal(new MediaTime(8), created.End);
         Assert.Equal(destinationTrack.Id, context.Session.ClipIndex.GetSubtitleTrackId(created.Id));
         Assert.Equal(string.Empty, created.Text);
         Assert.Equal(created.Id, context.Session.SelectedCueId);
         Assert.Equal(created.Id, Assert.Single(context.Session.DocumentSnapshot.Layers).SubtitleId);
-        var provisional = context.Session.DocumentSnapshot;
-        Assert.Equal(created.End, context.ViewModel.Timeline.TimingPreview!.End);
-        Assert.True(context.Window.GetCommand(WorkbenchCommand.TIMING_EXIT).CanExecute(null));
+        var createdDocument = context.Session.DocumentSnapshot;
+        Assert.Null(context.ViewModel.Timeline.TimingPreview);
+        Assert.False(context.Window.GetCommand(WorkbenchCommand.TIMING_EXIT).CanExecute(null));
 
         await context.Controller.PlayAsync();
         context.Clock.Advance(TimeSpan.FromSeconds(4));
         context.Session.Tick();
         Assert.Equal(new MediaTime(5), context.ViewModel.Timeline.Position);
-        Assert.Equal(created.End, context.ViewModel.Timeline.TimingPreview!.End);
-        Assert.Same(provisional, context.Session.DocumentSnapshot);
+        Assert.Null(context.ViewModel.Timeline.TimingPreview);
+        Assert.Same(createdDocument, context.Session.DocumentSnapshot);
         context.Clock.Advance(TimeSpan.FromSeconds(2));
         context.Session.Tick();
-        Assert.Equal(new MediaTime(7), context.ViewModel.Timeline.TimingPreview!.End);
-        Assert.Equal(new MediaTime(7), Assert.Single(context.Session.PreviewDocument.Subtitles).End);
-        Assert.Equal(new MediaTime(7), Assert.Single(context.Session.PreviewDocument.Layers).End);
-        Assert.Same(provisional, context.Session.DocumentSnapshot);
-        Assert.True(timeline.Focus());
-        UiTestActions.Press(context.Window, Key.F9);
-        Assert.Equal(new MediaTime(7), Assert.Single(context.Session.DocumentSnapshot.Subtitles).End);
+        Assert.Equal(new MediaTime(7), context.ViewModel.Timeline.Position);
+        Assert.Equal(new MediaTime(8), Assert.Single(context.Session.PreviewDocument.Subtitles).End);
+        Assert.Equal(new MediaTime(8), Assert.Single(context.Session.PreviewDocument.Layers).End);
+        context.Clock.Advance(TimeSpan.FromSeconds(2));
+        context.Session.Tick();
+        Assert.Equal(new MediaTime(9), context.ViewModel.Timeline.Position);
         Assert.Null(context.ViewModel.Timeline.TimingPreview);
+        Assert.Same(createdDocument, context.Session.DocumentSnapshot);
+        await context.Controller.PauseAsync();
+        await context.Controller.SeekAsync(new(12));
+        Assert.Same(createdDocument, context.Session.DocumentSnapshot);
+        Assert.True(timeline.Focus());
         Assert.False(context.Window.GetCommand(WorkbenchCommand.TIMING_EXIT).CanExecute(null));
-        UiTestActions.Press(context.Window, Key.Z, CommandModifier());
-        Flush(context.Window);
-        Assert.Same(provisional, context.Session.DocumentSnapshot);
         UiTestActions.Press(context.Window, Key.Z, CommandModifier());
         Flush(context.Window);
         Assert.Same(original, context.Session.DocumentSnapshot);

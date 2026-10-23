@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:koumori="using:AegiNext.Desktop.Settings.Koumori" xmlns:inputs="using:AegiNext.Desktop.Controls"
+             xmlns:common="using:AegiNext.Desktop.Controls.Common"
+             x:Class="AegiNext.Desktop.Settings.Koumori.KoumoriSettingsView"
+             x:DataType="koumori:KoumoriSettingsViewModel" Classes="business-surface">
+  <ScrollViewer>
+    <StackPanel Spacing="16">
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <CheckBox Content="{Loc Key=Koumori.Enable}" IsChecked="{Binding Enabled, Mode=TwoWay}" />
+          <TextBlock Classes="field" Text="{Loc Key=Koumori.Description}" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,160" ColumnSpacing="16">
+            <inputs:NumericDragLabel Name="MaximumSnapMillisecondsInputTitle" Text="{Loc Key=Koumori.MaximumDistance}" VerticalAlignment="Center" Input="{Binding #MaximumSnapMillisecondsInput}" />
+            <inputs:NumericDraftInput Name="MaximumSnapMillisecondsInput" Grid.Column="1"
+                RawText="{Binding MaximumSnapMillisecondsText, Mode=TwoWay}" Minimum="1" Maximum="1000" Increment="10"
+                FormatString="0" PreserveDoublePrecision="True" AutomationProperties.Name="{Loc Key=Koumori.MaximumDistance}" />
+          </Grid>
+          <TextBlock Classes="field" Text="{Loc Key=Koumori.DistanceHelp}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+      <Border Classes="card">
+        <StackPanel Spacing="12">
+          <common:PropertyRowControl Header="{Loc Key=Koumori.ModelSource}" SeparatorThickness="0">
+            <ComboBox Name="KoumoriModelSourceCombo" ItemsSource="{Binding ModelSources}"
+                      SelectedItem="{Binding SelectedModelSource, Mode=TwoWay}"
+                      AutomationProperties.Name="{Loc Key=Koumori.ModelSource}">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="koumori:KoumoriModelSourceChoice">
+                  <TextBlock Text="{Binding Label}" />
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+          </common:PropertyRowControl>
+          <TextBlock Classes="field" Text="{Loc Key=Koumori.BundledModelHelp}"
+                     IsVisible="{Binding !IsManualModel}" TextWrapping="Wrap" />
+          <StackPanel Name="ManualModelSettings" IsVisible="{Binding IsManualModel}" Spacing="12">
+            <TextBlock Classes="field" Text="{Loc Key=Koumori.ModelDirectory}" />
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+              <TextBox Name="KoumoriModelDirectoryInput" Text="{Binding ModelDirectoryText, Mode=TwoWay}"
+                       AutomationProperties.Name="{Loc Key=Koumori.ModelDirectory}" />
+              <Button Name="ApplyKoumoriModelDirectoryButton" Grid.Column="1" Content="{Loc Key=Koumori.ApplyDirectory}"
+                      Command="{Binding ApplyModelDirectoryCommand}" VerticalAlignment="Stretch" />
+            </Grid>
+            <TextBlock Classes="field" Text="{Loc Key=Koumori.ModelHelp}" TextWrapping="Wrap" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

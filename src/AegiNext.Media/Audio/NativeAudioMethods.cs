@@ -33,6 +33,10 @@ internal static partial class NativeAudioMethods
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     internal static unsafe partial int CreateDecoder(out nint decoder, byte* error, uint capacity);
 
+    [LibraryImport(LIBRARY, EntryPoint = "an_audio_decoder_set_timestamp_policy")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static unsafe partial int SetTimestampPolicy(AudioDecoderHandle decoder, int policy, byte* error, uint capacity);
+
     [LibraryImport(LIBRARY, EntryPoint = "an_audio_decoder_open", StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     internal static unsafe partial int OpenDecoder(AudioDecoderHandle decoder, string path, int stream, int rate, int channels, byte* error, uint capacity);

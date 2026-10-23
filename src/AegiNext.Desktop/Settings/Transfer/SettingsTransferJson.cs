@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
+using AegiNext.Desktop.Settings.Koumori;
 using AegiNext.Desktop.Settings.Projects;
 
 namespace AegiNext.Desktop.Settings.Transfer;
@@ -55,7 +56,8 @@ internal static class SettingsTransferJson
                     var optionalPreference = info.Type == typeof(WorkbenchPreferences) &&
                         property.Name is nameof(WorkbenchPreferences.AutoCheckUpdates) or nameof(WorkbenchPreferences.UpdateChannel) or
                             nameof(WorkbenchPreferences.AssetBrowser) or nameof(WorkbenchPreferences.TimelineAutoSeekEnabled) ||
-                        info.Type == typeof(ProjectPreferences) && property.Name == nameof(ProjectPreferences.CopyImportedAssetsToSources);
+                        info.Type == typeof(ProjectPreferences) && property.Name == nameof(ProjectPreferences.CopyImportedAssetsToSources) ||
+                        info.Type == typeof(KoumoriPreferences) && property.Name == nameof(KoumoriPreferences.ModelSource);
                     property.IsRequired = property.Get is not null && property.Set is not null && !optionalPreference;
                 }
             }

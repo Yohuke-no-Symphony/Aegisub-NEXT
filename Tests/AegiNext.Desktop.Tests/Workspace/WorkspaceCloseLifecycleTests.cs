@@ -1,3 +1,4 @@
+using AegiNext.Desktop.Settings.Koumori;
 using AegiNext.Core.Projects;
 using AegiNext.Media.Playback;
 using AegiNext.Application.Tasks;
@@ -142,6 +143,37 @@ public sealed class WorkspaceCloseLifecycleTests
         Assert.Equal(0, context.Converter.DisposeCount);
         Assert.Equal(VideoPlaybackState.PAUSED, context.Session.Controller.Snapshot.State);
         Assert.Empty(Directory.EnumerateFiles(context.DirectoryPath, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task FailedCloseKeepsAutomaticTimingAvailableForAnotherAttempt()
+    {
+        await using var context = new WorkspaceSessionTestContext(hasAudio: true);
+        await context.InitializeAsync();
+        var mediaPath = Path.Combine(context.DirectoryPath, "controlled.mkv");
+        await File.WriteAllBytesAsync(mediaPath, [0]);
+        await context.Session.Controller.OpenAsync(mediaPath);
+        context.Session.ApplicationContext.UpdatePreferences(value => value with
+        {
+            Koumori = value.Koumori with
+            {
+                Enabled = true,
+                ModelSource = KoumoriModelSource.MANUAL,
+                ModelDirectory = Path.Combine(context.DirectoryPath, "missing-model")
+            }
+        });
+        Assert.True(context.Session.CanAnalyzeKoumori);
+        await Assert.ThrowsAsync<DirectoryNotFoundException>(() => context.Session.AnalyzeKoumoriAsync(default, null));
+        context.Editor.Apply("Unsaved name", document => document with { Name = "Pending" });
+        context.Dialogs.UnsavedChoice = 1;
+        context.Dialogs.SavePath = Path.Combine(context.DirectoryPath, "blocked.aeginext");
+        Directory.CreateDirectory(context.Dialogs.SavePath);
+
+        await Assert.ThrowsAnyAsync<IOException>(() => context.Session.RequestCloseAsync());
+
+        Assert.False(context.Session.IsClosing);
+        Assert.True(context.Session.CanAnalyzeKoumori);
+        await Assert.ThrowsAsync<DirectoryNotFoundException>(() => context.Session.AnalyzeKoumoriAsync(default, null));
     }
 
     [Fact]

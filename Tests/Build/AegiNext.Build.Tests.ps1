@@ -709,6 +709,14 @@ Describe 'Build orchestration fails closed and rechecks installed dependencies' 
         Should -Invoke Install-AegiNextDependency -ModuleName AegiNext.Build -Times 0 -Exactly
     }
 
+    It 'forwards an explicit Koumori model directory into the build plan' {
+        $source = Join-Path $TestDrive 'manual model package'
+        Invoke-AegiNextBuild -RepositoryRoot $repository -KoumoriModelDirectory $source | Should -Be 0
+        Should -Invoke Get-AegiNextBuildPlan -ModuleName AegiNext.Build -Times 1 -Exactly -ParameterFilter {
+            $KoumoriModelDirectory -eq $source
+        }
+    }
+
     It 'resolves one snapshot and forwards the same complete identity to the plan' {
         Invoke-AegiNextBuild -RepositoryRoot $repository -Tag 'rel/stable/1.2.3.1' -Version 1.2.3.1 | Should -Be 0
         Should -Invoke Get-AegiNextBuildVersion -ModuleName AegiNext.Build -Times 1 -Exactly -ParameterFilter {

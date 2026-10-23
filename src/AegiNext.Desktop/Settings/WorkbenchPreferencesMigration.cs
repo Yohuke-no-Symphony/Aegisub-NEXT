@@ -1,10 +1,27 @@
 using System.Collections.Immutable;
+using System.Text.Json;
+using AegiNext.Desktop.Settings.Koumori;
 using AegiNext.Desktop.Shortcuts;
 
 namespace AegiNext.Desktop.Settings;
 
 internal static class WorkbenchPreferencesMigration
 {
+    internal static WorkbenchPreferences Upgrade(WorkbenchPreferences value, ReadOnlySpan<byte> source)
+    {
+        using var document = JsonDocument.Parse(source.ToArray());
+        if (document.RootElement.TryGetProperty(nameof(WorkbenchPreferences.Koumori), out var koumori) &&
+            koumori.ValueKind == JsonValueKind.Object &&
+            !koumori.TryGetProperty(nameof(KoumoriPreferences.ModelSource), out _) &&
+            value.Koumori is { } preferences && preferences.ModelSource != KoumoriModelSource.MANUAL &&
+            !string.IsNullOrWhiteSpace(preferences.ModelDirectory))
+        {
+            value = value with { Koumori = preferences with { ModelSource = KoumoriModelSource.MANUAL } };
+        }
+
+        return Upgrade(value);
+    }
+
     internal static WorkbenchPreferences Upgrade(WorkbenchPreferences value)
     {
         if (value.Version != 1 || value.ShortcutBindings.IsDefault)
@@ -31,7 +48,8 @@ internal static class WorkbenchPreferencesMigration
         var updateCommands = commands.Where(command => command <= WorkbenchCommand.CHECK_UPDATES);
         var imageCommands = commands.Where(command => command <= WorkbenchCommand.IMPORT_IMAGES);
         var drawingCommands = commands.Where(command => command <= WorkbenchCommand.VIEW_DRAWING_TOOLS);
-        if (!present.SetEquals(drawingCommands) && !present.SetEquals(imageCommands) && !present.SetEquals(updateCommands) && !present.SetEquals(clipBoundaryCommands) && !present.SetEquals(mergeCommands) && !present.SetEquals(processorCommands) && !present.SetEquals(timingCommands) && !present.SetEquals(clipCommands) && !present.SetEquals(maskCommands) && !present.SetEquals(aboutCommands) && !present.SetEquals(legacy) && !present.SetEquals(previous) && !present.SetEquals(current) && !present.SetEquals(subtitleDetails) && !present.SetEquals(focusCommands) && !present.SetEquals(projectCommands))
+        var effectLibraryCommands = commands.Where(command => command <= WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER);
+        if (!present.SetEquals(effectLibraryCommands) && !present.SetEquals(drawingCommands) && !present.SetEquals(imageCommands) && !present.SetEquals(updateCommands) && !present.SetEquals(clipBoundaryCommands) && !present.SetEquals(mergeCommands) && !present.SetEquals(processorCommands) && !present.SetEquals(timingCommands) && !present.SetEquals(clipCommands) && !present.SetEquals(maskCommands) && !present.SetEquals(aboutCommands) && !present.SetEquals(legacy) && !present.SetEquals(previous) && !present.SetEquals(current) && !present.SetEquals(subtitleDetails) && !present.SetEquals(focusCommands) && !present.SetEquals(projectCommands))
         {
             return value;
         }

@@ -15,5 +15,6 @@ public enum SettingsPage
     TASKS,
     AUDIO_ANALYSIS,
     SUBTITLE_COLOR_TAGS,
-    UPDATES
+    UPDATES,
+    KOUMORI
 }

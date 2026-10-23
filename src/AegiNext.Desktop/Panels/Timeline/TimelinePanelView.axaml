@@ -37,6 +37,11 @@
                   Width="16" Height="16" Stretch="Uniform" Stroke="{Binding $parent[ToggleButton].Foreground}"
                   StrokeThickness="1.7" />
           </controlsCommon:ToolbarToggleButton>
+          <controlsCommon:ToolbarToggleButton Name="TimelineKoumoriButton" ToolTip.Tip="{Loc Key=Koumori.Snap}"
+                        AutomationProperties.Name="{Loc Key=Koumori.Snap}" IsEnabled="{Binding IsKoumoriAvailable}"
+                        IsChecked="{Binding IsKoumoriSnapEnabled, Mode=TwoWay}">
+            <materialIcons:MaterialIcon Kind="AutoFix" Width="16" Height="16" />
+          </controlsCommon:ToolbarToggleButton>
           <controlsCommon:ToolbarToggleButton Name="TimelineSpectrumButton" ToolTip.Tip="{Loc Key=Workbench.TimelineSpectrum}"
                         AutomationProperties.Name="{Loc Key=Workbench.TimelineSpectrum}"
                         IsChecked="{Binding IsSpectrumVisible, Mode=TwoWay}">

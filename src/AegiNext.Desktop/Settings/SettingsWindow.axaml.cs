@@ -1,4 +1,5 @@
 using AegiNext.Core.Presets;
+using AegiNext.Desktop.Settings.Koumori;
 using AegiNext.Application.Presets;
 using AegiNext.Desktop.Editing;
 using AegiNext.Desktop.Controls.Common;
@@ -50,6 +51,7 @@ public sealed partial class SettingsWindow : Window
         viewModel.Tasks.Changed += OnTasksChanged;
         viewModel.Updates.Changed += OnUpdatesChanged;
         viewModel.AudioAnalysis.Changed += OnAudioAnalysisChanged;
+        viewModel.Koumori.Changed += OnKoumoriChanged;
         viewModel.AudioAnalysis.RebuildRequested += OnAudioAnalysisRebuildRequested;
         viewModel.TimingPostProcessor.Changed += OnTimingPreferencesChanged;
         viewModel.TimingPostProcessor.AssociateRequested += OnTimingAssociateRequested;
@@ -70,6 +72,7 @@ public sealed partial class SettingsWindow : Window
     public event EventHandler<TaskSettingsChangedEventArgs>? TasksChanged;
     public event EventHandler<UpdateSettingsChangedEventArgs>? UpdatesChanged;
     public event EventHandler<AudioAnalysisPreferencesChangedEventArgs>? AudioAnalysisChanged;
+    public event EventHandler<KoumoriPreferencesChangedEventArgs>? KoumoriChanged;
     public event EventHandler<AudioAnalysisRebuildRequestedEventArgs>? AudioAnalysisRebuildRequested;
     public event EventHandler<TimingPostProcessorPreferencesChangedEventArgs>? TimingPreferencesChanged;
     public event EventHandler<TimingPostProcessorAssociationEventArgs>? TimingAssociateRequested;
@@ -109,6 +112,7 @@ public sealed partial class SettingsWindow : Window
         ViewModel.Tasks.UpdatePreferences(value);
         ViewModel.Updates.UpdatePreferences(value);
         ViewModel.AudioAnalysis.UpdatePreferences(value);
+        ViewModel.Koumori.UpdatePreferences(value);
         ViewModel.TimingPostProcessor.UpdatePreferences(value);
         RefreshLanguage();
     }
@@ -184,6 +188,7 @@ public sealed partial class SettingsWindow : Window
         ViewModel.Tasks.Changed -= OnTasksChanged;
         ViewModel.Updates.Changed -= OnUpdatesChanged;
         ViewModel.AudioAnalysis.Changed -= OnAudioAnalysisChanged;
+        ViewModel.Koumori.Changed -= OnKoumoriChanged;
         ViewModel.AudioAnalysis.RebuildRequested -= OnAudioAnalysisRebuildRequested;
         ViewModel.TimingPostProcessor.Changed -= OnTimingPreferencesChanged;
         ViewModel.TimingPostProcessor.AssociateRequested -= OnTimingAssociateRequested;
@@ -233,6 +238,11 @@ public sealed partial class SettingsWindow : Window
     private void OnUpdatesChanged(object? sender, UpdateSettingsChangedEventArgs e)
     {
         UpdatesChanged?.Invoke(this, e);
+    }
+
+    private void OnKoumoriChanged(object? sender, KoumoriPreferencesChangedEventArgs e)
+    {
+        KoumoriChanged?.Invoke(this, e);
     }
 
     private void OnAudioAnalysisChanged(object? sender, AudioAnalysisPreferencesChangedEventArgs e)

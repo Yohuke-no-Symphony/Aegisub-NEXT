@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using AegiNext.Desktop.Settings.Koumori;
 using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Settings.Appearance;
 using AegiNext.Desktop.Settings.Colors;
@@ -45,6 +46,8 @@ public sealed class SettingsWindowViewModel : ObservableObject
         TimingPostProcessor = new(preferences);
         Tasks = new(preferences);
         AudioAnalysis = new(preferences);
+        Koumori = new(preferences);
+        Koumori.PropertyChanged += PageModelChanged;
         Updates = new(preferences);
         Shortcuts.PropertyChanged += PageModelChanged;
         ExportPresets.PropertyChanged += PageModelChanged;
@@ -69,6 +72,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
     public TimingPostProcessorSettingsViewModel TimingPostProcessor { get; }
     public TaskSettingsViewModel Tasks { get; }
     public AudioAnalysisSettingsViewModel AudioAnalysis { get; }
+    public KoumoriSettingsViewModel Koumori { get; }
     public UpdateSettingsViewModel Updates { get; }
     public string Title => title;
 
@@ -90,6 +94,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
     public bool IsTransferVisible => CurrentPage == SettingsPage.TRANSFER;
     public bool IsTasksVisible => CurrentPage == SettingsPage.TASKS;
     public bool IsAudioAnalysisVisible => CurrentPage == SettingsPage.AUDIO_ANALYSIS;
+    public bool IsKoumoriVisible => CurrentPage == SettingsPage.KOUMORI;
     public bool IsUpdatesVisible => CurrentPage == SettingsPage.UPDATES;
 
     public string PageTitle => Localization.Get("Settings." + (CurrentPage switch
@@ -106,6 +111,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
         SettingsPage.TASKS => "Tasks",
         SettingsPage.AUDIO_ANALYSIS => "AudioAnalysis",
         SettingsPage.UPDATES => "Updates",
+        SettingsPage.KOUMORI => "Koumori",
         _ => "Appearance"
     }));
 
@@ -119,6 +125,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
         SettingsPage.TRANSFER => Transfer.Error,
         SettingsPage.TASKS => Tasks.Error,
         SettingsPage.AUDIO_ANALYSIS => AudioAnalysis.Error,
+        SettingsPage.KOUMORI => Koumori.Error,
         SettingsPage.SUBTITLE_COLOR_TAGS => ColorTags.Error,
         _ => null
     });
@@ -209,6 +216,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(IsTasksVisible));
             OnPropertyChanged(nameof(IsAudioAnalysisVisible));
             OnPropertyChanged(nameof(IsUpdatesVisible));
+            OnPropertyChanged(nameof(IsKoumoriVisible));
             OnPropertyChanged(nameof(PageTitle));
             RefreshError();
         }
@@ -237,6 +245,7 @@ public sealed class SettingsWindowViewModel : ObservableObject
         TimingPostProcessor.RefreshLanguage();
         Tasks.RefreshLanguage();
         AudioAnalysis.RefreshLanguage();
+        Koumori.RefreshLanguage();
         Updates.RefreshLanguage();
         title = Localization.Get("Settings.Settings");
         OnPropertyChanged(nameof(Title));

@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <AegiNextKoumoriModelDirectory Condition="'$(AegiNextKoumoriModelDirectory)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../models/koumori'))</AegiNextKoumoriModelDirectory>
+  </PropertyGroup>
+  <UsingTask TaskName="AegiNextKoumoriResources" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <Task>
+      <Reference Include="$(MSBuildToolsPath)/Newtonsoft.Json.dll" />
+      <Code Type="Class" Language="cs" Source="$(MSBuildThisFileDirectory)AegiNextKoumoriResources.cs" />
+    </Task>
+  </UsingTask>
+  <Target Name="CopyAegiNextKoumoriBuildResources" AfterTargets="CopyFilesToOutputDirectory" Condition="'$(DesignTimeBuild)' != 'true'">
+    <AegiNextKoumoriResources ModelDirectory="$(AegiNextKoumoriModelDirectory)" RuntimeIdentifier="$(RuntimeIdentifier)"
+                             DestinationDirectory="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(OutDir)', 'models', 'koumori'))" />
+  </Target>
+  <Target Name="PublishAegiNextKoumoriResources" AfterTargets="ComputeFilesToPublish" Condition="'$(DesignTimeBuild)' != 'true'">
+    <AegiNextKoumoriResources ModelDirectory="$(AegiNextKoumoriModelDirectory)" RuntimeIdentifier="$(RuntimeIdentifier)"
+                             DestinationDirectory="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(PublishDir)', 'models', 'koumori'))">
+      <Output TaskParameter="Files" ItemName="ResolvedFileToPublish" />
+    </AegiNextKoumoriResources>
+  </Target>
+  <Target Name="CleanAegiNextKoumoriBuildResources" AfterTargets="Clean" Condition="'$(DesignTimeBuild)' != 'true'">
+    <AegiNextKoumoriResources ModelDirectory="$(AegiNextKoumoriModelDirectory)" RemoveOnly="true"
+                             DestinationDirectory="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(OutDir)', 'models', 'koumori'))" />
+  </Target>
+</Project>

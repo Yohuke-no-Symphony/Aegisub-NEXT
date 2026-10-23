@@ -1,4 +1,5 @@
 using AegiNext.Core.Editing;
+using AegiNext.Koumori;
 using AegiNext.Core.Projects;
 using AegiNext.Core.Timing;
 using AegiNext.Desktop.Editing;
@@ -61,10 +62,12 @@ public sealed partial class SubtitleTimelineControl
             time = QuantizeEdit(time, e.KeyModifiers);
             var snapping = (IsSnapEnabled != ((e.KeyModifiers & KeyModifiers.Shift) != 0)) &&
                 (e.KeyModifiers & KeyModifiers.Alt) == 0;
-            if (snapping)
-            {
-                time = TimelineQuantization.Snap(time, snapBoundaries, PixelsPerSecond);
-            }
+            var ordinary = snapping ? TimelineQuantization.ResolveSnap(time, snapBoundaries, PixelsPerSecond) : new TimelineSnapResult(time, null);
+            FreezeKoumoriBoundaries(selectedLayer?.Id ?? cueId);
+            time = ShouldSnapKoumori(e.KeyModifiers, true)
+                ? KoumoriSnapResolver.Resolve(time, properties.IsLeftButtonPressed ? KoumoriBoundaryKind.Start : KoumoriBoundaryKind.End,
+                    frozenKoumoriBoundaries, PixelsPerSecond, KoumoriMaximumSnapMilliseconds, ordinary).Value
+                : ordinary.Value;
 
             ClassicTimingRequested?.Invoke(this, new(cueId, time, properties.IsLeftButtonPressed));
         }

@@ -21,6 +21,7 @@ internal sealed partial class WorkbenchSession
 
         return command switch
         {
+            WorkbenchCommand.AUTO_TIMING => CanAnalyzeKoumori,
             WorkbenchCommand.APPLY_TIMING_POST_PROCESSOR => HasApplicableSelectedTimingPostProcessor,
             WorkbenchCommand.COPY_CLIPS => CanCopyTimelineClips,
             WorkbenchCommand.PASTE_CLIPS => CanPasteTimelineClips,

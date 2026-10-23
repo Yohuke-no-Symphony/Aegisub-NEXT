@@ -68,7 +68,8 @@ public static class ShortcutDefaults
             new(WorkbenchCommand.VIEW_EFFECT_PRESETS, ""),
             new(WorkbenchCommand.OPEN_STYLE_LIBRARY, ""),
             new(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY, ""),
-            new(WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER, "")
+            new(WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER, ""),
+            new(WorkbenchCommand.AUTO_TIMING, "")
         ];
     }
 }

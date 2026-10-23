@@ -17,6 +17,9 @@ internal sealed partial class WorkbenchSession
     private void ApplyTimelinePreferences()
     {
         ViewModel.Timeline.IsSnapEnabled = preferences.TimelineSnapEnabled;
+        ViewModel.Timeline.IsKoumoriAvailable = preferences.Koumori.Enabled;
+        ViewModel.Timeline.IsKoumoriSnapEnabled = preferences.Koumori.SnapEnabled;
+        ViewModel.Timeline.KoumoriMaximumSnapMilliseconds = preferences.Koumori.MaximumSnapMilliseconds;
         ViewModel.Timeline.IsStepEnabled = preferences.TimelineStepEnabled;
         ViewModel.Timeline.IsAutoSeekEnabled = preferences.TimelineAutoSeekEnabled;
         ViewModel.Timeline.IsSpectrumVisible = preferences.TimelineSpectrumVisible;
@@ -36,6 +39,28 @@ internal sealed partial class WorkbenchSession
             case nameof(ViewModel.Timeline.IsClassicTimingEnabled):
                 InvalidateTimingSession();
                 UpdatePreferences(current => current with { TimelineClassicTimingEnabled = ViewModel.Timeline.IsClassicTimingEnabled });
+                if (ViewModel.Timeline.IsClassicTimingEnabled)
+                {
+                    RetryKoumoriSnapAnalysis();
+                }
+                else
+                {
+                    QueueKoumoriSnapAnalysis();
+                }
+                break;
+            case nameof(ViewModel.Timeline.Viewport):
+                QueueKoumoriSnapAnalysis();
+                break;
+            case nameof(ViewModel.Timeline.IsKoumoriSnapEnabled):
+                UpdatePreferences(current => current with { Koumori = current.Koumori with { SnapEnabled = ViewModel.Timeline.IsKoumoriSnapEnabled } });
+                if (ViewModel.Timeline.IsKoumoriSnapEnabled)
+                {
+                    RetryKoumoriSnapAnalysis();
+                }
+                else
+                {
+                    QueueKoumoriSnapAnalysis();
+                }
                 break;
             case nameof(ViewModel.Timeline.IsSnapEnabled):
                 UpdatePreferences(current => current with { TimelineSnapEnabled = ViewModel.Timeline.IsSnapEnabled });

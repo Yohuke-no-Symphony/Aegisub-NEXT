@@ -136,7 +136,19 @@ internal sealed partial class WorkbenchSession
 
             var start = time < MediaTime.Zero ? MediaTime.Zero : time;
             InvalidateTimingSession();
-            await BeginTimingCueAsync(trackId, start);
+            var end = start + DefaultSubtitleDuration;
+            foreach (var clip in ClipIndex.GetTrackClips(trackId))
+            {
+                if (clip.Start <= start && start < clip.End)
+                {
+                    throw new InvalidOperationException(Localization.Get("Workbench.TimelineClipCollision"));
+                }
+                if (clip.Start > start && clip.Start < end)
+                {
+                    end = clip.Start;
+                }
+            }
+            await AddCueAsync(trackId, start, end);
         });
 
     internal void ClearTimelineClipboard() => timelineClipboard = null;

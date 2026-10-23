@@ -68,6 +68,119 @@ public sealed class TimelineClipEditingWorkflowTests
         Assert.False(context.Editor.CanUndo);
     }
 
+    [Theory]
+    [InlineData(-1, 0)]
+    [InlineData(6, 6)]
+    public async Task ContextCreationUsesTwoSecondsOnTheCapturedTrackInOneTransaction(int requestedStart, int expectedStart)
+    {
+        var track = new ProjectTrack { Name = "Destination" };
+        var document = new ProjectDocument { Tracks = [ProjectTrack.Default, track] };
+        await using var context = new WorkspaceSessionTestContext(document);
+        await context.InitializeAsync();
+
+        await context.Session.CreateTimelineSubtitleAsync(track.Id, new(requestedStart), document);
+
+        Assert.Null(context.Session.LastError);
+        var created = context.Editor.Snapshot;
+        var cue = Assert.Single(created.Subtitles);
+        Assert.Equal(new MediaTime(expectedStart), cue.Start);
+        Assert.Equal(new MediaTime(expectedStart + 2), cue.End);
+        Assert.Equal(string.Empty, cue.Text);
+        var layer = Assert.Single(created.Layers);
+        Assert.Equal(track.Id, layer.TrackId);
+        Assert.Equal(cue.Id, layer.SubtitleId);
+        Assert.Equal((cue.Start, cue.End), (layer.Start, layer.End));
+        Assert.Equal(cue.Id, context.Session.SelectedCueId);
+        Assert.Equal(track.Id, context.Session.CurrentTrackId);
+        Assert.Null(context.Session.ViewModel.Timeline.TimingPreview);
+        Assert.True(context.Editor.Undo());
+        Assert.Same(document, context.Editor.Snapshot);
+        Assert.False(context.Editor.CanUndo);
+        Assert.True(context.Editor.Redo());
+        Assert.Same(created, context.Editor.Snapshot);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ContextCreationFitsTheGapBeforeTheNextSubtitleOrGraphicOnItsTrack(bool graphic)
+    {
+        var next = new ProjectLayer
+        {
+            Kind = LayerKind.SHAPE, Start = new(7), End = new(9),
+            Shape = new(ShapeKind.RECTANGLE, 40, 20)
+        };
+        var otherTrack = new ProjectTrack { Name = "Other" };
+        var other = new SubtitleLine { Start = new(6), End = new(8), Text = "Other track" };
+        var nextCue = new SubtitleLine { Start = next.Start, End = next.End, Text = "Next" };
+        var document = new ProjectDocument
+        {
+            Tracks = [ProjectTrack.Default, otherTrack],
+            Subtitles = graphic ? [other] : [other, nextCue],
+            Layers = [Layer(other) with { TrackId = otherTrack.Id }, graphic ? next : Layer(nextCue)]
+        };
+        await using var context = new WorkspaceSessionTestContext(document);
+        await context.InitializeAsync();
+
+        await context.Session.CreateTimelineSubtitleAsync(ProjectTrack.DEFAULT_TRACK_ID, new(6), document);
+
+        Assert.Null(context.Session.LastError);
+        var cue = Assert.Single(context.Editor.Snapshot.Subtitles.Where(line =>
+            line.Id != other.Id && line.Id != nextCue.Id));
+        Assert.Equal(new MediaTime(6), cue.Start);
+        Assert.Equal(new MediaTime(7), cue.End);
+        Assert.Null(context.Session.ViewModel.Timeline.TimingPreview);
+        Assert.All(document.Layers, layer => Assert.Same(layer, context.Editor.Snapshot.Layers.Single(value => value.Id == layer.Id)));
+        Assert.True(context.Editor.Undo());
+        Assert.Same(document, context.Editor.Snapshot);
+        Assert.False(context.Editor.CanUndo);
+    }
+
+    [Fact]
+    public async Task ContextCreationInsideAnExistingClipPreservesTheDocumentAndHistory()
+    {
+        var document = CreateDocument();
+        await using var context = new WorkspaceSessionTestContext(document);
+        await context.InitializeAsync();
+
+        await context.Session.CreateTimelineSubtitleAsync(ProjectTrack.DEFAULT_TRACK_ID, new(2), document);
+
+        var error = Assert.IsType<InvalidOperationException>(context.Session.LastError);
+        Assert.Equal(Localization.Get("Workbench.TimelineClipCollision"), error.Message);
+        Assert.Same(document, context.Editor.Snapshot);
+        Assert.Null(context.Session.ViewModel.Timeline.TimingPreview);
+        Assert.False(context.Editor.CanUndo);
+        Assert.False(context.Editor.CanRedo);
+    }
+
+    [Fact]
+    public async Task ContextCreationRejectsInvalidDraftsAndStaleMenuTargets()
+    {
+        var document = CreateDocument();
+        await using var context = new WorkspaceSessionTestContext(document);
+        await context.InitializeAsync();
+        var row = context.Session.ViewModel.Subtitles.Rows[0];
+        row.StartText = "invalid";
+
+        await context.Session.CreateTimelineSubtitleAsync(ProjectTrack.DEFAULT_TRACK_ID, new(10), document);
+
+        Assert.Same(document, context.Editor.Snapshot);
+        Assert.Equal("invalid", row.StartText);
+        Assert.Null(context.Session.ViewModel.Timeline.TimingPreview);
+        Assert.False(context.Editor.CanUndo);
+        row.Accept(document.Subtitles[0]);
+        context.Editor.ShiftClips([document.Layers[0].Id], new(1));
+        var changed = context.Editor.Snapshot;
+
+        await context.Session.CreateTimelineSubtitleAsync(ProjectTrack.DEFAULT_TRACK_ID, new(10), document);
+
+        Assert.Same(changed, context.Editor.Snapshot);
+        Assert.Null(context.Session.ViewModel.Timeline.TimingPreview);
+        Assert.True(context.Editor.Undo());
+        Assert.Same(document, context.Editor.Snapshot);
+        Assert.False(context.Editor.CanUndo);
+    }
+
     [Fact]
     public async Task PasteCollisionIsLocalizedAndPreservesSnapshotSelectionAndHistory()
     {

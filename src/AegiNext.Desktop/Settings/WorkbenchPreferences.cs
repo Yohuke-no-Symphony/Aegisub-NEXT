@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Buffers;
 using System.Globalization;
+using AegiNext.Desktop.Settings.Koumori;
 using AegiNext.Desktop.Shortcuts;
 using AegiNext.Media.Decoding;
 using AegiNext.Desktop.Settings.Projects;
@@ -22,6 +23,7 @@ public sealed record WorkbenchPreferences
     public string AccentColor { get; init; } = "#5273E8";
     public AudioGraphPalette AudioGraph { get; init; } = new();
     public AudioAnalysisPreferences AudioAnalysis { get; init; } = new();
+    public KoumoriPreferences Koumori { get; init; } = new();
     public TimelineClipPalette TimelineClips { get; init; } = new();
     public ImmutableArray<ShortcutBinding> ShortcutBindings { get; init; } = ShortcutDefaults.CreateBindings();
     public float Volume { get; init; } = 1;
@@ -53,7 +55,7 @@ public sealed record WorkbenchPreferences
         if (Version != 1 || !IsValidLanguage(Language) ||
             !Enum.IsDefined(Theme) || !Enum.IsDefined(PreviewQuality) || !Enum.IsDefined(PreviewDecodeMode) || !Enum.IsDefined(UpdateChannel) || !float.IsFinite(Volume) || Volume is < 0 or > 1 ||
             SubtitleAuditionMilliseconds < 1 || MaximumConcurrentTasks is < 1 or > 32 || AccentColor is null || AccentColor.Length != 7 || AccentColor[0] != '#' ||
-            AccentColor.AsSpan(1).ContainsAnyExcept(hexadecimalCharacters) || ShortcutBindings.IsDefault || AudioGraph is null || AudioAnalysis is null || TimelineClips is null || Projects is null || AssetBrowser is null || TimingPostProcessor is null)
+            AccentColor.AsSpan(1).ContainsAnyExcept(hexadecimalCharacters) || ShortcutBindings.IsDefault || AudioGraph is null || AudioAnalysis is null || Koumori is null || TimelineClips is null || Projects is null || AssetBrowser is null || TimingPostProcessor is null)
         {
             throw new InvalidDataException("桌面偏好无效或版本不受支持。");
         }
@@ -65,6 +67,7 @@ public sealed record WorkbenchPreferences
         }
         AudioGraph.Validate();
         AudioAnalysis.Validate();
+        Koumori.Validate();
         TimelineClips.Validate();
         Projects.Validate();
         AssetBrowser.Validate();
@@ -111,7 +114,7 @@ public sealed record WorkbenchPreferences
     public bool Equals(WorkbenchPreferences? other)
     {
         return other is not null && Version == other.Version && Language == other.Language && Theme == other.Theme &&
-               AccentColor == other.AccentColor && AudioGraph == other.AudioGraph && AudioAnalysis == other.AudioAnalysis && TimelineClips == other.TimelineClips && Volume.Equals(other.Volume) && WindowMenuOnMac == other.WindowMenuOnMac && PreviewQuality == other.PreviewQuality && PreviewDecodeMode == other.PreviewDecodeMode &&
+               AccentColor == other.AccentColor && AudioGraph == other.AudioGraph && AudioAnalysis == other.AudioAnalysis && Koumori == other.Koumori && TimelineClips == other.TimelineClips && Volume.Equals(other.Volume) && WindowMenuOnMac == other.WindowMenuOnMac && PreviewQuality == other.PreviewQuality && PreviewDecodeMode == other.PreviewDecodeMode &&
                SubtitleAuditionMilliseconds == other.SubtitleAuditionMilliseconds && MaximumConcurrentTasks == other.MaximumConcurrentTasks && TimelineClassicTimingEnabled == other.TimelineClassicTimingEnabled &&
                AutoCheckUpdates == other.AutoCheckUpdates && UpdateChannel == other.UpdateChannel &&
                TimelineSnapEnabled == other.TimelineSnapEnabled && TimelineStepEnabled == other.TimelineStepEnabled &&
@@ -135,6 +138,7 @@ public sealed record WorkbenchPreferences
         hash.Add(AccentColor);
         hash.Add(AudioGraph);
         hash.Add(AudioAnalysis);
+        hash.Add(Koumori);
         hash.Add(TimelineClips);
         hash.Add(Volume);
         hash.Add(WindowMenuOnMac);

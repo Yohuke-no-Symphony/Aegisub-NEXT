@@ -26,6 +26,82 @@ static void require_gain(void *output, float expected, const char *message)
     const auto actual = static_cast<AudioOutput *>(output)->gain();
     require(std::abs(actual - expected) < 0.000001F, message);
 }
+static void verify_seek_phase(int input_rate)
+{
+    const auto path = std::filesystem::temp_directory_path() / ("aeginext-audio-seek-" + std::to_string(input_rate) + ".wav");
+    void *decoder = nullptr;
+    char error[1024]{};
+    try
+    {
+        {
+            const auto count = input_rate * 5;
+            std::ofstream file(path, std::ios::binary);
+            file.write("RIFF", 4); put(file, 36 + count * 2, 4); file.write("WAVEfmt ", 8);
+            put(file, 16, 4); put(file, 1, 2); put(file, 1, 2); put(file, input_rate, 4);
+            put(file, input_rate * 2, 4); put(file, 2, 2); put(file, 16, 2); file.write("data", 4); put(file, count * 2, 4);
+            uint32_t state = 123456789;
+            for (auto index = 0; index < count; ++index)
+            {
+                state = state * 1664525U + 1013904223U;
+                const auto sample = static_cast<int16_t>((state >> 17) - 16384);
+                put(file, static_cast<uint16_t>(sample), 2);
+            }
+        }
+        require(an_audio_decoder_create(&decoder, error, sizeof(error)) == 0, error);
+        require(an_audio_decoder_open(decoder, path.string().c_str(), 0, 16000, 1, error, sizeof(error)) == 0, error);
+        std::vector<float> samples(4096);
+        std::vector<float> reference;
+        while (true)
+        {
+            int count = 0;
+            int64_t start = 0;
+            const auto status = an_audio_decoder_read(decoder, samples.data(), 4096, &count, &start, error, sizeof(error));
+            if (status == 1) { break; }
+            require(status == 0, error);
+            require(start == static_cast<int64_t>(reference.size()), "Sequential PCM has a stable global sample grid");
+            reference.insert(reference.end(), samples.begin(), samples.begin() + count);
+        }
+        require(reference.size() == 80000, "Reference PCM preserves the full resampled duration");
+        for (const auto reopen : {false, true})
+        {
+            for (const auto requested : {1, 16591, 40001, 79901, 0, 31999})
+            {
+                if (reopen)
+                {
+                    an_audio_decoder_destroy(decoder);
+                    decoder = nullptr;
+                    require(an_audio_decoder_create(&decoder, error, sizeof(error)) == 0, error);
+                    require(an_audio_decoder_open(decoder, path.string().c_str(), 0, 16000, 1, error, sizeof(error)) == 0, error);
+                }
+                require(an_audio_decoder_seek(decoder, requested, error, sizeof(error)) == 0, error);
+                auto expected = requested;
+                const auto end = std::min(80000, requested + 3200);
+                while (expected < end)
+                {
+                    int count = 0;
+                    int64_t start = 0;
+                    const auto status = an_audio_decoder_read(decoder, samples.data(), std::min(4096, end - expected), &count, &start, error, sizeof(error));
+                    require(status == 0, error);
+                    require(start == expected && count > 0, "Seek returns the exact global PCM sample and does not shorten the tail");
+                    for (auto index = 0; index < count; ++index)
+                    {
+                        require(std::abs(samples[index] - reference[expected + index]) <= 0.000001F,
+                            "Seek PCM must retain the same resampler phase as continuous decoding");
+                    }
+                    expected += count;
+                }
+            }
+        }
+        an_audio_decoder_destroy(decoder);
+        std::filesystem::remove(path);
+    }
+    catch (...)
+    {
+        an_audio_decoder_destroy(decoder);
+        std::filesystem::remove(path);
+        throw;
+    }
+}
 int main()
 {
     void *decoder = nullptr;
@@ -112,6 +188,9 @@ int main()
         require(an_audio_decoder_read(decoder, samples.data(), 4096, &frames, &start, error, sizeof(error)) == 6, "Permanent cancellation");
         an_audio_decoder_destroy(decoder); decoder = nullptr;
         std::cout << "PASS resampling, PTS, seek, cancellation\n";
+        verify_seek_phase(44100);
+        verify_seek_phase(48000);
+        std::cout << "PASS 44.1/48 kHz continuous and random-seek PCM phase parity\n";
 
         require(an_audio_output_create(&output, 48000, 2, error, sizeof(error)) == 0, error);
         std::vector<float> stereo(24000, 0.1F);

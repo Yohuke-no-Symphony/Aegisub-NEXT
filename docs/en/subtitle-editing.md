@@ -12,6 +12,8 @@ Drag a track header to change its order. Its clip and animation rows move togeth
 
 Move subtitle clips and trim either edge in 1 ms increments by default; trimming keeps at least 1 ms of duration. **Step** aligns edits to the visible ruler divisions. With snapping enabled, either clip edge can snap to another clip boundary or the current red playback line, using the target's exact time. Hold Alt to temporarily bypass Step and snapping.
 
+With Koumori enabled, opening a project with an audio track automatically analyzes the whole audio in the background. The task center shows progress and supports cancellation while the project remains editable. Analysis prepares **Model snapping** candidates while preserving the model-snapping and classic mouse-timing toggle settings. Viewport changes reuse the completed result. Failures appear in the task center and timeline status. Ordinary refreshes do not restart a cancelled analysis; explicitly enabling model snapping or classic mouse timing again allows a retry. Switching projects cancels the previous project's preparation task.
+
 Extending a clip to the left preserves existing effect keyframes at their original project times. You can move or add keyframes throughout the expanded clip. Each completed drag commits once and can be undone.
 
 With a clip selected, press **Shift+Q** to seek to its start or **Shift+W** to seek to its end. Multiple selection uses the primary clip. Seeking preserves playback state and zoom, and brings an offscreen target into the visible timeline. Text inputs retain uppercase Q/W entry. Rebind or disable these commands in **Settings → Shortcuts → Playback and audition**.

@@ -6,6 +6,7 @@
       "src\\AegiNext.Desktop\\AegiNext.Desktop.csproj",
       "src\\AegiNext.Rendering\\AegiNext.Rendering.csproj",
       "src\\AegiNext.Media\\AegiNext.Media.csproj",
+      "src\\AegiNext.Koumori\\AegiNext.Koumori.csproj",
       "src\\AegiNext.Application\\AegiNext.Application.csproj",
       "src\\AegiNext.SubtitleFormats\\AegiNext.SubtitleFormats.csproj",
       "src\\AegiNext.Cli\\AegiNext.Cli.csproj",

@@ -51,9 +51,10 @@ public sealed class WorkbenchPreferencesStore : IDisposable
                 throw new InvalidDataException("偏好文件过大。");
             }
 
-            var value = JsonSerializer.Deserialize<WorkbenchPreferences>(File.ReadAllBytes(path))
+            var bytes = File.ReadAllBytes(path);
+            var value = JsonSerializer.Deserialize<WorkbenchPreferences>(bytes)
                         ?? throw new InvalidDataException("偏好文件为空。");
-            value = WorkbenchPreferencesMigration.Upgrade(value);
+            value = WorkbenchPreferencesMigration.Upgrade(value, bytes);
             value.Validate();
             return value;
         }
@@ -74,7 +75,7 @@ public sealed class WorkbenchPreferencesStore : IDisposable
     internal static WorkbenchPreferences Deserialize(ReadOnlySpan<byte> bytes, bool allowForeignWorkspace = false)
     {
         var value = SettingsTransferJson.Deserialize<WorkbenchPreferences>(bytes, MAXIMUM_FILE_BYTES);
-        value = WorkbenchPreferencesMigration.Upgrade(value);
+        value = WorkbenchPreferencesMigration.Upgrade(value, bytes);
         ValidateTransfer(value, allowForeignWorkspace);
         return value;
     }

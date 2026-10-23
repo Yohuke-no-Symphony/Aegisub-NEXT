@@ -71,6 +71,7 @@ internal static class WorkbenchIcon
             "Import" or "OPEN_EFFECT_LIBRARY_TRANSFER" or "ImportFont" or "IMPORT_SUBTITLES" or "IMPORT_ASS" or "IMPORT_IMAGES" => MaterialIconKind.Import,
             "Export" or "ExportText" or "EXPORT_SUBTITLES" or "EXPORT_ASS" or "EXPORT_VIDEO" or "VIEW_EXPORT" => MaterialIconKind.Export,
             "Settings" or "OPEN_SETTINGS" or "ManageStyles" => MaterialIconKind.Cog,
+            "AUTO_TIMING" => MaterialIconKind.AutoFix,
             "Help" => MaterialIconKind.HelpCircleOutline,
             "OPEN_ABOUT" => MaterialIconKind.InformationOutline,
             "CHECK_UPDATES" => MaterialIconKind.Update,

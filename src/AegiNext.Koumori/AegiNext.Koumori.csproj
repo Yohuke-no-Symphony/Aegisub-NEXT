@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AegiNext.Koumori</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AegiNext.Core/AegiNext.Core.csproj" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" />
+    <InternalsVisibleTo Include="AegiNext.Koumori.Tests" />
+  </ItemGroup>
+</Project>

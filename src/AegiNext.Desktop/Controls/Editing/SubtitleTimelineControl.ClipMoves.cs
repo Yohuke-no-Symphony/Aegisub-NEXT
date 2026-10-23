@@ -38,9 +38,9 @@ public sealed partial class SubtitleTimelineControl
             Max(-earliest, QuantizeEdit(originalStart + delta, modifiers) - originalStart);
         pendingStart = originalStart + offset;
         pendingEnd = originalEnd + offset;
-        if (delta != MediaTime.Zero && ShouldSnap(modifiers))
+        if (delta != MediaTime.Zero && (ShouldSnap(modifiers) || ShouldSnapKoumori(modifiers)))
         {
-            var snap = TimelineQuantization.ResolveSnapOffset(pendingStart, pendingEnd, snapBoundaries, PixelsPerSecond, position);
+            var snap = SnapSubtitleMove(pendingStart, pendingEnd, modifiers);
             offset = Max(-earliest, offset + snap.Value);
             pendingStart = originalStart + offset;
             pendingEnd = originalEnd + offset;

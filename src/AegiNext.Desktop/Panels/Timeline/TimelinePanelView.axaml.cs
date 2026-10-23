@@ -289,6 +289,10 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             case nameof(viewModel.Viewport):
             case nameof(viewModel.FullDuration):
             case nameof(viewModel.MediaDuration):
+            case nameof(viewModel.IsKoumoriAvailable):
+            case nameof(viewModel.IsKoumoriSnapEnabled):
+            case nameof(viewModel.KoumoriBoundaries):
+            case nameof(viewModel.KoumoriMaximumSnapMilliseconds):
             case nameof(viewModel.IsSnapEnabled):
             case nameof(viewModel.IsStepEnabled):
             case nameof(viewModel.IsSpectrumVisible):
@@ -378,6 +382,10 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             timeline.SelectedEffectClipId = viewModel.SelectedEffectClipId;
             timeline.SelectedMaskNodeId = viewModel.SelectedMaskNodeId;
             timeline.IsSnapEnabled = viewModel.IsSnapEnabled;
+            timeline.IsKoumoriAvailable = viewModel.IsKoumoriAvailable;
+            timeline.IsKoumoriSnapEnabled = viewModel.IsKoumoriSnapEnabled;
+            timeline.KoumoriMaximumSnapMilliseconds = viewModel.KoumoriMaximumSnapMilliseconds;
+            timeline.KoumoriBoundaries = viewModel.KoumoriBoundaries;
             timeline.IsStepEnabled = viewModel.IsStepEnabled;
             timeline.IsSpectrumVisible = viewModel.IsSpectrumVisible;
             timeline.IsWaveformVisible = viewModel.IsWaveformVisible;
@@ -530,6 +538,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
     }
     private void OnLanguageChanged(object? sender, EventArgs e)
     {
+        viewModel.RefreshKoumoriStatus();
         RefreshTrackMenu();
         RefreshAnimationMenu();
     }

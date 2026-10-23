@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:common="using:AegiNext.Desktop.Controls.Common" xmlns:koumori="using:AegiNext.Desktop.Koumori"
+        x:Class="AegiNext.Desktop.Koumori.AutoTimingWindow" x:DataType="koumori:AutoTimingViewModel"
+        Title="{Loc Key=Koumori.Title}" Classes="business-surface" Width="800" Height="620"
+        MinWidth="640" MinHeight="420" WindowStartupLocation="CenterOwner">
+  <Grid RowDefinitions="Auto,*">
+    <common:WindowTitleBar Name="AutoTimingTitleBar" Title="{Loc Key=Koumori.Title}" />
+    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="16">
+      <TextBlock Text="{Loc Key=Koumori.PreviewHelp}" TextWrapping="Wrap"
+                 Foreground="{DynamicResource PreviewMuted}" />
+      <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
+        <Button Name="AnalyzeButton" Content="{Loc Key=Koumori.Run}" Command="{Binding RunCommand}" VerticalAlignment="Stretch" />
+        <Button Name="CancelAnalysisButton" Grid.Column="1" Content="{Loc Key=Koumori.Cancel}"
+                Command="{Binding CancelCommand}" VerticalAlignment="Stretch" />
+        <ProgressBar Grid.Column="2" Minimum="0" Maximum="100" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
+      </Grid>
+      <Border Name="TimingResults" Grid.Row="2" BorderBrush="{DynamicResource PreviewBorder}"
+              BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Background="{DynamicResource PreviewSurface}" BorderBrush="{DynamicResource PreviewBorder}"
+                  BorderThickness="0,0,0,1">
+            <Grid Width="{Binding #TimingRows.Scroll.Viewport.Width, FallbackValue=0}" HorizontalAlignment="Left">
+              <Grid ColumnDefinitions="48,*,*,80" Margin="12,8" ColumnSpacing="12">
+                <TextBlock Classes="field" Text="{Loc Key=Koumori.Use}" />
+                <TextBlock Name="StartColumnHeader" Classes="field" Grid.Column="1" Text="{Loc Key=Koumori.Start}" />
+                <TextBlock Name="EndColumnHeader" Classes="field" Grid.Column="2" Text="{Loc Key=Koumori.End}" />
+                <TextBlock Classes="field" Grid.Column="3" Text="{Loc Key=Koumori.Score}" />
+              </Grid>
+            </Grid>
+          </Border>
+          <ListBox Name="TimingRows" Grid.Row="1" ItemsSource="{Binding Rows}"
+                   SelectedItem="{Binding SelectedRow, Mode=TwoWay}" IsEnabled="{Binding CanEdit}"
+                   Background="Transparent" BorderThickness="0" Padding="0"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.Styles>
+              <Style Selector="ListBoxItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Padding" Value="12,4" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="BorderThickness" Value="0" />
+              </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="koumori:KoumoriPreviewRow">
+                <Grid ColumnDefinitions="48,*,*,80" ColumnSpacing="12" Margin="0,2">
+                  <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" AutomationProperties.Name="{Loc Key=Koumori.Use}" />
+                  <TextBox Name="StartTimeInput" Grid.Column="1" Text="{Binding StartText, Mode=TwoWay}"
+                           AutomationProperties.Name="{Loc Key=Koumori.Start}" />
+                  <TextBox Name="EndTimeInput" Grid.Column="2" Text="{Binding EndText, Mode=TwoWay}"
+                           AutomationProperties.Name="{Loc Key=Koumori.End}" />
+                  <TextBlock Grid.Column="3" Text="{Binding ScoreText}" VerticalAlignment="Center" />
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Border>
+      <TextBlock Grid.Row="3" Text="{Binding Status}" IsVisible="{Binding HasStatus}" TextWrapping="Wrap" MaxHeight="90" />
+      <Grid Grid.Row="4" ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="8">
+        <Button Name="SelectAllButton" Content="{Loc Key=Koumori.SelectAll}" Command="{Binding SelectAllCommand}"
+                IsEnabled="{Binding CanEdit}" VerticalAlignment="Stretch" />
+        <Button Name="SelectNoneButton" Grid.Column="1" Content="{Loc Key=Koumori.SelectNone}"
+                Command="{Binding SelectNoneCommand}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Stretch" />
+        <Button Name="AuditionButton" Grid.Column="2" Content="{Loc Key=Koumori.Audition}"
+                Command="{Binding AuditionCommand}" VerticalAlignment="Stretch" />
+        <Button Name="ApplyTimingButton" Grid.Column="4" Content="{Loc Key=Koumori.Apply}"
+                Command="{Binding ApplyCommand}" Classes="accent" VerticalAlignment="Stretch" />
+      </Grid>
+    </Grid>
+  </Grid>
+</Window>

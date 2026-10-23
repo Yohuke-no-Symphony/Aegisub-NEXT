@@ -1,4 +1,5 @@
 using System.Globalization;
+using AegiNext.Koumori;
 using System.Collections.Immutable;
 using Avalonia;
 using Avalonia.Controls;
@@ -678,11 +679,11 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
                 break;
             case TimelineDragMode.TRIM_START:
                 pendingStart = Max(MediaTime.Zero, Min(originalEnd - minimum,
-                    SnapEdit(originalStart + clipDelta, e.KeyModifiers, position)));
+                    SnapSubtitleEdge(originalStart + clipDelta, e.KeyModifiers, KoumoriBoundaryKind.Start)));
                 snapTarget = snapTarget == pendingStart ? snapTarget : null;
                 break;
             case TimelineDragMode.TRIM_END:
-                pendingEnd = Max(originalStart + minimum, SnapEdit(originalEnd + clipDelta, e.KeyModifiers, position));
+                pendingEnd = Max(originalStart + minimum, SnapSubtitleEdge(originalEnd + clipDelta, e.KeyModifiers, KoumoriBoundaryKind.End));
                 snapTarget = snapTarget == pendingEnd ? snapTarget : null;
                 break;
             case TimelineDragMode.KEYFRAME:
@@ -860,6 +861,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         validDrop = true;
         FreezeMovingClips(id, mode);
         CacheSnapBoundaries(id);
+        FreezeKoumoriBoundaries(id);
     }
 
     internal void BeginKeyframeDrag(ProjectLayer layer, Keyframe key, double pointer)
