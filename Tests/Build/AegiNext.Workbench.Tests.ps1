@@ -7,16 +7,6 @@ BeforeAll {
 }
 
 Describe 'Workbench and Application selection' {
-    It 'forwards one explicit model directory to every managed restore build and test step' {
-        $hostInfo = [pscustomobject]@{ Platform = 'MacOS'; Architecture = 'Arm64'; ProcessArchitecture = 'Arm64' }
-        $source = Join-Path $TestDrive 'manually supplied model'
-        $plan = @(Get-AegiNextBuildPlan -RepositoryRoot $repository -Target Managed -HostInfo $hostInfo -RunTests -TestProjects Application -KoumoriModelDirectory $source)
-        foreach ($step in $plan)
-        {
-            $step.Arguments | Should -Contain "-p:AegiNextKoumoriModelDirectory=$source"
-        }
-    }
-
     It 'plans Decoder then Audio then Export then Managed on <Platform>' -TestCases @(
         @{ Platform = 'MacOS'; Architecture = 'Arm64' }
         @{ Platform = 'Windows'; Architecture = 'X64' }

@@ -44,6 +44,8 @@ Replace both RIDs with `win-x64` on Windows or `osx-x64` on Intel Macs. Explicit
 pwsh -NoProfile -File ./build.ps1 -Target Workbench -RuntimeIdentifier win-x64 -Configuration Release
 ```
 
+Copy Koumori models manually to `models/koumori/` beside the executable, or select **Specify manually** in automatic timing settings and choose an existing model directory. Build, publish, and clean leave models alone; models stored at the repository root are not copied into the runtime directory. See [Publishing](publishing.md) for package paths.
+
 ## Debug with Rider
 
 Open `AegiNext.sln`. Before the first Debug run or after native/ABI changes, build the matching libraries:

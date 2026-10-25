@@ -530,7 +530,6 @@ function Get-AegiNextBuildPlan
         [ValidateRange(1, 128)][int] $Jobs = 2,
         [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')][string] $RuntimeIdentifier,
         [hashtable] $NativePrefixes = @{},
-        [string] $KoumoriModelDirectory,
         [object] $BuildVersion
     )
     $rid = Get-AegiNextRuntimeIdentifier -HostInfo $HostInfo -RuntimeIdentifier $RuntimeIdentifier
@@ -605,14 +604,13 @@ function Get-AegiNextBuildPlan
         {
             $restoreRuntimeArguments = [string[]]@('-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid")
         }
-        $modelArguments = if ($KoumoriModelDirectory) { @("-p:AegiNextKoumoriModelDirectory=$([IO.Path]::GetFullPath($KoumoriModelDirectory))") } else { @() }
         $plan.Add([pscustomobject]@{
             Label = 'Restore managed'; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = @{}
-            Arguments = [string[]](@('restore', $solution, '--disable-build-servers') + $restoreRuntimeArguments + $versionArguments + $modelArguments)
+            Arguments = [string[]](@('restore', $solution, '--disable-build-servers') + $restoreRuntimeArguments + $versionArguments)
         })
         $plan.Add([pscustomobject]@{
             Label = 'Build managed'; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = @{}
-            Arguments = [string[]](@('build', $solution, '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @("-p:AegiNextRuntimeIdentifier=$rid") } else { @() }) + $versionArguments + $modelArguments)
+            Arguments = [string[]](@('build', $solution, '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @("-p:AegiNextRuntimeIdentifier=$rid") } else { @() }) + $versionArguments)
         })
         if ($RunTests)
         {
@@ -623,7 +621,7 @@ function Get-AegiNextBuildPlan
                 {
                     $plan.Add([pscustomobject]@{
                         Label = "Restore test $project"; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = @{}
-                        Arguments = [string[]](@('restore', $testProject, '--disable-build-servers') + $restoreRuntimeArguments + $versionArguments + $modelArguments)
+                        Arguments = [string[]](@('restore', $testProject, '--disable-build-servers') + $restoreRuntimeArguments + $versionArguments)
                     })
                 }
                 $testEnvironment = @{}
@@ -634,7 +632,7 @@ function Get-AegiNextBuildPlan
                 $plan.Add([pscustomobject]@{
                     Label = "Test $project"; FilePath = 'dotnet'; WorkingDirectory = $RepositoryRoot; Environment = $testEnvironment
                     Arguments = [string[]](@('test', $testProject,
-                        '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @('-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid") } else { @() }) + $versionArguments + $modelArguments)
+                        '--configuration', $Configuration, '--no-restore', '--disable-build-servers') + $(if ($useRuntime) { @('-r', $rid, "-p:AegiNextRuntimeIdentifier=$rid") } else { @() }) + $versionArguments)
                 })
             }
         }
@@ -661,7 +659,6 @@ function Invoke-AegiNextBuild
         [string] $ReportPath,
         [string] $Tag,
         [version] $Version,
-        [string] $KoumoriModelDirectory,
         [object] $BuildVersion
     )
     if ($CheckEnvironment -and $InstallDependencies)
@@ -725,7 +722,6 @@ function Invoke-AegiNextBuild
         $planArguments.RuntimeIdentifier = $RuntimeIdentifier
     }
     if ($null -ne $BuildVersion) { $planArguments.BuildVersion = $BuildVersion }
-    if ($KoumoriModelDirectory) { $planArguments.KoumoriModelDirectory = $KoumoriModelDirectory }
     $plan = @(Get-AegiNextBuildPlan @planArguments)
     foreach ($step in $plan)
     {

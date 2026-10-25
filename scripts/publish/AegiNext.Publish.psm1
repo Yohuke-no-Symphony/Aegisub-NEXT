@@ -6,7 +6,6 @@ Import-Module ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../build/AegiNex
 . (Join-Path $PSScriptRoot 'AegiNext.PublishMetadata.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.AppBundle.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.WindowsInstaller.ps1')
-. (Join-Path $PSScriptRoot 'AegiNext.KoumoriPackage.ps1')
 
 function Invoke-AegiNextPublishCommand
 {
@@ -246,19 +245,6 @@ function Test-AegiNextPublishedPackage
         default { throw "Unsupported package runtime identifier: $($manifest.RuntimeIdentifier)." }
     }
     $languages = @(Test-AegiNextPublishedLocalization -PayloadDirectory $payload)
-    $koumori = Get-AegiNextPublishedKoumoriMetadata -PayloadDirectory $payload -RuntimeIdentifier $manifest.RuntimeIdentifier
-    if ($null -ne $koumori -and $manifest.PSObject.Properties.Name -notcontains 'Koumori')
-    {
-        throw 'Published Koumori package is missing its package manifest metadata.'
-    }
-    if ($manifest.PSObject.Properties.Name -contains 'Koumori')
-    {
-        if ($manifest.Koumori.Directory -cne 'models/koumori') { throw 'Invalid published Koumori directory.' }
-        if ($null -eq $koumori -or $koumori.ModelId -cne $manifest.Koumori.ModelId -or $koumori.ManifestSha256 -cne $manifest.Koumori.ManifestSha256)
-        {
-            throw 'Published Koumori metadata does not match the model package.'
-        }
-    }
     if ($manifest.SchemaVersion -eq 2)
     {
         $entries = @('aegi-next', 'aegn-exporter', 'aegnc')
@@ -295,7 +281,7 @@ function Invoke-AegiNextPublish
     param([Parameter(Mandatory)][string] $RepositoryRoot, [string] $RuntimeIdentifier,
         [ValidateSet('Debug', 'Release')][string] $Configuration = 'Release', [string] $Tag, [version] $Version, [string] $FfmpegRoot, [string] $SdlRoot,
         [string] $OutputDirectory, [string] $LicenseDirectory, [string[]] $RuntimeDependencyDirectory = @(), [string] $SigningIdentity = '-', [switch] $SkipBuild, [switch] $CreateDmg,
-        [switch] $CreateInstaller, [string] $NsisPath, [switch] $AllowMissingTag, [string] $KoumoriModelDirectory,
+        [switch] $CreateInstaller, [string] $NsisPath, [switch] $AllowMissingTag,
         [ValidateRange(1, 128)][int] $Jobs = 2)
     $versionArguments = @{ RepositoryRoot = $RepositoryRoot; RequireRelease = $true }
     if ($Tag) { $versionArguments.Tag = $Tag }
@@ -306,8 +292,6 @@ function Invoke-AegiNextPublish
     $hostInfo = Get-AegiNextHost
     $rid = Get-AegiNextRuntimeIdentifier -HostInfo $hostInfo -RuntimeIdentifier $RuntimeIdentifier
     if ($rid -notin @('osx-arm64', 'osx-x64', 'win-x64')) { throw "Unsupported publish RID $rid." }
-    $KoumoriModelDirectory = Resolve-AegiNextKoumoriModelDirectory -RepositoryRoot $RepositoryRoot -ModelDirectory $KoumoriModelDirectory
-    $koumoriPackage = if ($KoumoriModelDirectory) { Get-AegiNextKoumoriPackage -ModelDirectory $KoumoriModelDirectory -RuntimeIdentifier $rid } else { $null }
     if ($CreateDmg -and $hostInfo.Platform -ne 'MacOS') { throw 'CreateDmg is only supported on macOS.' }
     if ($CreateInstaller -and $hostInfo.Platform -ne 'Windows') { throw 'CreateInstaller is only supported on Windows.' }
     if ($NsisPath -and !$CreateInstaller) { throw 'NsisPath requires -CreateInstaller.' }
@@ -317,7 +301,7 @@ function Invoke-AegiNextPublish
     $compilerRuntime = if ($hostInfo.Platform -eq 'Windows') { Get-AegiNextWindowsCompilerRuntime $report.NativePrefixes['cxx'] } else { $null }
     if (!$SkipBuild)
     {
-        if ((Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Workbench -Configuration $Configuration -RuntimeIdentifier $rid -BuildVersion $buildVersion -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -KoumoriModelDirectory $KoumoriModelDirectory -Jobs $Jobs) -ne 0) { throw 'Workbench build failed.' }
+        if ((Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Workbench -Configuration $Configuration -RuntimeIdentifier $rid -BuildVersion $buildVersion -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -Jobs $Jobs) -ne 0) { throw 'Workbench build failed.' }
         if ($hostInfo.Platform -eq 'MacOS' -and (Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Native -Configuration $Configuration -Jobs $Jobs) -ne 0) { throw 'macOS HDR module build failed.' }
     }
     $publishRoot = Join-Path $RepositoryRoot "artifacts/publish/$rid/$Configuration"
@@ -339,10 +323,6 @@ function Invoke-AegiNextPublish
             $staging = Join-Path $managedStaging $project
             [IO.Directory]::CreateDirectory($staging) | Out-Null
             $projectArguments = @('publish', (Join-Path $RepositoryRoot "src/$project/$project.csproj"), '-o', $staging) + $common
-            if ($project -eq 'AegiNext.Desktop' -and $KoumoriModelDirectory)
-            {
-                $projectArguments += "-p:AegiNextKoumoriModelDirectory=$KoumoriModelDirectory"
-            }
             $null = Invoke-AegiNextPublishCommand $dotnet $projectArguments $RepositoryRoot -StreamOutput
             Copy-AegiNextManagedPublish -Source $staging -Destination $payload
         }
@@ -375,12 +355,6 @@ function Invoke-AegiNextPublish
     $sourceIdentity = Get-AegiNextSourceIdentity $RepositoryRoot
     $manifest = [ordered]@{ SchemaVersion = 2; EntryPoints = @('aegi-next', 'aegn-exporter', 'aegnc'); ProductVersion = $versionText; ReleaseTag = $buildVersion.ReleaseTag; Channel = $buildVersion.Channel; ReleaseSequence = $buildVersion.ReleaseSequence; BuildNumber = $buildVersion.BuildNumber; RuntimeIdentifier = $rid; SelfContained = $true; BuildTimeUtc = [DateTime]::UtcNow.ToString('O'); GitSha = $buildVersion.GitSha; WorkingTreeDirty = $sourceIdentity.WorkingTreeDirty; GitMetadataStatus = $sourceIdentity.Status; Tools = @("tools/ffmpeg$toolSuffix", "tools/ffprobe$toolSuffix"); ToolVersions = @(); RuntimeFrameworks = @(Get-AegiNextPublishedRuntimeFramework $payload); CompilerRuntime = $compilerRuntime; OperatingSystemPolicy = (Get-AegiNextRuntimeOperatingSystemPolicy $hostInfo); Dependencies = @(); MinimumOSVersion = $null; Licenses = @(); Files = @() }
     $spectreLicenseRoot = Join-Path $RepositoryRoot 'scripts/publish/licenses/spectre-console-0.57.2'
-    $publishedKoumori = Get-AegiNextPublishedKoumoriMetadata -PayloadDirectory $payload -RuntimeIdentifier $rid -ExpectedPackage $koumoriPackage
-    if ($null -ne $publishedKoumori)
-    {
-        if ($null -eq $koumoriPackage) { throw 'Unexpected published Koumori package without a source package.' }
-        $manifest.Koumori = $publishedKoumori
-    }
     $licenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot, $payload, $LicenseDirectory) + $RuntimeDependencyDirectory + @(Get-AegiNextNugetLicenseRoot $RepositoryRoot $rid)
     $requiredLicenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot)
     if ($hostInfo.Platform -eq 'MacOS')

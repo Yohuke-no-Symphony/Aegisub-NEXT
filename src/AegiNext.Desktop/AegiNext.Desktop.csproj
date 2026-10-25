@@ -40,5 +40,4 @@
     </None>
   </ItemGroup>
   <Import Project="../../scripts/build/AegiNext.Companions.targets" />
-  <Import Project="../../scripts/build/AegiNext.Koumori.targets" />
 </Project>

@@ -17,7 +17,6 @@ function Invoke-AegiNextRelease
         [string] $SdlRoot,
         [string] $OutputDirectory,
         [string] $LicenseDirectory,
-        [string] $KoumoriModelDirectory,
         [string[]] $RuntimeDependencyDirectory = @(),
         [string] $SigningIdentity = '-',
         [switch] $SkipBuild,

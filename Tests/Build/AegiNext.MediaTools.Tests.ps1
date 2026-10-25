@@ -57,7 +57,7 @@ Describe 'Media tool checks are explicit and follow the shared manifest' {
             return $null
         }
         Mock Invoke-AegiNextCommand -ModuleName AegiNext.Build {
-            if ($FilePath -eq 'fixture-dotnet')
+            if ($FilePath -eq 'fixture-dotnet' -and $Arguments.Count -eq 1 -and $Arguments[0] -eq '--version')
             {
                 return [pscustomobject]@{ ExitCode = 0; Output = '10.0.401' }
             }
@@ -249,6 +249,12 @@ Describe 'Media tool checks are explicit and follow the shared manifest' {
             return $null
         } -ParameterFilter { $Name -in @('ffprobe', 'ffmpeg') }
         Mock Install-AegiNextDependency -ModuleName AegiNext.Build { $script:mediaToolsInstalled = $true }
+        Mock Get-AegiNextBuildVersion -ModuleName AegiNext.Build {
+            [pscustomobject]@{
+                ReleaseTag = ''; NumericVersion = '0.1.0.0'; BaseVersion = '0.1.0'; Channel = 'dev'; ReleaseSequence = 0
+                BuildNumber = 2; ProductVersion = '0.1.0-dev'; AssemblyVersion = '0.1.0.0'; FileVersion = '0.1.0.2'; GitSha = 'fixture'
+            }
+        }
         Mock Get-AegiNextBuildPlan -ModuleName AegiNext.Build { return @() }
 
         Invoke-AegiNextBuild -RepositoryRoot $repository -WithMediaTools -InstallDependencies | Should -Be 0
