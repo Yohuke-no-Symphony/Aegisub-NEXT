@@ -4,7 +4,9 @@
   </PropertyGroup>
   <UsingTask TaskName="AegiNextKoumoriResources" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
     <Task>
-      <Reference Include="$(MSBuildToolsPath)/Newtonsoft.Json.dll" />
+      <!-- RoslynCodeTaskFactory uses netstandard reference assemblies. The SDK-root
+           Newtonsoft.Json targets net6.0; use the SDK's framework-compatible copy. -->
+      <Reference Include="$(MSBuildToolsPath)/Sdks/Microsoft.NET.Sdk/tools/net472/Newtonsoft.Json.dll" />
       <Code Type="Class" Language="cs" Source="$(MSBuildThisFileDirectory)AegiNextKoumoriResources.cs" />
     </Task>
   </UsingTask>

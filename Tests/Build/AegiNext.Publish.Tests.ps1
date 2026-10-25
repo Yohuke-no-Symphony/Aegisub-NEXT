@@ -143,6 +143,7 @@ Describe 'Platform publishing boundaries' {
             }
             Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'Windows'; Architecture = 'Arm64'; ProcessArchitecture = 'Arm64' } }
             Mock Get-AegiNextEnvironment { [pscustomobject]@{ Ready = $true; NativePrefixes = @{ ffmpeg = $ffmpeg; sdl3 = $sdl; cxx = $compiler } } }
+            Mock Get-AegiNextWindowsMsvcRuntime { [pscustomobject]@{ RuntimeDirectory = (Join-Path $Fixture 'msvc/x64/Microsoft.VC145.CRT'); Version = '14.51.36247.0' } }
             Mock Get-AegiNextSourceIdentity { [pscustomobject]@{ GitSha = ('a' * 40); WorkingTreeDirty = $true; Status = 'Recorded' } }
             Mock Get-AegiNextBuildVersion {
                 $script:resolvedPublishVersionArguments = @{} + $PesterBoundParameters
@@ -187,7 +188,7 @@ Describe 'Platform publishing boundaries' {
                 }
                 throw 'Unexpected publish command.'
             }
-            Mock Copy-AegiNextWindowsDependencyClosure { @() }
+            Mock Copy-AegiNextWindowsDependencyClosure { @([pscustomobject]@{ Source = (Join-Path $Fixture 'msvc/x64/Microsoft.VC145.CRT/vcruntime140.dll'); Path = 'vcruntime140.dll' }) }
             Mock Get-AegiNextNsisCompiler { [pscustomobject]@{ Path = 'fixture-makensis'; Version = '3.13' } }
             Mock New-AegiNextWindowsInstaller {
                 param($PayloadDirectory, $PublishDirectory, $ProductVersion, $FileVersion, $RuntimeIdentifier, $NsisCompiler)
@@ -245,7 +246,7 @@ Describe 'Platform publishing boundaries' {
                 }
             }
             Should -Invoke Copy-AegiNextWindowsDependencyClosure -Times 1 -Exactly -ParameterFilter {
-                $SearchDirectories -contains (Split-Path $compiler)
+                $SearchDirectories -contains (Split-Path $compiler) -and $SearchDirectories -contains (Join-Path $Fixture 'msvc/x64/Microsoft.VC145.CRT')
             }
             $manifest = Get-Content -LiteralPath (Join-Path $Fixture 'published command fixture/package-manifest.json') -Raw | ConvertFrom-Json
             $manifest.ProductVersion | Should -Be $ExpectedVersion
@@ -283,6 +284,8 @@ Describe 'Platform publishing boundaries' {
             $manifest.ToolVersions[0].VersionLine | Should -Be 'ffmpeg version 9.0.2 fixture'
             $manifest.ToolVersions[1].VersionLine | Should -Be 'ffprobe version 9.0.2 fixture'
             $manifest.SchemaVersion | Should -Be 2
+            $manifest.MsvcRuntime.Version | Should -Be '14.51.36247.0'
+            @($manifest.Licenses | Where-Object File -like '*NOTICE-Microsoft-Visual-Cpp-Runtime.txt').Count | Should -Be 1
             @($manifest.EntryPoints) | Should -Be @('aegi-next', 'aegn-exporter', 'aegnc')
             $manifest.RuntimeFrameworks.Count | Should -Be 3
             Should -Invoke Test-AegiNextPublishedCli -Times 1 -Exactly -ParameterFilter { $RuntimeIdentifier -eq 'win-x64' -and $ProductVersion -eq $ExpectedVersion }
@@ -820,6 +823,68 @@ Describe 'Published provenance metadata' {
 }
 
 Describe 'Windows dependency closure boundaries' {
+    It 'discovers only release x64 CRT redistributables from Visual Studio' {
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive } {
+            param($Fixture)
+            $installation = Join-Path $Fixture 'Visual Studio'
+            $redist = Join-Path $installation 'VC/Redist/MSVC/14.51.36231'
+            $expected = Join-Path $redist 'x64/Microsoft.VC145.CRT'
+            foreach ($relative in @('x64/Microsoft.VC145.CRT', 'x86/Microsoft.VC145.CRT', 'onecore/x64/Microsoft.VC145.CRT', 'debug_nonredist/x64/Microsoft.VC145.DebugCRT'))
+            {
+                $directory = Join-Path $redist $relative
+                [IO.Directory]::CreateDirectory($directory) | Out-Null
+                Set-Content -LiteralPath (Join-Path $directory 'vcruntime140.dll') -Value 'fixture runtime'
+            }
+            Mock Find-AegiNextCommand { 'fixture-vswhere' }
+            Mock Invoke-AegiNextPublishCommand { @(@{ installationPath = $installation }) | ConvertTo-Json -AsArray }
+            Mock Get-AegiNextBinaryKind { 'PE-34404' }
+            $previous = $env:VCToolsRedistDir
+            try
+            {
+                $env:VCToolsRedistDir = $null
+                (Get-AegiNextWindowsMsvcRuntime).RuntimeDirectory | Should -Be $expected
+                Should -Invoke Get-AegiNextBinaryKind -Times 1 -Exactly
+                Mock Get-AegiNextBinaryKind { 'PE-332' }
+                Get-AegiNextWindowsMsvcRuntime | Should -BeNullOrEmpty
+            }
+            finally { $env:VCToolsRedistDir = $previous }
+        }
+    }
+
+    It 'copies the recursive MSVC runtime closure beside tools and records its sources' {
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive } {
+            param($Fixture)
+            $payload = Join-Path $Fixture 'package'
+            $runtime = Join-Path $Fixture 'redist'
+            foreach ($directory in @((Join-Path $payload 'tools'), $runtime)) { [IO.Directory]::CreateDirectory($directory) | Out-Null }
+            Set-Content -LiteralPath (Join-Path $payload 'tools/onnx-tool.exe') -Value 'fixture tool'
+            foreach ($name in @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll')) { Set-Content -LiteralPath (Join-Path $runtime $name) -Value $name }
+            Mock Find-AegiNextCommand { 'objdump' }
+            Mock Get-AegiNextBinaryKind { 'PE-34404' }
+            Mock Invoke-AegiNextPublishCommand {
+                param($FilePath, $Arguments)
+                $FilePath | Should -Be 'objdump'
+                switch ([IO.Path]::GetFileName($Arguments[-1]))
+                {
+                    'onnx-tool.exe' { "DLL Name: MSVCP140.dll`nDLL Name: VCRUNTIME140_1.dll" }
+                    'msvcp140.dll' { 'DLL Name: VCRUNTIME140.dll' }
+                    default { 'DLL Name: KERNEL32.dll' }
+                }
+            }
+            $records = @(Copy-AegiNextWindowsDependencyClosure $payload @($runtime))
+            foreach ($name in @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll'))
+            {
+                Test-Path -LiteralPath (Join-Path $payload $name) | Should -BeTrue
+                $record = @($records | Where-Object Path -eq $name)
+                $record.Count | Should -Be 1
+                $record[0].Source | Should -Be (Join-Path $runtime $name)
+                $record[0].SourceSha256 | Should -Be (Get-FileHash -LiteralPath $record[0].Source).Hash.ToLowerInvariant()
+            }
+            Test-Path -LiteralPath (Join-Path $payload 'tools/msvcp140.dll') | Should -BeTrue
+            Test-Path -LiteralPath (Join-Path $payload 'tools/vcruntime140_1.dll') | Should -BeTrue
+        }
+    }
+
     It 'uses Windows-provided <Dependency> without copying a system library' -TestCases @(
         @{ Dependency = 'NCRYPT.dll' }
         @{ Dependency = 'AVICAP32.dll' }

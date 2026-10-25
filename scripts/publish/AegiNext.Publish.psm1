@@ -398,7 +398,17 @@ function Invoke-AegiNextPublish
     else
     {
         Write-Information -InformationAction Continue -MessageData '[publish] Resolving Windows runtime dependencies...'
-        $manifest.Dependencies = @(Copy-AegiNextWindowsDependencyClosure -Payload $payload -SearchDirectories (@($nativeRoot, (Join-Path $report.NativePrefixes.ffmpeg 'bin'), (Join-Path $report.NativePrefixes.sdl3 'bin'), $compilerRuntime.RuntimeDirectory) + $RuntimeDependencyDirectory))
+        $msvcRuntime = Get-AegiNextWindowsMsvcRuntime
+        $searchDirectories = @($nativeRoot, (Join-Path $report.NativePrefixes.ffmpeg 'bin'), (Join-Path $report.NativePrefixes.sdl3 'bin'), $compilerRuntime.RuntimeDirectory) + $RuntimeDependencyDirectory
+        if ($msvcRuntime) { $searchDirectories += $msvcRuntime.RuntimeDirectory }
+        $manifest.Dependencies = @(Copy-AegiNextWindowsDependencyClosure -Payload $payload -SearchDirectories $searchDirectories)
+        if ($msvcRuntime -and @($manifest.Dependencies | Where-Object { (Split-Path $_.Source) -eq $msvcRuntime.RuntimeDirectory }).Count)
+        {
+            $manifest.MsvcRuntime = $msvcRuntime
+            $msvcNotices = Join-Path $PSScriptRoot 'licenses/msvc-runtime'
+            $licenseRoots += $msvcNotices
+            $requiredLicenseRoots += $msvcNotices
+        }
         $licenseRoots += $compilerRuntime.LicenseRoot
         $requiredLicenseRoots += @($compilerRuntime.LicenseRoot) + $RuntimeDependencyDirectory
     }

@@ -103,7 +103,7 @@ public sealed class AegiNextKoumoriResources : Task
                 }
                 continue;
             }
-            if (value.Type != JTokenType.Integer || value.Value<long>() != field.Value)
+            if (value.Type != JTokenType.Integer || (long)value != field.Value)
             {
                 throw new InvalidDataException("Invalid Koumori frontend integer: " + field.Key);
             }

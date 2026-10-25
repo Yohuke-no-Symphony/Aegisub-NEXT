@@ -12,6 +12,48 @@ function Get-AegiNextWindowsCompilerRuntime
     return [pscustomobject]@{ Compiler = $canonical; RuntimeDirectory = $directory; LicenseRoot = (Split-Path $directory -Parent); VerifiedTarget = 'x86_64-w64-mingw32' }
 }
 
+function Get-AegiNextWindowsMsvcRuntime
+{
+    # Use redistributable CRT files, never arbitrary DLLs from PATH or System32.
+    $roots = [Collections.Generic.List[string]]::new()
+    if ($env:VCToolsRedistDir) { $roots.Add($env:VCToolsRedistDir) }
+    $vswhere = Find-AegiNextCommand 'vswhere'
+    if (!$vswhere -and ${env:ProgramFiles(x86)})
+    {
+        $installed = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
+        if (Test-Path -LiteralPath $installed -PathType Leaf) { $vswhere = $installed }
+    }
+    if ($vswhere)
+    {
+        $output = Invoke-AegiNextPublishCommand $vswhere @('-products', '*', '-format', 'json', '-utf8') (Get-Location).Path
+        foreach ($instance in @($output | ConvertFrom-Json))
+        {
+            $redist = Join-Path $instance.installationPath 'VC/Redist/MSVC'
+            if (!(Test-Path -LiteralPath $redist -PathType Container)) { continue }
+            foreach ($version in Get-ChildItem -LiteralPath $redist -Directory)
+            {
+                if ($version.Name -match '^14\.\d+\.\d+$') { $roots.Add($version.FullName) }
+            }
+        }
+    }
+    $candidates = foreach ($root in $roots | Select-Object -Unique)
+    {
+        $x64 = Join-Path $root 'x64'
+        if (!(Test-Path -LiteralPath $x64 -PathType Container)) { continue }
+        foreach ($crt in Get-ChildItem -LiteralPath $x64 -Directory -Filter 'Microsoft.VC*.CRT')
+        {
+            $runtime = Join-Path $crt.FullName 'vcruntime140.dll'
+            if (!(Test-Path -LiteralPath $runtime -PathType Leaf) -or (Get-AegiNextBinaryKind $runtime) -ne 'PE-34404') { continue }
+            $info = [Diagnostics.FileVersionInfo]::GetVersionInfo($runtime)
+            [pscustomobject]@{
+                RuntimeDirectory = $crt.FullName
+                Version = [version]::new($info.FileMajorPart, $info.FileMinorPart, $info.FileBuildPart, $info.FilePrivatePart).ToString()
+            }
+        }
+    }
+    return $candidates | Sort-Object { [version]$_.Version } -Descending | Select-Object -First 1
+}
+
 function Copy-AegiNextWindowsDependencyClosure
 {
     param([string] $Payload, [string[]] $SearchDirectories)
@@ -52,7 +94,7 @@ function Copy-AegiNextWindowsDependencyClosure
                 $path = Join-Path $directory $name
                 if (Test-Path -LiteralPath $path -PathType Leaf) { $candidate = $path; break }
             }
-            if (!$candidate) { throw "Missing dependency $name imported by $binary. Only selected SDK/native directories are searched." }
+            if (!$candidate) { throw "Missing dependency $name imported by $binary. Only selected SDK/native and Visual Studio x64 CRT redistributable directories are searched. Supply -RuntimeDependencyDirectory with the matching x64 runtime files and -LicenseDirectory with their notices, or install the Visual Studio C++ build tools." }
             if ($candidate -ne $destination)
             {
                 if (Test-Path -LiteralPath $destination)

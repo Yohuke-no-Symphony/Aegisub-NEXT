@@ -32,6 +32,21 @@ BeforeAll {
 }
 
 Describe 'Project-local Koumori runtime resources' {
+    It 'preserves UTF-8 manifests with a BOM and escaped property names' {
+        $root = Join-Path $TestDrive 'escaped manifest'
+        $project = New-KoumoriBuildFixture $root
+        $source = Join-Path $root 'models/koumori'
+        New-KoumoriTestPackage $source
+        $path = Join-Path $source 'manifest.json'
+        $manifest = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -AsHashtable
+        $manifest.modelId = "`u{6A21}`u{578B}-`u{30B3}`u{30A6}`u{30E2}`u{30EA}"
+        $json = ($manifest | ConvertTo-Json -Depth 5).Replace('"modelId"', '"model\u0049d"')
+        [IO.File]::WriteAllText($path, $json, [Text.UTF8Encoding]::new($true))
+        Invoke-KoumoriFixtureBuild $project
+        (Get-FileHash -LiteralPath (Join-Path $root 'bin/Debug/net10.0/models/koumori/manifest.json')).Hash |
+            Should -BeExactly (Get-FileHash -LiteralPath $path).Hash
+    }
+
     It 'builds schema1 packages with absent null or correct frontend integers: <State>' -TestCases @(
         @{ State = 'absent' }, @{ State = 'null' }, @{ State = 'integer' }) {
         param($State)
@@ -182,7 +197,15 @@ Describe 'Project-local Koumori runtime resources' {
             'linked-file' {
                 $outside = Join-Path $root 'outside.onnx'
                 Move-Item -LiteralPath (Join-Path $source 'model.onnx') -Destination $outside
-                New-Item -ItemType SymbolicLink -Path (Join-Path $source 'model.onnx') -Target $outside | Out-Null
+                try
+                {
+                    New-Item -ItemType SymbolicLink -Path (Join-Path $source 'model.onnx') -Target $outside -ErrorAction Stop | Out-Null
+                }
+                catch [System.UnauthorizedAccessException]
+                {
+                    Set-ItResult -Skipped -Because 'Creating symbolic links requires administrator privileges or Windows Developer Mode.'
+                    return
+                }
             }
         }
         if ($Fault -in @('traversal', 'drive-path', 'aliased-file'))

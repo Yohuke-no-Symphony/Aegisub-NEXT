@@ -1,0 +1,15 @@
+Microsoft Visual C++ Runtime
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+The required x64 runtime DLLs are copied from the Visual Studio installation's
+VC/Redist/MSVC/<version>/x64/Microsoft.VC*.CRT directory for local deployment.
+The package manifest records the selected version, source paths and SHA-256 hashes.
+
+Microsoft's Visual C++ Redistributable installer provides the license terms at:
+https://aka.ms/VCRedistLicense
+The accompanying LICENSE-Microsoft-Visual-Cpp-Runtime.txt preserves the paragraph
+text from Microsoft's English license document (last updated October 1, 2025):
+https://visualstudio.microsoft.com/wp-content/uploads/2025/10/Visual-C-V14-License-Redistributable_and_Runtime_ENU.docx
+
+Redistribution information and applicable Visual Studio license terms:
+https://learn.microsoft.com/cpp/windows/redistributing-visual-cpp-files
