@@ -15,7 +15,7 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
     private bool isBusy;
     private bool disposed;
     private double progress;
-    private string status = string.Empty;
+    private string errorMessage = string.Empty;
 
     internal AutoTimingViewModel(WorkbenchSession session)
     {
@@ -26,6 +26,7 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
         AuditionCommand = new AsyncRelayCommand(AuditionAsync, () => !IsBusy && preview is not null && SelectedRow is not null);
         SelectAllCommand = new RelayCommand(() => SelectAll(true));
         SelectNoneCommand = new RelayCommand(() => SelectAll(false));
+        Localization.LanguageChanged += OnLanguageChanged;
     }
 
     public ObservableCollection<KoumoriPreviewRow> Rows { get; } = [];
@@ -35,6 +36,9 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
     public IAsyncRelayCommand AuditionCommand { get; }
     public IRelayCommand SelectAllCommand { get; }
     public IRelayCommand SelectNoneCommand { get; }
+    public IRelayCommand AnalysisCommand => IsBusy ? CancelCommand : RunCommand;
+    public string AnalysisLabel => Localization.Get(IsBusy ? "Koumori.Cancel" : "Koumori.Run");
+    public string AnalysisIcon => IsBusy ? "Cancel" : "AUTO_TIMING";
     public bool IsBusy
     {
         get => isBusy;
@@ -43,6 +47,9 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
             if (SetProperty(ref isBusy, value))
             {
                 OnPropertyChanged(nameof(CanEdit));
+                OnPropertyChanged(nameof(AnalysisCommand));
+                OnPropertyChanged(nameof(AnalysisLabel));
+                OnPropertyChanged(nameof(AnalysisIcon));
                 RefreshCommands();
             }
         }
@@ -53,18 +60,18 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
         get => progress;
         private set => SetProperty(ref progress, value);
     }
-    public string Status
+    public string Error
     {
-        get => status;
+        get => errorMessage;
         private set
         {
-            if (SetProperty(ref status, value))
+            if (SetProperty(ref errorMessage, value))
             {
-                OnPropertyChanged(nameof(HasStatus));
+                OnPropertyChanged(nameof(HasError));
             }
         }
     }
-    public bool HasStatus => !string.IsNullOrWhiteSpace(Status);
+    public bool HasError => !string.IsNullOrWhiteSpace(Error);
     public KoumoriPreviewRow? SelectedRow
     {
         get => selectedRow;
@@ -83,7 +90,7 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
         preview = null;
         Rows.Clear();
         Progress = 0;
-        Status = Localization.Get("Koumori.Analyzing");
+        Error = string.Empty;
         try
         {
             var value = await session.AnalyzeKoumoriAsync(cancellationToken,
@@ -109,15 +116,13 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
                 }
             }
             SelectedRow = Rows.FirstOrDefault();
-            Status = Localization.Format("Koumori.Result", Rows.Count, value.Result.ModelId);
         }
         catch (OperationCanceledException)
         {
-            Status = Localization.Get("Koumori.Canceled");
         }
         catch (Exception error)
         {
-            Status = error.Message;
+            Error = error.Message;
         }
         finally
         {
@@ -134,29 +139,29 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
         }
         try
         {
+            Error = string.Empty;
             var intervals = new List<MediaTimeRange>();
             foreach (var row in Rows.Where(row => row.IsSelected))
             {
                 if (!row.TryRead(value.Duration, out var start, out var end))
                 {
-                    Status = Localization.Get("Koumori.InvalidInterval");
+                    Error = Localization.Get("Koumori.InvalidInterval");
                     return;
                 }
                 intervals.Add(new(start, end));
             }
             if (intervals.Count == 0)
             {
-                Status = Localization.Get("Koumori.SelectRows");
+                Error = Localization.Get("Koumori.SelectRows");
                 return;
             }
-            var count = session.ApplyKoumoriPreview(value, intervals);
+            session.ApplyKoumoriPreview(value, intervals);
             preview = null;
-            Status = Localization.Format("Koumori.Applied", count);
             RefreshCommands();
         }
         catch (Exception error)
         {
-            Status = error.Message;
+            Error = error.Message;
         }
     }
 
@@ -166,9 +171,10 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
         {
             return;
         }
+        Error = string.Empty;
         if (!row.TryRead(value.Duration, out var start, out var end))
         {
-            Status = Localization.Get("Koumori.InvalidInterval");
+            Error = Localization.Get("Koumori.InvalidInterval");
             return;
         }
         try
@@ -180,7 +186,7 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
         }
         catch (Exception error)
         {
-            Status = error.Message;
+            Error = error.Message;
         }
     }
 
@@ -200,9 +206,15 @@ internal sealed class AutoTimingViewModel : ObservableObject, IDisposable
         AuditionCommand.NotifyCanExecuteChanged();
     }
 
+    private void OnLanguageChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(AnalysisLabel));
+    }
+
     public void Dispose()
     {
         disposed = true;
+        Localization.LanguageChanged -= OnLanguageChanged;
         RunCommand.Cancel();
         AuditionCommand.Cancel();
     }

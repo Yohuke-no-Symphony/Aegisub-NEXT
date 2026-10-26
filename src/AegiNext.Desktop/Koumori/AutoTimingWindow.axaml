@@ -2,18 +2,53 @@
         xmlns:common="using:AegiNext.Desktop.Controls.Common" xmlns:koumori="using:AegiNext.Desktop.Koumori"
         x:Class="AegiNext.Desktop.Koumori.AutoTimingWindow" x:DataType="koumori:AutoTimingViewModel"
         Title="{Loc Key=Koumori.Title}" Classes="business-surface" Width="800" Height="620"
-        MinWidth="640" MinHeight="420" WindowStartupLocation="CenterOwner">
+        MinWidth="800" MinHeight="420" WindowStartupLocation="CenterOwner">
+  <Window.Styles>
+    <Style Selector="Separator.timing-toolbar-separator">
+      <Setter Property="Width" Value="1" />
+      <Setter Property="Height" Value="24" />
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Template">
+        <ControlTemplate>
+          <Border Background="{DynamicResource PreviewBorder}" />
+        </ControlTemplate>
+      </Setter>
+    </Style>
+  </Window.Styles>
   <Grid RowDefinitions="Auto,*">
     <common:WindowTitleBar Name="AutoTimingTitleBar" Title="{Loc Key=Koumori.Title}" />
-    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="16">
+    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,*" RowSpacing="16">
       <TextBlock Text="{Loc Key=Koumori.PreviewHelp}" TextWrapping="Wrap"
                  Foreground="{DynamicResource PreviewMuted}" />
-      <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*" ColumnSpacing="8">
-        <Button Name="AnalyzeButton" Content="{Loc Key=Koumori.Run}" Command="{Binding RunCommand}" VerticalAlignment="Stretch" />
-        <Button Name="CancelAnalysisButton" Grid.Column="1" Content="{Loc Key=Koumori.Cancel}"
-                Command="{Binding CancelCommand}" VerticalAlignment="Stretch" />
-        <ProgressBar Grid.Column="2" Minimum="0" Maximum="100" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" VerticalAlignment="Center" />
-      </Grid>
+      <StackPanel Grid.Row="1" Spacing="8">
+        <Grid Name="TimingToolbar" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+          <Button Name="AnalyzeButton" Command="{Binding AnalysisCommand}" VerticalAlignment="Stretch"
+                  AutomationProperties.Name="{Binding AnalysisLabel}">
+            <common:IconText Text="{Binding AnalysisLabel}" IconKey="{Binding AnalysisIcon}" />
+          </Button>
+          <Separator Grid.Column="1" Classes="timing-toolbar-separator" />
+          <Button Name="SelectAllButton" Grid.Column="2" Command="{Binding SelectAllCommand}"
+                  IsEnabled="{Binding CanEdit}" VerticalAlignment="Stretch">
+            <common:IconText Text="{Loc Key=Koumori.SelectAll}" IconKey="SelectAll" />
+          </Button>
+          <Button Name="SelectNoneButton" Grid.Column="3" Command="{Binding SelectNoneCommand}"
+                  IsEnabled="{Binding CanEdit}" VerticalAlignment="Stretch">
+            <common:IconText Text="{Loc Key=Koumori.SelectNone}" IconKey="SelectNone" />
+          </Button>
+          <Button Name="AuditionButton" Grid.Column="4" Command="{Binding AuditionCommand}" VerticalAlignment="Stretch">
+            <common:IconText Text="{Loc Key=Koumori.Audition}" IconKey="Play" />
+          </Button>
+          <Separator Grid.Column="6" Classes="timing-toolbar-separator" />
+          <Button Name="ApplyTimingButton" Grid.Column="7" Command="{Binding ApplyCommand}"
+                  Classes="accent" VerticalAlignment="Stretch">
+            <common:IconText Text="{Loc Key=Koumori.Apply}" IconKey="AddTrack" />
+          </Button>
+        </Grid>
+        <ProgressBar Name="AnalysisProgress" Minimum="0" Maximum="100" Value="{Binding Progress}" IsVisible="{Binding IsBusy}" />
+        <TextBlock Name="AnalysisError" Text="{Binding Error}" IsVisible="{Binding HasError}"
+                   Foreground="{DynamicResource PreviewError}" TextWrapping="Wrap" MaxHeight="90" />
+      </StackPanel>
       <Border Name="TimingResults" Grid.Row="2" BorderBrush="{DynamicResource PreviewBorder}"
               BorderThickness="1" CornerRadius="6" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
@@ -55,17 +90,6 @@
           </ListBox>
         </Grid>
       </Border>
-      <TextBlock Grid.Row="3" Text="{Binding Status}" IsVisible="{Binding HasStatus}" TextWrapping="Wrap" MaxHeight="90" />
-      <Grid Grid.Row="4" ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="8">
-        <Button Name="SelectAllButton" Content="{Loc Key=Koumori.SelectAll}" Command="{Binding SelectAllCommand}"
-                IsEnabled="{Binding CanEdit}" VerticalAlignment="Stretch" />
-        <Button Name="SelectNoneButton" Grid.Column="1" Content="{Loc Key=Koumori.SelectNone}"
-                Command="{Binding SelectNoneCommand}" IsEnabled="{Binding CanEdit}" VerticalAlignment="Stretch" />
-        <Button Name="AuditionButton" Grid.Column="2" Content="{Loc Key=Koumori.Audition}"
-                Command="{Binding AuditionCommand}" VerticalAlignment="Stretch" />
-        <Button Name="ApplyTimingButton" Grid.Column="4" Content="{Loc Key=Koumori.Apply}"
-                Command="{Binding ApplyCommand}" Classes="accent" VerticalAlignment="Stretch" />
-      </Grid>
     </Grid>
   </Grid>
 </Window>

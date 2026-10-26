@@ -9,6 +9,7 @@ using AegiNext.Desktop.Settings;
 using AegiNext.Desktop.Settings.Koumori;
 using AegiNext.Desktop.Workspace;
 using AegiNext.Koumori;
+using AegiNext.Media.Audio;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -155,8 +156,9 @@ public sealed class KoumoriUiTests
     }
 
     [AvaloniaTheory]
-    [InlineData("en-US", WorkbenchTheme.LIGHT, 640, 420)]
-    [InlineData("zh-CN", WorkbenchTheme.DARK, 640, 420)]
+    [InlineData("en-US", WorkbenchTheme.LIGHT, 800, 420)]
+    [InlineData("zh-CN", WorkbenchTheme.DARK, 800, 420)]
+    [InlineData("ja-JP", WorkbenchTheme.DARK, 800, 420)]
     [InlineData("ja-JP", WorkbenchTheme.LIGHT, 800, 620)]
     [InlineData("en-US", WorkbenchTheme.DARK, 800, 620)]
     public async Task RegisteredPreviewReusesItsTitleBarAndFitsActions(string language, WorkbenchTheme theme,
@@ -196,19 +198,28 @@ public sealed class KoumoriUiTests
                 Assert.Equal(header.TranslatePoint(default, window)!.Value.X, input.TranslatePoint(default, window)!.Value.X, 1);
                 Assert.Equal(header.Bounds.Width, input.Bounds.Width, 1);
             }
-            AssertActionsShareRow(window, "AnalyzeButton", "CancelAnalysisButton");
-            AssertActionsShareRow(window, "SelectAllButton", "SelectNoneButton", "AuditionButton", "ApplyTimingButton");
+            AssertActionsShareRow(window, "AnalyzeButton", "SelectAllButton", "SelectNoneButton", "AuditionButton", "ApplyTimingButton");
+            Assert.DoesNotContain(window.GetLogicalDescendants().OfType<Button>(), button => button.Name == "CancelAnalysisButton");
+            Assert.Equal(2, window.GetVisualDescendants().OfType<Separator>().Count());
+            foreach (var name in new[] { "AnalyzeButton", "SelectAllButton", "SelectNoneButton", "AuditionButton", "ApplyTimingButton" })
+            {
+                var button = UiTestActions.Find<Button>(window, name);
+                Assert.Single(button.GetVisualDescendants().OfType<IconText>(), icon => icon.IsEffectivelyVisible);
+            }
+            Assert.Equal(Localization.Get("Koumori.Audition"), Assert.IsType<IconText>(UiTestActions.Find<Button>(window, "AuditionButton").Content).Text);
             var results = UiTestActions.Find<Border>(window, "TimingResults");
             var resultsOrigin = results.TranslatePoint(default, window)!.Value;
             Assert.InRange(resultsOrigin.Y, titleBar.Bounds.Height, window.ClientSize.Height);
             Assert.True(results.Bounds.Height > 80);
+            Assert.Equal(24, window.ClientSize.Height - resultsOrigin.Y - results.Bounds.Height, 1);
+            Assert.False(UiTestActions.Find<TextBlock>(window, "AnalysisError").IsEffectivelyVisible);
 
             Localization.SetLanguage(language == "zh-CN" ? "en-US" : "zh-CN");
             Dispatcher.UIThread.RunJobs();
             window.UpdateLayout();
             Assert.Equal(Localization.Get("Koumori.Title"), window.Title);
             Assert.Equal(window.Title, titleBar.Title);
-            AssertActionsShareRow(window, "SelectAllButton", "SelectNoneButton", "AuditionButton", "ApplyTimingButton");
+            AssertActionsShareRow(window, "AnalyzeButton", "SelectAllButton", "SelectNoneButton", "AuditionButton", "ApplyTimingButton");
             Capture(window, $"automatic-timing-{theme}-{width}.png");
         }
         finally
@@ -216,6 +227,108 @@ public sealed class KoumoriUiTests
             window.Close();
             Assert.DoesNotContain(window, context.WindowRegistry.Windows);
             Assert.False(window.IsVisible);
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AnalyzeButtonCancelsAndResetsThroughTheSameControl()
+    {
+        await using var context = new MainWindowTestContext((_, _, position, _) =>
+            Task.FromResult(new AudioPlaybackSession(new UiAuditionAudioSource(), new UiAuditionAudioOutput(), position)));
+        await context.Session.ApplicationContext.Initialization;
+        context.Session.ApplicationContext.UpdatePreferences(value => value with { Koumori = value.Koumori with { Enabled = true } });
+        await context.OpenMediaAsync();
+        Assert.True(context.Session.CanAnalyzeKoumori);
+        var tasks = context.Session.ApplicationContext.Tasks;
+        tasks.MaximumConcurrentTasks = 1;
+        var gate = new TaskCenterTestTask("Hold automatic timing analysis");
+        var pending = tasks.Submit(gate);
+        var window = new AutoTimingWindow(context.Session) { Height = 420 };
+        try
+        {
+            await gate.Started.Task.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            window.Show(context.Window);
+            var model = Assert.IsType<AutoTimingViewModel>(window.DataContext);
+            var button = UiTestActions.Find<Button>(window, "AnalyzeButton");
+            var content = Assert.IsType<IconText>(button.Content);
+            model.Rows.Add(new(new(1), new(2), 0.8f));
+            UiTestActions.Click(window, "SelectNoneButton");
+            Assert.All(model.Rows, row => Assert.False(row.IsSelected));
+            UiTestActions.Click(window, "SelectAllButton");
+            Assert.All(model.Rows, row => Assert.True(row.IsSelected));
+            Assert.Same(model.RunCommand, button.Command);
+            Assert.Equal(Localization.Get("Koumori.Run"), content.Text);
+
+            UiTestActions.Click(window, "AnalyzeButton");
+            var analysis = Assert.IsAssignableFrom<Task>(model.RunCommand.ExecutionTask);
+            Assert.True(model.IsBusy);
+            Assert.True(button.IsEnabled);
+            Assert.Same(model.CancelCommand, button.Command);
+            Assert.Equal("Cancel", content.IconKey);
+            Assert.True(UiTestActions.Find<ProgressBar>(window, "AnalysisProgress").IsEffectivelyVisible);
+            foreach (var name in new[] { "SelectAllButton", "SelectNoneButton", "AuditionButton", "ApplyTimingButton" })
+            {
+                Assert.False(UiTestActions.Find<Button>(window, name).IsEffectivelyEnabled);
+            }
+            foreach (var language in new[] { "zh-CN", "ja-JP", "en-US" })
+            {
+                Localization.SetLanguage(language);
+                Dispatcher.UIThread.RunJobs();
+                window.UpdateLayout();
+                Assert.Equal(Localization.Get("Koumori.Cancel"), content.Text);
+                Assert.Equal(content.Text, Avalonia.Automation.AutomationProperties.GetName(button));
+                AssertActionsShareRow(window, "AnalyzeButton", "SelectAllButton", "SelectNoneButton", "AuditionButton", "ApplyTimingButton");
+            }
+
+            UiTestActions.Click(window, "AnalyzeButton");
+            Assert.True(model.RunCommand.IsCancellationRequested);
+            gate.Finish.TrySetResult();
+            gate.Cleanup.TrySetResult();
+            await pending.Completion.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            await analysis.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(model.IsBusy);
+            Assert.False(model.HasError);
+            Assert.Same(model.RunCommand, button.Command);
+            Assert.Equal(Localization.Get("Koumori.Run"), content.Text);
+            Assert.Equal("AUTO_TIMING", content.IconKey);
+            Assert.True(button.IsEnabled);
+            Assert.False(UiTestActions.Find<ProgressBar>(window, "AnalysisProgress").IsEffectivelyVisible);
+            Assert.Same(button, UiTestActions.Find<Button>(window, "AnalyzeButton"));
+        }
+        finally
+        {
+            gate.Finish.TrySetResult();
+            gate.Cleanup.TrySetResult();
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task AnalysisFailureShowsFeedbackAboveResultsAndRestoresTheAnalyzeButton()
+    {
+        await using var context = new MainWindowTestContext();
+        await context.Session.ApplicationContext.Initialization;
+        var window = new AutoTimingWindow(context.Session);
+        try
+        {
+            window.Show(context.Window);
+            var model = Assert.IsType<AutoTimingViewModel>(window.DataContext);
+            UiTestActions.Click(window, "AnalyzeButton");
+            await Assert.IsAssignableFrom<Task>(model.RunCommand.ExecutionTask);
+            var error = UiTestActions.Find<TextBlock>(window, "AnalysisError");
+            var results = UiTestActions.Find<Border>(window, "TimingResults");
+            Assert.Equal(Localization.Get("Koumori.Unavailable"), error.Text);
+            Assert.True(error.IsEffectivelyVisible);
+            Assert.True(error.TranslatePoint(default, window)!.Value.Y + error.Bounds.Height <= results.TranslatePoint(default, window)!.Value.Y);
+            var button = UiTestActions.Find<Button>(window, "AnalyzeButton");
+            Assert.True(button.IsEnabled);
+            Assert.Same(model.RunCommand, button.Command);
+            Assert.Equal(Localization.Get("Koumori.Run"), Assert.IsType<IconText>(button.Content).Text);
+        }
+        finally
+        {
+            window.Close();
         }
     }
 
