@@ -18,10 +18,8 @@
   </Window.Styles>
   <Grid RowDefinitions="Auto,*">
     <common:WindowTitleBar Name="AutoTimingTitleBar" Title="{Loc Key=Koumori.Title}" />
-    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,Auto,*" RowSpacing="16">
-      <TextBlock Text="{Loc Key=Koumori.PreviewHelp}" TextWrapping="Wrap"
-                 Foreground="{DynamicResource PreviewMuted}" />
-      <StackPanel Grid.Row="1" Spacing="8">
+    <Grid Grid.Row="1" Margin="24" RowDefinitions="Auto,*" RowSpacing="16">
+      <StackPanel Spacing="8">
         <Grid Name="TimingToolbar" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
           <Button Name="AnalyzeButton" Command="{Binding AnalysisCommand}" VerticalAlignment="Stretch"
                   AutomationProperties.Name="{Binding AnalysisLabel}">
@@ -49,7 +47,7 @@
         <TextBlock Name="AnalysisError" Text="{Binding Error}" IsVisible="{Binding HasError}"
                    Foreground="{DynamicResource PreviewError}" TextWrapping="Wrap" MaxHeight="90" />
       </StackPanel>
-      <Border Name="TimingResults" Grid.Row="2" BorderBrush="{DynamicResource PreviewBorder}"
+      <Border Name="TimingResults" Grid.Row="1" BorderBrush="{DynamicResource PreviewBorder}"
               BorderThickness="1" CornerRadius="6" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
           <Border Background="{DynamicResource PreviewSurface}" BorderBrush="{DynamicResource PreviewBorder}"

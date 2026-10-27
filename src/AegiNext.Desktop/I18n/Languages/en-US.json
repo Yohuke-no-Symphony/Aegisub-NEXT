@@ -29,7 +29,6 @@
     "Koumori.SnapEndsOnly": "Only subtitle end candidates are available in the visible area",
     "Koumori.SnapEmpty": "No model snap candidates were found in the visible area",
     "Koumori.SnapFailed": "Model snapping unavailable: {0}",
-    "Koumori.PreviewHelp": "Analyze the current media to generate empty subtitle intervals. Select, edit times in seconds, and audition before applying to new tracks. Overlapping intervals are preserved and the whole change can be undone once.",
     "Koumori.Result": "Generated {0} candidate intervals · Model {1}",
     "Koumori.Canceled": "Analysis canceled.",
     "Koumori.SelectRows": "Select intervals to apply.",

@@ -29,7 +29,6 @@
     "Koumori.SnapEndsOnly": "表示範囲には字幕終了点のスナップ候補のみがあります",
     "Koumori.SnapEmpty": "表示範囲にモデルスナップ候補がありません",
     "Koumori.SnapFailed": "モデルスナップを利用できません: {0}",
-    "Koumori.PreviewHelp": "現在のメディアから空の字幕区間を生成します。選択、秒数の編集、試聴の後に新しいトラックへ適用します。重なりを保持し、一度の操作で元に戻せます。",
     "Koumori.Result": "{0} 個の候補区間を生成 · モデル {1}",
     "Koumori.Canceled": "分析をキャンセルしました。",
     "Koumori.SelectRows": "適用する区間を選択してください。",

@@ -29,7 +29,6 @@
     "Koumori.SnapEndsOnly": "可见区域仅有字幕终点吸附候选",
     "Koumori.SnapEmpty": "可见区域没有模型吸附候选",
     "Koumori.SnapFailed": "模型吸附不可用：{0}",
-    "Koumori.PreviewHelp": "分析当前媒体，生成无文本的字幕区间。可勾选、修改起止秒数并试听；应用时新建轨道，保留重叠区间，并可一次撤销。",
     "Koumori.Result": "已生成 {0} 个候选区间 · 模型 {1}",
     "Koumori.Canceled": "分析已取消。",
     "Koumori.SelectRows": "请勾选要应用的区间。",
