@@ -98,9 +98,11 @@ public sealed class ProjectMediaPathWorkflowTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RelativeInputUsesProjectDirectoryForPreviewAndBinding(bool updateProject)
+    [InlineData("./media/../media/字幕 01.mkv", false)]
+    [InlineData("./media/../media/字幕 01.mkv", true)]
+    [InlineData(@".\media\..\media\字幕 01.mkv", false)]
+    [InlineData(@".\media\..\media\字幕 01.mkv", true)]
+    public async Task RelativeInputUsesProjectDirectoryForPreviewAndBinding(string input, bool updateProject)
     {
         await using var context = new ProjectMediaPathTestContext();
         await context.Session.Styles.Completion;
@@ -109,7 +111,7 @@ public sealed class ProjectMediaPathWorkflowTests
         var source = Path.Combine(directory, "字幕 01.mkv");
         await File.WriteAllTextAsync(source, "video");
 
-        await context.Session.OpenMediaAsync("./media/../media/字幕 01.mkv", updateProject);
+        await context.Session.OpenMediaAsync(input, updateProject);
 
         Assert.Equal(source, Assert.Single(context.ProbePaths));
         Assert.Equal(source, context.Session.Controller.Snapshot.FilePath);

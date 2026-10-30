@@ -86,6 +86,7 @@
                 <TextBlock Classes="log-summary" Text="{Binding Summary}"
                            IsVisible="{Binding Details, Converter={x:Static converters:StringConverters.IsNullOrEmpty}}" />
                 <Expander Theme="{StaticResource LogEntryExpanderTheme}"
+                          Expanding="OnDetailsSizeChanging" Collapsing="OnDetailsSizeChanging"
                           IsVisible="{Binding Details, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}">
                   <Expander.Header>
                     <TextBlock Classes="log-summary">

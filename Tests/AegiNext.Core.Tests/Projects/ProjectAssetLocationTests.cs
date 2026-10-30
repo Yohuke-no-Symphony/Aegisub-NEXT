@@ -6,13 +6,25 @@ public sealed class ProjectAssetLocationTests
 {
     [Theory]
     [InlineData("./media/../media/字幕 01.mkv", "media/字幕 01.mkv")]
+    [InlineData(@".\media\..\media\字幕 01.mkv", "media/字幕 01.mkv")]
     [InlineData("../outside.mkv", "../outside.mkv")]
+    [InlineData(@"..\outside.mkv", "../outside.mkv")]
     public void InputPathsResolveAgainstProjectDirectory(string input, string expected)
     {
         var directory = Path.Combine(Path.GetTempPath(), "AegiNext-path-tests", "project");
 
         Assert.Equal(Path.GetFullPath(Path.Combine(directory, expected)),
             ProjectAssetLocation.ResolveInputPath(input, directory));
+    }
+
+    [Fact]
+    public void StoredRelativeMediaUsesTheCurrentProjectDirectory()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "AegiNext-path-tests", "moved project");
+        var asset = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.MEDIA, "media/字幕 01.mkv");
+
+        Assert.Equal(Path.Combine(directory, "media", "字幕 01.mkv"),
+            ProjectAssetLocation.Resolve(asset, directory));
     }
 
     [Theory]

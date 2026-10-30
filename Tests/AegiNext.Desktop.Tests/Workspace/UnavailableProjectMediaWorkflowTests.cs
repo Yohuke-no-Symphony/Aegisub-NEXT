@@ -110,15 +110,21 @@ public sealed class UnavailableProjectMediaWorkflowTests
         Assert.Empty(context.ProbePaths);
     }
 
-    [Fact]
-    public async Task ManualRelinkingAndUndoRedoPreserveSubtitlesAndTheAcceptedOfflineBinding()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ManualRelinkingAndUndoRedoPreserveSubtitlesAndTheAcceptedOfflineBinding(bool foreign)
     {
         await using var context = new ProjectMediaPathTestContext();
         await context.Session.Styles.Completion;
         Directory.CreateDirectory(context.Session.ProjectDirectory);
         context.Dialogs.UnavailableMediaChoice = true;
-        var original = new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.MEDIA, "missing.mkv");
-        context.Dialogs.OpenPath = await SaveProjectAsync(context, "offline.aeginext", original);
+        var foreignPath = OperatingSystem.IsWindows() ? "/Volumes/Media/video.mkv" : @"D:\Media\video.mkv";
+        var original = foreign
+            ? new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.MEDIA, string.Empty, ExternalPath: foreignPath)
+            : new ProjectAsset(Guid.NewGuid(), ProjectAssetKind.MEDIA, "missing.mkv");
+        var projectPath = await SaveProjectAsync(context, "offline.aeginext", original);
+        context.Dialogs.OpenPath = projectPath;
         await context.Session.ExecuteCommandAsync(WorkbenchCommand.OPEN_PROJECT);
         await context.Session.EditAsync(() => context.Session.Editor.AddSubtitle(new(0), new(1), "Keep subtitle"));
         var source = Path.Combine(context.Session.ProjectDirectory, "replacement.mkv");
@@ -146,6 +152,21 @@ public sealed class UnavailableProjectMediaWorkflowTests
         await context.Session.WaitForProjectIdleAsync();
         Assert.Equal(source, context.Session.Controller.Snapshot.FilePath);
         Assert.Null(context.Session.LastError);
+        Assert.Equal(1, context.Dialogs.UnavailableMediaRequests);
+
+        await context.Session.ExecuteCommandAsync(WorkbenchCommand.SAVE_PROJECT);
+
+        Assert.Null(context.Session.LastError);
+        var saved = await ProjectStore.LoadAsync(projectPath);
+        Assert.Equal("replacement.mkv", Assert.Single(saved.Assets).RelativePath);
+        Assert.Null(saved.Assets[0].ExternalPath);
+        Assert.Equal("Keep subtitle", Assert.Single(saved.Subtitles).Text);
+        context.Dialogs.OpenPath = projectPath;
+
+        await context.Session.ExecuteCommandAsync(WorkbenchCommand.OPEN_PROJECT);
+
+        Assert.Null(context.Session.LastError);
+        Assert.Equal(source, context.Session.Controller.Snapshot.FilePath);
         Assert.Equal(1, context.Dialogs.UnavailableMediaRequests);
     }
 

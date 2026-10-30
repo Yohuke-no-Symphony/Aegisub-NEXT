@@ -86,6 +86,20 @@ internal sealed partial class LogPanelView : UserControl, IWorkbenchPanelView
     private void OnDetached(object? sender, Avalonia.VisualTreeAttachmentEventArgs e) => RefreshReading();
     private void OnLayoutUpdated(object? sender, EventArgs e) => RefreshReading();
 
+    private void OnDetailsSizeChanging(object? sender, RoutedEventArgs e)
+    {
+        var expander = (Expander)sender!;
+        var panel = this.FindControl<ListBox>("LogEntries")!.ItemsPanelRoot;
+        foreach (var control in expander.GetVisualAncestors().OfType<Control>().Prepend(expander))
+        {
+            control.InvalidateMeasure();
+            if (ReferenceEquals(control, panel))
+            {
+                break;
+            }
+        }
+    }
+
     private void RefreshReading()
     {
         viewModel.MarkVisibleEntriesRead();

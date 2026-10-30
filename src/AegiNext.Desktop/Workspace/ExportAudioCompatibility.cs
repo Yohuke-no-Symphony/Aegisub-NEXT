@@ -99,7 +99,13 @@ internal sealed class ExportAudioCompatibility(WorkbenchSession session,
             return null;
         }
 
-        var sourcePath = ProjectAssetLocation.Resolve(document.Assets.Single(asset => asset.Id == binding.AssetId), session.ProjectDirectory);
+        var asset = document.Assets.Single(asset => asset.Id == binding.AssetId);
+        if (asset.ExternalPath is { } external && !Path.IsPathFullyQualified(external))
+        {
+            return null;
+        }
+
+        var sourcePath = ProjectAssetLocation.Resolve(asset, session.ProjectDirectory);
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         return string.Equals(Path.GetFullPath(previewPath), sourcePath, comparison) ? media : null;
     }

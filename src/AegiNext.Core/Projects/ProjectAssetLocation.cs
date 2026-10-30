@@ -3,7 +3,7 @@ namespace AegiNext.Core.Projects;
 /// <summary>统一解释工程资源位置；相对路径不离开工程目录，外部媒体可在异机重新绑定。</summary>
 public static class ProjectAssetLocation
 {
-    /// <summary>以工程目录为基准解析本机输入路径；拒绝把异平台绝对引用误当成相对路径。</summary>
+    /// <summary>以工程目录解析输入路径并兼容两种相对路径分隔符；拒绝把异平台绝对引用误当成相对路径。</summary>
     public static string ResolveInputPath(string path, string projectDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
@@ -11,6 +11,11 @@ public static class ProjectAssetLocation
         if (IsAbsoluteReference(path) && !Path.IsPathFullyQualified(path))
         {
             throw new NotSupportedException("The external media path belongs to another platform; relink the media.");
+        }
+
+        if (!Path.IsPathFullyQualified(path))
+        {
+            path = path.Replace('\\', Path.DirectorySeparatorChar);
         }
 
         return Path.GetFullPath(path, Path.GetFullPath(projectDirectory));
