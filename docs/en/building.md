@@ -10,6 +10,8 @@ Native builds need CMake, Ninja, a compiler, the shared FFmpeg SDK, and SDL3. ma
 
 Use `-InstallDependencies` to prepare locked SDKs in `.dependencies/<RID>/<name>/<version>/`, where RID is `osx-arm64`, `osx-x64`, or `win-x64`. macOS builds FFmpeg, SDL3, libplacebo, Vulkan-Headers, Vulkan-Loader, shaderc, LittleCMS, x264, x265, dav1d, libvpx, SVT-AV1, and Opus from sources locked in `native/sdk-dependencies.json`, and downloads the official MoltenVK SDK. Added software encoding dependencies are **libvpx 1.17.0, SVT-AV1 4.2.0, and Opus 1.6.1**. Windows uses the pinned **Gyan FFmpeg 9.0.2 shared development SDK** and SDL3 MinGW SDK. Build tools remain system installations; missing supported tools are installed through Homebrew/Scoop.
 
+On Windows, `Managed`/`Workbench` also check the MSVC x64 CRT required by native libraries such as ONNX Runtime. `-InstallDependencies` prepares pinned version **14.51.36247** from an official Microsoft package, storing DLLs and original notices in `.dependencies/win-x64/msvc-runtime/14.51.36247/`. A full Visual Studio installation is unnecessary; publishing discovers its `bin/` directory automatically. macOS ARM64/x64 use their own project SDKs and do not install the Windows CRT.
+
 ```powershell
 # Both platforms: prepare media SDKs and build the Debug workbench
 pwsh ./build-debug-native.ps1 -InstallDependencies

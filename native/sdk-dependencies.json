@@ -98,6 +98,11 @@
       "sha256": "9828bb735cf8a007bcf0ac5aa9f01f3fcb54b7ca67c932e775c905c5d5053a60",
       "archive": "sdl3-windows.zip"
     },
+    "msvc-runtime-windows": {
+      "url": "https://download.visualstudio.microsoft.com/download/pr/3984a6ef-2ffc-4c07-962e-bf9e9b862819/24a1c8dba0376d9b008ac2ba430d13c06664fc6f163511fd7866485030e289af/Microsoft.VC.14.51.CRT.Redist.X64.base.vsix",
+      "sha256": "24a1c8dba0376d9b008ac2ba430d13c06664fc6f163511fd7866485030e289af",
+      "archive": "msvc-runtime-windows.zip"
+    },
     "libvpx": {
       "url": "https://github.com/webmproject/libvpx/archive/refs/tags/v1.17.0.tar.gz",
       "sha256": "1020f184046187baa2985dbde38e0691f49c44088bca7a1842b0236c6081dc0a",
@@ -115,6 +120,33 @@
     }
   },
   "packages": {
+    "msvc-runtime": {
+      "version": "14.51.36247",
+      "recipe": "msvc-runtime",
+      "platforms": [
+        "Windows"
+      ],
+      "dependencies": [],
+      "sources": [],
+      "windows": {
+        "source": "msvc-runtime-windows",
+        "archiveRoot": "Contents/VC/Redist/MSVC/14.51.36231/x64/Microsoft.VC145.CRT",
+        "requiredFiles": [
+          "bin/concrt140.dll",
+          "bin/msvcp140.dll",
+          "bin/msvcp140_1.dll",
+          "bin/msvcp140_2.dll",
+          "bin/msvcp140_atomic_wait.dll",
+          "bin/msvcp140_codecvt_ids.dll",
+          "bin/vccorlib140.dll",
+          "bin/vcruntime140.dll",
+          "bin/vcruntime140_1.dll",
+          "bin/vcruntime140_threads.dll",
+          "share/licenses/msvc-runtime/LICENSE-Microsoft-Visual-Cpp-Runtime.txt",
+          "share/licenses/msvc-runtime/NOTICE-Microsoft-Visual-Cpp-Runtime.txt"
+        ]
+      }
+    },
     "ffmpeg": {
       "version": "9.0.2",
       "recipe": "ffmpeg",

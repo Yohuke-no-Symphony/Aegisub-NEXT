@@ -1,8 +1,10 @@
 Microsoft Visual C++ Runtime
 Copyright (c) Microsoft Corporation. All rights reserved.
 
-The required x64 runtime DLLs are copied from the Visual Studio installation's
-VC/Redist/MSVC/<version>/x64/Microsoft.VC*.CRT directory for local deployment.
+The required x64 runtime DLLs are copied without modification from Microsoft's
+Visual Studio CRT redistributable archive, with its version, URL and SHA-256
+locked in native/sdk-dependencies.json, or from the selected Visual Studio
+installation's VC/Redist/MSVC/<version>/x64/Microsoft.VC*.CRT directory.
 The package manifest records the selected version, source paths and SHA-256 hashes.
 
 Microsoft's Visual C++ Redistributable installer provides the license terms at:

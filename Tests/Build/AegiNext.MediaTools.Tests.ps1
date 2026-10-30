@@ -46,6 +46,9 @@ Describe 'Media tool checks are explicit and follow the shared manifest' {
             'fixture-ffprobe' = [pscustomobject]@{ ExitCode = 0; Output = (Get-MediaToolTestOutput 'ffprobe') }
             'fixture-ffmpeg' = [pscustomobject]@{ ExitCode = 0; Output = (Get-MediaToolTestOutput 'ffmpeg') }
         }
+        Mock Get-AegiNextMsvcRuntime -ModuleName AegiNext.Build {
+            [pscustomobject]@{ RuntimeDirectory = 'fixture-crt'; Version = '14.51.36247.0' }
+        }
         Mock Get-AegiNextHost -ModuleName AegiNext.Build {
             [pscustomobject]@{ Platform = 'MacOS'; Architecture = 'Arm64'; ProcessArchitecture = 'Arm64' }
         }

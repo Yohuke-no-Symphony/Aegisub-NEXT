@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 . (Join-Path $PSScriptRoot 'AegiNext.Dependencies.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.SdkInstall.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.SdkRecipes.ps1')
+. (Join-Path $PSScriptRoot 'AegiNext.MsvcRuntime.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.SdkMacPaths.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.Decoder.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.Audio.ps1')
@@ -236,6 +237,7 @@ function Get-AegiNextEnvironment
         [switch] $WithMediaTools,
         [string] $FfmpegRoot,
         [string] $SdlRoot,
+        [string[]] $RuntimeDependencyDirectory = @(),
         [switch] $RunTests,
         [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop')
     )
@@ -288,6 +290,27 @@ function Get-AegiNextEnvironment
         if ($Target -in @('Export', 'Workbench') -and $prefixes.ContainsKey('ffmpeg'))
         {
             $checks.Add((Get-AegiNextExportCapabilityCheck -RepositoryRoot $RepositoryRoot -HostInfo $HostInfo -FfmpegRoot $prefixes['ffmpeg']))
+        }
+    }
+
+    if ($HostInfo.Platform -eq 'Windows' -and $Target -in @('Managed', 'Workbench') -and !$problem)
+    {
+        try
+        {
+            $runtime = Get-AegiNextMsvcRuntime -RepositoryRoot $RepositoryRoot -RuntimeDependencyDirectory $RuntimeDependencyDirectory
+            if ($runtime)
+            {
+                $prefixes['msvc-runtime'] = $runtime.RuntimeDirectory
+                $checks.Add((Get-AegiNextCheck 'MsvcRuntime' 'Ready' "$($runtime.Version) / x64 at $($runtime.RuntimeDirectory)" 'msvc-runtime' 'project'))
+            }
+            else
+            {
+                $checks.Add((Get-AegiNextCheck 'MsvcRuntime' 'Missing' 'Requires the x64 Visual C++ runtime for ONNX. Use -InstallDependencies to prepare the locked project runtime without installing Visual Studio.' 'msvc-runtime' 'project'))
+            }
+        }
+        catch
+        {
+            $checks.Add((Get-AegiNextCheck 'MsvcRuntime' 'Invalid' $_.Exception.Message 'msvc-runtime' 'project'))
         }
     }
 
@@ -483,12 +506,13 @@ function Install-AegiNextDependency
         {
             'FfmpegSdk' { if (!$FfmpegRoot) { $projectNames.Add('ffmpeg') } }
             'SdlSdk' { if (!$SdlRoot) { $projectNames.Add('sdl3') } }
+            'MsvcRuntime' { $projectNames.Add('msvc-runtime') }
             'libplacebo' { $projectNames.Add('libplacebo') }
             'molten-vk' { $projectNames.Add('molten-vk') }
             'vulkan-headers' { $projectNames.Add('vulkan-headers') }
         }
     }
-    $sdkIds = @('FfmpegSdk', 'SdlSdk', 'libplacebo', 'molten-vk', 'vulkan-headers')
+    $sdkIds = @('FfmpegSdk', 'SdlSdk', 'MsvcRuntime', 'libplacebo', 'molten-vk', 'vulkan-headers')
     $missing = @($Report.Checks | Where-Object { $_.Status -eq 'Missing' -and $_.Package -and $_.Id -notin $sdkIds })
     foreach ($dependency in ($missing | Sort-Object Manager, Package -Unique))
     {
@@ -652,6 +676,7 @@ function Invoke-AegiNextBuild
         [switch] $WithMediaTools,
         [string] $FfmpegRoot,
         [string] $SdlRoot,
+        [string[]] $RuntimeDependencyDirectory = @(),
         [switch] $RunTests,
         [ValidateSet('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop', 'Desktop.Ui')][string[]] $TestProjects = @('Core', 'Application', 'SubtitleFormats', 'Rendering', 'Media', 'Export', 'Cli', 'Desktop'),
         [ValidateRange(1, 128)][int] $Jobs = 2,
@@ -683,7 +708,7 @@ function Invoke-AegiNextBuild
     $RepositoryRoot = (Resolve-Path -LiteralPath $RepositoryRoot).Path
     $hostInfo = Get-AegiNextHost
     $null = Get-AegiNextRuntimeIdentifier -HostInfo $hostInfo -RuntimeIdentifier $RuntimeIdentifier
-    $environmentArguments = @{ RepositoryRoot = $RepositoryRoot; Target = $Target; HostInfo = $hostInfo; WithMediaTools = $WithMediaTools; FfmpegRoot = $FfmpegRoot; SdlRoot = $SdlRoot; RunTests = $RunTests; TestProjects = $TestProjects }
+    $environmentArguments = @{ RepositoryRoot = $RepositoryRoot; Target = $Target; HostInfo = $hostInfo; WithMediaTools = $WithMediaTools; FfmpegRoot = $FfmpegRoot; SdlRoot = $SdlRoot; RuntimeDependencyDirectory = $RuntimeDependencyDirectory; RunTests = $RunTests; TestProjects = $TestProjects }
     $report = Get-AegiNextEnvironment @environmentArguments
     if ($InstallDependencies -and !@($report.Checks | Where-Object Status -EQ 'Unsupported').Count)
     {
@@ -744,4 +769,4 @@ function Invoke-AegiNextBuild
 }
 
 Export-ModuleMember -Function Get-AegiNextHost, Get-AegiNextRuntimeIdentifier, Find-AegiNextCommand, Invoke-AegiNextCommand, Test-AegiNextSdkVersion,
-    Get-AegiNextEnvironment, Install-AegiNextDependency, Get-AegiNextBuildPlan, Invoke-AegiNextBuild, Get-AegiNextBuildVersion, Get-AegiNextVersionArgument
+    Get-AegiNextEnvironment, Install-AegiNextDependency, Get-AegiNextBuildPlan, Invoke-AegiNextBuild, Get-AegiNextBuildVersion, Get-AegiNextVersionArgument, Get-AegiNextMsvcRuntime

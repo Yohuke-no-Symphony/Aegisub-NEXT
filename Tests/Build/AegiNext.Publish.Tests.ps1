@@ -139,7 +139,14 @@ Describe 'Platform publishing boundaries' {
             }
             Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'Windows'; Architecture = 'Arm64'; ProcessArchitecture = 'Arm64' } }
             Mock Get-AegiNextEnvironment { [pscustomobject]@{ Ready = $true; NativePrefixes = @{ ffmpeg = $ffmpeg; sdl3 = $sdl; cxx = $compiler } } }
-            Mock Get-AegiNextWindowsMsvcRuntime { [pscustomobject]@{ RuntimeDirectory = (Join-Path $Fixture 'msvc/x64/Microsoft.VC145.CRT'); Version = '14.51.36247.0' } }
+            Mock Get-AegiNextWindowsMsvcRuntime {
+                [pscustomobject]@{
+                    RuntimeDirectory = (Join-Path $Fixture 'msvc/x64/Microsoft.VC145.CRT')
+                    LicenseRoot = (Join-Path $Repository 'scripts/publish/licenses/msvc-runtime')
+                    Version = '14.51.36247.0'
+                    Source = 'VisualStudio'
+                }
+            }
             Mock Get-AegiNextSourceIdentity { [pscustomobject]@{ GitSha = ('a' * 40); WorkingTreeDirty = $true; Status = 'Recorded' } }
             Mock Get-AegiNextBuildVersion {
                 $script:resolvedPublishVersionArguments = @{} + $PesterBoundParameters
@@ -195,9 +202,17 @@ Describe 'Platform publishing boundaries' {
             }
             $versionArguments = if ($null -ne $ReleaseVersion) { @{ Version = $ReleaseVersion; Tag = $Snapshot.ReleaseTag } } else { @{} }
             if ($AllowMissingTag) { $versionArguments.AllowMissingTag = $true }
+            $runtimeArguments = @{}
+            $explicitRuntime = Join-Path $root 'sdk/explicit runtime'
+            if (!$SkipBuild)
+            {
+                [IO.Directory]::CreateDirectory($explicitRuntime) | Out-Null
+                Set-Content -LiteralPath (Join-Path $explicitRuntime 'LICENSE.txt') -Value 'explicit runtime notice'
+                $runtimeArguments.RuntimeDependencyDirectory = @($explicitRuntime)
+            }
             $assemblyVersionArgument = "-p:AssemblyVersion=$ExpectedAssemblyVersion"
             $fileVersionArgument = "-p:FileVersion=$($Snapshot.FileVersion)"
-            Invoke-AegiNextPublish -RepositoryRoot $root -RuntimeIdentifier win-x64 -SkipBuild:$SkipBuild -CreateInstaller:$CreateInstaller -OutputDirectory (Join-Path $Fixture 'published command fixture') @versionArguments
+            Invoke-AegiNextPublish -RepositoryRoot $root -RuntimeIdentifier win-x64 -SkipBuild:$SkipBuild -CreateInstaller:$CreateInstaller -OutputDirectory (Join-Path $Fixture 'published command fixture') @versionArguments @runtimeArguments
             Should -Invoke Get-AegiNextBuildVersion -Times 1 -Exactly -ParameterFilter {
                 $RepositoryRoot -eq $root -and $RequireRelease
             }
@@ -223,7 +238,11 @@ Describe 'Platform publishing boundaries' {
             else
             {
                 Should -Invoke Invoke-AegiNextBuild -Times 1 -Exactly -ParameterFilter {
-                    $Target -eq 'Workbench' -and [object]::ReferenceEquals($BuildVersion, $Snapshot)
+                    $Target -eq 'Workbench' -and [object]::ReferenceEquals($BuildVersion, $Snapshot) -and
+                    $RuntimeDependencyDirectory.Count -eq 1 -and $RuntimeDependencyDirectory[0] -eq $explicitRuntime
+                }
+                Should -Invoke Get-AegiNextEnvironment -Times 1 -Exactly -ParameterFilter {
+                    $RuntimeDependencyDirectory.Count -eq 1 -and $RuntimeDependencyDirectory[0] -eq $explicitRuntime
                 }
             }
             $script:managedPublishDirectories.Count | Should -Be 3
@@ -260,7 +279,8 @@ Describe 'Platform publishing boundaries' {
             $runtimeManifest.PSObject.Properties.Name | Should -Not -Contain 'IsTestPackage'
             $spectreRecords = @($manifest.Licenses | Where-Object { [IO.Path]::GetFullPath($_.PackageRoot) -eq $spectreLicenses })
             $spectreRecords.Count | Should -Be 2
-            @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 | Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
+            @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 |
+                Should -Be (Get-FileHash -LiteralPath (Join-Path $spectreLicenses 'LICENSE-Spectre.Console.md')).Hash.ToLowerInvariant()
             foreach ($record in $spectreRecords)
             {
                 Test-Path -LiteralPath (Join-Path $Fixture "published command fixture/AegiNext/licenses/$($record.File)") -PathType Leaf | Should -BeTrue
@@ -740,7 +760,8 @@ Describe 'macOS app icon and disk image publishing' {
             $paths | Should -Contain 'AegiNext.app/Contents/Resources/AppIcon.icns'
             $spectreRecords = @($manifest.Licenses | Where-Object { [IO.Path]::GetFullPath($_.PackageRoot) -eq $spectreLicenses })
             $spectreRecords.Count | Should -Be 2
-            @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 | Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
+            @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 |
+                Should -Be (Get-FileHash -LiteralPath (Join-Path $spectreLicenses 'LICENSE-Spectre.Console.md')).Hash.ToLowerInvariant()
             foreach ($record in $spectreRecords)
             {
                 $paths | Should -Contain "AegiNext.app/Contents/MacOS/licenses/$($record.File)"
@@ -810,39 +831,32 @@ Describe 'Published provenance metadata' {
 }
 
 Describe 'Windows dependency closure boundaries' {
-    It 'discovers only release x64 CRT redistributables from Visual Studio' {
+    It 'uses the shared runtime discovery with the repository and explicit directories' {
         InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive } {
             param($Fixture)
-            $installation = Join-Path $Fixture 'Visual Studio'
-            $redist = Join-Path $installation 'VC/Redist/MSVC/14.51.36231'
-            $expected = Join-Path $redist 'x64/Microsoft.VC145.CRT'
-            foreach ($relative in @('x64/Microsoft.VC145.CRT', 'x86/Microsoft.VC145.CRT', 'onecore/x64/Microsoft.VC145.CRT', 'debug_nonredist/x64/Microsoft.VC145.DebugCRT'))
-            {
-                $directory = Join-Path $redist $relative
-                [IO.Directory]::CreateDirectory($directory) | Out-Null
-                Set-Content -LiteralPath (Join-Path $directory 'vcruntime140.dll') -Value 'fixture runtime'
+            $selected = [pscustomobject]@{ RuntimeDirectory = (Join-Path $Fixture 'runtime'); LicenseRoot = $Fixture; Version = '14.51.36247.0'; Source = 'ProjectSdk' }
+            Mock Get-AegiNextMsvcRuntime { $selected }
+            $explicit = @((Join-Path $Fixture 'custom runtime'))
+
+            $actual = Get-AegiNextWindowsMsvcRuntime -RepositoryRoot $Fixture -RuntimeDependencyDirectory $explicit
+
+            [object]::ReferenceEquals($actual, $selected) | Should -BeTrue
+            Should -Invoke Get-AegiNextMsvcRuntime -Times 1 -Exactly -ParameterFilter {
+                $RepositoryRoot -eq $Fixture -and $RuntimeDependencyDirectory.Count -eq 1 -and $RuntimeDependencyDirectory[0] -eq $explicit[0]
             }
-            Mock Find-AegiNextCommand { 'fixture-vswhere' }
-            Mock Invoke-AegiNextPublishCommand { @(@{ installationPath = $installation }) | ConvertTo-Json -AsArray }
-            Mock Get-AegiNextBinaryKind { 'PE-34404' }
-            $previous = $env:VCToolsRedistDir
-            try
-            {
-                $env:VCToolsRedistDir = $null
-                (Get-AegiNextWindowsMsvcRuntime).RuntimeDirectory | Should -Be $expected
-                Should -Invoke Get-AegiNextBinaryKind -Times 1 -Exactly
-                Mock Get-AegiNextBinaryKind { 'PE-332' }
-                Get-AegiNextWindowsMsvcRuntime | Should -BeNullOrEmpty
-            }
-            finally { $env:VCToolsRedistDir = $previous }
         }
     }
 
-    It 'copies the recursive MSVC runtime closure beside tools and records its sources' {
-        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive } {
-            param($Fixture)
-            $payload = Join-Path $Fixture 'package'
-            $runtime = Join-Path $Fixture 'redist'
+    It 'copies the recursive MSVC runtime closure from <SearchMode> directories and records absolute sources' -TestCases @(
+        @{ SearchMode = 'Absolute' }
+        @{ SearchMode = 'Relative' }
+    ) {
+        param($SearchMode)
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; SearchMode = $SearchMode } {
+            param($Fixture, $SearchMode)
+            $root = Join-Path $Fixture "recursive runtime closure $SearchMode"
+            $payload = Join-Path $root 'package'
+            $runtime = Join-Path $root 'redist'
             foreach ($directory in @((Join-Path $payload 'tools'), $runtime)) { [IO.Directory]::CreateDirectory($directory) | Out-Null }
             Set-Content -LiteralPath (Join-Path $payload 'tools/onnx-tool.exe') -Value 'fixture tool'
             foreach ($name in @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll')) { Set-Content -LiteralPath (Join-Path $runtime $name) -Value $name }
@@ -858,12 +872,32 @@ Describe 'Windows dependency closure boundaries' {
                     default { 'DLL Name: KERNEL32.dll' }
                 }
             }
-            $records = @(Copy-AegiNextWindowsDependencyClosure $payload @($runtime))
+            $searchDirectory = $runtime
+            $locationChanged = $false
+            try
+            {
+                if ($SearchMode -eq 'Relative')
+                {
+                    Push-Location -LiteralPath $Fixture
+                    $locationChanged = $true
+                    $searchDirectory = [IO.Path]::GetRelativePath($Fixture, $runtime)
+                    [IO.Path]::IsPathFullyQualified($searchDirectory) | Should -BeFalse
+                }
+                $records = @(Copy-AegiNextWindowsDependencyClosure $payload @($searchDirectory))
+            }
+            finally
+            {
+                if ($locationChanged)
+                {
+                    Pop-Location
+                }
+            }
             foreach ($name in @('vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll'))
             {
                 Test-Path -LiteralPath (Join-Path $payload $name) | Should -BeTrue
                 $record = @($records | Where-Object Path -eq $name)
                 $record.Count | Should -Be 1
+                [IO.Path]::IsPathFullyQualified($record[0].Source) | Should -BeTrue
                 $record[0].Source | Should -Be (Join-Path $runtime $name)
                 $record[0].SourceSha256 | Should -Be (Get-FileHash -LiteralPath $record[0].Source).Hash.ToLowerInvariant()
             }
@@ -1211,7 +1245,9 @@ Describe 'Fixed Spectre dependency notices' {
         $notice = Get-Content -LiteralPath (Join-Path $directories[0].FullName 'NOTICE-Spectre.Console.txt') -Raw
         $notice | Should -Match "(?m)^Spectre\.Console / Spectre\.Console\.Ansi / Spectre\.Console\.Cli $([regex]::Escape($licensedVersion))\s*$"
         $license = Join-Path $directories[0].FullName 'LICENSE-Spectre.Console.md'
-        (Get-FileHash -LiteralPath $license).Hash.ToLowerInvariant() | Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
+        $canonicalLicense = [IO.File]::ReadAllText($license).Replace("`r`n", "`n")
+        [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($canonicalLicense))).ToLowerInvariant() |
+            Should -Be '3b7331fb6deae7edd8e09f16173b9c61de0358c86cccd69de894ed3643d0ca91'
         $records = @(Copy-AegiNextLicenseFile -Roots $directories[0].FullName -Destination (Join-Path $TestDrive 'spectre licenses'))
         $records.Count | Should -Be 2
         @($records | Where-Object File -like '*LICENSE-Spectre.Console.md').Count | Should -Be 1

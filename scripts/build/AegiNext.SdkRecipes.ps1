@@ -60,6 +60,44 @@ function Copy-AegiNextSdkLicense
     }
 }
 
+function Get-AegiNextMsvcRuntimeBinaryInfo
+{
+    param([string] $Path)
+    $stream = [IO.File]::OpenRead($Path)
+    try
+    {
+        $reader = [IO.BinaryReader]::new($stream)
+        if ($stream.Length -lt 64 -or $reader.ReadUInt16() -ne 0x5a4d)
+        {
+            throw "Invalid Windows runtime PE header: $Path"
+        }
+        $stream.Position = 60
+        $header = $reader.ReadUInt32()
+        if ($header + 26L -gt $stream.Length)
+        {
+            throw "Invalid Windows runtime PE header: $Path"
+        }
+        $stream.Position = $header
+        if ($reader.ReadUInt32() -ne 0x00004550)
+        {
+            throw "Invalid Windows runtime PE signature: $Path"
+        }
+        $machine = $reader.ReadUInt16()
+        $stream.Position = $header + 24
+        $optionalMagic = $reader.ReadUInt16()
+        $architecture = if ($machine -eq 0x8664 -and $optionalMagic -eq 0x20b) { 'x64' } else { "PE-$machine" }
+        $version = [Diagnostics.FileVersionInfo]::GetVersionInfo($Path)
+        return [pscustomobject]@{
+            Architecture = $architecture
+            Version = [version]::new($version.FileMajorPart, $version.FileMinorPart, $version.FileBuildPart, $version.FilePrivatePart).ToString()
+        }
+    }
+    finally
+    {
+        $stream.Dispose()
+    }
+}
+
 function Invoke-AegiNextSdkRecipe
 {
     param([string] $RepositoryRoot, [object] $HostInfo, [hashtable] $Manifest, [string] $Name, [string] $Work, [string] $Stage, [int] $Jobs)
@@ -69,6 +107,16 @@ function Invoke-AegiNextSdkRecipe
         $source = $Manifest.sources[$package.windows.source]
         $archive = Get-AegiNextSdkArchive $source $RepositoryRoot
         $root = Expand-AegiNextSdkArchive $archive (Join-Path $Work 'extracted') $package.windows.archiveRoot
+        if ($Name -eq 'msvc-runtime')
+        {
+            $destination = [IO.Directory]::CreateDirectory((Join-Path $Stage 'bin')).FullName
+            foreach ($entry in Get-ChildItem -LiteralPath $root -File -Filter '*.dll')
+            {
+                Copy-Item -LiteralPath $entry.FullName -Destination $destination
+            }
+            Copy-AegiNextSdkLicense (Join-Path $PSScriptRoot '../publish/licenses/msvc-runtime') $Stage $Name
+            return
+        }
         foreach ($entry in Get-ChildItem -LiteralPath $root -Force)
         {
             Copy-Item -LiteralPath $entry.FullName -Destination $Stage -Recurse -Force
@@ -238,7 +286,19 @@ function Test-AegiNextPreparedSdk
             throw "Incomplete prepared SDK $Name`: missing $file."
         }
     }
-    if ($Name -eq 'ffmpeg' -and !$SkipRuntime)
+    if ($Name -eq 'msvc-runtime')
+    {
+        foreach ($file in $required | Where-Object { $_.EndsWith('.dll', [StringComparison]::OrdinalIgnoreCase) })
+        {
+            $path = Join-Path $Root $file
+            $info = Get-AegiNextMsvcRuntimeBinaryInfo $path
+            if ($info.Architecture -ne 'x64' -or $info.Version -ne "$($package.version).0")
+            {
+                throw "Prepared MSVC runtime requires x64 version $($package.version).0: $path."
+            }
+        }
+    }
+    elseif ($Name -eq 'ffmpeg' -and !$SkipRuntime)
     {
         $toolchain = Get-Content -LiteralPath (Join-Path $RepositoryRoot 'src/AegiNext.Media/Probing/ffmpeg-toolchain.json') -Raw | ConvertFrom-Json
         if ($toolchain.version -ne $package.version)

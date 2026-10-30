@@ -4,7 +4,11 @@
 
 ## Create a release
 
-Start from a full Git clone, complete the release changes, and create a commit before tagging it. Run on the target operating system:
+Start from a full Git clone, complete the release changes, and create a commit before tagging it.
+
+Before the first release or after updating locked dependencies, follow [Building](building.md) and run `pwsh ./build.ps1 -Target Workbench -InstallDependencies -Configuration Release`. This prepares dependencies and builds the workbench for the current OS; `-SkipBuild` below can reuse matching native output.
+
+Run on the target operating system:
 
 ```powershell
 git tag rel/beta/1.2.3.1
@@ -96,8 +100,8 @@ Koumori supports `win-x64` and `osx-arm64`. Schemas 1/2/3 contain 4/7/8 runtime 
 
 - `media-runtime.json` selects package-local tools.
 - `package-manifest.json` records product version, original tag, channel, release sequence, system build number, the `IsTestPackage` flag, RID, Git identity/dirty state, runtime/tool versions, dependency/license origins, actual OS requirements, and file hashes.
-- macOS rewrites Mach-O dependency paths and signs the bundle; the highest native-library requirement becomes the minimum OS version. Default signing is ad-hoc; notarization is separate.
-- Windows collects x64 PE dependencies from selected SDK/compiler locations. Use `-RuntimeDependencyDirectory` and `-LicenseDirectory` for explicit additional sources.
+- macOS ARM64/x64 recursively collect dynamic libraries from their corresponding SDKs, rewrite Mach-O dependency paths, and sign the bundle. The highest native-library requirement becomes the minimum OS version. Default signing is ad-hoc; notarization is separate.
+- Windows collects x64 PE dependencies from selected SDK/compiler locations. By default, MSVC CRT discovery prefers the project SDK prepared by `-InstallDependencies`, retaining original notices and source hashes; the local Visual Studio x64 CRT redistributable directory is also supported. Use `-RuntimeDependencyDirectory` and `-LicenseDirectory` to explicitly override or supplement sources; the build entry point also accepts `-RuntimeDependencyDirectory`.
 
 The selected FFmpeg SDK must provide H.264, HEVC, VP8, VP9, SVT-AV1, AAC/Opus, and MP4/Matroska/WebM. VP9/AV1 must accept both 8-bit and 10-bit output. macOS uses libvpx 1.17.0, SVT-AV1 4.2.0, and Opus 1.6.1 from the project source SDK, collecting these libraries and their runtime dependencies recursively. Windows uses the pinned Gyan 9.0.2 shared distribution. The dependency manifest locks sources, hashes, recipes, and license origins; see [Building](building.md) for preparation. System build tools may come from Homebrew/Scoop, while shipped encoding capabilities must come from the selected SDK.
 

@@ -166,6 +166,10 @@ function Add-AegiNextSdkDependency
         throw "Unknown or cyclic SDK dependency: $Name."
     }
     $package = $Manifest.packages[$Name]
+    if ($package.ContainsKey('platforms') -and $Platform -notin $package.platforms)
+    {
+        throw "Project SDK $Name does not support $Platform."
+    }
     if ($Platform -eq 'Windows')
     {
         if (!$package.ContainsKey('windows'))

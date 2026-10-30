@@ -52,6 +52,7 @@ Describe 'Workbench and Application selection' {
             }
             Mock Get-AegiNextExportCapabilityCheck { Get-AegiNextCheck 'ExportCapabilities' 'Ready' 'fixed capabilities' }
             Mock Get-AegiNextSdkArchitectureCheck { Get-AegiNextCheck 'SdkArchitecture' 'Ready' 'win-x64' }
+            Mock Get-AegiNextMsvcRuntime { [pscustomobject]@{ RuntimeDirectory = 'fixture runtime'; LicenseRoot = 'fixture notices'; Version = '14.51.36247.0'; Source = 'ProjectSdk' } }
             $hostInfo = [pscustomobject]@{ Platform = 'Windows'; Architecture = 'X64'; ProcessArchitecture = 'X64' }
             $report = Get-AegiNextEnvironment -RepositoryRoot $Repository -Target Workbench -HostInfo $hostInfo
             $report.Ready | Should -BeFalse

@@ -4,7 +4,11 @@
 
 ## 生成发布包
 
-从完整 Git 克隆开始，先完成发布改动并创建提交，再为该提交创建标签。在目标操作系统运行：
+从完整 Git 克隆开始，先完成发布改动并创建提交，再为该提交创建标签。
+
+首次发布或更新锁定依赖后，先按[构建说明](building.md)运行 `pwsh ./build.ps1 -Target Workbench -InstallDependencies -Configuration Release`。它在当前系统准备依赖并构建工作台；下方的 `-SkipBuild` 可复用匹配的原生产物。
+
+在目标操作系统运行：
 
 ```powershell
 git tag rel/beta/1.2.3.1
@@ -96,8 +100,8 @@ Koumori 支持 `win-x64` 与 `osx-arm64`。schema 1/2/3 分别包含 4/7/8 个�
 
 - `media-runtime.json` 指定包内工具。
 - `package-manifest.json` 记录产品版本、原始标签、渠道、发布序号、系统构建号、`IsTestPackage` 标记、RID、Git 身份/脏状态、运行时/工具版本、依赖/许可来源、实际系统要求和文件哈希。
-- macOS 重写 Mach-O 依赖路径并签名，最高原生库要求决定最低系统版本；默认临时签名，公证另行处理。
-- Windows 从选定 SDK/编译器位置收集 x64 PE 依赖；额外来源使用 `-RuntimeDependencyDirectory` 和 `-LicenseDirectory`。
+- macOS ARM64/x64 从各自的 SDK 递归收集动态库，重写 Mach-O 依赖路径并签名，最高原生库要求决定最低系统版本；默认临时签名，公证另行处理。
+- Windows 从选定 SDK/编译器位置收集 x64 PE 依赖，MSVC CRT 默认优先使用 `-InstallDependencies` 准备的项目 SDK，并保留其原始许可与来源哈希；也可使用本机 Visual Studio 的 x64 CRT 可再分发目录。显式覆盖或补充来源使用 `-RuntimeDependencyDirectory` 和 `-LicenseDirectory`；构建入口也接受 `-RuntimeDependencyDirectory`。
 
 发布所选 FFmpeg SDK 必须提供 H.264、HEVC、VP8、VP9、SVT-AV1、AAC/Opus 及 MP4/Matroska/WebM；VP9/AV1 还需同时接受 8/10-bit。macOS 使用项目源码 SDK 的 libvpx 1.17.0、SVT-AV1 4.2.0、Opus 1.6.1，递归收集这些库与其运行时依赖；Windows 使用锁定的 Gyan 9.0.2 共享包。源码、哈希、配方与许可来源由依赖清单锁定，详细准备方式见[构建](building.md)。系统编译工具可来自 Homebrew/Scoop，发布的编码能力仍须来自选定 SDK。
 

@@ -10,6 +10,8 @@
 
 使用 `-InstallDependencies` 自动在项目的 `.dependencies/<RID>/<库名>/<版本>/` 准备锁定 SDK；RID 为 `osx-arm64`、`osx-x64` 或 `win-x64`。macOS 按 `native/sdk-dependencies.json` 中锁定的源码构建 FFmpeg、SDL3、libplacebo、Vulkan-Headers、Vulkan-Loader、shaderc、LittleCMS、x264、x265、dav1d、libvpx、SVT-AV1 和 Opus，并下载官方 MoltenVK SDK。新增软件编码依赖锁定为 **libvpx 1.17.0、SVT-AV1 4.2.0、Opus 1.6.1**。Windows 使用锁定的 **Gyan FFmpeg 9.0.2 共享开发包**和 SDL3 MinGW 开发包。CMake、Ninja、Meson、pkgconf、编译器等构建工具继续使用系统安装，缺失且可自动安装的工具由 Homebrew/Scoop 补齐。
 
+Windows 的 `Managed`/`Workbench` 还检查 ONNX Runtime 等原生库所需的 MSVC x64 CRT。`-InstallDependencies` 从 Microsoft 官方包准备锁定版本 **14.51.36247**，将 DLL 和原始许可保存在 `.dependencies/win-x64/msvc-runtime/14.51.36247/`，无需安装完整 Visual Studio；发布自动读取其中的 `bin/`。macOS ARM64/x64 使用各自的项目 SDK，不安装 Windows CRT。
+
 ```powershell
 # 两个平台：安装媒体 SDK，并构建 Debug 工作台
 pwsh ./build-debug-native.ps1 -InstallDependencies

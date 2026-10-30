@@ -23,6 +23,7 @@ param(
     [switch] $WithMediaTools,
     [string] $FfmpegRoot,
     [string] $SdlRoot,
+    [string[]] $RuntimeDependencyDirectory = @(),
     [ValidateSet('osx-arm64', 'osx-x64', 'win-x64')]
     [string] $RuntimeIdentifier,
     [switch] $RunTests,

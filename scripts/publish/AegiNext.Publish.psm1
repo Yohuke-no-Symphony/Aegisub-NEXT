@@ -296,12 +296,13 @@ function Invoke-AegiNextPublish
     if ($CreateInstaller -and $hostInfo.Platform -ne 'Windows') { throw 'CreateInstaller is only supported on Windows.' }
     if ($NsisPath -and !$CreateInstaller) { throw 'NsisPath requires -CreateInstaller.' }
     $nsisCompiler = if ($CreateInstaller) { Get-AegiNextNsisCompiler -RepositoryRoot $RepositoryRoot -NsisPath $NsisPath } else { $null }
-    $report = Get-AegiNextEnvironment -RepositoryRoot $RepositoryRoot -HostInfo $hostInfo -Target Workbench -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot
+    $report = Get-AegiNextEnvironment -RepositoryRoot $RepositoryRoot -HostInfo $hostInfo -Target Workbench -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -RuntimeDependencyDirectory $RuntimeDependencyDirectory
     if (!$report.Ready) { throw "Publish environment is not ready: $($report.Checks | Where-Object Status -in @('Missing','Invalid','Unsupported') | ConvertTo-Json -Compress)" }
     $compilerRuntime = if ($hostInfo.Platform -eq 'Windows') { Get-AegiNextWindowsCompilerRuntime $report.NativePrefixes['cxx'] } else { $null }
+    $msvcRuntime = if ($hostInfo.Platform -eq 'Windows') { Get-AegiNextWindowsMsvcRuntime -RepositoryRoot $RepositoryRoot -RuntimeDependencyDirectory $RuntimeDependencyDirectory } else { $null }
     if (!$SkipBuild)
     {
-        if ((Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Workbench -Configuration $Configuration -RuntimeIdentifier $rid -BuildVersion $buildVersion -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -Jobs $Jobs) -ne 0) { throw 'Workbench build failed.' }
+        if ((Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Workbench -Configuration $Configuration -RuntimeIdentifier $rid -BuildVersion $buildVersion -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -RuntimeDependencyDirectory $RuntimeDependencyDirectory -Jobs $Jobs) -ne 0) { throw 'Workbench build failed.' }
         if ($hostInfo.Platform -eq 'MacOS' -and (Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Native -Configuration $Configuration -Jobs $Jobs) -ne 0) { throw 'macOS HDR module build failed.' }
     }
     $publishRoot = Join-Path $RepositoryRoot "artifacts/publish/$rid/$Configuration"
@@ -372,16 +373,14 @@ function Invoke-AegiNextPublish
     else
     {
         Write-Information -InformationAction Continue -MessageData '[publish] Resolving Windows runtime dependencies...'
-        $msvcRuntime = Get-AegiNextWindowsMsvcRuntime
         $searchDirectories = @($nativeRoot, (Join-Path $report.NativePrefixes.ffmpeg 'bin'), (Join-Path $report.NativePrefixes.sdl3 'bin'), $compilerRuntime.RuntimeDirectory) + $RuntimeDependencyDirectory
         if ($msvcRuntime) { $searchDirectories += $msvcRuntime.RuntimeDirectory }
         $manifest.Dependencies = @(Copy-AegiNextWindowsDependencyClosure -Payload $payload -SearchDirectories $searchDirectories)
         if ($msvcRuntime -and @($manifest.Dependencies | Where-Object { (Split-Path $_.Source) -eq $msvcRuntime.RuntimeDirectory }).Count)
         {
             $manifest.MsvcRuntime = $msvcRuntime
-            $msvcNotices = Join-Path $PSScriptRoot 'licenses/msvc-runtime'
-            $licenseRoots += $msvcNotices
-            $requiredLicenseRoots += $msvcNotices
+            $licenseRoots += $msvcRuntime.LicenseRoot
+            $requiredLicenseRoots += $msvcRuntime.LicenseRoot
         }
         $licenseRoots += $compilerRuntime.LicenseRoot
         $requiredLicenseRoots += @($compilerRuntime.LicenseRoot) + $RuntimeDependencyDirectory

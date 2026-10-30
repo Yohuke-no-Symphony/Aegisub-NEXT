@@ -462,6 +462,9 @@ Describe 'Environment diagnosis resolves the SDK inside the repository' {
         Mock Invoke-AegiNextCommand -ModuleName AegiNext.Build {
             [pscustomobject]@{ ExitCode = 0; Output = '10.0.402' }
         } -ParameterFilter { $FilePath -eq 'dotnet' -and $Arguments -contains '--version' }
+        Mock Get-AegiNextMsvcRuntime -ModuleName AegiNext.Build {
+            [pscustomobject]@{ RuntimeDirectory = 'fixture runtime'; LicenseRoot = 'fixture notices'; Version = '14.51.36247.0'; Source = 'ProjectSdk' }
+        }
     }
 
     It 'accepts the SDK selected from global.json without requiring a package manager' {
@@ -655,6 +658,22 @@ Describe 'Build orchestration fails closed and rechecks installed dependencies' 
         Should -Invoke Get-AegiNextEnvironment -ModuleName AegiNext.Build -Times 2 -Exactly
         Should -Invoke Get-AegiNextBuildPlan -ModuleName AegiNext.Build -Times 0 -Exactly
         Should -Invoke Invoke-AegiNextCommand -ModuleName AegiNext.Build -Times 0 -Exactly
+    }
+
+    It 'preserves explicit runtime directories in both environment probes around dependency preparation' {
+        Mock Get-AegiNextHost -ModuleName AegiNext.Build {
+            [pscustomobject]@{ Platform = 'Windows'; Architecture = 'X64'; ProcessArchitecture = 'X64' }
+        }
+        $runtimeDirectories = @((Join-Path $repository 'runtime one'), (Join-Path $repository 'runtime two'))
+
+        Invoke-AegiNextBuild -RepositoryRoot $repository -Target Managed -InstallDependencies -RuntimeDependencyDirectory $runtimeDirectories | Should -Be 0
+
+        Should -Invoke Get-AegiNextEnvironment -ModuleName AegiNext.Build -Times 2 -Exactly -ParameterFilter {
+            $RuntimeDependencyDirectory.Count -eq 2 -and
+            $RuntimeDependencyDirectory[0] -eq $runtimeDirectories[0] -and $RuntimeDependencyDirectory[1] -eq $runtimeDirectories[1]
+        }
+        Should -Invoke Install-AegiNextDependency -ModuleName AegiNext.Build -Times 1 -Exactly
+        $script:buildCalls.ToArray() | Should -Be @('first', 'second')
     }
 
     It 'preserves a failing tool exit code and stops before the next step' {
