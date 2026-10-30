@@ -8,7 +8,7 @@ Windows 发布目录：`AegiNext/models/koumori/`。开发运行时使用桌面�
 
 On Windows, use `AegiNext/models/koumori/` in the published directory. For a signed macOS app, prefer an external model directory and **Specify manually**. Adding models inside `AegiNext.app/Contents/MacOS/models/koumori/` requires signing and verifying the app again.
 
-Download the runtime package from cloud disk and keep these files together:
+Download the runtime package from cloud disk and keep these files together:  [Google Drive](https://drive.google.com/drive/folders/1Fp5-526j-L9PWRWjFLk54p4volQqY-9n?usp=sharing)
 
 ```text
 koumori
