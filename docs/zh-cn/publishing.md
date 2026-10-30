@@ -94,9 +94,13 @@ scoop install nsis
 
 Spectre 的固定版本上游许可证和包声明保存在 `scripts/publish/licenses/`；升级 `Directory.Packages.props` 中的包版本时一同更新。
 
-Koumori 模型单独手动部署。构建、发布与 clean 不读取、校验、复制或清理模型目录，发布脚本也不接受模型来源参数。Windows 完成发布及包校验后，把完整运行模型包复制到 `AegiNext/models/koumori/`；开发构建使用桌面程序输出目录下的 `models/koumori/`。也可以在自动打轴设置中选择“手动指定”，直接使用已有模型目录。macOS 已签名应用推荐使用 `.app` 外的模型目录并选择“手动指定”；若自行把模型放入 `AegiNext.app/Contents/MacOS/models/koumori/`，需重新签名并验证应用。仓库根目录的 `models/koumori/` 只是本地存放位置，不会自动部署到程序目录。
+`publish.ps1` 和 `release.ps1` 自动检查仓库根目录的 `models/koumori/`。目录不存在或仅含 README 时跳过；存在 `manifest.json` 时，按 schema 1/2/3 校验运行文件及 SHA-256，并只复制清单、其引用的 ONNX 文件、前端/解码配置，以及 schema 2/3 的编码器原始许可证。checkpoint、README 和训练资料不进入发布包。目录已有 ONNX 或前端配置却缺少清单，或清单无效、引用文件缺失、摘要不符时，发布失败。
 
-Koumori 支持 `win-x64` 与 `osx-arm64`。schema 1/2/3 分别包含 4/7/8 个运行文件；schema 3 增加 `snap-model.onnx`，自动生成与吸附共用编码器并使用独立输出图。手动复制时需成套放入 `manifest.json`、其引用的 ONNX 文件、前端与解码配置及编码器许可证，无需 checkpoint 和训练资料。模型契约与 SHA-256 摘要在运行时加载模型时检查。新版运行库兼容三种格式，旧运行库不能加载 schema 3；回滚旧程序时也需恢复兼容的模型包。自动打轴设置默认选择“内置”；未放入内置模型时，请先补齐模型或改用手动目录再分析。CPU 推理固定使用 ONNX Runtime 1.31.0，其 Apple Silicon 原生库要求 macOS 14.0 及以上；随应用部署该库时，整个应用包的最低版本也随之提高。Windows 与 macOS 的原生运行验收仍须分别执行。
+Windows 将模型放入 `AegiNext/models/koumori/`，macOS 放入 `AegiNext.app/Contents/MacOS/models/koumori/`；复制发生在应用签名及 NSIS/DMG 生成前。包含模型时，`package-manifest.json` 添加 `Koumori` 元数据，模型文件纳入完整文件哈希清单，编码器许可证随其他第三方许可收集。发布脚本不接受额外的模型来源参数。
+
+构建和 clean 仍不处理模型。开发运行需手动将模型放到桌面程序输出目录下的 `models/koumori/`，也可以在自动打轴设置中选择“手动指定”，直接使用已有模型目录。未包含模型的发布包同样支持手动目录；若在发布完成后自行把模型加入 macOS `.app`，需重新签名并验证应用。
+
+Koumori 支持 `win-x64` 与 `osx-arm64`。schema 1/2/3 分别包含 4/7/8 个运行文件；schema 3 增加 `snap-model.onnx`，自动生成与吸附共用编码器并使用独立输出图。手动部署也需保留完整运行模型包；运行时加载仍会检查模型契约与 SHA-256 摘要。新版运行库兼容三种格式，旧运行库不能加载 schema 3；回滚旧程序时也需恢复兼容的模型包。自动打轴设置默认选择“内置”；未放入内置模型时，请先补齐模型或改用手动目录再分析。CPU 推理固定使用 ONNX Runtime 1.31.0，其 Apple Silicon 原生库要求 macOS 14.0 及以上；随应用部署该库时，整个应用包的最低版本也随之提高。Windows 与 macOS 的原生运行验收仍须分别执行。
 
 - `media-runtime.json` 指定包内工具。
 - `package-manifest.json` 记录产品版本、原始标签、渠道、发布序号、系统构建号、`IsTestPackage` 标记、RID、Git 身份/脏状态、运行时/工具版本、依赖/许可来源、实际系统要求和文件哈希。

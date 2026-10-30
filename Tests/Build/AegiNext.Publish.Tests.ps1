@@ -17,6 +17,41 @@ BeforeAll {
             AssemblyVersion = "$baseVersion.0"; FileVersion = "$baseVersion.271"; GitSha = ('a' * 40)
         }
     }
+
+    function New-PublishTestModelPackage
+    {
+        param([string] $Directory, [int] $SchemaVersion)
+        [IO.Directory]::CreateDirectory($Directory) | Out-Null
+        $manifest = [ordered]@{ schemaVersion = $SchemaVersion; modelId = "publish-schema-$SchemaVersion" }
+        $definitions = @(
+            @{ Prefix = 'model'; Name = 'model.onnx' }
+            @{ Prefix = 'frontend'; Name = 'frontend.json' }
+            @{ Prefix = 'decoder'; Name = 'decoder.json' }
+        )
+        if ($SchemaVersion -ge 2)
+        {
+            $definitions += @(
+                @{ Prefix = 'encoder'; Name = 'encoder.onnx' }
+                @{ Prefix = 'encoderFrontend'; Name = 'encoder-frontend.json' }
+                @{ Prefix = 'encoderLicense'; Name = 'WHISPER-LICENSE.txt' }
+            )
+        }
+        if ($SchemaVersion -eq 3)
+        {
+            $definitions += @{ Prefix = 'snapModel'; Name = 'snap-model.onnx' }
+        }
+        foreach ($definition in $definitions)
+        {
+            $path = Join-Path $Directory $definition.Name
+            [IO.File]::WriteAllText($path, "model fixture $($definition.Name)", [Text.UTF8Encoding]::new($false))
+            $manifest[$definition.Prefix + 'File'] = $definition.Name
+            $manifest[$definition.Prefix + 'Sha256'] = (Get-FileHash -LiteralPath $path).Hash.ToLowerInvariant()
+        }
+        $manifest | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Directory 'manifest.json') -Encoding utf8NoBOM
+        Set-Content -LiteralPath (Join-Path $Directory 'README.md') -Value 'repository instructions are not a model payload'
+        Set-Content -LiteralPath (Join-Path $Directory 'training-checkpoint.bin') -Value 'training only'
+        return [pscustomobject]@{ SchemaVersion = $SchemaVersion; ModelId = $manifest.modelId; Names = @('manifest.json') + @($definitions.Name) }
+    }
 }
 
 Describe 'Platform publishing boundaries' {
@@ -80,25 +115,26 @@ Describe 'Platform publishing boundaries' {
 
     It 'publishes one <Channel> identity through desktop, CLI, worker and installer (<ReleaseVersion>, SkipBuild=<SkipBuild>, AllowMissingTag=<AllowMissingTag>)' -TestCases @(
         @{ CreateInstaller = $false; ReleaseVersion = $null; NumericVersion = '0.1.0.0'; Channel = 'beta'; SkipBuild = $true; AllowMissingTag = $false; ModelState = 'absent' }
-        @{ CreateInstaller = $true; ReleaseVersion = '2.7.3.1'; NumericVersion = '2.7.3.1'; Channel = 'stable'; SkipBuild = $true; AllowMissingTag = $false; ModelState = 'incomplete' }
-        @{ CreateInstaller = $false; ReleaseVersion = '2.7.3.2'; NumericVersion = '2.7.3.2'; Channel = 'stable'; SkipBuild = $false; AllowMissingTag = $false; ModelState = 'invalid-manifest' }
-        @{ CreateInstaller = $true; ReleaseVersion = '1.2.3.99'; NumericVersion = '1.2.3.99'; Channel = 'beta'; SkipBuild = $false; AllowMissingTag = $true; ModelState = 'incomplete' }
+        @{ CreateInstaller = $true; ReleaseVersion = '2.7.3.1'; NumericVersion = '2.7.3.1'; Channel = 'stable'; SkipBuild = $true; AllowMissingTag = $false; ModelState = 'readme' }
+        @{ CreateInstaller = $false; ReleaseVersion = '2.7.3.2'; NumericVersion = '2.7.3.2'; Channel = 'stable'; SkipBuild = $false; AllowMissingTag = $false; ModelState = 'schema1' }
+        @{ CreateInstaller = $true; ReleaseVersion = '1.2.3.99'; NumericVersion = '1.2.3.99'; Channel = 'beta'; SkipBuild = $false; AllowMissingTag = $true; ModelState = 'schema3' }
     ) {
         param($CreateInstaller, $ReleaseVersion, $NumericVersion, $Channel, $SkipBuild, $AllowMissingTag, $ModelState)
         $fixture = Join-Path $TestDrive "windows publish $NumericVersion"
         $modelDirectory = Join-Path $fixture 'publish command repository/models/koumori'
-        if ($ModelState -ne 'absent')
+        $modelFixture = $null
+        if ($ModelState -eq 'readme')
         {
             [IO.Directory]::CreateDirectory($modelDirectory) | Out-Null
-            Set-Content -LiteralPath (Join-Path $modelDirectory 'model.onnx') -Value 'repository model is not a publish input'
-            if ($ModelState -eq 'invalid-manifest')
-            {
-                Set-Content -LiteralPath (Join-Path $modelDirectory 'manifest.json') -Value 'invalid JSON is checked only when loading the model'
-            }
+            Set-Content -LiteralPath (Join-Path $modelDirectory 'README.md') -Value 'model download instructions'
+        }
+        elseif ($ModelState -in @('schema1', 'schema3'))
+        {
+            $modelFixture = New-PublishTestModelPackage $modelDirectory ([int]$ModelState.Substring(6))
         }
         $snapshot = Get-PublishTestBuildVersion -Channel $Channel -NumericVersion $NumericVersion
-        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $fixture; ModelDirectory = $modelDirectory; ModelState = $ModelState; CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; Snapshot = $snapshot; SkipBuild = $SkipBuild; AllowMissingTag = $AllowMissingTag; Repository = $repository } {
-            param($Fixture, $CreateInstaller, $ReleaseVersion, $Snapshot, $SkipBuild, $AllowMissingTag, $Repository, $ModelDirectory, $ModelState)
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $fixture; ModelDirectory = $modelDirectory; ModelFixture = $modelFixture; CreateInstaller = $CreateInstaller; ReleaseVersion = $ReleaseVersion; Snapshot = $snapshot; SkipBuild = $SkipBuild; AllowMissingTag = $AllowMissingTag; Repository = $repository } {
+            param($Fixture, $CreateInstaller, $ReleaseVersion, $Snapshot, $SkipBuild, $AllowMissingTag, $Repository, $ModelDirectory, $ModelFixture)
             $ExpectedVersion = $Snapshot.ProductVersion
             $ExpectedAssemblyVersion = $Snapshot.AssemblyVersion
             $script:publishBuildVersion = $Snapshot
@@ -196,6 +232,13 @@ Describe 'Platform publishing boundaries' {
                 Test-Path -LiteralPath (Join-Path $PayloadDirectory 'media-runtime.json') | Should -BeTrue
                 Test-Path -LiteralPath (Join-Path $PayloadDirectory 'licenses') | Should -BeTrue
                 Test-Path -LiteralPath (Join-Path $PublishDirectory 'package-manifest.json') | Should -BeFalse
+                if ($ModelFixture)
+                {
+                    foreach ($name in $ModelFixture.Names)
+                    {
+                        Test-Path -LiteralPath (Join-Path $PayloadDirectory "models/koumori/$name") -PathType Leaf | Should -BeTrue
+                    }
+                }
                 $installer = Join-Path $PublishDirectory "AegiNext-$ProductVersion-$RuntimeIdentifier-setup.exe"
                 Set-Content -LiteralPath $installer -Value 'compiled installer fixture'
                 return $installer
@@ -289,15 +332,30 @@ Describe 'Platform publishing boundaries' {
             (Test-AegiNextPublishedPackage (Join-Path $Fixture 'published command fixture')).ProductVersion | Should -Be $ExpectedVersion
             $manifest.GitSha | Should -Be ('a' * 40)
             $manifest.WorkingTreeDirty | Should -BeTrue
-            $manifest.PSObject.Properties.Name | Should -Not -Contain 'Koumori'
-            Test-Path -LiteralPath (Join-Path $Fixture 'published command fixture/AegiNext/models/koumori') | Should -BeFalse
-            if ($ModelState -ne 'absent')
+            $publishedModels = Join-Path $Fixture 'published command fixture/AegiNext/models/koumori'
+            if ($ModelFixture)
             {
-                (Get-Content -LiteralPath (Join-Path $ModelDirectory 'model.onnx') -Raw).Trim() | Should -BeExactly 'repository model is not a publish input'
+                $manifest.Koumori.Directory | Should -Be 'models/koumori'
+                $manifest.Koumori.ModelId | Should -Be $ModelFixture.ModelId
+                $manifest.Koumori.SchemaVersion | Should -Be $ModelFixture.SchemaVersion
+                $manifest.Koumori.FileCount | Should -Be $ModelFixture.Names.Count
+                foreach ($name in $ModelFixture.Names)
+                {
+                    $sourceHash = (Get-FileHash -LiteralPath (Join-Path $ModelDirectory $name)).Hash
+                    (Get-FileHash -LiteralPath (Join-Path $publishedModels $name)).Hash | Should -Be $sourceHash
+                    @($manifest.Files | Where-Object { $_.Path.Replace('\', '/') -eq "AegiNext/models/koumori/$name" }).Count | Should -Be 1
+                }
+                Test-Path -LiteralPath (Join-Path $publishedModels 'README.md') | Should -BeFalse
+                Test-Path -LiteralPath (Join-Path $publishedModels 'training-checkpoint.bin') | Should -BeFalse
+                if ($ModelFixture.SchemaVersion -eq 3)
+                {
+                    @($manifest.Licenses | Where-Object File -like '*WHISPER-LICENSE.txt').Count | Should -BeGreaterThan 0
+                }
             }
-            if ($ModelState -eq 'invalid-manifest')
+            else
             {
-                (Get-Content -LiteralPath (Join-Path $ModelDirectory 'manifest.json') -Raw).Trim() | Should -BeExactly 'invalid JSON is checked only when loading the model'
+                $manifest.PSObject.Properties.Name | Should -Not -Contain 'Koumori'
+                Test-Path -LiteralPath $publishedModels | Should -BeFalse
             }
             $manifest.ToolVersions.Count | Should -Be 2
             $manifest.ToolVersions[0].VersionLine | Should -Be 'ffmpeg version 9.0.2 fixture'
@@ -342,6 +400,34 @@ Describe 'Platform publishing boundaries' {
             }
             Should -Invoke Get-AegiNextHost -Times 0 -Exactly
             Test-Path -LiteralPath (Join-Path $Fixture 'artifacts') | Should -BeFalse
+        }
+    }
+
+    It 'rejects an invalid repository model before building or creating the package destination' {
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; Snapshot = (Get-PublishTestBuildVersion) } {
+            param($Fixture, $Snapshot)
+            $root = Join-Path $Fixture 'invalid model repository'
+            $modelDirectory = Join-Path $root 'models/koumori'
+            [IO.Directory]::CreateDirectory($modelDirectory) | Out-Null
+            $modelManifest = Join-Path $modelDirectory 'manifest.json'
+            Set-Content -LiteralPath $modelManifest -Value 'invalid repository model JSON'
+            $originalHash = (Get-FileHash -LiteralPath $modelManifest).Hash
+            $destination = Join-Path $Fixture 'invalid model output'
+            $script:invalidModelBuildVersion = $Snapshot
+            Mock Get-AegiNextBuildVersion { $script:invalidModelBuildVersion }
+            Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'Windows'; Architecture = 'X64' } }
+            Mock Get-AegiNextEnvironment { [pscustomobject]@{ Ready = $true; NativePrefixes = @{} } }
+            Mock Get-AegiNextWindowsCompilerRuntime { [pscustomobject]@{ RuntimeDirectory = 'fixture'; LicenseRoot = 'fixture' } }
+            Mock Get-AegiNextWindowsMsvcRuntime { $null }
+            Mock Invoke-AegiNextBuild { throw 'Model preflight must happen before builds.' }
+            Mock Invoke-AegiNextPublishCommand { throw 'Model preflight must happen before publishing.' }
+
+            { Invoke-AegiNextPublish -RepositoryRoot $root -OutputDirectory $destination } | Should -Throw
+
+            Should -Invoke Invoke-AegiNextBuild -Times 0 -Exactly
+            Should -Invoke Invoke-AegiNextPublishCommand -Times 0 -Exactly
+            Test-Path -LiteralPath $destination | Should -BeFalse
+            (Get-FileHash -LiteralPath $modelManifest).Hash | Should -Be $originalHash
         }
     }
 
@@ -620,21 +706,24 @@ Describe 'macOS app icon and disk image publishing' {
         }
     }
 
-    It 'writes the icon before signing and includes a requested DMG in the manifest (<CreateDmg>, relative repository: <RelativeRepository>)' -TestCases @(
-        @{ CreateDmg = $true; RelativeRepository = $false; Channel = 'beta'; NumericVersion = '0.1.0.0' }
-        @{ CreateDmg = $false; RelativeRepository = $true; Channel = 'stable'; NumericVersion = '0.1.0.2' }
+    It 'copies the model and icon before signing <RuntimeIdentifier> and includes a requested DMG (<CreateDmg>, relative repository: <RelativeRepository>)' -TestCases @(
+        @{ CreateDmg = $true; RelativeRepository = $false; Channel = 'beta'; NumericVersion = '0.1.0.0'; RuntimeIdentifier = 'osx-arm64'; Architecture = 'Arm64' }
+        @{ CreateDmg = $false; RelativeRepository = $true; Channel = 'stable'; NumericVersion = '0.1.0.2'; RuntimeIdentifier = 'osx-x64'; Architecture = 'X64' }
+        @{ CreateDmg = $true; RelativeRepository = $false; Channel = 'stable'; NumericVersion = '0.1.0.3'; RuntimeIdentifier = 'osx-x64'; Architecture = 'X64' }
     ) {
-        param($CreateDmg, $RelativeRepository, $Channel, $NumericVersion)
+        param($CreateDmg, $RelativeRepository, $Channel, $NumericVersion, $RuntimeIdentifier, $Architecture)
         $snapshot = Get-PublishTestBuildVersion -Channel $Channel -NumericVersion $NumericVersion
-        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; CreateDmg = $CreateDmg; RelativeRepository = $RelativeRepository; Snapshot = $snapshot; Repository = $repository } {
-            param($Fixture, $CreateDmg, $RelativeRepository, $Snapshot, $Repository)
+        $modelDirectory = Join-Path $TestDrive "mac publish repository $CreateDmg $RuntimeIdentifier/models/koumori"
+        $modelFixture = New-PublishTestModelPackage $modelDirectory 3
+        InModuleScope AegiNext.Publish -Parameters @{ Fixture = $TestDrive; CreateDmg = $CreateDmg; RelativeRepository = $RelativeRepository; Snapshot = $snapshot; Repository = $repository; RuntimeIdentifier = $RuntimeIdentifier; Architecture = $Architecture; ModelFixture = $modelFixture } {
+            param($Fixture, $CreateDmg, $RelativeRepository, $Snapshot, $Repository, $RuntimeIdentifier, $Architecture, $ModelFixture)
             $script:publishBuildVersion = $Snapshot
-            $root = Join-Path $Fixture "mac publish repository $CreateDmg"
+            $root = Join-Path $Fixture "mac publish repository $CreateDmg $RuntimeIdentifier"
             $ffmpeg = Join-Path $root 'sdk/ffmpeg'
             $sdl = Join-Path $root 'sdk/sdl'
-            $native = Join-Path $root 'artifacts/native/osx-arm64/Release'
+            $native = Join-Path $root "artifacts/native/$RuntimeIdentifier/Release"
             $assets = Join-Path $root 'src/AegiNext.Desktop/Assets'
-            $output = if ($RelativeRepository) { Join-Path $root 'artifacts/publish/osx-arm64/Release' } else { Join-Path $Fixture "published mac fixture $CreateDmg" }
+            $output = if ($RelativeRepository) { Join-Path $root "artifacts/publish/$RuntimeIdentifier/Release" } else { Join-Path $Fixture "published mac fixture $CreateDmg $RuntimeIdentifier" }
             foreach ($directory in @($root, "$ffmpeg/bin", $sdl, $native, $assets))
             {
                 [IO.Directory]::CreateDirectory($directory) | Out-Null
@@ -657,7 +746,8 @@ Describe 'macOS app icon and disk image publishing' {
                 Set-Content -LiteralPath (Join-Path $native "libaeginext_$name.dylib") -Value 'fixture native module'
             }
             $script:macPublishStages = [Collections.Generic.List[string]]::new()
-            Mock Get-AegiNextHost { [pscustomobject]@{ Platform = 'MacOS'; Architecture = 'Arm64'; ProcessArchitecture = 'Arm64' } }
+            $script:macModelPublishHost = [pscustomobject]@{ Platform = 'MacOS'; Architecture = $Architecture; ProcessArchitecture = $Architecture }
+            Mock Get-AegiNextHost { $script:macModelPublishHost }
             Mock Get-AegiNextEnvironment { [pscustomobject]@{ Ready = $true; NativePrefixes = @{ ffmpeg = $ffmpeg; sdl3 = $sdl } } }
             Mock Get-AegiNextNugetLicenseRoot { @() }
             Mock Get-AegiNextSourceIdentity { [pscustomobject]@{ GitSha = ('a' * 40); WorkingTreeDirty = $true; Status = 'Recorded' } }
@@ -691,6 +781,11 @@ Describe 'macOS app icon and disk image publishing' {
                 }
                 if ($FilePath -eq '/usr/bin/codesign')
                 {
+                    $modelRoot = Join-Path $output 'AegiNext.app/Contents/MacOS/models/koumori'
+                    foreach ($name in $ModelFixture.Names)
+                    {
+                        Test-Path -LiteralPath (Join-Path $modelRoot $name) -PathType Leaf | Should -BeTrue
+                    }
                     if ([IO.Path]::GetFileName($Arguments[-1]) -eq 'aegnc')
                     {
                         $script:macPublishStages.Add($(if ($Arguments -contains '--sign') { 'cli-sign' } else { 'cli-verify' }))
@@ -713,16 +808,18 @@ Describe 'macOS app icon and disk image publishing' {
                 $AppDirectory | Should -Be (Join-Path $output 'AegiNext.app')
                 $PublishDirectory | Should -Be $output
                 $ProductVersion | Should -Be $Snapshot.ProductVersion
-                $RuntimeIdentifier | Should -Be 'osx-arm64'
+                $RuntimeIdentifier | Should -Be $script:macPublishRuntimeIdentifier
                 ($script:macPublishStages -join '|') | Should -Be 'cli-sign|cli-verify|sign|verify'
                 Test-Path -LiteralPath (Join-Path $output 'package-manifest.json') | Should -BeFalse
+                Test-Path -LiteralPath (Join-Path $AppDirectory 'Contents/MacOS/models/koumori/snap-model.onnx') -PathType Leaf | Should -BeTrue
                 $script:macPublishStages.Add('dmg')
-                $image = Join-Path $output "AegiNext-$ProductVersion-osx-arm64.dmg"
+                $image = Join-Path $output "AegiNext-$ProductVersion-$RuntimeIdentifier.dmg"
                 Set-Content -LiteralPath $image -Value 'verified compressed disk image fixture'
                 return $image
             }
 
-            $publishArguments = @{ RepositoryRoot = $root; RuntimeIdentifier = 'osx-arm64'; SkipBuild = $true; CreateDmg = $CreateDmg }
+            $script:macPublishRuntimeIdentifier = $RuntimeIdentifier
+            $publishArguments = @{ RepositoryRoot = $root; RuntimeIdentifier = $RuntimeIdentifier; SkipBuild = $true; CreateDmg = $CreateDmg }
             if ($RelativeRepository)
             {
                 $publishArguments.RepositoryRoot = [IO.Path]::GetRelativePath((Get-Location).Path, $root)
@@ -758,6 +855,14 @@ Describe 'macOS app icon and disk image publishing' {
             $manifest.BuildNumber | Should -Be 271
             $paths = @($manifest.Files | ForEach-Object { $_.Path.Replace('\', '/') })
             $paths | Should -Contain 'AegiNext.app/Contents/Resources/AppIcon.icns'
+            $manifest.Koumori.SchemaVersion | Should -Be 3
+            $manifest.Koumori.ModelId | Should -Be $ModelFixture.ModelId
+            $manifest.Koumori.FileCount | Should -Be $ModelFixture.Names.Count
+            foreach ($name in $ModelFixture.Names)
+            {
+                $paths | Should -Contain "AegiNext.app/Contents/MacOS/models/koumori/$name"
+            }
+            @($manifest.Licenses | Where-Object File -like '*WHISPER-LICENSE.txt').Count | Should -BeGreaterThan 0
             $spectreRecords = @($manifest.Licenses | Where-Object { [IO.Path]::GetFullPath($_.PackageRoot) -eq $spectreLicenses })
             $spectreRecords.Count | Should -Be 2
             @($spectreRecords | Where-Object File -like '*LICENSE-Spectre.Console.md').Sha256 |
@@ -768,17 +873,17 @@ Describe 'macOS app icon and disk image publishing' {
             }
             if ($CreateDmg)
             {
-                $paths | Should -Contain "AegiNext-$($Snapshot.ProductVersion)-osx-arm64.dmg"
+                $paths | Should -Contain "AegiNext-$($Snapshot.ProductVersion)-$RuntimeIdentifier.dmg"
                 ($script:macPublishStages -join '|') | Should -Be 'cli-sign|cli-verify|sign|verify|dmg'
                 Should -Invoke New-AegiNextMacDiskImage -Times 1 -Exactly
             }
             else
             {
-                $paths | Should -Not -Contain "AegiNext-$($Snapshot.ProductVersion)-osx-arm64.dmg"
+                $paths | Should -Not -Contain "AegiNext-$($Snapshot.ProductVersion)-$RuntimeIdentifier.dmg"
                 ($script:macPublishStages -join '|') | Should -Be 'cli-sign|cli-verify|sign|verify'
                 Should -Invoke New-AegiNextMacDiskImage -Times 0 -Exactly
             }
-            Should -Invoke Test-AegiNextPublishedCli -Times 1 -Exactly -ParameterFilter { $RuntimeIdentifier -eq 'osx-arm64' -and $ProductVersion -eq $Snapshot.ProductVersion }
+            Should -Invoke Test-AegiNextPublishedCli -Times 1 -Exactly -ParameterFilter { $RuntimeIdentifier -eq $script:macPublishRuntimeIdentifier -and $ProductVersion -eq $Snapshot.ProductVersion }
             (Test-AegiNextPublishedPackage -PackageDirectory $output).HashesVerified | Should -BeTrue
         }
     }

@@ -6,6 +6,7 @@ Import-Module ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../build/AegiNex
 . (Join-Path $PSScriptRoot 'AegiNext.PublishMetadata.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.AppBundle.ps1')
 . (Join-Path $PSScriptRoot 'AegiNext.WindowsInstaller.ps1')
+. (Join-Path $PSScriptRoot 'AegiNext.ModelPackage.ps1')
 
 function Invoke-AegiNextPublishCommand
 {
@@ -50,13 +51,15 @@ function Get-AegiNextBinaryKind
 
 function Copy-AegiNextLicenseFile
 {
-    param([string[]] $Roots, [string] $Destination)
+    param([string[]] $Roots, [string] $Destination, [string[]] $FileNames = @())
     $records = [Collections.Generic.List[object]]::new()
     $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($root in $Roots)
     {
         if (!$root -or !(Test-Path -LiteralPath $root -PathType Container) -or !$seen.Add($root)) { continue }
-        $files = @(Get-ChildItem -LiteralPath $root -File | Where-Object Name -match '^(LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE|PATENTS|THIRD.?PARTY)')
+        $files = @(Get-ChildItem -LiteralPath $root -File | Where-Object {
+            $_.Name -match '^(LICENSE|LICENCE|COPYING|COPYRIGHT|NOTICE|PATENTS|THIRD.?PARTY)' -or $_.Name -in $FileNames
+        })
         foreach ($subdirectory in @('share/licenses', 'share/doc', 'licenses', 'doc', 'docs'))
         {
             $directory = Join-Path $root $subdirectory
@@ -245,6 +248,17 @@ function Test-AegiNextPublishedPackage
         default { throw "Unsupported package runtime identifier: $($manifest.RuntimeIdentifier)." }
     }
     $languages = @(Test-AegiNextPublishedLocalization -PayloadDirectory $payload)
+    if ($manifest.PSObject.Properties.Name -contains 'Koumori')
+    {
+        $model = Get-AegiNextKoumoriModelPackage -ModelDirectory (Join-Path $payload 'models/koumori')
+        if ($null -eq $model -or $manifest.Koumori.Directory -cne 'models/koumori' -or
+            $manifest.Koumori.SchemaVersion -ne $model.SchemaVersion -or $manifest.Koumori.ModelId -cne $model.ModelId -or
+            $manifest.Koumori.ManifestSha256 -cne $model.ManifestSha256 -or $manifest.Koumori.FileCount -ne $model.Files.Count -or
+            $manifest.Koumori.EncoderLicenseFile -cne $model.EncoderLicenseFile)
+        {
+            throw 'The bundled Koumori model does not match its package metadata.'
+        }
+    }
     if ($manifest.SchemaVersion -eq 2)
     {
         $entries = @('aegi-next', 'aegn-exporter', 'aegnc')
@@ -300,6 +314,7 @@ function Invoke-AegiNextPublish
     if (!$report.Ready) { throw "Publish environment is not ready: $($report.Checks | Where-Object Status -in @('Missing','Invalid','Unsupported') | ConvertTo-Json -Compress)" }
     $compilerRuntime = if ($hostInfo.Platform -eq 'Windows') { Get-AegiNextWindowsCompilerRuntime $report.NativePrefixes['cxx'] } else { $null }
     $msvcRuntime = if ($hostInfo.Platform -eq 'Windows') { Get-AegiNextWindowsMsvcRuntime -RepositoryRoot $RepositoryRoot -RuntimeDependencyDirectory $RuntimeDependencyDirectory } else { $null }
+    $modelPackage = Get-AegiNextKoumoriModelPackage -ModelDirectory (Join-Path $RepositoryRoot 'models/koumori')
     if (!$SkipBuild)
     {
         if ((Invoke-AegiNextBuild -RepositoryRoot $RepositoryRoot -Target Workbench -Configuration $Configuration -RuntimeIdentifier $rid -BuildVersion $buildVersion -FfmpegRoot $FfmpegRoot -SdlRoot $SdlRoot -RuntimeDependencyDirectory $RuntimeDependencyDirectory -Jobs $Jobs) -ne 0) { throw 'Workbench build failed.' }
@@ -355,6 +370,16 @@ function Invoke-AegiNextPublish
     $toolSuffix = if ($hostInfo.Platform -eq 'Windows') { '.exe' } else { '' }
     $sourceIdentity = Get-AegiNextSourceIdentity $RepositoryRoot
     $manifest = [ordered]@{ SchemaVersion = 2; EntryPoints = @('aegi-next', 'aegn-exporter', 'aegnc'); ProductVersion = $versionText; ReleaseTag = $buildVersion.ReleaseTag; Channel = $buildVersion.Channel; ReleaseSequence = $buildVersion.ReleaseSequence; BuildNumber = $buildVersion.BuildNumber; RuntimeIdentifier = $rid; SelfContained = $true; BuildTimeUtc = [DateTime]::UtcNow.ToString('O'); GitSha = $buildVersion.GitSha; WorkingTreeDirty = $sourceIdentity.WorkingTreeDirty; GitMetadataStatus = $sourceIdentity.Status; Tools = @("tools/ffmpeg$toolSuffix", "tools/ffprobe$toolSuffix"); ToolVersions = @(); RuntimeFrameworks = @(Get-AegiNextPublishedRuntimeFramework $payload); CompilerRuntime = $compilerRuntime; OperatingSystemPolicy = (Get-AegiNextRuntimeOperatingSystemPolicy $hostInfo); Dependencies = @(); MinimumOSVersion = $null; Licenses = @(); Files = @() }
+    $bundledModel = Copy-AegiNextKoumoriModel -RepositoryRoot $RepositoryRoot -Payload $payload -ModelPackage $modelPackage
+    if ($null -ne $bundledModel)
+    {
+        $manifest.Koumori = $bundledModel
+        Write-Information -InformationAction Continue -MessageData "[publish] Bundled Koumori model $($bundledModel.ModelId) ($($bundledModel.FileCount) files)."
+    }
+    else
+    {
+        Write-Information -InformationAction Continue -MessageData '[publish] No optional Koumori model found; publishing without a bundled model.'
+    }
     $spectreLicenseRoot = Join-Path $RepositoryRoot 'scripts/publish/licenses/spectre-console-0.57.2'
     $licenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot, $payload, $LicenseDirectory) + $RuntimeDependencyDirectory + @(Get-AegiNextNugetLicenseRoot $RepositoryRoot $rid)
     $requiredLicenseRoots = @($report.NativePrefixes.ffmpeg, $report.NativePrefixes.sdl3, $spectreLicenseRoot)
@@ -387,6 +412,10 @@ function Invoke-AegiNextPublish
     }
     Write-Information -InformationAction Continue -MessageData '[publish] Collecting third-party license notices...'
     $manifest.Licenses = @(Copy-AegiNextLicenseFile -Roots $licenseRoots -Destination (Join-Path $payload 'licenses'))
+    if ($null -ne $bundledModel -and $bundledModel.EncoderLicenseFile)
+    {
+        $manifest.Licenses += @(Copy-AegiNextLicenseFile -Roots @((Join-Path $payload 'models/koumori')) -Destination (Join-Path $payload 'licenses') -FileNames @($bundledModel.EncoderLicenseFile))
+    }
     if (!$manifest.Licenses.Count) { throw 'No third-party license notices were collected.' }
     foreach ($packageRoot in $requiredLicenseRoots | Select-Object -Unique)
     {

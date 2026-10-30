@@ -46,7 +46,7 @@ Windows 将两个 RID 换成 `win-x64`，Intel Mac 换成 `osx-x64`。Windows �
 pwsh -NoProfile -File ./build.ps1 -Target Workbench -RuntimeIdentifier win-x64 -Configuration Release
 ```
 
-Koumori 模型需手动放到可执行文件旁的 `models/koumori/`，或在自动打轴设置中选择“手动指定”并指向已有模型目录。构建、发布和 clean 均不处理模型；仓库根目录中的模型不会自动复制到运行目录。发布包路径见[发布说明](publishing.md)。
+开发运行时，将 Koumori 模型手动放到可执行文件旁的 `models/koumori/`，或在自动打轴设置中选择“手动指定”并指向已有模型目录。构建和 clean 不处理模型；发布会自动校验并打包仓库根目录 `models/koumori/` 中的完整运行模型包，规则和目标路径见[发布说明](publishing.md)。
 
 ## Rider 调试
 
