@@ -23,6 +23,7 @@ AegiNext makes subtitle creation easier to learn, supports Aegisub file standard
 ## Features
 
 - **Subtitle creation**: multiple tracks, waveform and spectrogram timing, and ASS/SRT import and export.
+- **ONNX smart snapping**: a local audio model predicts subtitle boundaries for clip dragging, trimming, and classic mouse timing.
 - **Styles and effects**: rich text, karaoke, keyframes, motion paths, masks, and reusable scripts.
 - **Modern workspace**: dockable panels, light and dark themes, English, Simplified Chinese and Japanese interfaces, and custom shortcuts.
 - **Saving and export**: autosave, backup recovery, burned-in video/HDR export, and switchable subtitles embedded in MKV/MP4 without re-encoding audio or video.
@@ -34,6 +35,18 @@ AegiNext makes subtitle creation easier to learn, supports Aegisub file standard
 3. Adjust its style, save with **Cmd/Ctrl + S**, and export subtitles through **Format** or video through **Encoding**.
 
 For broad video compatibility, select **Settings → Media → Auto** decoding. macOS negotiates VideoToolbox support for the actual codec/profile, including HEVC 4:2:2/4:4:4, AV1, VP9, and ProRes 422/4444 on capable devices, while preserving source precision, chroma, and Alpha. Unsupported hardware inputs fall back to CPU. ProRes Alpha composites onto black; **GPU (strict)** requires confirmed hardware acceleration without fallback. See [media compatibility](docs/en/media.md).
+
+## ONNX smart snapping
+
+Koumori analyzes audio locally through ONNX Runtime, predicting subtitle boundaries using timing conventions learned from corrected subtitles. Smart snapping aligns clips with model candidates as you move them or trim either edge. It also works with classic Aegisub mouse timing.
+
+1. In **Settings → Automatic timing**, select **Enable the local timing model** and use an available built-in model or manually specify a complete model directory.
+2. Open media with an audio track and let background analysis prepare snap candidates. Follow progress or cancel in the task center while continuing to edit.
+3. Enable **Smart snapping**, the magic-wand button in the timeline toolbar, then drag a subtitle clip or either edge.
+
+Starts snap to model starts, and ends snap to model ends. The maximum snap distance defaults to **250 ms** and is adjustable in automatic timing settings; snapping is also limited to **8 pixels** on the timeline. Hold **Alt** to temporarily disable snapping. See [subtitle editing](docs/en/subtitle-editing.md#timeline-clip-timing) for more timeline controls.
+
+![ONNX smart snapping demo: dragging subtitle edges over the spectrogram to align with model-predicted boundaries](docs/assets/onnx-snapping.gif)
 
 ## Aegisub compatibility
 
