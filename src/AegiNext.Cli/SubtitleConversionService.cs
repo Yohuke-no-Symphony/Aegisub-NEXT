@@ -60,9 +60,15 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
             {
                 document = ProjectEditingOperations.ImportSubtitleLines(new(), SubtitleTextFormat.ParseSrt(source), Path.GetFileNameWithoutExtension(inputPath));
             }
+            else if (extension.Equals(".lrc", StringComparison.OrdinalIgnoreCase))
+            {
+                var imported = LrcSubtitleFormat.Parse(source);
+                document = ProjectEditingOperations.ImportSubtitleLines(new(), imported.Lines, Path.GetFileNameWithoutExtension(inputPath));
+                diagnostics = imported.Diagnostics;
+            }
             else
             {
-                throw new CliUsageException("Conversion input must be .aeginext, .ass, or .srt.");
+                throw new CliUsageException("Conversion input must be .aeginext, .ass, .srt, or .lrc.");
             }
         }
         cancellationToken.ThrowIfCancellationRequested();
@@ -83,9 +89,13 @@ public sealed class SubtitleConversionService : ISubtitleConversionService
         {
             result = new(SubtitleTextFormat.WriteSrt(document.Subtitles, timeOffset), SubtitleFormatLossAnalysis.ForSrt(document));
         }
+        else if (target.Equals("lrc", StringComparison.OrdinalIgnoreCase) || target.Equals("elrc", StringComparison.OrdinalIgnoreCase))
+        {
+            result = LrcSubtitleFormat.Write(document, timeOffset, target.Equals("elrc", StringComparison.OrdinalIgnoreCase));
+        }
         else
         {
-            throw new CliUsageException("--target must be ass or srt.");
+            throw new CliUsageException("--target must be ass, srt, lrc, or elrc.");
         }
         cancellationToken.ThrowIfCancellationRequested();
         return result with { Diagnostics = diagnostics.AddRange(result.Diagnostics) };

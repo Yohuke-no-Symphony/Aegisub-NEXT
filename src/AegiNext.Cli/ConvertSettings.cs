@@ -7,7 +7,7 @@ namespace AegiNext.Cli;
 public sealed class ConvertSettings : CliCommandSettings
 {
     [CommandOption("--target <FORMAT>")]
-    [Description("Target subtitle format: ass or srt.")]
+    [Description("Target subtitle format: ass, srt, lrc, or elrc (Enhanced LRC with word timing).")]
     public string? Target { get; set; }
 
     [CommandOption("--accept-loss")]

@@ -11,40 +11,40 @@ public sealed class ConvertRunner(CliRuntime runtime, ISubtitleConversionService
     {
         ArgumentNullException.ThrowIfNull(settings);
         var fullWizard = settings.Input is null && settings.Target is null && settings.Output is null && !settings.AcceptLoss;
-        var input = settings.Input is null ? null : CliPaths.ResolveInput(settings.Input, ".aeginext", ".ass", ".srt");
+        var input = settings.Input is null ? null : CliPaths.ResolveInput(settings.Input, ".aeginext", ".ass", ".srt", ".lrc");
         var target = settings.Target is null ? null : NormalizeTarget(settings.Target);
         if (settings.Output is not null)
         {
-            CliPaths.ValidateExplicitOutput(settings.Output, ["ass", "srt"], target);
+            CliPaths.ValidateExplicitOutput(settings.Output, ["ass", "srt", "lrc"], target is null ? null : TargetExtension(target));
             if (input is not null && target is not null)
             {
-                CliPaths.ResolveOutput(input, settings.Output, target);
+                CliPaths.ResolveOutput(input, settings.Output, TargetExtension(target));
             }
         }
         if ((input is null || target is null) && !runtime.CanPrompt(settings))
         {
-            throw new CliUsageException("convert requires --input/-i PATH and --target ass|srt; interactive prompts are disabled.");
+            throw new CliUsageException("convert requires --input/-i PATH and --target ass|srt|lrc|elrc; interactive prompts are disabled.");
         }
         while (input is null)
         {
             var value = await runtime.PromptTextAsync("Input file path:", cancellationToken).ConfigureAwait(false);
             try
             {
-                input = CliPaths.ResolveInput(value, ".aeginext", ".ass", ".srt");
+                input = CliPaths.ResolveInput(value, ".aeginext", ".ass", ".srt", ".lrc");
             }
             catch (CliUsageException error)
             {
                 runtime.Console.WriteLine(error.Message);
             }
         }
-        target ??= await runtime.SelectAsync("Select target subtitle format:", ["ass", "srt"], cancellationToken).ConfigureAwait(false);
+        target ??= await runtime.SelectAsync("Select target subtitle format:", ["ass", "srt", "lrc", "elrc"], cancellationToken).ConfigureAwait(false);
         var outputOption = settings.Output;
         if (fullWizard)
         {
             var value = await runtime.PromptTextAsync("Output file or directory (leave blank to use the input directory):", cancellationToken, allowEmpty: true).ConfigureAwait(false);
             outputOption = string.IsNullOrWhiteSpace(value) ? null : value;
         }
-        var output = CliPaths.ResolveOutput(input, outputOption, target);
+        var output = CliPaths.ResolveOutput(input, outputOption, TargetExtension(target));
         runtime.Console.WriteLine($"Converting: {input}");
         runtime.Console.WriteLine($"Target: {target} -> {output}");
         var result = await conversion.ConvertAsync(input, target, cancellationToken).ConfigureAwait(false);
@@ -95,10 +95,17 @@ public sealed class ConvertRunner(CliRuntime runtime, ISubtitleConversionService
 
     private static string NormalizeTarget(string target)
     {
-        if (!target.Equals("ass", StringComparison.OrdinalIgnoreCase) && !target.Equals("srt", StringComparison.OrdinalIgnoreCase))
+        var normalized = target.ToLowerInvariant();
+        if (normalized is not ("ass" or "srt" or "lrc" or "elrc"))
         {
-            throw new CliUsageException("--target must be ass or srt.");
+            throw new CliUsageException("--target must be ass, srt, lrc, or elrc.");
         }
-        return target.ToLowerInvariant();
+        return normalized;
+    }
+
+    /// <summary>elrc（增强型 LRC）与 lrc 共用 .lrc 扩展名。</summary>
+    internal static string TargetExtension(string target)
+    {
+        return target == "elrc" ? "lrc" : target;
     }
 }
