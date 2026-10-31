@@ -10,7 +10,7 @@
 |---|---|
 | [快速开始](quick-start.md) | 完成第一个字幕工程与视频 |
 | [工作台](workbench.md) | 面板、播放、布局、工程备份与效果库分享 |
-| [字幕编辑](subtitle-editing.md) | 富文本、卡拉 OK、试听、ASS 与 SRT |
+| [字幕编辑](subtitle-editing.md) | 富文本、卡拉 OK、试听、ASS、SRT 与 LRC |
 | [ASS 互转换能力](ass-compatibility.md) | 对应、超集与缺失功能，转换边界和优先级 |
 | [ASS 标签核查](ass-tag-audit.md) | 原生能力、双向转换、实现状态与转换边界 |
 | [时间后处理](timing-post-processor.md) | 保存样式关联并处理时间线选中片段 |

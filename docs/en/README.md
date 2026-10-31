@@ -10,7 +10,7 @@ Start with [Quickstart](quick-start.md): create a project, time a subtitle, and 
 |---|---|
 | [Quickstart](quick-start.md) | Your first project and subtitled video |
 | [Workbench](workbench.md) | Panels, playback, layouts, project backups, and effect-library sharing |
-| [Subtitle editing](subtitle-editing.md) | Rich text, karaoke, audition, ASS, and SRT |
+| [Subtitle editing](subtitle-editing.md) | Rich text, karaoke, audition, ASS, SRT, and LRC |
 | [ASS interoperability](ass-compatibility.md) | Correspondence, gaps, conversion limits, and priorities |
 | [ASS tag audit](ass-tag-audit.md) | Native capabilities, conversion in each direction, implementation status, and conversion boundaries |
 | [Timing post-processor](timing-post-processor.md) | Associate timing options with styles and process selected timeline clips |

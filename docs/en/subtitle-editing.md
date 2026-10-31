@@ -62,6 +62,7 @@ Leaving the whole panel or deactivating its floating window pauses playback. Cha
 |---|---|
 | Format → Aegisub → Import / Export | ASS styling, karaoke, and supported masks |
 | Format → SRT → Import / Export | Text and timing |
+| Format → LRC → Import / Export / Export Enhanced LRC | Line timing; Enhanced LRC also keeps per-word karaoke timing |
 
 Imports create independent tracks; overlapping cues keep their times on additional tracks. One Undo removes the batch. ASS PlayRes maps to the existing project canvas. Invalid structure, times, dimensions, UTF-8, or resource limits reject the import.
 
@@ -82,6 +83,10 @@ Supported whole-line or inline `\t` converts font size, spacing, color/alpha, sh
 ASS style `MarginL`, `MarginR`, and `MarginV` map independently to these three margins. Nonzero dialogue values override the corresponding style value; zero inherits it. Import scales Left/Right by the PlayRes width ratio and Vertical by the height ratio. Export writes the three values separately, keeping ordinary margin placement automatic and preserving explicit `\pos` placement. Export uses `WrapStyle: 1`; font metrics and wrapping can still differ from an ASS player.
 
 Exports include all subtitle tracks. SRT reports loss of rich styling, highlighting, masks, and animation. ASS uses track order for layers; project times remain exact until millisecond SRT or centisecond ASS output. Karaoke endpoints quantize independently; a collapsed positive duration keeps at least one centisecond with an overlap warning. Values outside the player's 32-bit millisecond range reject export. Files use UTF-8 and atomic writes.
+
+LRC import accepts `[mm:ss]`, `[mm:ss.x]`, `[mm:ss.xx]`, `[mm:ss.xxx]`, and `[mm:ss:xx]` time tags (hours are not supported). A line with several time tags is duplicated at each time. Each line ends at the next later line; the last line ends at its final word tag, otherwise at `[length:]`, otherwise after 5 s. Blank timed lines act as end markers. `[offset:]` is applied (a positive offset shows lyrics earlier; negative results clamp to zero). Other ID tags such as `[ar:]` and `[ti:]` are reported but not stored. Enhanced LRC `<mm:ss.xx>` word tags become sweep karaoke segments; invalid word timing is reported and the line keeps its plain text.
+
+LRC export writes `[mm:ss.xx]` (floored to centiseconds), inserts blank end markers for gaps and after the last line, truncates overlapping lines at the next start with a warning, and joins line breaks with spaces. **Export Enhanced LRC** also writes `<mm:ss.xx>` word tags from karaoke segments. Styling, appearance, layers, and inactive karaoke are reported as conversion losses. Output is UTF-8 without a BOM.
 
 ## Merge projects from multiple contributors
 

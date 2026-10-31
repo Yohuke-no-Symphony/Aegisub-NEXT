@@ -22,7 +22,7 @@ AegiNext makes subtitle creation easier to learn, supports Aegisub file standard
 
 ## Features
 
-- **Subtitle creation**: multiple tracks, waveform and spectrogram timing, and ASS/SRT import and export.
+- **Subtitle creation**: multiple tracks, waveform and spectrogram timing, and ASS/SRT/LRC (including Enhanced LRC) import and export.
 - **ONNX smart snapping**: a local audio model predicts subtitle boundaries for clip dragging, trimming, and classic mouse timing.
 - **Styles and effects**: rich text, karaoke, keyframes, motion paths, masks, and reusable scripts.
 - **Modern workspace**: dockable panels, light and dark themes, English, Simplified Chinese and Japanese interfaces, and custom shortcuts.
@@ -71,13 +71,14 @@ For mouse timing, select a subtitle and enable **Classic Aegisub timing** using 
 |---|---|---|
 | ASS (`.ass`) | Base/local styles, left/right/vertical margins, karaoke, static positioning, and supported masks | Format → Aegisub → Import / Export |
 | SRT (`.srt`) | Subtitle text and start/end times | Format → SRT → Import / Export |
+| LRC / Enhanced LRC (`.lrc`) | Line timing; Enhanced LRC adds per-word karaoke timing | Format → LRC → Import / Export / Export Enhanced LRC |
 | AegiNext project (`.aeginext`) | Project data, tracks, styles, effects, and media references | File → Open Project / Save / Save As |
 
 Imports create independent tracks; overlapping cues keep their times on additional tracks. Exports include all subtitle tracks. Save an `.aeginext` project to continue editing.
 
 Supported ASS `\move`, `\fad`, and `\fade` animation converts to editable native tracks. Unsupported tags or animation require confirmation before import conversion. SRT export reports loss of rich styling, karaoke, masks, and animation. See [subtitle import and export](docs/en/subtitle-editing.md#import-and-export) for the full supported scope.
 
-`aegnc` ships with the application to convert ASS/SRT/project subtitles and export project video, with interactive wizards and script options. See the [command-line guide](docs/en/cli.md).
+`aegnc` ships with the application to convert ASS/SRT/LRC/project subtitles and export project video, with interactive wizards and script options. See the [command-line guide](docs/en/cli.md).
 
 ## Run from source
 

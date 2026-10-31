@@ -17,7 +17,7 @@ Use **Open Project** for an existing `.aeginext` file. To run from source, follo
 3. Enter the sentence in **Subtitles**. Adjust start/end times with seconds or `00:00:12.350`.
 4. Drag the clip to move it, or its edges to trim. Clips on the same track cannot overlap.
 
-For manual creation, seek to a start and press **Cmd/Ctrl + Enter**. Use **Format → Aegisub** or **Format → SRT** to import existing subtitles. Imports place overlapping cues on separate tracks.
+For manual creation, seek to a start and press **Cmd/Ctrl + Enter**. Use **Format → Aegisub**, **Format → SRT**, or **Format → LRC** to import existing subtitles. Imports place overlapping cues on separate tracks.
 
 ## Style and review
 
