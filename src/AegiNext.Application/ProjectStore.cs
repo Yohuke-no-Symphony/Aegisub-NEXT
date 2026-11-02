@@ -156,7 +156,7 @@ public static class ProjectStore
         if (root.ValueKind != JsonValueKind.Object ||
             !root.TryGetProperty("version", out var version) ||
             version.ValueKind != JsonValueKind.Number ||
-            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or ProjectDocument.CURRENT_VERSION))
+            !version.TryGetInt32(out var number) || number is not (3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15 or 16 or 17 or 18 or 19 or ProjectDocument.CURRENT_VERSION))
         {
             throw new InvalidDataException($"Only project versions 3 through {ProjectDocument.CURRENT_VERSION} are supported; open older projects with the corresponding application version.");
         }

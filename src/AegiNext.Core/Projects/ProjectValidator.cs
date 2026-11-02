@@ -49,7 +49,8 @@ public static partial class ProjectValidator
         if (document.Media is { } media)
         {
             Asset(assets, media.AssetId, ProjectAssetKind.MEDIA);
-            Require(media.VideoStreamIndex >= 0 && media.AudioStreamIndex is null or >= 0, "The media stream index is invalid.");
+            Require(media.VideoStreamIndex is null or >= 0 && media.AudioStreamIndex is null or >= 0 &&
+                (media.VideoStreamIndex is not null || media.AudioStreamIndex is not null), "The media stream index is invalid.");
         }
 
         var trackIds = new HashSet<Guid>();

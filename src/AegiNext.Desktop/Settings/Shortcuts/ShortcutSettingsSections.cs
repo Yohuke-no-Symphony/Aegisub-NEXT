@@ -13,7 +13,7 @@ internal static class ShortcutSettingsSections
         [
             WorkbenchCommand.NEW_PROJECT, WorkbenchCommand.OPEN_PROJECT, WorkbenchCommand.MERGE_PROJECT,
             WorkbenchCommand.CLOSE_PROJECT,
-            WorkbenchCommand.SAVE_PROJECT, WorkbenchCommand.SAVE_PROJECT_AS, WorkbenchCommand.OPEN_MEDIA,
+            WorkbenchCommand.SAVE_PROJECT, WorkbenchCommand.SAVE_PROJECT_AS, WorkbenchCommand.OPEN_MEDIA, WorkbenchCommand.OPEN_AUDIO,
             WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.IMPORT_ASS, WorkbenchCommand.IMPORT_LRC, WorkbenchCommand.IMPORT_IMAGES,
             WorkbenchCommand.EXPORT_SUBTITLES, WorkbenchCommand.EXPORT_ASS, WorkbenchCommand.EXPORT_LRC, WorkbenchCommand.EXPORT_ENHANCED_LRC, WorkbenchCommand.EXPORT_VIDEO
         ]);

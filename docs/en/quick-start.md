@@ -10,6 +10,8 @@
 
 Use **Open Project** for an existing `.aeginext` file. To run from source, follow [Building](building.md). Check the package manifest for its minimum OS version.
 
+For audio-only work (songs, podcasts), choose **File → Open Audio** instead. It replaces the project's media; Preview shows subtitles on a black canvas, and video export is unavailable. See [Media integration](media.md#audio-only-projects).
+
 ## Make a subtitle
 
 1. Click a timeline track heading to choose the destination.

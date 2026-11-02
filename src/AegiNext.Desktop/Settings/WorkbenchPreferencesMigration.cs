@@ -50,7 +50,8 @@ internal static class WorkbenchPreferencesMigration
         var drawingCommands = commands.Where(command => command <= WorkbenchCommand.VIEW_DRAWING_TOOLS);
         var effectLibraryCommands = commands.Where(command => command <= WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER);
         var autoTimingCommands = commands.Where(command => command <= WorkbenchCommand.AUTO_TIMING);
-        if (!present.SetEquals(autoTimingCommands) && !present.SetEquals(effectLibraryCommands) && !present.SetEquals(drawingCommands) && !present.SetEquals(imageCommands) && !present.SetEquals(updateCommands) && !present.SetEquals(clipBoundaryCommands) && !present.SetEquals(mergeCommands) && !present.SetEquals(processorCommands) && !present.SetEquals(timingCommands) && !present.SetEquals(clipCommands) && !present.SetEquals(maskCommands) && !present.SetEquals(aboutCommands) && !present.SetEquals(legacy) && !present.SetEquals(previous) && !present.SetEquals(current) && !present.SetEquals(subtitleDetails) && !present.SetEquals(focusCommands) && !present.SetEquals(projectCommands))
+        var lrcCommands = commands.Where(command => command <= WorkbenchCommand.EXPORT_ENHANCED_LRC);
+        if (!present.SetEquals(lrcCommands) && !present.SetEquals(autoTimingCommands) && !present.SetEquals(effectLibraryCommands) && !present.SetEquals(drawingCommands) && !present.SetEquals(imageCommands) && !present.SetEquals(updateCommands) && !present.SetEquals(clipBoundaryCommands) && !present.SetEquals(mergeCommands) && !present.SetEquals(processorCommands) && !present.SetEquals(timingCommands) && !present.SetEquals(clipCommands) && !present.SetEquals(maskCommands) && !present.SetEquals(aboutCommands) && !present.SetEquals(legacy) && !present.SetEquals(previous) && !present.SetEquals(current) && !present.SetEquals(subtitleDetails) && !present.SetEquals(focusCommands) && !present.SetEquals(projectCommands))
         {
             return value;
         }

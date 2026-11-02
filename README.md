@@ -36,6 +36,8 @@ AegiNext makes subtitle creation easier to learn, supports Aegisub file standard
 
 For broad video compatibility, select **Settings → Media → Auto** decoding. macOS negotiates VideoToolbox support for the actual codec/profile, including HEVC 4:2:2/4:4:4, AV1, VP9, and ProRes 422/4444 on capable devices, while preserving source precision, chroma, and Alpha. Unsupported hardware inputs fall back to CPU. ProRes Alpha composites onto black; **GPU (strict)** requires confirmed hardware acceleration without fallback. See [media compatibility](docs/en/media.md).
 
+Audio-only projects: use **File → Open Audio** to time subtitles against a song or other audio file. It replaces the project's media, keeps waveform/spectrogram/Koumori timing, previews subtitles on a black canvas, and disables video export. See [media](docs/en/media.md#audio-only-projects).
+
 ## ONNX smart snapping
 
 Koumori analyzes audio locally through ONNX Runtime, predicting subtitle boundaries using timing conventions learned from corrected subtitles. Smart snapping aligns clips with model candidates as you move them or trim either edge. It also works with classic Aegisub mouse timing.

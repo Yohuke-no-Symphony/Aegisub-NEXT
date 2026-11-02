@@ -65,5 +65,6 @@ public enum WorkbenchCommand
     AUTO_TIMING,
     IMPORT_LRC,
     EXPORT_LRC,
-    EXPORT_ENHANCED_LRC
+    EXPORT_ENHANCED_LRC,
+    OPEN_AUDIO
 }

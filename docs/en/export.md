@@ -14,6 +14,8 @@ Saved projects default to `project directory/output/project name-yyyyMMdd-HHmmss
 
 Export captures the project when started and runs in an independent `aegn-exporter` process. Later edits do not affect the job. Success atomically commits the new file; failure/cancellation cleans only its own temporary output. Existing destinations are rejected. Invalid input, output selection failures, task startup failures, and encoding or muxing failures show an error dialog and record full details in the log. Correct the settings after acknowledging the error and retry. Cancelling an export does not show an error dialog.
 
+Projects opened with **File → Open Audio** have no video stream, so video export and subtitle muxing are disabled with an explanatory message. Export subtitles through **Format** instead.
+
 ## Embed subtitles (stream copy)
 
 Embedding combines all project subtitles into one new track that the player can turn on or off. The source video, all audio tracks, and existing subtitle tracks are copied without re-encoding audio or video, preserving picture quality. Existing subtitles keep their default and forced flags. The new track is never forced and is not default in MKV. An MP4 without existing subtitles enables its sole new subtitle track at the container level; its initial display depends on the player, and it can still be turned on or off.

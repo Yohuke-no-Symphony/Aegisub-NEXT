@@ -51,6 +51,7 @@ internal static class WorkbenchIcon
         {
             "New" or "NEW_PROJECT" or "File" => MaterialIconKind.FileDocumentOutline,
             "Open" or "OpenProject" or "OPEN_PROJECT" or "OPEN_MEDIA" => MaterialIconKind.FolderOpen,
+            "OPEN_AUDIO" => MaterialIconKind.Waveform,
             "Save" or "SavePreset" or "SAVE_PROJECT" or "LAYOUT_SAVE" => MaterialIconKind.ContentSave,
             "SaveAs" or "SaveEffectAs" or "SAVE_PROJECT_AS" or "LAYOUT_SAVE_AS" => MaterialIconKind.ContentSaveEditOutline,
             "ManageLayouts" or "LAYOUT_MANAGE" => MaterialIconKind.ViewDashboard,

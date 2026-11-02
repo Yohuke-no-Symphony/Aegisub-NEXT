@@ -72,7 +72,8 @@ public static class ShortcutDefaults
             new(WorkbenchCommand.AUTO_TIMING, ""),
             new(WorkbenchCommand.IMPORT_LRC, ""),
             new(WorkbenchCommand.EXPORT_LRC, ""),
-            new(WorkbenchCommand.EXPORT_ENHANCED_LRC, "")
+            new(WorkbenchCommand.EXPORT_ENHANCED_LRC, ""),
+            new(WorkbenchCommand.OPEN_AUDIO, "")
         ];
     }
 }

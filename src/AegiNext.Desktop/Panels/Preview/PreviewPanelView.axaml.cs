@@ -254,7 +254,7 @@ internal sealed partial class PreviewPanelView : UserControl, IWorkbenchPanelVie
             return null;
         }
 
-        return VideoFileTypes.SupportsPath(path) ? path : null;
+        return VideoFileTypes.SupportsPath(path) || AudioFileTypes.SupportsPath(path) ? path : null;
     }
     private void OnPreviewUpdated(object? sender, VideoPreviewUpdate update)
     {

@@ -67,3 +67,12 @@ dotnet test Tests/AegiNext.Media.Tests/AegiNext.Media.Tests.csproj -c Release --
 Native cases need the switches and tool paths in [Building](building.md). Test actual PTS/pixels, seeking, supersession, cancellation, frame lifetime, and faults. Silent system-device tests do not establish speaker latency; Headless presentation does not establish native HDR or GPU acceptance.
 
 To verify the original HEVC 4:4:4 10-bit failure through the real desktop preview controller, set `AEGINEXT_COMPATIBILITY_MEDIA_PATH` to the absolute source path and run `OriginalVideoCompatibilityTests` with native tests enabled. Optional `AEGINEXT_COMPATIBILITY_REPORT_PATH` records frame hashes, intervals, fallback diagnostics, and resource counts.
+
+## Audio-only projects
+
+**File → Open Audio** (no default shortcut; assign one in **Settings → Shortcuts**) opens a file that has an audio stream but no video stream, such as WAV, FLAC, MP3, M4A/AAC, OGG/Opus, or MKA. Dropping an audio file on Preview does the same.
+
+- **Replace semantics:** a project has exactly one media binding. Opening audio replaces the whole binding (the current video and its audio are unlinked); it does not swap only the soundtrack under the existing video. If the chosen file also contains a real video stream, it is opened as ordinary video media. Embedded cover art (`attached_pic`) is ignored.
+- **Preview:** Preview shows a black canvas at the project resolution with subtitles rendered on top. The canvas advances on a fixed 25 fps grid driven by the audio clock, so playback, seeking, F8/F9, QWER/mouse timing, waveform, spectrogram, and Koumori analysis use the audio stream as with video media. Video keyframes are unavailable, so keyframe snapping in the timing post-processor is skipped.
+- **Project file:** `.aeginext` stores the audio reference with `videoStreamIndex: null` (project format version 20). Save, reopen, and relinking a moved file work as with video. Older builds reject version 20 projects instead of misreading them.
+- **Export:** video export and subtitle muxing need a video stream and are disabled with an explanatory message; the CLI rejects such projects too. Subtitle formats (ASS, SRT, …) still export normally.

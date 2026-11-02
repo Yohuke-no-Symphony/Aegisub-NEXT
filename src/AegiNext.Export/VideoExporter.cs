@@ -87,6 +87,11 @@ public sealed class VideoExporter
             throw new ArgumentException("Video export requires linked media and even canvas dimensions.", nameof(request));
         }
 
+        if (request.Project.Media.VideoStreamIndex is null)
+        {
+            throw new ArgumentException("Audio-only media cannot be exported as video; bind a video file first.", nameof(request));
+        }
+
         if (!VideoExportCapabilities.Get(request.Codec).Extensions.Contains(Path.GetExtension(request.OutputPath).ToLowerInvariant()))
         {
             throw new ArgumentException("The output container is incompatible with the selected video codec.", nameof(request));

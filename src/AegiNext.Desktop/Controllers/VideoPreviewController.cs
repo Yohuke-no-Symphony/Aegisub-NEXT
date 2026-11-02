@@ -42,6 +42,17 @@ public sealed partial class VideoPreviewController : IAsyncDisposable
     private int activeOperations;
     private int disposed;
     private float volume = 1;
+
+    /// <summary>仅音频媒体占位画面的尺寸来源；工作台以工程画布尺寸提供，使字幕叠加与视频工程一致。</summary>
+    internal Func<(int Width, int Height)> AudioOnlyCanvas { get; set; } = static () => (1920, 1080);
+
+    private VideoPlaybackSession CreateAudioOnlySession(VideoPreviewMedia media, Func<MediaTime?>? audioClock)
+    {
+        var (width, height) = AudioOnlyCanvas();
+        var start = media.Start ?? MediaTime.Zero;
+        var duration = media.Duration;
+        return new(_ => new AudioOnlyFrameSource(width, height, start, duration), externalPosition: audioClock);
+    }
     private bool muted;
     private VideoDecodeMode decodeMode;
     private bool switchingDecodeMode;
@@ -54,7 +65,7 @@ public sealed partial class VideoPreviewController : IAsyncDisposable
         Func<IVideoPreviewConverter>? converterFactory = null)
         : this(VideoPreviewProbe.ProbeAsync,
             (path, index, clock, options) => new(token => VideoFrameNavigator.Open(path, index, options, token), externalPosition: clock),
-            converterFactory ?? (static () => new SdrVideoConverter()), dispatch, present, AudioPlaybackSession.OpenAsync)
+            converterFactory ?? (static () => new AudioOnlyPreviewConverter(new SdrVideoConverter())), dispatch, present, AudioPlaybackSession.OpenAsync)
     {
     }
 
@@ -296,7 +307,9 @@ public sealed partial class VideoPreviewController : IAsyncDisposable
 
             Func<MediaTime?>? audioClock = media.AudioStreamIndex is not null && audioFactory is not null
                 ? () => run.Audio?.Position : null;
-            var session = sessionFactory(path, media.VideoStreamIndex, audioClock, new() { Mode = mode });
+            var session = media.VideoStreamIndex is { } videoIndex
+                ? sessionFactory(path, videoIndex, audioClock, new() { Mode = mode })
+                : CreateAudioOnlySession(media, audioClock);
             try
             {
                 run.Attach(session);

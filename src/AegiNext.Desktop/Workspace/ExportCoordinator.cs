@@ -63,6 +63,11 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
     {
         try
         {
+            if (session.Editor.Snapshot.Media is { VideoStreamIndex: null })
+            {
+                await ShowFailureAsync(new InvalidOperationException(Localization.Get("Workbench.ExportAudioOnly")));
+                return;
+            }
             await audioCompatibility.PrepareAsync();
             if (!session.TryCommitDrafts())
             {

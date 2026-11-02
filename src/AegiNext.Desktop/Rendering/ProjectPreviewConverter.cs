@@ -43,7 +43,7 @@ internal sealed class ProjectPreviewConverter : IVideoPreviewConverter, ICachedV
         this.previewFrames = previewFrames;
         this.fontCatalog = fontCatalog;
         this.getGraphics = getGraphics;
-        this.createConverter = createConverter ?? (static options => new SdrVideoConverter(options));
+        this.createConverter = createConverter ?? (static options => new AudioOnlyPreviewConverter(new SdrVideoConverter(options), options));
     }
 
     /// <inheritdoc />

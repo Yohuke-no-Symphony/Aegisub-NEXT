@@ -126,6 +126,13 @@ internal sealed partial class WorkbenchSession
                         await workflow.OpenMediaAsync(path, true);
                     }
                     break;
+                case WorkbenchCommand.OPEN_AUDIO:
+                    var audioPath = await dialogs.OpenFileAsync("Open", "AudioFiles", AudioFileTypes.Patterns);
+                    if (audioPath is not null && !closing)
+                    {
+                        await workflow.OpenMediaAsync(audioPath, true);
+                    }
+                    break;
                 case WorkbenchCommand.IMPORT_IMAGES: await Assets.PickImportAsync(false, ViewModel.Assets.SelectedFolder?.Id); break;
                 case WorkbenchCommand.IMPORT_SUBTITLES: await workflow.ImportSubtitlesAsync(); break;
                 case WorkbenchCommand.EXPORT_SUBTITLES: await workflow.ExportSubtitlesAsync(); break;
