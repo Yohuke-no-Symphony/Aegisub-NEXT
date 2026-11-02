@@ -99,10 +99,26 @@ public sealed class LrcSubtitleFormatTests
         var source = "[00:01.00]<00:01.00>Hel<00:01.30>lo <00:01.80><00:02.00>world<00:02.50>\n[00:03.00]\n";
         var imported = LrcSubtitleFormat.Parse(source).Lines;
         var text = LrcSubtitleFormat.Write(imported, MediaTime.Zero, true);
-        Assert.Equal("[00:01.00]<00:01.00>Hel<00:01.30>lo <00:01.80><00:02.00>world<00:02.50>\n[00:03.00]\n", text);
+        Assert.Equal("[00:01.00]<00:01.00>Hel<00:01.30>lo <00:01.80><00:02.00>world<00:02.50>\n", text);
         var again = LrcSubtitleFormat.Parse(text).Lines;
         Assert.Equal(imported[0].Karaoke.Select(segment => (segment.Utf16Start, segment.Utf16Length, segment.Start, segment.End)),
             again[0].Karaoke.Select(segment => (segment.Utf16Start, segment.Utf16Length, segment.Start, segment.End)));
+    }
+
+    [Fact]
+    public void EnhancedExportTagsLineStartAndEndWhenThereIsNoWordTiming()
+    {
+        SubtitleLine[] lines =
+        [
+            new() { Start = Ms(1000), End = Ms(3000), Text = "a" },
+            new() { Start = Ms(2000), End = Ms(4000), Text = "b" },
+            new() { Start = Ms(5000), End = Ms(6000), Text = "" }
+        ];
+        var text = LrcSubtitleFormat.Write(lines, MediaTime.Zero, true);
+        Assert.Equal("[00:01.00]<00:01.00>a<00:02.00>\n[00:02.00]<00:02.00>b<00:04.00>\n", text);
+        var again = LrcSubtitleFormat.Parse(text).Lines;
+        Assert.Equal("a", again[0].Text);
+        Assert.Equal("b", again[1].Text);
     }
 
     [Fact]

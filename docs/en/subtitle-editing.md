@@ -86,7 +86,7 @@ Exports include all subtitle tracks. SRT reports loss of rich styling, highlight
 
 LRC import accepts `[mm:ss]`, `[mm:ss.x]`, `[mm:ss.xx]`, `[mm:ss.xxx]`, and `[mm:ss:xx]` time tags (hours are not supported). A line with several time tags is duplicated at each time. Each line ends at the next later line; the last line ends at its final word tag, otherwise at `[length:]`, otherwise after 5 s. Blank timed lines act as end markers. `[offset:]` is applied (a positive offset shows lyrics earlier; negative results clamp to zero). Other ID tags such as `[ar:]` and `[ti:]` are reported but not stored. Enhanced LRC `<mm:ss.xx>` word tags become sweep karaoke segments; invalid word timing is reported and the line keeps its plain text.
 
-LRC export writes `[mm:ss.xx]` (floored to centiseconds), inserts blank end markers for gaps and after the last line, truncates overlapping lines at the next start with a warning, and joins line breaks with spaces. **Export Enhanced LRC** also writes `<mm:ss.xx>` word tags from karaoke segments. Styling, appearance, layers, and inactive karaoke are reported as conversion losses. Output is UTF-8 without a BOM.
+LRC export writes `[mm:ss.xx]` (floored to centiseconds), skips blank-text subtitles, inserts blank end markers for gaps and after the last line (standard LRC only; Enhanced LRC writes a closing `<mm:ss.xx>` tag on each line instead), truncates overlapping lines at the next start with a warning, and joins line breaks with spaces. **Export Enhanced LRC** also writes `<mm:ss.xx>` word tags from karaoke segments. Styling, appearance, layers, and inactive karaoke are reported as conversion losses. Output is UTF-8 without a BOM.
 
 ## Merge projects from multiple contributors
 

@@ -28,7 +28,7 @@ public sealed class LrcConversionTests
         var service = new SubtitleConversionService();
         var text = SubtitleTextFormat.ParseSrt(await File.ReadAllTextAsync(input))[0].Text;
         Assert.Equal($"[00:00.00]{text}\n[00:02.00]\n", (await service.ConvertAsync(input, "lrc", CancellationToken.None)).Text);
-        Assert.Equal($"[00:00.00]{text}\n[00:02.00]\n", (await service.ConvertAsync(input, "elrc", CancellationToken.None)).Text);
+        Assert.Equal($"[00:00.00]<00:00.00>{text}<00:02.00>\n", (await service.ConvertAsync(input, "elrc", CancellationToken.None)).Text);
     }
 
     [Theory]

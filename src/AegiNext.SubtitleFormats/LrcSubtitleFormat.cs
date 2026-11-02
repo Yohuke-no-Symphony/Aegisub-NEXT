@@ -223,7 +223,7 @@ public static partial class LrcSubtitleFormat
         ImmutableArray<SubtitleFormatDiagnostic>.Builder? diagnostics = null)
     {
         ArgumentNullException.ThrowIfNull(lines);
-        var ordered = lines.OrderBy(line => line.Start).ToList();
+        var ordered = lines.OrderBy(line => line.Start).Where(line => !string.IsNullOrWhiteSpace(line.Text)).ToList();
         if (ordered.Count > MAX_ENTRIES)
         {
             throw new InvalidDataException("Subtitle exchange content exceeds the size limit.");
@@ -268,6 +268,13 @@ public static partial class LrcSubtitleFormat
                 body.Append(FormatTag('<', pending!.Value, '>'));
                 body.Append(line.Text[cursor..]);
             }
+            else if (enhanced && !string.IsNullOrWhiteSpace(line.Text))
+            {
+                // 没有逐字计时的行也写句首与句尾标签，使增强型 LRC 的每一行都带 <> 时间。
+                var lineNext = index + 1 < ordered.Count ? ordered[index + 1].Start + timeOffset : (MediaTime?)null;
+                var tail = lineNext is { } nextTime && nextTime < end ? nextTime : end;
+                body.Append(FormatTag('<', startCs, '>')).Append(line.Text).Append(FormatTag('<', Centiseconds(tail), '>'));
+            }
             else
             {
                 body.Append(line.Text);
@@ -286,7 +293,7 @@ public static partial class LrcSubtitleFormat
             {
                 diagnostics?.Add(new("Lrc.Overlap", "LRC shows one line at a time. This line overlaps the next one and ends when the next line starts.", SubtitleId: line.Id));
             }
-            else if (nextStart is null || Centiseconds(nextStart.Value) > Centiseconds(end))
+            else if (!enhanced && (nextStart is null || Centiseconds(nextStart.Value) > Centiseconds(end)))
             {
                 output.Append(FormatTag('[', Centiseconds(end), ']')).Append('\n');
             }

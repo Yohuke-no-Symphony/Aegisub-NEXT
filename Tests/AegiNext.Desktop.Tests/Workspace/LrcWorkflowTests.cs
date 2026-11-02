@@ -31,7 +31,7 @@ public sealed class LrcWorkflowTests
         Assert.Null(context.Session.LastError);
         var bytes = await File.ReadAllBytesAsync(context.Dialogs.SavePath);
         Assert.NotEqual(0xEF, bytes[0]);
-        Assert.Equal("[00:01.00]<00:01.00>你好 <00:01.50>世界<00:02.00>\n[00:03.00]\n", Encoding.UTF8.GetString(bytes));
+        Assert.Equal("[00:01.00]<00:01.00>你好 <00:01.50>世界<00:02.00>\n", Encoding.UTF8.GetString(bytes));
 
         context.Dialogs.SavePath = Path.Combine(context.DirectoryPath, "standard.lrc");
         await context.Session.ExecuteCommandAsync(WorkbenchCommand.EXPORT_LRC);
