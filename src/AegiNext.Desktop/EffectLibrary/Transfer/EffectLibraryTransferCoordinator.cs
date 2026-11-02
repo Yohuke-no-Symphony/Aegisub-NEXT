@@ -48,7 +48,7 @@ internal sealed class EffectLibraryTransferCoordinator : IDisposable
             model.SetOperationBusy(true);
             await context.Initialization.WaitAsync(token);
             var paths = await dialogs.OpenFilesAsync("ImportEffectLibrary", "EffectLibraryFiles",
-                ["*.aegistyles", "*.aegieffect", "*.aegifx", "*.aegilibrary"]).WaitAsync(token);
+                ["*.aegistyles", "*.ass", "*.aegieffect", "*.aegifx", "*.aegilibrary"]).WaitAsync(token);
             token.ThrowIfCancellationRequested();
             if (paths.Count == 0)
             {

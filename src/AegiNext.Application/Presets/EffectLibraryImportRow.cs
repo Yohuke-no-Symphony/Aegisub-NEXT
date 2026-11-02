@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application.Presets;
 
@@ -20,4 +21,5 @@ public sealed record EffectLibraryImportRow
     public int? ConflictGroupId { get; init; }
     public EffectLibraryImportConflictReason ConflictReason { get; init; }
     public ImmutableArray<string> ConflictingNames { get; init; } = [];
+    public ImmutableArray<SubtitleFormatDiagnostic> Diagnostics { get; init; } = [];
 }

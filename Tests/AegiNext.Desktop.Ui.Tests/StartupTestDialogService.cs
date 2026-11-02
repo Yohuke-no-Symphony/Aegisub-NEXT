@@ -28,6 +28,7 @@ internal sealed class StartupTestDialogService : IWorkbenchDialogService
     internal TaskCompletionSource<bool>? PendingMediaConfirmation { get; set; }
 
     internal string[]? OpenPaths { get; set; }
+    internal string[]? OpenFilesPatterns { get; private set; }
     internal string? FolderPath { get; set; }
     internal int FolderRequests { get; private set; }
     internal int PresetChoice { get; set; } = 2;
@@ -50,6 +51,7 @@ internal sealed class StartupTestDialogService : IWorkbenchDialogService
 
     public Task<IReadOnlyList<string>> OpenFilesAsync(string title, string typeName, string[] patterns)
     {
+        OpenFilesPatterns = patterns.ToArray();
         return Task.FromResult<IReadOnlyList<string>>(OpenPaths ?? (OpenPath is null ? [] : [OpenPath]));
     }
 

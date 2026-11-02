@@ -1,12 +1,14 @@
 using AegiNext.Core.Presets;
 using System.Collections.Immutable;
 using AegiNext.Core.Fonts;
+using AegiNext.SubtitleFormats;
 
 namespace AegiNext.Application.Presets;
 
 internal sealed record EffectLibraryImportEntry
 {
     internal ImmutableArray<FontFamilyBundle> FontFamilies { get; init; } = [];
+    internal ImmutableArray<SubtitleFormatDiagnostic> Diagnostics { get; init; } = [];
     internal EffectLibraryItemKind Kind { get; init; }
     internal SubtitleStylePreset? Style { get; init; }
     internal EffectScriptPreset? Effect { get; init; }

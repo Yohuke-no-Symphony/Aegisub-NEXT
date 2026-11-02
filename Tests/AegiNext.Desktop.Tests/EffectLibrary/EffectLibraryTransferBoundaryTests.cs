@@ -11,6 +11,45 @@ namespace AegiNext.Desktop.Tests.EffectLibrary;
 public sealed class EffectLibraryTransferBoundaryTests
 {
     [Fact]
+    public async Task AssImportTasksDeclareTheirInputAndCommitSelectedStylesWithoutAProject()
+    {
+        using var settingsDirectory = new TemporaryWorkbenchDirectory();
+        using var inputDirectory = new TemporaryWorkbenchDirectory();
+        await using var owner = EffectLibraryTestFonts.CreateOwner(settingsDirectory.Path);
+        await owner.Initialization;
+        var input = Path.Combine(inputDirectory.Path, "styles.ass");
+        await File.WriteAllTextAsync(input, """
+            [V4+ Styles]
+            Format: Name, Fontname, Fontsize, PrimaryColour
+            Style: Main,Unavailable fixture font,28,&H00FFFFFF
+            Style: Unused,Unavailable fixture font,40,&H00FFFFFF
+            """);
+        var task = new EffectLibraryImportAnalysisTask(owner, [input]);
+        Assert.Contains(AegiTaskResource.DeferredStoragePath(input), task.Resources);
+        Assert.Contains(owner.GetLibraryResource(PersonalLibraryKind.EFFECT_LIBRARY), task.Resources);
+
+        var analysis = owner.Tasks.Submit(task);
+        var plan = await analysis.Completion;
+
+        Assert.Null(analysis.Snapshot.ScopeId);
+        Assert.Equal(2, plan.Rows.Length);
+        Assert.All(plan.Rows, row => Assert.Contains(row.Diagnostics, diagnostic => diagnostic.Code == "Ass.PlayRes"));
+        Assert.Empty(owner.StyleLibrary.Snapshot.Presets);
+        var commitTask = new EffectLibraryImportCommitTask(owner, plan,
+            new Dictionary<int, EffectLibraryImportDecision> { [1] = EffectLibraryImportDecision.SKIP });
+        Assert.Contains(owner.GetLibraryResource(PersonalLibraryKind.EFFECT_LIBRARY), commitTask.Resources);
+        var commit = owner.Tasks.Submit(commitTask);
+        await commit.Completion;
+
+        Assert.Null(commit.Snapshot.ScopeId);
+        Assert.Equal("Main", Assert.Single(owner.StyleLibrary.Snapshot.Presets).Name);
+        Assert.Empty(owner.EffectLibrary.Snapshot.FontFamilies);
+        Assert.False(Directory.Exists(owner.LibraryPaths.FontsDirectory));
+        Assert.Equal(AegiTaskState.Succeeded, analysis.Snapshot.State);
+        Assert.Equal(AegiTaskState.Succeeded, commit.Snapshot.State);
+    }
+
+    [Fact]
     public async Task StyleAndEffectImportsDeclareTheirInputPathsAndCommitThroughTheSharedService()
     {
         using var settingsDirectory = new TemporaryWorkbenchDirectory();

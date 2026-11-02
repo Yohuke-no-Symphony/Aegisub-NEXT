@@ -8,7 +8,7 @@ using AegiNext.Core.Timing;
 namespace AegiNext.SubtitleFormats;
 
 /// <summary>ASS v4+ 交换；将不支持的效果列为损失，拒绝非法结构和时间。</summary>
-public static class AssSubtitleFormat
+public static partial class AssSubtitleFormat
 {
     /// <summary>以目标画布重采样静态字幕布局，保留对白来源的稳定顺序。</summary>
     public static AssImportResult Parse(string source, int targetWidth = 1920, int targetHeight = 1080,
@@ -110,47 +110,24 @@ public static class AssSubtitleFormat
         {
             throw new InvalidDataException("Only ASS v4+ files with Script Info and Events sections are supported.");
         }
-        var hasWidth = info.TryGetValue("PlayResX", out var x);
-        var hasHeight = info.TryGetValue("PlayResY", out var y);
-        var width = hasWidth ? AssFormatValues.Integer(x!) : targetWidth;
-        var height = hasHeight ? AssFormatValues.Integer(y!) : targetHeight;
-        if (width <= 0 || height <= 0)
-        {
-            throw new InvalidDataException("ASS PlayRes values must be positive.");
-        }
+        var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
+        var script = ReadScriptInfo(info, requestedWidth, requestedHeight, diagnostics);
+        var width = script.Width;
+        var height = script.Height;
         if (requestedWidth is null)
         {
             ProjectValidator.Validate(new ProjectDocument { Width = width, Height = height });
-            targetWidth = width;
-            targetHeight = height;
         }
-        var scaleX = (double)targetWidth / width;
-        var scaleY = (double)targetHeight / height;
-        var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
-        var colorMatrix = Get(info, "YCbCr Matrix", string.Empty).Trim().ToUpperInvariant();
-        if (colorMatrix is "TV.601" or "PC.601" or "TV.709" or "PC.709" or "TV.240M" or "PC.240M" or "TV.FCC" or "PC.FCC")
-        {
-            diagnostics.Add(new("Ass.YCbCrMatrix", $"ASS YCbCr Matrix ({colorMatrix}) color-matching information was not imported. The project preserves RGB values; colors may differ if the source player matches them to the video color space."));
-        }
-        var wrapStyle = AssFormatValues.Integer(Get(info, "WrapStyle", "0"));
-        if (wrapStyle is < 0 or > 3)
-        {
-            diagnostics.Add(new("Ass.WrapStyle", "ASS WrapStyle must be between 0 and 3. Default smart wrapping mode 0 was used."));
-            wrapStyle = 0;
-        }
-        var layoutWidth = AssFormatValues.Integer(Get(info, "LayoutResX", "0"));
-        var layoutHeight = AssFormatValues.Integer(Get(info, "LayoutResY", "0"));
-        var blurUsesPlayRes = layoutWidth <= 0 || layoutHeight <= 0;
-        var blurScaleX = (double)targetWidth / (blurUsesPlayRes ? width : layoutWidth);
-        var blurScaleY = (double)targetHeight / (blurUsesPlayRes ? height : layoutHeight);
-        var perspectiveDistance = SceneProjection.DEFAULT_DISTANCE * (blurUsesPlayRes ? 1 : (double)targetHeight / layoutHeight);
-        var scaledBorder = !Get(info, "ScaledBorderAndShadow", "yes").Equals("no", StringComparison.OrdinalIgnoreCase);
-        var resolution = scaledBorder ? new AssResolutionContext(scaleX, scaleY) :
-            blurUsesPlayRes ? new(1, 1) : new((double)targetWidth / layoutWidth, (double)targetHeight / layoutHeight);
-        if (!scaledBorder && blurUsesPlayRes)
-        {
-            diagnostics.Add(new("Ass.BorderLayoutResolution", "ASS does not provide complete, valid LayoutRes values. Unscaled stroke and shadow are interpreted in target canvas pixels; their appearance may differ if the original video dimensions differ."));
-        }
+        targetWidth = script.TargetWidth;
+        targetHeight = script.TargetHeight;
+        var scaleX = script.ScaleX;
+        var scaleY = script.ScaleY;
+        var wrapStyle = script.WrapStyle;
+        var blurUsesPlayRes = script.BlurUsesPlayRes;
+        var blurScaleX = script.BlurScaleX;
+        var blurScaleY = script.BlurScaleY;
+        var perspectiveDistance = script.PerspectiveDistance;
+        var resolution = script.Resolution;
         var styles = new Dictionary<string, AssStyleDefinition>(StringComparer.Ordinal);
         var unsupportedGeometry = new HashSet<string>(StringComparer.Ordinal);
         foreach (var fields in styleRows)
@@ -175,26 +152,7 @@ public static class AssSubtitleFormat
         var lines = ImmutableArray.CreateBuilder<SubtitleLine>();
         var clips = ImmutableArray.CreateBuilder<SubtitleClipImport>();
         var layers = ImmutableArray.CreateBuilder<ProjectLayer>();
-        if (!hasWidth || !hasHeight)
-        {
-            if (requestedWidth is not null)
-            {
-                diagnostics.Add(new("Ass.PlayRes", "Missing ASS PlayRes axes use the target canvas dimensions; declared axes are still resampled from their source dimensions."));
-            }
-            else
-            {
-                var missingAxes = new List<string>();
-                if (!hasWidth)
-                {
-                    missingAxes.Add("PlayResX=1920");
-                }
-                if (!hasHeight)
-                {
-                    missingAxes.Add("PlayResY=1080");
-                }
-                diagnostics.Add(new("Ass.PlayRes", $"Missing ASS PlayRes axes use default dimensions ({string.Join(", ", missingAxes)}); declared axes retain their source dimensions."));
-            }
-        }
+        AddMissingResolutionDiagnostic(script, requestedWidth is null, diagnostics);
         if (attachments)
         {
             diagnostics.Add(new("Ass.Attachments", "Embedded ASS fonts or images were not imported. Add these assets to the project separately."));

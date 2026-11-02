@@ -45,6 +45,9 @@ public sealed class EffectLibraryImportRowViewModel : ObservableObject
     public bool HasDslIdChange => Row.DslIdChanges;
     public string DslIdChangeText => Localization.Format("EffectLibrary.DslIdChange", Row.PreviousDslId ?? string.Empty, Row.DslId ?? string.Empty);
     public bool HasConflictDescription => Row.ConflictReason != EffectLibraryImportConflictReason.NONE;
+    public bool HasDiagnostics => !Row.Diagnostics.IsDefaultOrEmpty;
+    public string DiagnosticsText => HasDiagnostics
+        ? string.Join('\n', Row.Diagnostics.Select(EffectLibraryImportDiagnosticLocalization.Get)) : string.Empty;
     public string ConflictDescription => Row.ConflictReason switch
     {
         EffectLibraryImportConflictReason.DIFFERENT_CONTENT => Localization.Get("EffectLibrary.ContentConflict"),
@@ -101,5 +104,6 @@ public sealed class EffectLibraryImportRowViewModel : ObservableObject
         OnPropertyChanged(nameof(StatusText));
         OnPropertyChanged(nameof(DslIdChangeText));
         OnPropertyChanged(nameof(ConflictDescription));
+        OnPropertyChanged(nameof(DiagnosticsText));
     }
 }

@@ -45,6 +45,13 @@ public sealed class EffectLibraryTransferService
             var sourceName = Path.GetFileName(path);
             switch (Path.GetExtension(path).ToLowerInvariant())
             {
+                case ".ass":
+                    var assStyles = await AssStylePresetImporter.LoadAsync(path, cancellationToken).ConfigureAwait(false);
+                    foreach (var entry in assStyles)
+                    {
+                        AddInput(entries, entry, ref inputBytes);
+                    }
+                    break;
                 case ".aegistyles":
                     var collection = await SubtitleStylePresetStore.LoadAsync(path, cancellationToken).ConfigureAwait(false);
                     RegisterFamilies(collection.FontFamilies, inputFonts, inputFontData);
@@ -80,7 +87,7 @@ public sealed class EffectLibraryTransferService
                     }
                     break;
                 default:
-                    throw new InvalidDataException("导入文件必须是样式、完整特效、特效脚本或效果库包。");
+                    throw new InvalidDataException("导入文件必须是 ASS、样式、完整特效、特效脚本或效果库包。");
             }
             PrivateFontFiles.ValidateInputBudget(inputFonts.Values, inputBytes);
         }
@@ -344,7 +351,8 @@ public sealed class EffectLibraryTransferService
             Name = entry.Name,
             SourceName = entry.SourceName,
             IncludesFonts = !entry.FontFamilies.IsEmpty,
-            DslId = entry.DslId
+            DslId = entry.DslId,
+            Diagnostics = entry.Diagnostics
         };
         if (entry.Kind == EffectLibraryItemKind.EFFECT && BuiltinEffectScripts.Templates.FirstOrDefault(template =>
                 template.Script.Id == entry.DslId) is { } builtin)

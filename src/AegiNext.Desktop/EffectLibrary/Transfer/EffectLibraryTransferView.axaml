@@ -20,7 +20,7 @@
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" Background="Transparent">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="transfer:EffectLibraryImportRowViewModel">
-                  <Grid ColumnDefinitions="*,140" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="4" Margin="0,4">
+                  <Grid ColumnDefinitions="*,140" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="4" Margin="0,4">
                     <StackPanel Spacing="2">
                       <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
                       <TextBlock Text="{Binding SourceName}" Classes="field" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding SourceName}" />
@@ -40,6 +40,9 @@
                     <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding ConflictDescription}" IsVisible="{Binding HasConflictDescription}"
                                Classes="field" TextWrapping="Wrap" />
                     <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="{Binding DslIdChangeText}" IsVisible="{Binding HasDslIdChange}"
+                               Classes="field" TextWrapping="Wrap" />
+                    <TextBlock Name="EffectLibraryImportDiagnostics" Grid.Row="4" Grid.ColumnSpan="2"
+                               Text="{Binding DiagnosticsText}" IsVisible="{Binding HasDiagnostics}"
                                Classes="field" TextWrapping="Wrap" />
                   </Grid>
                 </DataTemplate>

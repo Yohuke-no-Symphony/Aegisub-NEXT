@@ -1,5 +1,6 @@
 using AegiNext.Application.Presets;
 using AegiNext.Desktop.EffectLibrary.Transfer;
+using AegiNext.Desktop.I18n;
 using AegiNext.Desktop.Tests.EffectLibrary;
 
 namespace AegiNext.Desktop.Tests;
@@ -7,6 +8,14 @@ namespace AegiNext.Desktop.Tests;
 [Collection("Workspace session")]
 public sealed class EffectLibraryTransferViewModelTests
 {
+    private static readonly string[] assDiagnosticKeys =
+    [
+        "EffectLibrary.AssStyleScale", "EffectLibrary.AssStyleRotation", "EffectLibrary.AssStyleGeometry",
+        "EffectLibrary.AssStyleSecondaryColor", "EffectLibrary.AssLetterSpacingRange", "EffectLibrary.AssBorderResampling",
+        "EffectLibrary.AssYCbCrMatrix", "EffectLibrary.AssWrapStyle", "EffectLibrary.AssBorderLayoutResolution",
+        "EffectLibrary.AssPlayRes", "EffectLibrary.AssWrapModeApproximation"
+    ];
+
     [Fact]
     public void ExportEntryDoesNotRequireSelectionAndRespectsBusyStateAndDisposal()
     {
@@ -83,5 +92,80 @@ public sealed class EffectLibraryTransferViewModelTests
         Assert.Contains("old-script", model.DslIdChangeText, StringComparison.Ordinal);
         Assert.Contains("new-script", model.DslIdChangeText, StringComparison.Ordinal);
         Assert.Throws<ArgumentException>(() => model.Decision = EffectLibraryImportDecision.REPLACE);
+    }
+
+    [Fact]
+    public void AssDiagnosticsUseLocalizedCodesAndKeepUnknownMessagesWhenRefreshingChoices()
+    {
+        var source = new EffectLibraryImportRow
+        {
+            Kind = EffectLibraryItemKind.STYLE,
+            Name = "Imported style",
+            SourceName = "styles.ass",
+            Status = EffectLibraryImportStatus.NEW,
+            CanImport = true,
+            Diagnostics =
+            [
+                new("Ass.StyleScale", "Source scale message"),
+                new("Ass.StyleRotation", "Source rotation message"),
+                new("Ass.StyleGeometry", "Source geometry message"),
+                new("Ass.StyleSecondaryColor", "Source secondary color message"),
+                new("Ass.LetterSpacingRange", "Source spacing message"),
+                new("Ass.BorderResampling", "Source border message"),
+                new("Ass.YCbCrMatrix", "Source matrix message"),
+                new("Ass.WrapStyle", "Source wrapping message"),
+                new("Ass.BorderLayoutResolution", "Source layout message"),
+                new("Ass.PlayRes", "Source resolution message"),
+                new("Ass.WrapModeApproximation", "Source balanced wrapping message"),
+                new("Ass.FutureConversion", "未来格式提示 keeps its original message")
+            ]
+        };
+        var model = new EffectLibraryImportRowViewModel(source);
+        model.Decision = EffectLibraryImportDecision.SKIP;
+        var choice = model.SelectedDecisionChoice;
+        var notifications = new List<string?>();
+        model.PropertyChanged += (_, e) => notifications.Add(e.PropertyName);
+
+        model.RefreshLanguage();
+
+        Assert.True(model.HasDiagnostics);
+        Assert.Equal(assDiagnosticKeys.Select(Localization.Get).Append(source.Diagnostics[^1].Message),
+            model.DiagnosticsText.Split('\n'));
+        Assert.Same(source, model.Row);
+        Assert.Same(choice, model.SelectedDecisionChoice);
+        Assert.Equal(EffectLibraryImportDecision.SKIP, model.Decision);
+        Assert.Contains(nameof(model.DiagnosticsText), notifications);
+    }
+
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("zh-CN")]
+    [InlineData("ja-JP")]
+    public void AssDiagnosticTranslationsExistInEachLanguagePack(string language)
+    {
+        var pack = LanguagePackReader.Read(Path.Combine(AppContext.BaseDirectory, "i18n", language + ".json"));
+
+        Assert.All(assDiagnosticKeys, key =>
+        {
+            Assert.True(pack.Strings.TryGetValue(key, out var value), $"Missing {language} translation: {key}");
+            Assert.False(string.IsNullOrWhiteSpace(value));
+        });
+        Assert.Contains("ASS", pack.Strings["EffectLibrary.ImportDescription"], StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ImportRowsWithoutDiagnosticsHaveNoConversionHint(bool defaultDiagnostics)
+    {
+        var source = new EffectLibraryImportRow
+        {
+            Status = EffectLibraryImportStatus.IDENTICAL,
+            Diagnostics = defaultDiagnostics ? default : []
+        };
+        var model = new EffectLibraryImportRowViewModel(source);
+
+        Assert.False(model.HasDiagnostics);
+        Assert.Empty(model.DiagnosticsText);
     }
 }
