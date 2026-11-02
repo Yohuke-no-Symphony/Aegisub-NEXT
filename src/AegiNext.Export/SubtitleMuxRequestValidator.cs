@@ -20,6 +20,11 @@ internal static class SubtitleMuxRequestValidator
             throw new ArgumentException("内挂字幕需要媒体绑定和至少一条工程字幕。", nameof(request));
         }
 
+        if (request.Project.Media.VideoStreamIndex is null)
+        {
+            throw new ArgumentException("Audio-only media cannot be exported as video; bind a video file first.", nameof(request));
+        }
+
         _ = SubtitleMuxCapabilities.GetSubtitleCodec(Path.GetExtension(request.OutputPath));
     }
 }

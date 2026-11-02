@@ -266,7 +266,7 @@ public sealed class ExportCommandTests
             Assert.Equal(2, await app.RunAsync(["export", "--quality", "52"]));
             Assert.Equal(hostCulture, CultureInfo.CurrentCulture);
             Assert.Equal(hostCulture, CultureInfo.CurrentUICulture);
-            Assert.Contains("Convert ASS, SRT, or project subtitles", console.Output);
+            Assert.Contains("Convert ASS, SRT, LRC, or project subtitles", console.Output);
             Assert.Contains("interactive prompts are disabled", console.Output);
             Assert.Contains("Quality must be between 0 and 51", console.Output);
             Assert.Null(service.Request);

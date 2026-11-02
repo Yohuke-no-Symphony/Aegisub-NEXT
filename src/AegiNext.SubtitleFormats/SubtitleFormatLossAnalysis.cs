@@ -45,6 +45,42 @@ public static class SubtitleFormatLossAnalysis
         return diagnostics.ToImmutable();
     }
 
+    /// <summary>LRC 只保留文字与行起点；增强型额外保留启用的卡拉 OK 片段时间（统一为扫光）。</summary>
+    public static ImmutableArray<SubtitleFormatDiagnostic> ForLrc(ProjectDocument document, bool enhanced)
+    {
+        ProjectValidator.Validate(document);
+        var diagnostics = ImmutableArray.CreateBuilder<SubtitleFormatDiagnostic>();
+        foreach (var line in document.Subtitles)
+        {
+            if (!line.InlineSpans.IsEmpty || line.Style != new SubtitleStyle() || !line.KaraokeStyleSpans.IsEmpty || line.KaraokeStyle is not null)
+            {
+                diagnostics.Add(new("Lrc.Appearance", "LRC preserves only text and timing. Local styles, highlight colors, and layout will be discarded.", SubtitleId: line.Id));
+            }
+            if (!enhanced && !line.Karaoke.IsEmpty)
+            {
+                diagnostics.Add(new("Lrc.Karaoke", "Standard LRC has no word timing. Karaoke timing will be discarded; use Enhanced LRC to keep it.", SubtitleId: line.Id));
+            }
+            if (enhanced && line.Karaoke.Any(segment => segment.HighlightKind != KaraokeHighlightKind.SWEEP))
+            {
+                diagnostics.Add(new("Lrc.KaraokeMode", "Enhanced LRC word timestamps have no highlight mode. Step and outline karaoke are written as plain word times.", SubtitleId: line.Id));
+            }
+            if (enhanced && !line.InactiveKaraoke.IsEmpty)
+            {
+                diagnostics.Add(new("Lrc.InactiveKaraoke", "Disabled karaoke groups cannot be stored in Enhanced LRC and are exported as ordinary text.", SubtitleId: line.Id));
+            }
+        }
+        foreach (var layer in document.Layers)
+        {
+            if (layer.Effects.Any(instance => instance.IsEnabled) || layer.Blur > 0 || layer.Mask is not null || !layer.Tracks.IsEmpty)
+            {
+                diagnostics.Add(new("Lrc.LayerFeatures", "LRC does not support effect instances, blur, masks, or animation. They will be discarded during export.",
+                    SubtitleId: layer.SubtitleId, LayerId: layer.SubtitleId is null ? layer.Id : null));
+            }
+        }
+        AddCompositionLoss(document, diagnostics);
+        return diagnostics.ToImmutable();
+    }
+
     internal static void AddCompositionLoss(ProjectDocument document, ImmutableArray<SubtitleFormatDiagnostic>.Builder diagnostics, bool supportsMasks = false)
     {
         foreach (var layer in document.Layers)

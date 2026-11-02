@@ -17,7 +17,7 @@ aegnc convert -i input.ass --target srt -o subtitles/ --accept-loss
 aegnc convert -i project.aeginext --target ass -o subtitles.ass --accept-loss
 ```
 
-输入支持 ASS v4+、SRT 和 `.aeginext`，目标为 `--target ass|srt`；首版不接受 TXT 或传统 SSA。输入参数为 `--input/-i`，输出参数为 `--output/-o`。相对路径按当前工作目录解释。
+输入支持 ASS v4+、SRT 和 `.aeginext`，目标为 `--target ass|srt|lrc|elrc`（`elrc` 输出带逐字卡拉 OK 标签的增强型 LRC，扩展名为 `.lrc`），输入另支持 LRC 与增强型 LRC；首版不接受 TXT 或传统 SSA。输入参数为 `--input/-i`，输出参数为 `--output/-o`。相对路径按当前工作目录解释。
 
 省略输出时写入输入目录，使用源文件名与目标扩展名；同格式转换使用 `.converted` 后缀。目录输出自动添加数字后缀避让已有文件。显式输出文件必须使用对应扩展名，不能覆盖已有文件或指向输入文件。
 

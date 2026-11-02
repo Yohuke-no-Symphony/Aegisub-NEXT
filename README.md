@@ -22,7 +22,7 @@ AegiNext makes subtitle creation easier to learn, supports Aegisub file standard
 
 ## Features
 
-- **Subtitle creation**: multiple tracks, waveform and spectrogram timing, and ASS/SRT import and export.
+- **Subtitle creation**: multiple tracks, waveform and spectrogram timing, and ASS/SRT/LRC (including Enhanced LRC) import and export.
 - **ONNX smart snapping**: a local audio model predicts subtitle boundaries for clip dragging, trimming, and classic mouse timing.
 - **Styles and effects**: rich text, karaoke, keyframes, motion paths, masks, and reusable scripts.
 - **Modern workspace**: dockable panels, light and dark themes, English, Simplified Chinese and Japanese interfaces, and custom shortcuts.
@@ -35,6 +35,8 @@ AegiNext makes subtitle creation easier to learn, supports Aegisub file standard
 3. Adjust its style, save with **Cmd/Ctrl + S**, and export subtitles through **Format** or video through **Encoding**.
 
 For broad video compatibility, select **Settings → Media → Auto** decoding. macOS negotiates VideoToolbox support for the actual codec/profile, including HEVC 4:2:2/4:4:4, AV1, VP9, and ProRes 422/4444 on capable devices, while preserving source precision, chroma, and Alpha. Unsupported hardware inputs fall back to CPU. ProRes Alpha composites onto black; **GPU (strict)** requires confirmed hardware acceleration without fallback. See [media compatibility](docs/en/media.md).
+
+Audio-only projects: use **File → Open Audio** to time subtitles against a song or other audio file. It replaces the project's media, keeps waveform/spectrogram/Koumori timing, previews subtitles on a black canvas, and disables video export. See [media](docs/en/media.md#audio-only-projects).
 
 ## ONNX smart snapping
 
@@ -71,13 +73,14 @@ For mouse timing, select a subtitle and enable **Classic Aegisub timing** using 
 |---|---|---|
 | ASS (`.ass`) | Base/local styles, left/right/vertical margins, karaoke, static positioning, and supported masks | Format → Aegisub → Import / Export |
 | SRT (`.srt`) | Subtitle text and start/end times | Format → SRT → Import / Export |
+| LRC / Enhanced LRC (`.lrc`) | Line timing; Enhanced LRC adds per-word karaoke timing | Format → LRC → Import / Export / Export Enhanced LRC |
 | AegiNext project (`.aeginext`) | Project data, tracks, styles, effects, and media references | File → Open Project / Save / Save As |
 
 Imports create independent tracks; overlapping cues keep their times on additional tracks. Exports include all subtitle tracks. Save an `.aeginext` project to continue editing.
 
 Supported ASS `\move`, `\fad`, and `\fade` animation converts to editable native tracks. Unsupported tags or animation require confirmation before import conversion. SRT export reports loss of rich styling, karaoke, masks, and animation. See [subtitle import and export](docs/en/subtitle-editing.md#import-and-export) for the full supported scope.
 
-`aegnc` ships with the application to convert ASS/SRT/project subtitles and export project video, with interactive wizards and script options. See the [command-line guide](docs/en/cli.md).
+`aegnc` ships with the application to convert ASS/SRT/LRC/project subtitles and export project video, with interactive wizards and script options. See the [command-line guide](docs/en/cli.md).
 
 ## Run from source
 

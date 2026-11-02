@@ -17,7 +17,7 @@ aegnc convert -i input.ass --target srt -o subtitles/ --accept-loss
 aegnc convert -i project.aeginext --target ass -o subtitles.ass --accept-loss
 ```
 
-Input supports ASS v4+, SRT, and `.aeginext`; choose `--target ass|srt`. TXT and traditional SSA are outside the first CLI version. Input uses `--input/-i`, output uses `--output/-o`, and explicit relative paths resolve against the current working directory.
+Input supports ASS v4+, SRT, LRC (including Enhanced LRC), and `.aeginext`; choose `--target ass|srt|lrc|elrc`. `elrc` writes Enhanced LRC with per-word karaoke tags to a `.lrc` file. TXT and traditional SSA are outside the first CLI version. Input uses `--input/-i`, output uses `--output/-o`, and explicit relative paths resolve against the current working directory.
 
 Omitting output writes beside the input using its stem and the target extension. Same-format conversion adds `.converted`. Directory output adds numeric suffixes to avoid existing files. An explicit output file must have the matching extension and cannot overwrite an existing file or name the input.
 

@@ -39,6 +39,10 @@ internal sealed class ExportRunner(CliRuntime runtime, IVideoExportService servi
         {
             throw new CliUsageException("Video export requires a media binding and a project canvas with even width and height.");
         }
+        if (project.Media.VideoStreamIndex is null)
+        {
+            throw new CliUsageException("Video export is unavailable for audio-only projects; bind a video file first.");
+        }
         var request = new VideoExportRequest(project, Path.GetDirectoryName(input)!, output)
             .WithSettings(configuration.Settings) with
         {

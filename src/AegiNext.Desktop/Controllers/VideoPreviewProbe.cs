@@ -23,7 +23,32 @@ internal static class VideoPreviewProbe
             .Where(stream => stream.CodecType == "video" && stream.Video is not null && stream.Disposition.GetValueOrDefault("attached_pic") == 0)
             .OrderByDescending(stream => stream.Disposition.GetValueOrDefault("default"))
             .ThenBy(stream => stream.Index)
-            .FirstOrDefault() ?? throw new InvalidDataException(Localization.Get("Preview.NoVideo"));
+            .FirstOrDefault();
+        var audio = asset.Streams.Where(stream => stream.CodecType == "audio")
+            .OrderByDescending(stream => stream.Disposition.GetValueOrDefault("default"))
+            .ThenBy(stream => stream.Index).FirstOrDefault();
+        var playbackOrigin = asset.ReportedStart ?? asset.Streams
+            .Where(stream => (stream.CodecType is "video" or "audio") && stream.Disposition.GetValueOrDefault("attached_pic") == 0)
+            .Select(stream => ReadStart(stream.Timing))
+            .Where(timestamp => timestamp.HasValue)
+            .Min();
+        if (selected is null)
+        {
+            // 仅音频媒体：以音频流计时，预览使用占位画面；尺寸与帧率保留工程设置。
+            if (audio is null)
+            {
+                throw new InvalidDataException(Localization.Get("Preview.NoVideo"));
+            }
+
+            var audioStart = ReadStart(audio.Timing) ?? asset.ReportedStart;
+            var audioDuration = ReadDuration(audio.Timing) ?? asset.ReportedDuration;
+            return new(null, audioStart, audioDuration is { } length && length > MediaTime.Zero ? length : null, audio.Index)
+            {
+                PlaybackOrigin = playbackOrigin,
+                AudioCodecName = audio.CodecName
+            };
+        }
+
         if (!selected.Video!.DisplayMatrices.IsDefaultOrEmpty)
         {
             throw new NotSupportedException(Localization.Get("Preview.DisplayMatrix"));
@@ -40,14 +65,6 @@ internal static class VideoPreviewProbe
         var timing = selected.Timing;
         var start = ReadStart(timing) ?? asset.ReportedStart;
         var duration = ReadDuration(timing) ?? asset.ReportedDuration;
-        var audio = asset.Streams.Where(stream => stream.CodecType == "audio")
-            .OrderByDescending(stream => stream.Disposition.GetValueOrDefault("default"))
-            .ThenBy(stream => stream.Index).FirstOrDefault();
-        var playbackOrigin = asset.ReportedStart ?? asset.Streams
-            .Where(stream => (stream.CodecType is "video" or "audio") && stream.Disposition.GetValueOrDefault("attached_pic") == 0)
-            .Select(stream => ReadStart(stream.Timing))
-            .Where(timestamp => timestamp.HasValue)
-            .Min();
         return new(selected.Index, start, duration is { } value && value > MediaTime.Zero ? value : null, audio?.Index,
             selected.Video.Width, selected.Video.Height, selected.Video.AverageFrameRate ?? selected.Video.FrameRate)
         {

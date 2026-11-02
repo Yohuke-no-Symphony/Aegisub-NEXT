@@ -69,6 +69,10 @@ public static partial class SubtitleTextFormat
         foreach (var line in lines.OrderBy(line => line.Start))
         {
             CheckText(line.Text);
+            if (string.IsNullOrWhiteSpace(line.Text))
+            {
+                continue;
+            }
             var start = line.Start + timeOffset;
             var end = line.End + timeOffset;
             if (start < MediaTime.Zero)

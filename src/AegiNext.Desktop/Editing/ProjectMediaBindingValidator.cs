@@ -29,6 +29,11 @@ internal static class ProjectMediaBindingValidator
             throw new InvalidDataException("当前媒体的播放零点与项目绑定不一致，请重新绑定媒体。");
         }
 
+        if (media.IsAudioOnly)
+        {
+            return;
+        }
+
         if (media.VideoWidth is not > 0 || media.VideoHeight is not > 0 ||
             document.Width != media.VideoWidth || document.Height != media.VideoHeight)
         {

@@ -24,6 +24,14 @@ public sealed class VideoEncodingOptionsTests
         VideoExporter.Validate(request);
     }
 
+    [Fact]
+    public void AudioOnlyProjectsAreRejectedBeforeStartingWorker()
+    {
+        var request = CreateRequest();
+        request = request with { Project = request.Project with { Media = request.Project.Media! with { VideoStreamIndex = null, AudioStreamIndex = 0 } } };
+        Assert.Throws<ArgumentException>(() => VideoExporter.Validate(request));
+    }
+
     [Theory]
     [InlineData(99999)]
     [InlineData(200000001)]

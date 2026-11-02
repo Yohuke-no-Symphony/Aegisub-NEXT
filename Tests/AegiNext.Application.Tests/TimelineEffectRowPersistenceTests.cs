@@ -18,7 +18,7 @@ public sealed class TimelineEffectRowPersistenceTests
 
         var loaded = ProjectStore.Deserialize(ProjectStore.Serialize(document));
 
-        Assert.Equal(19, loaded.Version);
+        Assert.Equal(ProjectDocument.CURRENT_VERSION, loaded.Version);
         Assert.Equal(order.ToArray(), loaded.Layers[0].EffectRowOrder.ToArray());
         Assert.Equal(document.TimelineViewState.ExpandedAnimationClips.ToArray(), loaded.TimelineViewState.ExpandedAnimationClips.ToArray());
         Assert.Equal(document.TimelineViewState.CollapsedAnimationRows.ToArray(), loaded.TimelineViewState.CollapsedAnimationRows.ToArray());

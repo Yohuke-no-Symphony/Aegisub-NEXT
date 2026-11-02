@@ -1,3 +1,5 @@
+using AegiNext.Desktop.Diagnostics;
+
 namespace AegiNext.Desktop.Workspace.Diagnostics;
 
 internal sealed class WorkbenchLogJournal : IDisposable
@@ -116,6 +118,7 @@ internal sealed class WorkbenchLogJournal : IDisposable
     {
         var entry = new WorkbenchLogEntry(++sequence, DateTimeOffset.UtcNow, level, source, message, details);
         entries.Enqueue(entry);
+        DebugLogFile.Write(entry.FullText);
         while (entries.Count > CAPACITY)
         {
             entries.Dequeue();

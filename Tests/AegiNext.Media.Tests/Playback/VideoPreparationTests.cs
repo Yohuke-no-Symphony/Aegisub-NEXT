@@ -1,11 +1,27 @@
 using AegiNext.Core.Timing;
 using AegiNext.Media.Playback;
+using AegiNext.Media.Preview;
 using AegiNext.Media.Tests.Decoding;
 
 namespace AegiNext.Media.Tests.Playback;
 
 public sealed class VideoPreparationTests
 {
+    [Fact]
+    public async Task AudioOnlyPlaceholderFramesOpenWithPreparationEnabledAndHoldNoPixelBudget()
+    {
+        await using var session = new VideoPlaybackSession(_ => new AudioOnlyFrameSource(1920, 1080, MediaTime.Zero, new(10, 1)));
+        session.ConfigurePreparation(new(pendingCapacity: 1));
+        await session.OpenAsync();
+
+        using (var opened = await session.ReadPreparationAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5)))
+        {
+            Assert.NotNull(opened);
+            Assert.Equal(0, session.Snapshot.PreparationPendingBytes);
+        }
+        await session.CloseAsync();
+    }
+
     [Fact]
     public async Task PreparationRetainsAnEarlierUsefulFutureFrameWithoutReadingToTheFullLookahead()
     {

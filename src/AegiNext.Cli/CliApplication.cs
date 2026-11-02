@@ -42,7 +42,7 @@ public sealed class CliApplication
                 };
             });
         });
-        RegisterCommand<ConvertCommand>("convert", "Convert ASS, SRT, or project subtitles", cancellationToken => runner.RunAsync(new(), cancellationToken));
+        RegisterCommand<ConvertCommand>("convert", "Convert ASS, SRT, LRC, or project subtitles", cancellationToken => runner.RunAsync(new(), cancellationToken));
     }
 
     /// <summary>登记供追加命令使用的依赖实例。</summary>

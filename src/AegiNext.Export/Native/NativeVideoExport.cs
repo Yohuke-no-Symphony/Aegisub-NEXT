@@ -66,7 +66,8 @@ internal static class NativeVideoExport
         {
             StructSize = NativeExportAbi.REQUEST_SIZE,
             AbiVersion = NativeExportAbi.VERSION,
-            VideoStreamIndex = request.Project.Media!.VideoStreamIndex,
+            VideoStreamIndex = request.Project.Media!.VideoStreamIndex
+                ?? throw new InvalidOperationException("Audio-only media cannot be exported as video."),
             Codec = (int)request.Codec,
             Quality = mode is VideoRateControlMode.CRF or VideoRateControlMode.CQ ? settings.Quality : 0,
             Width = (uint)request.Project.Width,

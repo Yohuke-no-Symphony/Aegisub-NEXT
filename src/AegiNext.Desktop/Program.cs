@@ -12,6 +12,7 @@ internal static class Program
             return Diagnostics.PackageMediaProbe.RunAsync(media, report).GetAwaiter().GetResult();
         }
 
+        Diagnostics.DebugLogFile.Attach();
         return BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 
@@ -19,6 +20,6 @@ internal static class Program
     {
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .LogToTrace();
+            .LogToTrace(Avalonia.Logging.LogEventLevel.Warning);
     }
 }

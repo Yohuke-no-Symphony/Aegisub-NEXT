@@ -116,6 +116,7 @@ internal sealed partial class WorkbenchSession : IAsyncDisposable
             () => new ProjectPreviewConverter(GetPreviewState,
                 error => Volatile.Write(ref previewRenderError, error), previewFrames, () => Fonts.Catalog,
                 () => Volatile.Read(ref previewGraphics)));
+        controller.AudioOnlyCanvas = () => (Editor.Snapshot.Width, Editor.Snapshot.Height);
         controller.ConfigureDecodeMode(preferences.PreviewDecodeMode);
         InitializeAudioCalibration();
         workflow = new(this, dialogs);

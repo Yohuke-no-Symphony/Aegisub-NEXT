@@ -110,3 +110,5 @@ Videos inside the project directory use relative references; external videos sta
 Settings manages language, theme, accent/audio/timeline colors, shortcuts, media, projects, preview, and timing options. Shortcut recording captures a real chord; Esc cancels, and Clear disables it. macOS can choose system or window menus.
 
 Log supports filtering, copying, and clearing up to 2,000 session records. Errors mark View without stealing focus; records are not retained after restart.
+
+For debugging or bug reports, set the environment variable `AEGINEXT_DEBUG_LOG` to a file path (or `1` for `%APPDATA%\AegiNext\logs\debug.log`) before starting the app. Every Log record with its full stack trace, unhandled exceptions, and Avalonia warnings (such as binding errors) are then appended to that file, so tools and agents can read it. Unset, nothing is written.

@@ -11,12 +11,13 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
     internal static readonly WorkbenchMenuGroup[] Groups =
     [
         new("File", [WorkbenchCommand.NEW_PROJECT, WorkbenchCommand.OPEN_PROJECT, WorkbenchCommand.MERGE_PROJECT,
-            WorkbenchCommand.OPEN_MEDIA, WorkbenchCommand.IMPORT_IMAGES, null,
+            WorkbenchCommand.OPEN_MEDIA, WorkbenchCommand.OPEN_AUDIO, WorkbenchCommand.IMPORT_IMAGES, null,
             WorkbenchCommand.SAVE_PROJECT, WorkbenchCommand.SAVE_PROJECT_AS, null,
             WorkbenchCommand.EXPORT_VIDEO, null,
             WorkbenchCommand.CLOSE_PROJECT, WorkbenchCommand.EXIT]),
         new("Format", [], [new("Aegisub", [WorkbenchCommand.IMPORT_ASS, WorkbenchCommand.EXPORT_ASS]),
-            new("SRT", [WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.EXPORT_SUBTITLES])]),
+            new("SRT", [WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.EXPORT_SUBTITLES]),
+            new("LRC", [WorkbenchCommand.IMPORT_LRC, WorkbenchCommand.EXPORT_LRC, WorkbenchCommand.EXPORT_ENHANCED_LRC])]),
         new("Edit", [WorkbenchCommand.UNDO, WorkbenchCommand.REDO, null, WorkbenchCommand.OPEN_SETTINGS],
             [new("EffectLibrary", [WorkbenchCommand.OPEN_STYLE_LIBRARY, WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY,
                 WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER], LocalizationKey: "Workbench.MenuEffectLibrary", IconKey: "EffectLibrary")]),
@@ -49,8 +50,9 @@ internal sealed class WorkbenchMenuCatalog(Func<WorkbenchCommand, ICommand> comm
 
     internal static string GetMenuLabel(WorkbenchCommand command) => command switch
     {
-        WorkbenchCommand.IMPORT_ASS or WorkbenchCommand.IMPORT_SUBTITLES => Localization.Get("Workbench.FormatImport"),
-        WorkbenchCommand.EXPORT_ASS or WorkbenchCommand.EXPORT_SUBTITLES => Localization.Get("Workbench.FormatExport"),
+        WorkbenchCommand.IMPORT_ASS or WorkbenchCommand.IMPORT_SUBTITLES or WorkbenchCommand.IMPORT_LRC => Localization.Get("Workbench.FormatImport"),
+        WorkbenchCommand.EXPORT_ASS or WorkbenchCommand.EXPORT_SUBTITLES or WorkbenchCommand.EXPORT_LRC => Localization.Get("Workbench.FormatExport"),
+        WorkbenchCommand.EXPORT_ENHANCED_LRC => Localization.Get("Workbench.FormatExportEnhancedLrc"),
         _ => GetLabel(command)
     };
 

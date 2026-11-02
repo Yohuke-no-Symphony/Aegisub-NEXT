@@ -40,6 +40,20 @@ public sealed class SubtitleTextFormatTests
     }
 
     [Fact]
+    public void SrtExportSkipsBlankSubtitlesAndNumbersTheRest()
+    {
+        SubtitleLine[] lines =
+        [
+            new() { Start = MediaTime.Zero, End = new(2), Text = "" },
+            new() { Start = new(3), End = new(4), Text = "  " },
+            new() { Start = new(5), End = new(6), Text = "kept" }
+        ];
+        var result = Assert.Single(SubtitleTextFormat.ParseSrt(SubtitleTextFormat.WriteSrt(lines)));
+        Assert.Equal("kept", result.Text);
+        Assert.StartsWith("1\n", SubtitleTextFormat.WriteSrt(lines).Replace("\r\n", "\n", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void TextImportUsesRequestedExactTimingAndKeepsTextOnlyOnExport()
     {
         var imported = SubtitleTextFormat.ImportText("\n one\n\ntwo 😀\n", new(1, 3), new(5, 7));

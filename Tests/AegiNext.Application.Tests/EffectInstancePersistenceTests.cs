@@ -29,7 +29,7 @@ public sealed class EffectInstancePersistenceTests
         var bytes = ProjectStore.Serialize(before);
         var restored = ProjectStore.Deserialize(bytes);
 
-        Assert.Equal(19, restored.Version);
+        Assert.Equal(ProjectDocument.CURRENT_VERSION, restored.Version);
         Assert.Equal(bytes, ProjectStore.Serialize(restored));
         var original = Assert.Single(before.Layers[0].Effects);
         var instance = Assert.Single(restored.Layers[0].Effects);

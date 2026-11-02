@@ -1,5 +1,6 @@
 using AegiNext.Core.Timing;
 using AegiNext.Media.Decoding;
+using AegiNext.Media.Preview;
 
 namespace AegiNext.Media.Playback;
 
@@ -289,6 +290,11 @@ public sealed partial class VideoPlaybackSession
 
     private long GetPreparationFrameBytes(IVideoFrame frame)
     {
+        if (frame is AudioOnlyVideoFrame)
+        {
+            return 0;
+        }
+
         var bytes = 0L;
         for (var index = 0; index < frame.Info.PlaneCount; index++)
         {

@@ -126,11 +126,21 @@ internal sealed partial class WorkbenchSession
                         await workflow.OpenMediaAsync(path, true);
                     }
                     break;
+                case WorkbenchCommand.OPEN_AUDIO:
+                    var audioPath = await dialogs.OpenFileAsync("Open", "AudioFiles", AudioFileTypes.Patterns);
+                    if (audioPath is not null && !closing)
+                    {
+                        await workflow.OpenMediaAsync(audioPath, true);
+                    }
+                    break;
                 case WorkbenchCommand.IMPORT_IMAGES: await Assets.PickImportAsync(false, ViewModel.Assets.SelectedFolder?.Id); break;
                 case WorkbenchCommand.IMPORT_SUBTITLES: await workflow.ImportSubtitlesAsync(); break;
                 case WorkbenchCommand.EXPORT_SUBTITLES: await workflow.ExportSubtitlesAsync(); break;
                 case WorkbenchCommand.IMPORT_ASS: await workflow.ImportSubtitlesAsync(true); break;
                 case WorkbenchCommand.EXPORT_ASS: await workflow.ExportSubtitlesAsync(true); break;
+                case WorkbenchCommand.IMPORT_LRC: await workflow.ImportSubtitlesAsync(SubtitleExchangeFormat.LRC); break;
+                case WorkbenchCommand.EXPORT_LRC: await workflow.ExportSubtitlesAsync(SubtitleExchangeFormat.LRC); break;
+                case WorkbenchCommand.EXPORT_ENHANCED_LRC: await workflow.ExportSubtitlesAsync(SubtitleExchangeFormat.ENHANCED_LRC); break;
                 case WorkbenchCommand.EXPORT_VIDEO: await export.EncodeAsync(); break;
                 case WorkbenchCommand.PLAY_PAUSE:
                     await playback.TogglePlaybackAsync();

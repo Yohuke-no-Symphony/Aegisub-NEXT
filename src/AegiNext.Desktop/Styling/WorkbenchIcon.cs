@@ -51,6 +51,7 @@ internal static class WorkbenchIcon
         {
             "New" or "NEW_PROJECT" or "File" => MaterialIconKind.FileDocumentOutline,
             "Open" or "OpenProject" or "OPEN_PROJECT" or "OPEN_MEDIA" => MaterialIconKind.FolderOpen,
+            "OPEN_AUDIO" => MaterialIconKind.Waveform,
             "Save" or "SavePreset" or "SAVE_PROJECT" or "LAYOUT_SAVE" => MaterialIconKind.ContentSave,
             "SaveAs" or "SaveEffectAs" or "SAVE_PROJECT_AS" or "LAYOUT_SAVE_AS" => MaterialIconKind.ContentSaveEditOutline,
             "ManageLayouts" or "LAYOUT_MANAGE" => MaterialIconKind.ViewDashboard,
@@ -68,8 +69,8 @@ internal static class WorkbenchIcon
             "Delete" or "DeleteKeyframe" or "DELETE_SUBTITLE" or "DeleteTimelineClips" or "EffectInstanceRemove" => MaterialIconKind.Delete,
             "Undo" or "UNDO" or "Edit" => MaterialIconKind.Undo,
             "Redo" or "REDO" => MaterialIconKind.Redo,
-            "Import" or "OPEN_EFFECT_LIBRARY_TRANSFER" or "ImportFont" or "IMPORT_SUBTITLES" or "IMPORT_ASS" or "IMPORT_IMAGES" => MaterialIconKind.Import,
-            "Export" or "ExportText" or "EXPORT_SUBTITLES" or "EXPORT_ASS" or "EXPORT_VIDEO" or "VIEW_EXPORT" => MaterialIconKind.Export,
+            "Import" or "OPEN_EFFECT_LIBRARY_TRANSFER" or "ImportFont" or "IMPORT_SUBTITLES" or "IMPORT_ASS" or "IMPORT_LRC" or "IMPORT_IMAGES" => MaterialIconKind.Import,
+            "Export" or "ExportText" or "EXPORT_SUBTITLES" or "EXPORT_ASS" or "EXPORT_LRC" or "EXPORT_ENHANCED_LRC" or "EXPORT_VIDEO" or "VIEW_EXPORT" => MaterialIconKind.Export,
             "Settings" or "OPEN_SETTINGS" or "ManageStyles" => MaterialIconKind.Cog,
             "AUTO_TIMING" => MaterialIconKind.AutoFix,
             "Help" => MaterialIconKind.HelpCircleOutline,

@@ -335,6 +335,9 @@ void DecoderSession::Seek(int64_t timestamp)
         CheckCancelled();
         CheckAv(result, ErrorCode::Io, "av_seek_frame");
         avcodec_flush_buffers(codec_);
+        // A flush can leave an already finished frame in the codec output. No packet has been sent since the flush,
+        // so anything still received here belongs to the previous position and must not reach the caller.
+        for (auto stale = 0; stale < 64 && avcodec_receive_frame(codec_, scratch_.get()) == 0; ++stale) { av_frame_unref(scratch_.get()); }
         av_packet_unref(packet_);
         av_frame_unref(scratch_.get());
         pendingFrame_.reset();

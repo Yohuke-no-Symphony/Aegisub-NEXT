@@ -649,13 +649,17 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
             WithCurrentPlaybackOrigin(session.CreatePersistenceSnapshot(snapshot)), session.ProjectDirectory, finalization: true)).Completion;
     }
 
-    internal async Task ImportSubtitlesAsync(bool ass = false)
+    internal Task ImportSubtitlesAsync(bool ass = false) =>
+        ImportSubtitlesAsync(ass ? SubtitleExchangeFormat.ASS : SubtitleExchangeFormat.SRT);
+
+    internal async Task ImportSubtitlesAsync(SubtitleExchangeFormat format)
     {
+        var ass = format == SubtitleExchangeFormat.ASS;
         if (session.IsProjectBusy || !session.TryCommitDrafts())
         {
             return;
         }
-        var path = await dialogs.OpenFileAsync("Import", "SubtitleFiles", ass ? ["*.ass"] : ["*.srt"]);
+        var path = await dialogs.OpenFileAsync("Import", "SubtitleFiles", [SubtitlePattern(format)]);
         if (path is null || session.IsClosing)
         {
             return;
@@ -664,14 +668,15 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         var trackId = session.CurrentTrackId;
         var presetId = session.ViewModel.Styles.Subtitle.SelectedPreset?.Id;
         var fontLoading = ass ? session.Fonts.EnsureLoadedAsync() : Task.CompletedTask;
-        await session.ApplicationContext.Tasks.Submit(new ImportSubtitlesTask(session, this, path, ass,
+        await session.ApplicationContext.Tasks.Submit(new ImportSubtitlesTask(session, this, path, format,
             captured, session.TaskInputRevision, trackId, presetId, fontLoading)).Completion;
     }
 
-    internal async Task ImportSubtitlesCoreAsync(string path, bool ass, ProjectDocument captured, long inputRevision,
+    internal async Task ImportSubtitlesCoreAsync(string path, SubtitleExchangeFormat format, ProjectDocument captured, long inputRevision,
         Guid? trackId, Guid? presetId, Task fontLoading, AegiTaskExecutionContext context)
     {
         Guid? firstCueId;
+        var ass = format == SubtitleExchangeFormat.ASS;
         var text = await ReadSubtitleFileAsync(path, context.CancellationToken);
         var prepared = WithCurrentPlaybackOrigin(captured);
         var mapping = SubtitleTimelineExchange.GetMapping(prepared.Media);
@@ -698,8 +703,18 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         }
         else
         {
-            lines = await Task.Run(() => SubtitleTextFormat.ParseSrt(text), context.CancellationToken);
-            if (!await ConfirmConversionAsync(timingDiagnostics, lines))
+            var formatDiagnostics = ImmutableArray<SubtitleFormatDiagnostic>.Empty;
+            if (format == SubtitleExchangeFormat.SRT)
+            {
+                lines = await Task.Run(() => SubtitleTextFormat.ParseSrt(text), context.CancellationToken);
+            }
+            else
+            {
+                var lrc = await Task.Run(() => LrcSubtitleFormat.Parse(text), context.CancellationToken);
+                lines = lrc.Lines;
+                formatDiagnostics = lrc.Diagnostics;
+            }
+            if (!await ConfirmConversionAsync(formatDiagnostics.AddRange(timingDiagnostics), lines))
             {
                 return;
             }
@@ -756,22 +771,25 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         return new(session.Fonts.Faces);
     }
 
-    internal async Task ExportSubtitlesAsync(bool ass = false)
+    internal Task ExportSubtitlesAsync(bool ass = false) =>
+        ExportSubtitlesAsync(ass ? SubtitleExchangeFormat.ASS : SubtitleExchangeFormat.SRT);
+
+    internal async Task ExportSubtitlesAsync(SubtitleExchangeFormat format)
     {
         if (session.IsProjectBusy || !session.TryCommitDrafts())
         {
             return;
         }
         var document = WithCurrentPlaybackOrigin(session.Editor.Snapshot);
-        var extension = ass ? ".ass" : ".srt";
+        var extension = SubtitlePattern(format)[1..];
         var path = await dialogs.SaveFileAsync("ExportText", "SubtitleFiles", ["*" + extension], extension, "subtitles" + extension);
         if (path is not null && !session.IsClosing)
         {
-            await session.ApplicationContext.Tasks.Submit(new ExportSubtitlesTask(session, this, path, document, ass)).Completion;
+            await session.ApplicationContext.Tasks.Submit(new ExportSubtitlesTask(session, this, path, document, format)).Completion;
         }
     }
 
-    internal async Task ExportSubtitlesCoreAsync(string path, ProjectDocument document, bool ass,
+    internal async Task ExportSubtitlesCoreAsync(string path, ProjectDocument document, SubtitleExchangeFormat format,
         AegiTaskExecutionContext context)
     {
         var mapping = SubtitleTimelineExchange.GetMapping(document.Media);
@@ -779,10 +797,14 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
         var projectDirectory = session.ProjectDirectory;
         var result = await Task.Run(() =>
         {
-            if (ass)
+            if (format == SubtitleExchangeFormat.ASS)
             {
                 using var measurer = new AssSubtitlePlacementMeasurer(projectDirectory);
                 return AssSubtitleFormat.Write(document, timeOffset, measurer);
+            }
+            if (format is SubtitleExchangeFormat.LRC or SubtitleExchangeFormat.ENHANCED_LRC)
+            {
+                return LrcSubtitleFormat.Write(document, timeOffset, format == SubtitleExchangeFormat.ENHANCED_LRC);
             }
             return new SubtitleFormatWriteResult(
                 SubtitleTextFormat.WriteSrt(document.Subtitles.OrderBy(line => line.Start), timeOffset),
@@ -806,6 +828,13 @@ internal sealed partial class ProjectWorkflowCoordinator(WorkbenchSession sessio
             File.Delete(temporary);
         }
     }
+
+    private static string SubtitlePattern(SubtitleExchangeFormat format) => format switch
+    {
+        SubtitleExchangeFormat.ASS => "*.ass",
+        SubtitleExchangeFormat.LRC or SubtitleExchangeFormat.ENHANCED_LRC => "*.lrc",
+        _ => "*.srt"
+    };
 
     private static ProjectDocument WithConfirmedPlaybackOrigin(ProjectDocument document, VideoPreviewMedia media)
     {

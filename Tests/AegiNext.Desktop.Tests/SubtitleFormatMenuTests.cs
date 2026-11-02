@@ -8,16 +8,17 @@ namespace AegiNext.Desktop.Tests;
 public sealed class SubtitleFormatMenuTests
 {
     [Fact]
-    public void FormatMenuOwnsAssAndSrtCommandsAndFileKeepsVideoExport()
+    public void FormatMenuOwnsAssSrtAndLrcCommandsAndFileKeepsVideoExport()
     {
         var file = WorkbenchMenuCatalog.Groups.Single(group => group.Key == "File");
         Assert.DoesNotContain(WorkbenchCommand.IMPORT_SUBTITLES, file.Commands);
         Assert.DoesNotContain(WorkbenchCommand.EXPORT_SUBTITLES, file.Commands);
         Assert.Contains(WorkbenchCommand.EXPORT_VIDEO, file.Commands);
         var format = WorkbenchMenuCatalog.Groups.Single(group => group.Key == "Format");
-        Assert.Equal(["Aegisub", "SRT"], format.Children.Select(group => group.Key));
+        Assert.Equal(["Aegisub", "SRT", "LRC"], format.Children.Select(group => group.Key));
         Assert.Equal<WorkbenchCommand?>([WorkbenchCommand.IMPORT_ASS, WorkbenchCommand.EXPORT_ASS], format.Children[0].Commands);
         Assert.Equal<WorkbenchCommand?>([WorkbenchCommand.IMPORT_SUBTITLES, WorkbenchCommand.EXPORT_SUBTITLES], format.Children[1].Commands);
+        Assert.Equal<WorkbenchCommand?>([WorkbenchCommand.IMPORT_LRC, WorkbenchCommand.EXPORT_LRC, WorkbenchCommand.EXPORT_ENHANCED_LRC], format.Children[2].Commands);
         Assert.Equal(5, (int)WorkbenchCommand.IMPORT_SUBTITLES);
         Assert.Equal(6, (int)WorkbenchCommand.EXPORT_SUBTITLES);
         Assert.Equal(31, (int)WorkbenchCommand.VIEW_LOG);

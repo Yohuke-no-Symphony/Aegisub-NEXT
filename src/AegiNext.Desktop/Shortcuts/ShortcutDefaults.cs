@@ -69,7 +69,11 @@ public static class ShortcutDefaults
             new(WorkbenchCommand.OPEN_STYLE_LIBRARY, ""),
             new(WorkbenchCommand.OPEN_EFFECT_SCRIPT_LIBRARY, ""),
             new(WorkbenchCommand.OPEN_EFFECT_LIBRARY_TRANSFER, ""),
-            new(WorkbenchCommand.AUTO_TIMING, "")
+            new(WorkbenchCommand.AUTO_TIMING, ""),
+            new(WorkbenchCommand.IMPORT_LRC, ""),
+            new(WorkbenchCommand.EXPORT_LRC, ""),
+            new(WorkbenchCommand.EXPORT_ENHANCED_LRC, ""),
+            new(WorkbenchCommand.OPEN_AUDIO, "")
         ];
     }
 }

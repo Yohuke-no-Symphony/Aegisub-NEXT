@@ -193,7 +193,7 @@ internal sealed partial class WorkbenchSession
         var mediaSnapshot = controller.Snapshot;
         var media = controller.MediaInfo;
         var keyframesAvailable = requestKeyframes && mediaSnapshot.FilePath is not null &&
-            !mediaSnapshot.IsOpening && mediaSnapshot.Error is null && media is not null;
+            !mediaSnapshot.IsOpening && mediaSnapshot.Error is null && media is { VideoStreamIndex: not null };
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken, ProjectOperationsToken);
         context.ReportProgress(new("Tasks.TimingIndex"));
         try
@@ -203,7 +203,7 @@ internal sealed partial class WorkbenchSession
             if (keyframesAvailable)
             {
                 var path = mediaSnapshot.FilePath!;
-                var streamIndex = media!.VideoStreamIndex;
+                var streamIndex = media!.VideoStreamIndex!.Value;
                 var origin = media.Start ?? MediaTime.Zero;
                 var file = new FileInfo(path);
                 var fileLength = file.Exists ? (long?)file.Length : null;
