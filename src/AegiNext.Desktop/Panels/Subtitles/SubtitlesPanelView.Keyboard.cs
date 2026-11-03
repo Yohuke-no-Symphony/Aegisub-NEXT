@@ -118,7 +118,8 @@ internal sealed partial class SubtitlesPanelView
 
     private static bool IsSubtitleAuditionCommand(WorkbenchCommand command) =>
         command is WorkbenchCommand.AUDITION_BEFORE_SUBTITLE or WorkbenchCommand.AUDITION_AFTER_SUBTITLE or
-            WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE;
+            WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE_END or
+            WorkbenchCommand.AUDITION_SUBTITLE;
 
     private void OnSubtitleKeyDown(object? sender, KeyEventArgs e)
     {

@@ -851,6 +851,7 @@
     "Settings.AUDITION_BEFORE_SUBTITLE": "试听字幕开始前的片段",
     "Settings.AUDITION_AFTER_SUBTITLE": "试听字幕结束后的片段",
     "Settings.AUDITION_SUBTITLE_BEGIN": "试听字幕开头的片段",
+    "Settings.AUDITION_SUBTITLE_END": "试听字幕结尾的片段",
     "Settings.AUDITION_SUBTITLE": "试听当前整条字幕",
     "Settings.ADVANCE_SUBTITLE_ROW": "提交并转到下一条字幕",
     "Settings.INSERT_SUBTITLE_LINE_BREAK": "字幕内容换行",

@@ -28,6 +28,9 @@ internal static class SubtitleAuditionRange
             case WorkbenchCommand.AUDITION_SUBTITLE_BEGIN:
                 end = start + auditionLength < end ? start + auditionLength : end;
                 break;
+            case WorkbenchCommand.AUDITION_SUBTITLE_END:
+                start = end - auditionLength > start ? end - auditionLength : start;
+                break;
             case WorkbenchCommand.AUDITION_SUBTITLE:
                 break;
             default:

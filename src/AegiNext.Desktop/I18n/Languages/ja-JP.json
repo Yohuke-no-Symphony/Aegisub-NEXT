@@ -781,6 +781,7 @@
     "Settings.AUDITION_BEFORE_SUBTITLE": "字幕の開始前の音声を試聴",
     "Settings.AUDITION_AFTER_SUBTITLE": "字幕の終了後の音声を試聴",
     "Settings.AUDITION_SUBTITLE_BEGIN": "字幕の冒頭を試聴",
+    "Settings.AUDITION_SUBTITLE_END": "字幕の末尾を試聴",
     "Settings.AUDITION_SUBTITLE": "現在の字幕を試聴",
     "Settings.ADVANCE_SUBTITLE_ROW": "確定して次の字幕へ移動",
     "Settings.INSERT_SUBTITLE_LINE_BREAK": "字幕に改行を挿入",

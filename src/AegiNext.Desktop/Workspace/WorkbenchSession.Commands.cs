@@ -28,7 +28,8 @@ internal sealed partial class WorkbenchSession
             WorkbenchCommand.UNDO => editor.CanUndo,
             WorkbenchCommand.REDO => editor.CanRedo,
             WorkbenchCommand.AUDITION_BEFORE_SUBTITLE or WorkbenchCommand.AUDITION_AFTER_SUBTITLE or
-                WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE => CanAuditionSubtitle,
+                WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE_END or
+                WorkbenchCommand.AUDITION_SUBTITLE => CanAuditionSubtitle,
             WorkbenchCommand.ADVANCE_SUBTITLE_ROW or WorkbenchCommand.INSERT_SUBTITLE_LINE_BREAK => false,
             WorkbenchCommand.SEEK_CLIP_START or WorkbenchCommand.SEEK_CLIP_END => SelectedLayer is not null &&
                 controller.Snapshot.Error is null && controller.Snapshot.State is VideoPlaybackState.PAUSED or VideoPlaybackState.PLAYING or VideoPlaybackState.ENDED,
@@ -156,6 +157,7 @@ internal sealed partial class WorkbenchSession
                 case WorkbenchCommand.AUDITION_BEFORE_SUBTITLE:
                 case WorkbenchCommand.AUDITION_AFTER_SUBTITLE:
                 case WorkbenchCommand.AUDITION_SUBTITLE_BEGIN:
+                case WorkbenchCommand.AUDITION_SUBTITLE_END:
                 case WorkbenchCommand.AUDITION_SUBTITLE:
                     await PlaySubtitleAuditionAsync(command);
                     break;

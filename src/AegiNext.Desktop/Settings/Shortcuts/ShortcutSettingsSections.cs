@@ -35,7 +35,7 @@ internal static class ShortcutSettingsSections
             WorkbenchCommand.PLAY_PAUSE, WorkbenchCommand.SEEK_BACKWARD, WorkbenchCommand.SEEK_FORWARD,
             WorkbenchCommand.SEEK_CLIP_START, WorkbenchCommand.SEEK_CLIP_END,
             WorkbenchCommand.AUDITION_BEFORE_SUBTITLE, WorkbenchCommand.AUDITION_AFTER_SUBTITLE,
-            WorkbenchCommand.AUDITION_SUBTITLE_BEGIN, WorkbenchCommand.AUDITION_SUBTITLE
+            WorkbenchCommand.AUDITION_SUBTITLE_BEGIN, WorkbenchCommand.AUDITION_SUBTITLE_END, WorkbenchCommand.AUDITION_SUBTITLE
         ]);
         AddSection("Settings.ShortcutSectionPanelViews",
         [

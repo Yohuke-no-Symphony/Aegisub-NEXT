@@ -196,7 +196,8 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         return command switch
         {
             WorkbenchCommand.AUDITION_BEFORE_SUBTITLE or WorkbenchCommand.AUDITION_AFTER_SUBTITLE or
-                WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE => session.CanAuditionSubtitle && !timeline.HasActiveDrag,
+                WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE_END or
+                WorkbenchCommand.AUDITION_SUBTITLE => session.CanAuditionSubtitle && !timeline.HasActiveDrag,
             WorkbenchCommand.END_TEXT_INPUT => timeline.HasActiveDrag,
             WorkbenchCommand.COPY_CLIPS => viewModel.CanCopyClips,
             WorkbenchCommand.DELETE_SUBTITLE => viewModel.CanDeleteTimelineSelection,
@@ -217,6 +218,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             case WorkbenchCommand.AUDITION_BEFORE_SUBTITLE:
             case WorkbenchCommand.AUDITION_AFTER_SUBTITLE:
             case WorkbenchCommand.AUDITION_SUBTITLE_BEGIN:
+            case WorkbenchCommand.AUDITION_SUBTITLE_END:
             case WorkbenchCommand.AUDITION_SUBTITLE:
                 _ = session.ExecuteCommandAsync(command);
                 break;
