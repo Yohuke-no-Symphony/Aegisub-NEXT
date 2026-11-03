@@ -35,7 +35,15 @@ internal sealed partial class WorkbenchSession
             return false;
         }
 
-        SelectLayer(value.Id, value.SelectedIds.ToArray());
+        suppressClipAutoSeek = value.DeferAutoSeek;
+        try
+        {
+            SelectLayer(value.Id, value.SelectedIds.ToArray());
+        }
+        finally
+        {
+            suppressClipAutoSeek = false;
+        }
         return SelectedLayerId == value.Id && ViewModel.Effects.SelectedIds.ToHashSet().SetEquals(value.SelectedIds);
     }
 

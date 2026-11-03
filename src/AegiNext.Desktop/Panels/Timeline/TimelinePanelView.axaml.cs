@@ -126,6 +126,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
             await viewModel.SeekAsync(e.Time);
         };
         timeline.ClipSelectionChanged += (_, e) => e.SelectionAccepted = viewModel.SelectLayers(e);
+        timeline.ClipClicked += (_, _) => session.SeekSelectedClipAfterClick();
         timeline.TrackSelected += (_, e) => e.SelectionAccepted = viewModel.SelectTrack(e.Id);
         timeline.TrackReorderCompleted += async (_, e) => await viewModel.CommitTrackReorderAsync(e);
         timeline.ViewportChanged += OnViewportChanged;

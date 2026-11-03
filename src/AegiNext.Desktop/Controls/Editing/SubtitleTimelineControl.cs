@@ -51,6 +51,8 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     private readonly HashSet<Guid> selectedIds = [];
     private IReadOnlyList<MediaTime> snapBoundaries = [];
     private MediaTime? snapTarget;
+    private bool deferAutoSeek;
+    private bool clickPending;
     private AnimationValue originalAnimationValue;
     private TimelineComponentMask dragComponents;
     private IReadOnlyList<TimelineKeyframeMarker> markers = [];
@@ -110,6 +112,8 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     public event EventHandler<TimelineKeyframeEventArgs>? KeyframeMoved;
     public event EventHandler<TimelineKeyframeEventArgs>? KeyframeSelected;
     public event EventHandler<TimelineSelectionEventArgs>? ClipSelectionChanged;
+    /// <summary>点击片段后没有发生拖动，调用方可以执行自动跳转。</summary>
+    public event EventHandler? ClipClicked;
     public event EventHandler<TimelineSelectionEventArgs>? TrackSelected;
     public event EventHandler<TimelineTrackContextEventArgs>? TrackContextRequested;
     public event EventHandler<TimelineViewportEventArgs>? ViewportChanged;
@@ -561,15 +565,29 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
                 var mode = point.X - rectangle.Left < 8 ? TimelineDragMode.TRIM_START :
                     rectangle.Right - point.X < 8 ? TimelineDragMode.TRIM_END : TimelineDragMode.MOVE;
                 var initialDocument = document;
-                var accepted = SelectClip(clip, e.KeyModifiers);
+                deferAutoSeek = true;
+                bool accepted;
+                try
+                {
+                    accepted = SelectClip(clip, e.KeyModifiers);
+                }
+                finally
+                {
+                    deferAutoSeek = false;
+                }
                 if (!accepted || !ReferenceEquals(initialDocument, document) ||
                     mode == TimelineDragMode.MOVE && (e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta | KeyModifiers.Shift)) != 0)
                 {
+                    if (accepted)
+                    {
+                        ClipClicked?.Invoke(this, EventArgs.Empty);
+                    }
                     e.Handled = true;
                     return;
                 }
 
                 BeginTimingDrag(clip.Id, clip.Start, clip.End, mode, point.X, stretching);
+                clickPending = true;
                 originalTrackId = pendingTrackId = clip.TrackId;
                 capturedPointer = e.Pointer;
                 e.Pointer.Capture(this);
@@ -742,8 +760,14 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         var batchMove = IsBatchMove && canCommit && pendingStart != originalStart
             ? new TimelineClipsMoveEventArgs(dragId, movingClips.Keys, pendingStart - originalStart) : null;
         var wasBatchMove = IsBatchMove;
+        var clicked = clickPending && validDrop && pendingStart == originalStart && pendingEnd == originalEnd &&
+            targetTrack == originalTrackId;
         var effectTiming = CompleteEffectInstanceDrag();
         CancelDrag();
+        if (clicked)
+        {
+            ClipClicked?.Invoke(this, EventArgs.Empty);
+        }
         if (effectReorder is not null)
         {
             EffectClipReorderCompleted?.Invoke(this, effectReorder);
@@ -893,6 +917,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     private void CancelDrag()
     {
         var wasDragging = HasActiveDrag;
+        clickPending = false;
         snapTarget = null;
         dragMode = TimelineDragMode.NONE;
         dragEffectClipId = null;
@@ -1762,7 +1787,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         }
 
         var primary = selectedIds.Contains(clip.Id) ? clip.Id : selectedIds.First();
-        var selection = new TimelineSelectionEventArgs(primary, selectedIds.ToArray());
+        var selection = new TimelineSelectionEventArgs(primary, selectedIds.ToArray()) { DeferAutoSeek = deferAutoSeek };
         ClipSelectionChanged?.Invoke(this, selection);
         if (!selection.SelectionAccepted)
         {
