@@ -52,6 +52,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     private IReadOnlyList<MediaTime> snapBoundaries = [];
     private MediaTime? snapTarget;
     private bool deferAutoSeek;
+    private ProjectLayer? rollPartner;
     private bool clickPending;
     private AnimationValue originalAnimationValue;
     private TimelineComponentMask dragComponents;
@@ -108,6 +109,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     public event EventHandler<TimelineSelectionEventArgs>? LayerSelected;
     public event EventHandler<TimelineTimingEventArgs>? TimingChanged;
     public event EventHandler<TimelineClipsMoveEventArgs>? ClipsMoveCompleted;
+    public event EventHandler<TimelineClipRollEventArgs>? ClipRollCompleted;
     public event EventHandler<TimelineClipContextEventArgs>? ClipContextRequested;
     public event EventHandler<TimelineKeyframeEventArgs>? KeyframeMoved;
     public event EventHandler<TimelineKeyframeEventArgs>? KeyframeSelected;
@@ -587,6 +589,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
                 }
 
                 BeginTimingDrag(clip.Id, clip.Start, clip.End, mode, point.X, stretching);
+                rollPartner = FindRollPartner(clip, mode);
                 clickPending = true;
                 originalTrackId = pendingTrackId = clip.TrackId;
                 capturedPointer = e.Pointer;
@@ -696,12 +699,16 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
                 UpdateMove(clipDelta, e.KeyModifiers);
                 break;
             case TimelineDragMode.TRIM_START:
-                pendingStart = Max(MediaTime.Zero, Min(originalEnd - minimum,
+                pendingStart = Max(rollPartner?.Start + minimum ?? MediaTime.Zero, Min(originalEnd - minimum,
                     SnapSubtitleEdge(originalStart + clipDelta, e.KeyModifiers, KoumoriBoundaryKind.Start)));
                 snapTarget = snapTarget == pendingStart ? snapTarget : null;
                 break;
             case TimelineDragMode.TRIM_END:
                 pendingEnd = Max(originalStart + minimum, SnapSubtitleEdge(originalEnd + clipDelta, e.KeyModifiers, KoumoriBoundaryKind.End));
+                if (rollPartner is not null)
+                {
+                    pendingEnd = Min(rollPartner.End - minimum, pendingEnd);
+                }
                 snapTarget = snapTarget == pendingEnd ? snapTarget : null;
                 break;
             case TimelineDragMode.KEYFRAME:
@@ -762,13 +769,22 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         var wasBatchMove = IsBatchMove;
         var clicked = clickPending && validDrop && pendingStart == originalStart && pendingEnd == originalEnd &&
             targetTrack == originalTrackId;
+        var roll = rollPartner is { } partner && !clicked && validDrop && mode is TimelineDragMode.TRIM_START or TimelineDragMode.TRIM_END
+            ? mode == TimelineDragMode.TRIM_END
+                ? new TimelineClipRollEventArgs(dragId, partner.Id, pendingEnd, expectedTimingDocument)
+                : new TimelineClipRollEventArgs(partner.Id, dragId, pendingStart, expectedTimingDocument)
+            : null;
         var effectTiming = CompleteEffectInstanceDrag();
         CancelDrag();
         if (clicked)
         {
             ClipClicked?.Invoke(this, EventArgs.Empty);
         }
-        if (effectReorder is not null)
+        if (roll is not null)
+        {
+            ClipRollCompleted?.Invoke(this, roll);
+        }
+        else if (effectReorder is not null)
         {
             EffectClipReorderCompleted?.Invoke(this, effectReorder);
         }
@@ -918,6 +934,7 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     {
         var wasDragging = HasActiveDrag;
         clickPending = false;
+        rollPartner = null;
         snapTarget = null;
         dragMode = TimelineDragMode.NONE;
         dragEffectClipId = null;
@@ -1199,6 +1216,10 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         {
             var offset = pendingStart - originalStart;
             return layer with { Start = layer.Start + offset, End = layer.End + offset };
+        }
+        if (rollPartner is { } partner && partner.Id == layer.Id && dragMode is TimelineDragMode.TRIM_START or TimelineDragMode.TRIM_END)
+        {
+            return LayerAnimationTiming.Retime(layer, RollPartnerStart, RollPartnerEnd, TimelineEditMode.CROP);
         }
         if (dragId != layer.Id)
         {
@@ -1713,6 +1734,11 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
             start = pendingStart;
             end = pendingEnd;
         }
+        else if (dragMode is TimelineDragMode.TRIM_START or TimelineDragMode.TRIM_END && rollPartner?.Id == layer.Id)
+        {
+            start = RollPartnerStart;
+            end = RollPartnerEnd;
+        }
 
         return new(X(Seconds(start)), RowY(row) + row.CurveHeight + 2,
             Math.Max(3, Seconds(end - start) * PixelsPerSecond), 24);
@@ -1730,6 +1756,11 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         validDrop = true;
         if (originalTrackId is not { } sourceTrack)
         {
+            return;
+        }
+        if (rollPartner is not null)
+        {
+            pendingTrackId = sourceTrack;
             return;
         }
 
@@ -1757,6 +1788,22 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
         }
 
         validDrop = !others.Any(cue => pendingStart < cue.End && cue.Start < pendingEnd);
+    }
+
+    private MediaTime RollPartnerStart => dragMode == TimelineDragMode.TRIM_END ? pendingEnd : rollPartner!.Start;
+
+    private MediaTime RollPartnerEnd => dragMode == TimelineDragMode.TRIM_START ? pendingStart : rollPartner!.End;
+
+    /// <summary>同时选中且在同一轨道上首尾相接的相邻片段，拖共用交界时一起调整。</summary>
+    private ProjectLayer? FindRollPartner(ProjectLayer clip, TimelineDragMode mode)
+    {
+        if (stretching || mode is not (TimelineDragMode.TRIM_START or TimelineDragMode.TRIM_END) || selectedIds.Count < 2)
+        {
+            return null;
+        }
+
+        return layersById.Values.FirstOrDefault(other => other.Id != clip.Id && other.TrackId == clip.TrackId &&
+            selectedIds.Contains(other.Id) && (mode == TimelineDragMode.TRIM_END ? other.Start == clip.End : other.End == clip.Start));
     }
 
     private bool SelectClip(ProjectLayer clip, KeyModifiers modifiers)

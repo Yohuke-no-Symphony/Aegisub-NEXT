@@ -194,6 +194,33 @@ public static partial class ProjectEditingOperations
         return Verified(document with { Subtitles = subtitles, Layers = document.Layers.SetItem(clipIndex, changed) });
     }
 
+    /// <summary>同轨相邻片段共用交界的滚动调整：前一片段结束与后一片段开始一起移到新交界，两侧都保留内容时钟并至少 1 ms。</summary>
+    public static ProjectDocument RollClipBoundary(ProjectDocument document, Guid leftId, Guid rightId, MediaTime boundary)
+    {
+        ProjectValidator.Validate(document);
+        var left = document.Layers.FirstOrDefault(layer => layer.Id == leftId) ?? throw new KeyNotFoundException("片段不存在。");
+        var right = document.Layers.FirstOrDefault(layer => layer.Id == rightId) ?? throw new KeyNotFoundException("片段不存在。");
+        if (left.TrackId != right.TrackId || left.End != right.Start)
+        {
+            throw new ArgumentException("两个片段必须在同一轨道上首尾相接。", nameof(rightId));
+        }
+        if (boundary <= left.Start || boundary >= right.End)
+        {
+            throw new ArgumentOutOfRangeException(nameof(boundary), "交界必须落在两个片段之间并使两侧保持正时长。");
+        }
+        if (boundary == left.End)
+        {
+            return document;
+        }
+
+        // 先收缩再扩张，避免中间状态出现同轨重叠。
+        return boundary > left.End
+            ? MoveClip(MoveClip(document, right.Id, right.TrackId, boundary, right.End, TimelineEditMode.CROP, false),
+                left.Id, left.TrackId, left.Start, boundary, TimelineEditMode.CROP, false)
+            : MoveClip(MoveClip(document, left.Id, left.TrackId, left.Start, boundary, TimelineEditMode.CROP, false),
+                right.Id, right.TrackId, boundary, right.End, TimelineEditMode.CROP, false);
+    }
+
     private static int TrackIndex(ProjectDocument document, Guid id)
     {
         for (var index = 0; index < document.Tracks.Length; index++)

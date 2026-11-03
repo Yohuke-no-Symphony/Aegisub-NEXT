@@ -134,6 +134,7 @@ internal sealed partial class TimelinePanelView : UserControl, IWorkbenchPanelVi
         timeline.TimingChanged += async (_, e) => await viewModel.CommitTimingAsync(e);
         timeline.ClassicTimingRequested += async (_, e) => await viewModel.CommitClassicTimingAsync(e);
         timeline.ClipsMoveCompleted += async (_, e) => await viewModel.CommitClipsMoveAsync(e);
+        timeline.ClipRollCompleted += async (_, e) => await viewModel.CommitClipRollAsync(e);
         timeline.KeyframeSelected += (_, e) => e.SelectionAccepted = viewModel.SelectKeyframe(e);
         timeline.KeyframeMoved += async (_, e) => await viewModel.MoveKeyframeAsync(e);
         timeline.EffectClipCollapseRequested += OnEffectClipCollapseRequested;

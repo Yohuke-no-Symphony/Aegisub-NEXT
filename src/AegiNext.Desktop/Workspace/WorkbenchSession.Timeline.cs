@@ -47,6 +47,20 @@ internal sealed partial class WorkbenchSession
         return SelectedLayerId == value.Id && ViewModel.Effects.SelectedIds.ToHashSet().SetEquals(value.SelectedIds);
     }
 
+    internal Task CommitTimelineClipRollAsync(TimelineClipRollEventArgs value) =>
+        RunCommandAsync(() =>
+        {
+            if (value.ExpectedDocument is not null && !ReferenceEquals(value.ExpectedDocument, editor.Snapshot))
+            {
+                return Task.CompletedTask;
+            }
+            return EditAsync(() =>
+            {
+                editor.RollClipBoundary(value.LeftId, value.RightId, value.Boundary);
+                SelectLayer(value.LeftId, [value.LeftId, value.RightId]);
+            });
+        });
+
     internal Task CommitTimelineClipsMoveAsync(TimelineClipsMoveEventArgs value) =>
         RunCommandAsync(() => EditAsync(() =>
         {

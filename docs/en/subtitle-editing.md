@@ -10,7 +10,7 @@ Drag a track header to change its order. Its clip and animation rows move togeth
 
 ## Timeline clip timing
 
-Move subtitle clips and trim either edge in 1 ms increments by default; trimming keeps at least 1 ms of duration. **Step** aligns edits to the visible ruler divisions. With snapping enabled, either clip edge can snap to another clip boundary or the current red playback line, using the target's exact time. Hold Alt to temporarily bypass Step and snapping.
+Move subtitle clips and trim either edge in 1 ms increments by default; trimming keeps at least 1 ms of duration. **Step** aligns edits to the visible ruler divisions. With snapping enabled, either clip edge can snap to another clip boundary or the current red playback line, using the target's exact time. Hold Alt to temporarily bypass Step and snapping. When two adjacent clips on the same track are both selected, dragging their shared boundary adjusts the end of the first and the start of the second together (a roll edit); both keep at least 1 ms and one undo restores them.
 
 With Koumori enabled, opening a project with an audio track automatically analyzes the whole audio in the background. The task center shows progress and supports cancellation while the project remains editable. Analysis prepares **Model snapping** candidates while preserving the model-snapping and classic mouse-timing toggle settings. Viewport changes reuse the completed result. Failures appear in the task center and timeline status. Ordinary refreshes do not restart a cancelled analysis; explicitly enabling model snapping or classic mouse timing again allows a retry. Switching projects cancels the previous project's preparation task.
 
