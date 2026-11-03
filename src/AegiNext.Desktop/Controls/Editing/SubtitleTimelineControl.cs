@@ -590,6 +590,11 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
 
                 BeginTimingDrag(clip.Id, clip.Start, clip.End, mode, point.X, stretching);
                 rollPartner = FindRollPartner(clip, mode);
+                if (rollPartner is not null)
+                {
+                    // 滚动剪辑的搭档一起移动，其边缘（含原交界）不能当作吸附目标。
+                    CacheSnapBoundaries(clip.Id, rollPartner.Id);
+                }
                 clickPending = true;
                 originalTrackId = pendingTrackId = clip.TrackId;
                 capturedPointer = e.Pointer;
@@ -1898,9 +1903,10 @@ public sealed partial class SubtitleTimelineControl : Control, IDisposable
     private int KeyframeHitPriority(TimelineKeyframeMarker marker) => IsSelectedMaskTarget(marker.Identity.LayerId, marker.Identity.Target)
         ? 2 : marker.Identity.LayerId == selectedLayer?.Id ? 1 : 0;
 
-    private void CacheSnapBoundaries(Guid excludedLayerId)
+    private void CacheSnapBoundaries(Guid excludedLayerId, Guid? alsoExcludedLayerId = null)
     {
-        snapBoundaries = layersById.Values.Where(layer => layer.Id != excludedLayerId && !movingClips.ContainsKey(layer.Id))
+        snapBoundaries = layersById.Values.Where(layer => layer.Id != excludedLayerId && layer.Id != alsoExcludedLayerId &&
+                !movingClips.ContainsKey(layer.Id))
             .SelectMany(layer => new[] { layer.Start, layer.End }).Distinct().Order().ToArray();
     }
 

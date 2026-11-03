@@ -49,6 +49,32 @@ public sealed class TimelineClipRollUiTests
     }
 
     [AvaloniaFact]
+    public void ASmallRollIsNotPulledBackToTheOriginalBoundaryWhenSnappingIsOn()
+    {
+        var (timeline, _, first, _) = Create(selectBoth: true, snap: true);
+        using var _ = timeline;
+        TimelineClipRollEventArgs? rolled = null;
+        timeline.ClipRollCompleted += (_, e) => rolled = e;
+        var window = OpenWindow(timeline);
+        try
+        {
+            var clip = timeline.GetClipRectangle(first.Id)!.Value;
+            var origin = new Point(clip.Right - 1, clip.Center.Y);
+            window.MouseDown(origin, MouseButton.Left);
+            window.MouseMove(origin + new Vector(6, 0));
+            Assert.Null(timeline.SnapTarget);
+            window.MouseUp(origin + new Vector(6, 0), MouseButton.Left);
+
+            Assert.NotNull(rolled);
+            Assert.Equal(new MediaTime(303, 1000), rolled.Boundary);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
     public void ARollCannotShrinkEitherClipBelowOneMillisecond()
     {
         var (timeline, _, first, second) = Create(selectBoth: true);
@@ -99,14 +125,14 @@ public sealed class TimelineClipRollUiTests
         }
     }
 
-    private static (SubtitleTimelineControl Timeline, ProjectDocument Document, ProjectLayer First, ProjectLayer Second) Create(bool selectBoth)
+    private static (SubtitleTimelineControl Timeline, ProjectDocument Document, ProjectLayer First, ProjectLayer Second) Create(bool selectBoth, bool snap = false)
     {
         var a = new SubtitleLine { Start = new(1, 10), End = new(3, 10), Text = "First" };
         var b = new SubtitleLine { Start = new(3, 10), End = new(5, 10), Text = "Second" };
         var first = Layer(a);
         var second = Layer(b);
         var document = new ProjectDocument { Subtitles = [a, b], Layers = [first, second] };
-        var timeline = new SubtitleTimelineControl { PixelsPerSecond = 2000, IsSnapEnabled = false };
+        var timeline = new SubtitleTimelineControl { PixelsPerSecond = 2000, IsSnapEnabled = snap };
         timeline.SetDocument(document, a.Id, first, selectBoth ? [first.Id, second.Id] : [first.Id]);
         return (timeline, document, first, second);
     }
