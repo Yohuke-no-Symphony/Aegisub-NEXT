@@ -105,7 +105,8 @@ public sealed class WorkbenchWindowRegistryUiTests
             var menuCommands = commands.Where(pair => pair.Key is not (WorkbenchCommand.END_TEXT_INPUT or
                 WorkbenchCommand.COPY_CLIPS or WorkbenchCommand.PASTE_CLIPS or
                 WorkbenchCommand.AUDITION_BEFORE_SUBTITLE or WorkbenchCommand.AUDITION_AFTER_SUBTITLE or
-                WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE or
+                WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE_END or
+                WorkbenchCommand.AUDITION_SUBTITLE or
                 WorkbenchCommand.ADVANCE_SUBTITLE_ROW or WorkbenchCommand.INSERT_SUBTITLE_LINE_BREAK or
                 WorkbenchCommand.APPLY_TIMING_POST_PROCESSOR or WorkbenchCommand.SEEK_CLIP_START or WorkbenchCommand.SEEK_CLIP_END))
                 .Select(pair => pair.Value).ToArray();

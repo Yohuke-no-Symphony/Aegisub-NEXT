@@ -94,7 +94,7 @@ dotnet test Tests\AegiNext.Desktop.Tests -c Debug --no-build --filter "FullyQual
 ## Git / GitHub 規則
 
 - `origin` = `XPRAMT/Aegisub-NEXT`（個人 fork，可推送）；`upstream` = `Yohuke-no-Symphony/Aegisub-NEXT`（原專案，**不可直接推送**，只能透過 PR 貢獻）。
-- 功能各自開分支（如 `feat/open-audio`、`feat/lrc`），推送到 `origin`，再對 `upstream` 的 `main` 開 PR（`gh pr create --repo Yohuke-no-Symphony/Aegisub-NEXT --base main --head XPRAMT:<分支>`），讓原作者能看到。對自己 fork 開 PR 沒有意義，不要做。**不要自行合併**。
+- 功能各自開分支（如 `feat/open-audio`、`feat/lrc`），推送到 `origin`，再對 `upstream` 的開發分支 `dev/0.11` 開 PR（原作者實際合併到這裡，不是 `main`；功能分支請從 `upstream/dev/0.11` 切出。`gh pr create --repo Yohuke-no-Symphony/Aegisub-NEXT --base dev/0.11 --head XPRAMT:<分支>`），讓原作者能看到。對自己 fork 開 PR 沒有意義，不要做。**不要自行合併**。
 - PR 說明使用簡體中文。
 
 ## 功能備忘：開啟音訊（純音訊工程）

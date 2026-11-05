@@ -551,6 +551,8 @@ internal sealed partial class TimelinePanelViewModel : ObservableObject
     public Task CommitClassicTimingAsync(TimelineClassicTimingEventArgs value) => session.CommitClassicTimingAsync(value);
     /// <summary>提交冻结目标集合的一次整体平移。</summary>
     public Task CommitClipsMoveAsync(TimelineClipsMoveEventArgs value) => session.CommitTimelineClipsMoveAsync(value);
+    /// <summary>提交相邻片段共用交界的一次滚动调整。</summary>
+    public Task CommitClipRollAsync(TimelineClipRollEventArgs value) => session.CommitTimelineClipRollAsync(value);
     /// <summary>捕获主体菜单打开时的工程、选择及时间。</summary>
     public void SetClipContext(TimelineClipContextEventArgs value)
     {

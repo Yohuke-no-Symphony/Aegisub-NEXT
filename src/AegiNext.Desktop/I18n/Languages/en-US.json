@@ -851,6 +851,7 @@
     "Settings.AUDITION_BEFORE_SUBTITLE": "Play audio before subtitle",
     "Settings.AUDITION_AFTER_SUBTITLE": "Play audio after subtitle",
     "Settings.AUDITION_SUBTITLE_BEGIN": "Play subtitle beginning",
+    "Settings.AUDITION_SUBTITLE_END": "Play subtitle ending",
     "Settings.AUDITION_SUBTITLE": "Play current subtitle",
     "Settings.ADVANCE_SUBTITLE_ROW": "Submit and go to next subtitle",
     "Settings.INSERT_SUBTITLE_LINE_BREAK": "Insert subtitle line break",

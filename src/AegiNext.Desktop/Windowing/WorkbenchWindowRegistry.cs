@@ -232,7 +232,8 @@ internal sealed class WorkbenchWindowRegistry : IDisposable
         }
 
         if (id is WorkbenchCommand.AUDITION_BEFORE_SUBTITLE or WorkbenchCommand.AUDITION_AFTER_SUBTITLE or
-            WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE or
+            WorkbenchCommand.AUDITION_SUBTITLE_BEGIN or WorkbenchCommand.AUDITION_SUBTITLE_END or
+            WorkbenchCommand.AUDITION_SUBTITLE or
             WorkbenchCommand.ADVANCE_SUBTITLE_ROW or WorkbenchCommand.INSERT_SUBTITLE_LINE_BREAK)
         {
             invalidateTiming();

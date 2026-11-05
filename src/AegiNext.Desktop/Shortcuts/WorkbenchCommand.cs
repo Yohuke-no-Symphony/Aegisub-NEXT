@@ -66,5 +66,6 @@ public enum WorkbenchCommand
     IMPORT_LRC,
     EXPORT_LRC,
     EXPORT_ENHANCED_LRC,
-    OPEN_AUDIO
+    OPEN_AUDIO,
+    AUDITION_SUBTITLE_END
 }

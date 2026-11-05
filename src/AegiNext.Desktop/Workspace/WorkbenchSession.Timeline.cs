@@ -35,9 +35,31 @@ internal sealed partial class WorkbenchSession
             return false;
         }
 
-        SelectLayer(value.Id, value.SelectedIds.ToArray());
+        suppressClipAutoSeek = value.DeferAutoSeek;
+        try
+        {
+            SelectLayer(value.Id, value.SelectedIds.ToArray());
+        }
+        finally
+        {
+            suppressClipAutoSeek = false;
+        }
         return SelectedLayerId == value.Id && ViewModel.Effects.SelectedIds.ToHashSet().SetEquals(value.SelectedIds);
     }
+
+    internal Task CommitTimelineClipRollAsync(TimelineClipRollEventArgs value) =>
+        RunCommandAsync(() =>
+        {
+            if (value.ExpectedDocument is not null && !ReferenceEquals(value.ExpectedDocument, editor.Snapshot))
+            {
+                return Task.CompletedTask;
+            }
+            return EditAsync(() =>
+            {
+                editor.RollClipBoundary(value.LeftId, value.RightId, value.Boundary);
+                SelectLayer(value.LeftId, [value.LeftId, value.RightId]);
+            });
+        });
 
     internal Task CommitTimelineClipsMoveAsync(TimelineClipsMoveEventArgs value) =>
         RunCommandAsync(() => EditAsync(() =>
