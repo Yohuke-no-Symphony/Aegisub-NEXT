@@ -65,7 +65,7 @@ internal static class SubtitleMuxer
 
         arguments.AddRange([$"-disposition:{streams.Length.ToString(CultureInfo.InvariantCulture)}", "0", "-n", request.OutputPath]);
         progress?.Report(new(MediaTime.Zero, 0, "muxing"));
-        await SubtitleMuxProcess.RunAsync(ffmpeg, arguments, position =>
+        await ExportMediaProcess.RunAsync(ffmpeg, arguments, position =>
         {
             var fraction = position > MediaTime.Zero && source.Asset.ReportedDuration is { } duration && duration > MediaTime.Zero
                 ? Math.Clamp((double)position.Numerator / position.Denominator /

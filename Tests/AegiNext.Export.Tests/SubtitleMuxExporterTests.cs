@@ -109,7 +109,7 @@ public sealed class SubtitleMuxExporterTests
         using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         var position = MediaTime.Zero;
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => SubtitleMuxProcess.RunAsync(fixture.Ffmpeg,
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ExportMediaProcess.RunAsync(fixture.Ffmpeg,
             ["-nostdin", "-v", "error", "-nostats", "-progress", "pipe:1", "-re", "-f", "lavfi", "-i",
                 "sine=frequency=440:sample_rate=48000:duration=30", "-f", "null", "-"], value =>
             {

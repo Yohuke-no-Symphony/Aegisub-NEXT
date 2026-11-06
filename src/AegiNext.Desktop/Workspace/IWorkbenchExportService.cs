@@ -12,4 +12,7 @@ internal interface IWorkbenchExportService : IDisposable
 
     Task<SubtitleMuxResult> SubtitleMuxWithCommitAsync(SubtitleMuxRequest request, IProgress<SubtitleMuxProgress> progress,
         Action beforeCommit, CancellationToken cancellationToken);
+
+    Task<AudioExportResult> AudioExportWithCommitAsync(AudioExportRequest request, IProgress<AudioExportProgress> progress,
+        Action beforeCommit, CancellationToken cancellationToken);
 }

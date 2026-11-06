@@ -9,4 +9,5 @@ internal sealed record ExportWorkerJob(JsonElement Project, string ProjectDirect
     ExportWorkerVideoOptions? Video = null, int ProtocolVersion = 0)
 {
     public ImmutableArray<ExportWorkerFontFamily> FontFamilies { get; init; } = [];
+    public ExportWorkerAudioOptions? Audio { get; init; }
 }

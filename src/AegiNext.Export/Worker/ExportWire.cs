@@ -6,20 +6,27 @@ namespace AegiNext.Export;
 
 internal static class ExportWire
 {
-    internal const int VERSION = 7;
+    internal const int VERSION = 8;
     internal const string CANCEL_COMMAND = "cancel";
     internal static JsonSerializerOptions Options { get; } = Create();
 
     internal static void ValidateJob(ExportWorkerJob job)
     {
         if (job.ProtocolVersion != VERSION || job.FontFamilies.IsDefault || job.Operation is not ExportWorkerOperation.BURN_IN and
-            not ExportWorkerOperation.SUBTITLE_MUX ||
+            not ExportWorkerOperation.SUBTITLE_MUX and not ExportWorkerOperation.AUDIO ||
+            job.Operation != ExportWorkerOperation.AUDIO && job.Audio is not null ||
+            job.Operation == ExportWorkerOperation.AUDIO && (job.Audio is null || job.Video is not null || !job.FontFamilies.IsEmpty) ||
             job.Operation == ExportWorkerOperation.SUBTITLE_MUX && (job.Video is not null || !job.FontFamilies.IsEmpty) ||
             job.Operation == ExportWorkerOperation.BURN_IN &&
             (job.Video is null || job.Video.RateControlMode is not VideoRateControlMode.CRF and
                 not VideoRateControlMode.VBR and not VideoRateControlMode.CBR and not VideoRateControlMode.CQ))
         {
             throw new InvalidDataException("The export worker request protocol, operation, or operation-specific parameters do not match; use the application and worker from the same build configuration.");
+        }
+
+        if (job.Audio is { } audio)
+        {
+            AudioExportCapabilities.ValidateOptions(audio.Format, audio.Bitrate);
         }
     }
 

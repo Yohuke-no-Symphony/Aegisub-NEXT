@@ -40,7 +40,7 @@ internal sealed class ExportOutputTransaction : IAsyncDisposable
         ObjectDisposedException.ThrowIf(disposal is not null, this);
         if (!File.Exists(TemporaryOutputPath) || new FileInfo(TemporaryOutputPath).Length == 0)
         {
-            throw new InvalidDataException("The export worker did not produce a valid output video.");
+            throw new InvalidDataException("The export worker did not produce a valid output media file.");
         }
 
         cancellationToken.ThrowIfCancellationRequested();

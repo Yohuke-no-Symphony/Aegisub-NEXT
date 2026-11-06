@@ -1,4 +1,5 @@
 using AegiNext.Export.Muxing;
+using AegiNext.Export.Audio;
 using System.Text.Json;
 using AegiNext.Core.Projects;
 
@@ -48,6 +49,21 @@ public static class ExportWorkerHost
             cancellation.ThrowIfCancellationRequested();
             var document = deserializeProject(job.Project);
             var outputPath = Path.Combine(job.TemporaryDirectory, "output" + job.Extension);
+            if (job.Operation == ExportWorkerOperation.AUDIO)
+            {
+                var audioRequest = new AudioExportRequest(document, job.ProjectDirectory, outputPath)
+                {
+                    Format = job.Audio!.Format,
+                    Bitrate = job.Audio.Bitrate,
+                    FfmpegPath = job.FfmpegPath
+                };
+                var audioProgress = new AudioExportWorkerProgress(writer);
+                var receipt = await AudioExportProcessor.RunAsync(audioRequest, audioProgress, token).ConfigureAwait(false);
+                cancellation.ThrowIfCancellationRequested();
+                writer.Send(new("complete", Audio: receipt));
+                return 0;
+            }
+
             if (job.Operation == ExportWorkerOperation.SUBTITLE_MUX)
             {
                 var muxRequest = new SubtitleMuxRequest(document, job.ProjectDirectory, outputPath) { FfmpegPath = job.FfmpegPath };

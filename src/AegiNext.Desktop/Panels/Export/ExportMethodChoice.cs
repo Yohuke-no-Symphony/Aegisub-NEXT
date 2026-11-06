@@ -16,6 +16,7 @@ internal sealed class ExportMethodChoice(ExportMethod method) : ObservableObject
         {
             ExportMethod.BURN_IN => "Workbench.ExportBurnIn",
             ExportMethod.SUBTITLE_MUX => "Workbench.ExportSubtitleMux",
+            ExportMethod.AUDIO => "Workbench.ExportAudioTrack",
             _ => throw new InvalidOperationException("未知导出方式。")
         };
         SetProperty(ref label, Localization.Get(key), nameof(Label));

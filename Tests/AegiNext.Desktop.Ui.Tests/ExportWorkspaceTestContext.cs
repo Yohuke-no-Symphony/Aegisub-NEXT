@@ -38,7 +38,7 @@ internal sealed class ExportWorkspaceTestContext : IAsyncDisposable
             {
                 Name = "Export boundary",
                 Assets = [new(assetId, ProjectAssetKind.MEDIA, string.Empty, ExternalPath: Path.Combine(environment.DirectoryPath, "controlled.mkv"))],
-                Media = new(assetId, 0, media.AudioStreamIndex, MediaTime.Zero),
+                Media = new(assetId, media.VideoStreamIndex, media.AudioStreamIndex, MediaTime.Zero),
                 Subtitles = subtitle is null ? [] : [subtitle],
                 Layers = subtitle is null ? [] : [new()
                 {

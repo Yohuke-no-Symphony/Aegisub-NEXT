@@ -79,6 +79,28 @@
                                       Minimum="32" Maximum="512" Value="{Binding AudioBitrate, Mode=TwoWay}" Increment="16" />
         </StackPanel>
       </StackPanel>
+      <StackPanel Name="AudioExportSettings" IsVisible="{Binding IsAudioExport}"
+                  IsEnabled="{Binding CanSelectMethod}" Spacing="8">
+        <TextBlock Classes="field" TextWrapping="Wrap" Text="{Loc Key=Workbench.AudioExportHint}" />
+        <controlsCommon:PropertyRowControl Header="{Loc Key=Workbench.OutputFormat}"
+                                           IsStacked="True" Padding="0" SeparatorThickness="0">
+          <ComboBox Name="AudioExportFormatCombo" ItemsSource="{Binding AudioExport.Formats}" HorizontalAlignment="Stretch"
+                    SelectedItem="{Binding AudioExport.SelectedFormatChoice, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="editing:AudioFileFormatChoice">
+                <TextBlock Text="{Binding Label}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </controlsCommon:PropertyRowControl>
+        <StackPanel IsVisible="{Binding AudioExport.IsBitrateActive}" Spacing="8">
+          <controls:NumericDragLabel Input="{Binding #AudioExportBitrateInput}" Classes="field"
+                                     Text="{Loc Key=Workbench.AudioBitrate}" />
+          <controls:NumericDraftInput Name="AudioExportBitrateInput" RawText="{Binding AudioExport.BitrateText, Mode=TwoWay}"
+                                      Minimum="32" Maximum="{Binding AudioExport.BitrateMaximum}" Increment="16"
+                                      Value="{Binding AudioExport.Bitrate, Mode=TwoWay}" />
+        </StackPanel>
+      </StackPanel>
       <WrapPanel Orientation="Horizontal">
         <Button Name="EncodeButton" Classes="accent" Command="{Binding EncodeCommand}">
           <controlsCommon:IconText IconKey="Export" Text="{Binding ExportButtonLabel}" />

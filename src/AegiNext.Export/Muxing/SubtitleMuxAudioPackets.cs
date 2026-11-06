@@ -14,7 +14,7 @@ internal sealed record SubtitleMuxAudioPackets(long PacketCount, MediaTime? End,
         var skipSamples = 0L;
         var discardPadding = 0L;
         MediaTime? end = null;
-        await SubtitleMuxProcess.RunProbeAsync(ffprobe,
+        await ExportMediaProcess.RunProbeAsync(ffprobe,
             ["-v", "error", "-select_streams", streamIndex.ToString(CultureInfo.InvariantCulture), "-show_packets", "-show_streams",
                 "-show_entries", "packet=pts,duration:packet_side_data=skip_samples,discard_padding:stream=initial_padding:stream_disposition=:stream_tags=",
                 "-of", "compact", path], line =>

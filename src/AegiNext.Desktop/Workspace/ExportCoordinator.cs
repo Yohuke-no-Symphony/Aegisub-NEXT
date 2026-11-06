@@ -63,7 +63,8 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
     {
         try
         {
-            if (session.Editor.Snapshot.Media is { VideoStreamIndex: null })
+            var vm = session.ViewModel.Export;
+            if (!vm.IsAudioExport && session.Editor.Snapshot.Media is { VideoStreamIndex: null })
             {
                 await ShowFailureAsync(new InvalidOperationException(Localization.Get("Workbench.ExportAudioOnly")));
                 return;
@@ -76,11 +77,12 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
                 await ShowFailureAsync(draftError, session.LastError is null);
                 return;
             }
-            var vm = session.ViewModel.Export;
             var isSubtitleMux = vm.IsSubtitleMux;
+            var isAudioExport = vm.IsAudioExport;
             var document = session.Editor.Snapshot;
             var projectDirectory = session.ProjectDirectory;
-            var settings = isSubtitleMux ? null : vm.CaptureSettings();
+            var settings = vm.IsBurnIn ? vm.CaptureSettings() : null;
+            var audioSettings = isAudioExport ? vm.AudioExport.CaptureSettings() : null;
             if (isSubtitleMux)
             {
                 var diagnostics = await Task.Run(() => SubtitleFormatLossAnalysis.ForSrt(document), session.ProjectOperationsToken);
@@ -107,10 +109,12 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
             var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
             IsChoosingOutput = true;
             session.ViewModel.RefreshCommands();
-            var extension = isSubtitleMux ? ".mkv" : VideoExportCapabilities.GetExtension(settings!.Container);
+            var extension = isAudioExport ? AudioExportCapabilities.GetExtension(audioSettings!.Format)
+                : isSubtitleMux ? ".mkv" : VideoExportCapabilities.GetExtension(settings!.Container);
             var extensions = isSubtitleMux ? SubtitleMuxCapabilities.Extensions : [extension];
             var patterns = extensions.Select(value => "*" + value).ToArray();
-            var path = await dialogs.SaveFileAsync("Export", "Videos", patterns, extension,
+            var path = await dialogs.SaveFileAsync(isAudioExport ? "ExportAudioTrack" : "Export",
+                isAudioExport ? "AudioFiles" : "Videos", patterns, extension,
                 $"{name}-{timestamp}{extension}", outputDirectory);
             if (path is null || session.IsClosing)
             {
@@ -130,7 +134,18 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
             failureReason = null;
             statusPosition = null;
             RefreshLanguage();
-            if (isSubtitleMux)
+            if (isAudioExport)
+            {
+                var request = new AudioExportRequest(document, projectDirectory, path)
+                {
+                    Format = audioSettings!.Format,
+                    Bitrate = audioSettings.Bitrate
+                };
+                var submitted = session.ApplicationContext.Tasks.Submit(new AudioExportTask(session, this, request));
+                taskHandle = submitted;
+                await submitted.Completion;
+            }
+            else if (isSubtitleMux)
             {
                 var request = new SubtitleMuxRequest(document, projectDirectory, path);
                 var submitted = session.ApplicationContext.Tasks.Submit(new SubtitleMuxTask(session, this, request));
@@ -301,6 +316,60 @@ internal sealed class ExportCoordinator(WorkbenchSession session, IWorkbenchDial
         try
         {
             var result = await exportService.SubtitleMuxWithCommitAsync(request, progress, () => context.EnterCommit(), token);
+            if (!session.IsClosing)
+            {
+                vm.ProgressIndeterminate = false;
+                vm.Progress = 1;
+                statusKey = "Workbench.Exported";
+                statusEncoder = null;
+                statusPosition = null;
+                RefreshLanguage();
+                session.LogInfo("Export", vm.Status);
+            }
+            return result;
+        }
+        finally
+        {
+            vm.IsRunning = false;
+            session.ViewModel.RefreshCommands();
+        }
+    }
+
+    internal async Task<AudioExportResult> RunAudioExportAsync(AudioExportRequest request, AegiTaskExecutionContext context)
+    {
+        var token = context.CancellationToken;
+        var vm = session.ViewModel.Export;
+        vm.IsRunning = true;
+        vm.ProgressVisible = true;
+        vm.ProgressIndeterminate = true;
+        statusKey = null;
+        statusEncoder = null;
+        failureReason = null;
+        statusPosition = null;
+        session.LogInfo("Export", Localization.Get("Workbench.ExportAudioTrack"));
+        var exportRevision = revision;
+        var progress = new Progress<AudioExportProgress>(value =>
+        {
+            if (session.IsClosing || token.IsCancellationRequested || !vm.IsRunning || exportRevision != revision)
+            {
+                return;
+            }
+
+            statusKey = value.Stage switch
+            {
+                "preflight" => "Tasks.AudioPreparing",
+                "verifying" => "Tasks.AudioVerifying",
+                _ => "Tasks.AudioEncoding"
+            };
+            context.ReportProgress(new(statusKey, value.Fraction, 1));
+            vm.ProgressIndeterminate = value.Fraction is null;
+            vm.Progress = value.Fraction is { } known ? Math.Clamp(known, 0, 1) : 0;
+            statusPosition = value.Position;
+            RefreshLanguage();
+        });
+        try
+        {
+            var result = await exportService.AudioExportWithCommitAsync(request, progress, () => context.EnterCommit(), token);
             if (!session.IsClosing)
             {
                 vm.ProgressIndeterminate = false;

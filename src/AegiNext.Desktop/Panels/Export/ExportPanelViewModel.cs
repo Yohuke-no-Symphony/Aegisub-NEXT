@@ -11,7 +11,8 @@ namespace AegiNext.Desktop.Panels.Export;
 internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
 {
     private readonly WorkbenchSession session;
-    private readonly ExportMethodChoice[] methods = [new(ExportMethod.BURN_IN), new(ExportMethod.SUBTITLE_MUX)];
+    private readonly ExportMethodChoice[] methods =
+        [new(ExportMethod.BURN_IN), new(ExportMethod.SUBTITLE_MUX), new(ExportMethod.AUDIO)];
     private ExportMethod selectedMethod;
     private IReadOnlyList<ExportPresetListItem> presets = [];
     private ExportPresetListItem? selectedPreset;
@@ -33,7 +34,14 @@ internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
     public bool CanSelectMethod => !session.IsClosing && session.Export.CanStart && !IsRunning;
     public bool IsBurnIn => SelectedMethod == ExportMethod.BURN_IN;
     public bool IsSubtitleMux => SelectedMethod == ExportMethod.SUBTITLE_MUX;
-    public string ExportButtonLabel => Localization.Get(IsSubtitleMux ? "Workbench.SubtitleMuxExport" : "Workbench.Export");
+    public bool IsAudioExport => SelectedMethod == ExportMethod.AUDIO;
+    public AudioExportSettingsViewModel AudioExport { get; } = new();
+    public string ExportButtonLabel => Localization.Get(SelectedMethod switch
+    {
+        ExportMethod.AUDIO => "Workbench.ExportAudioTrack",
+        ExportMethod.SUBTITLE_MUX => "Workbench.SubtitleMuxExport",
+        _ => "Workbench.Export"
+    });
 
     public ExportMethod SelectedMethod
     {
@@ -51,6 +59,7 @@ internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
             OnPropertyChanged(nameof(SelectedMethodChoice));
             OnPropertyChanged(nameof(IsBurnIn));
             OnPropertyChanged(nameof(IsSubtitleMux));
+            OnPropertyChanged(nameof(IsAudioExport));
             OnPropertyChanged(nameof(ExportButtonLabel));
             RefreshPresetCommands();
             session.ViewModel.RefreshCommands();
@@ -73,6 +82,7 @@ internal sealed class ExportPanelViewModel : VideoExportSettingsViewModel
     public new void RefreshLanguage()
     {
         base.RefreshLanguage();
+        AudioExport.RefreshLanguage();
         foreach (var method in methods)
         {
             method.RefreshLanguage();

@@ -100,6 +100,11 @@ internal sealed partial class WorkbenchSession
                 {
                     ViewModel.Export.AcceptSettings(ViewModel.Export.CaptureSettings());
                 }
+                else if (ViewModel.Export.IsAudioExport)
+                {
+                    var audio = ViewModel.Export.AudioExport;
+                    audio.AcceptSettings(audio.CaptureSettings());
+                }
             }
             catch (ExportSettingsValidationException error)
             {

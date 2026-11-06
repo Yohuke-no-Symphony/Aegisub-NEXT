@@ -8,4 +8,4 @@ internal sealed record ExportWorkerMessage(string Type, ulong Frames = 0, long P
     VideoDecodeSessionInfo? Decoder = null, VideoExportColor? OutputColor = null,
     VideoRateControlInfo? RateControl = null, ExportWorkerOperation Operation = ExportWorkerOperation.UNKNOWN,
     SubtitleMuxReceipt? SubtitleMux = null, double? Fraction = null, string? Stage = null,
-    VideoExportGeometry? OutputGeometry = null);
+    VideoExportGeometry? OutputGeometry = null, AudioExportReceipt? Audio = null);
